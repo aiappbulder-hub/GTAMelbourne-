@@ -532,7 +532,7 @@ function readControls(){
     if(!inCar){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}c.sprint=stick.mag>.85}
     else{const car=player.car,vf=car.vx*Math.cos(car.a)+car.vy*Math.sin(car.a),d=angDiff(stick.ang,car.a);
       if(Math.abs(d)>2.4&&vf<80){c.thr=-stick.mag;c.steer=clamp(-angDiff(stick.ang,car.a+PI)*2,-1,1)}
-      else{c.steer=clamp(d*2.2,-1,1);c.thr=stick.mag*(Math.abs(d)>1.6?.45:1)}}}
+      else{c.steer=clamp(d*1.4,-1,1);c.thr=stick.mag*(Math.abs(d)>1.6?.45:1)}}}
   if(tbtn.brake&&inCar){c.thr=-1;if(stick.mag>.3)c.hb=true}
   return c}
 
@@ -566,7 +566,7 @@ function drive(c,thr,steer,hb,dt){
   vf-=vf*.18*dt;
   const grip=hb?1.1:7.5;vr-=vr*Math.min(1,grip*dt);
   const sp=Math.abs(vf);
-  const turn=steer*(hb?3.3:2.6)*Math.min(1,sp/130)*(vf<0?-1:1)*dt/(1+sp/1100);
+  const turn=steer*(hb?3.3:2.6)*(c===player.car?.7:1)*Math.min(1,sp/130)*(vf<0?-1:1)*dt/(1+sp/1100);
   let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a))na=c.a;c.a=na;
   const nfx=Math.cos(c.a),nfy=Math.sin(c.a);
   c.vx=nfx*vf-nfy*vr;c.vy=nfy*vf+nfx*vr;
@@ -855,7 +855,9 @@ function updatePlayer(dt,c){
   const w=WEAPONS[player.wi];
   if(player.car){const car=player.car;
     if(c.enter&&Math.abs(fwdSpeed(car))<200){exitCar();return}
-    drive(car,c.thr,c.steer,c.hb,dt);player.x=car.x;player.y=car.y;player.a=car.a;
+    // ease steering in and out so a tap is a nudge, not a swerve
+    player.steerS=lerp(player.steerS||0,c.steer,Math.min(1,dt*(Math.abs(c.steer)<Math.abs(player.steerS||0)?8:4)));
+    drive(car,c.thr,player.steerS,c.hb,dt);player.x=car.x;player.y=car.y;player.a=car.a;
     if(c.horn&&car.horn<=0){SFX.horn();car.horn=.5;panicAround(car.x,car.y,120)}car.horn-=dt;
     if(c.fire&&player.cool<=0&&!w.melee&&!car.wreck){player.cool=w.rate*1.2;player.ammo[w.id]--;
       const fx=Math.cos(car.a),fy=Math.sin(car.a);fire(player,car.x+fx*(car.L/2+4),car.y+fy*(car.L/2+4),car.a,w,car)}
