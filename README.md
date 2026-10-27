@@ -6,6 +6,8 @@ A 3D GTA-style game set in Melbourne. It's a single `index.html` with no build s
 
 ## Play
 
+**Play online:** https://aiappbulder-hub.github.io/GTAMelbourne-/
+
 Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 -m http.server`, then visit http://localhost:8000.
 
 | | Keyboard / mouse | Touch |
