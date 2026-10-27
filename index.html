@@ -1352,7 +1352,7 @@ function M(col,emis){const k=col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=n
 function part(g,mat,sx,sy,sz,x,y,z){const m=new G3.T.Mesh(G3.box,mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m}
 function shadowDisc(g,sx,sz){const m=new G3.T.Mesh(G3.disc,G3.shadowMat);m.scale.set(sx,1,sz);m.position.y=.6;g.add(m)}
 // ---------------------------------------------------------------- real vehicle models (Kenney, CC0); built-in blocky cars stand in for anything missing
-const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.glb');
+const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.json');
 const CARKIT={sedan:'sedan',hatch:'hatchback-sports',micra:'hatchback-sports',sports:'sedan-sports',hsv:'race',wagon:'suv',suv:'suv',van:'van',taxi:'taxi',
   police:'police',highway:'police',unmarked:'sedan',federal:'suv-luxury',ute:'truck'};
 const MODELS={ver:0,tpl:{}};

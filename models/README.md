@@ -2,7 +2,7 @@
 
 ## `kenney/`: bundled
 
-These are the four 4x4 utes from Kenney's [Starter Kit Racing](https://github.com/KenneyNL/Starter-Kit-Racing), plus their shared `Textures/colormap.png`. They're licensed [CC0](https://creativecommons.org/publicdomain/zero/1.0/), so you can use them freely without crediting anyone (credit is still appreciated: **Kenney, www.kenney.nl**). The game uses them for every ute on the road.
+These are the four 4x4 utes from Kenney's [Starter Kit Racing](https://github.com/KenneyNL/Starter-Kit-Racing), converted to self-contained glTF JSON. The mesh and colour texture are embedded in each file, so any static host can serve them. They're licensed [CC0](https://creativecommons.org/publicdomain/zero/1.0/), so you can use them freely without crediting anyone (credit is still appreciated: **Kenney, www.kenney.nl**). The game uses them for every ute on the road.
 
 ## `car-kit/`: drop-in slot for real city cars
 
