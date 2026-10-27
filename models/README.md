@@ -5,7 +5,8 @@ All vehicle models are by **Kenney (www.kenney.nl)** and licensed [CC0](https://
 | Folder | Source | Used for |
 |---|---|---|
 | `car-kit/` | Kenney **Car Kit 3.1** (`License.txt` included) | Sedans, hatches, sports cars, race cars, SUVs, vans, delivery vans, taxis, police, utes, ambulances, fire trucks, garbage trucks |
-| `kenney/` | Kenney **Starter Kit Racing** | 4x4 utes in red, yellow, green and purple |
+| `kenney/` | Kenney **Starter Kit Racing** | 4x4 utes in red, yellow, green and purple, and the motorbike |
+| `city/` | Kenney **Starter Kit City Builder** | Shops and flats on inner-suburb lots (Fitzroy, Carlton, Richmond and so on) |
 
 The original `.glb` files were converted to glTF JSON (`.json`) so any static host can serve them, including GitHub Pages and artifact hosting (which won't serve `.glb`). All the Car Kit models share `car-kit/colormap.png`. The game repaints the red body panels of everyday cars to give traffic a range of colours. Taxis, police and emergency vehicles keep their own colours.
 
