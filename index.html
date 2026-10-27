@@ -457,6 +457,9 @@ const CARS={
   van:{L:50,Wd:25,max:370,acc:220,name:'Toyoda Tarrago'},micra:{L:34,Wd:19,max:380,acc:260,name:'Nissin Micro'},
   police:{L:46,Wd:22,max:610,acc:430,name:'VicPol Comodo Patrol',cop:1},unmarked:{L:44,Wd:22,max:640,acc:450,name:'VicPol Unmarked',cop:1},
   highway:{L:46,Wd:22,max:720,acc:520,name:'VicPol Highway Patrol',cop:1},federal:{L:46,Wd:24,max:600,acc:420,name:'AFP Territorial',cop:1},
+  ambulance:{L:54,Wd:25,max:560,acc:360,name:'Ambulance Victoria'},firetruck:{L:66,Wd:27,max:400,acc:220,name:'MFB Fire Truck'},
+  garbage:{L:62,Wd:27,max:340,acc:190,name:'Council Garbage Truck'},delivery:{L:54,Wd:25,max:380,acc:230,name:'Aus Post Delivery Van'},
+  tractor:{L:40,Wd:24,max:200,acc:150,name:'Tractor'},
   tram:{L:124,Wd:26,max:160,acc:80,name:'Tram'}};
 const CAR_COLORS=['#c0392b','#2c3e50','#ecf0f1','#7f8c8d','#2980b9','#16a085','#8e44ad','#d35400','#1f1f1f','#b8a07a','#5b6f2a','#a33b62'];
 const SHIRTS=['#d64545','#3d6fb6','#e0b03b','#4c9a5b','#e6e6e6','#7b4ea3','#2b2b2b','#d97a2b','#58a8c9','#c25f8a'];
@@ -861,7 +864,7 @@ function trySpawnTraffic(near,type,mode){
     const c=makeCar(type||randType(),x,y,a,{driver:mode==='chase'?'cop':'ai',lane,mode:mode||'traffic'});
     c.nextI=nextInter(lane,lane.axis==='v'?y:x);if(mode==='chase'){c.siren=true;const s=Math.min(300,dd*.3);c.vx=Math.cos(a)*s;c.vy=Math.sin(a)*s}return c}
   return null}
-function randType(){const r=R();return r<.04?'police':r<.05?'highway':r<.13?'taxi':r<.17?'sports':r<.19?'hsv':r<.29?'ute':r<.35?'wagon':r<.43?'suv':r<.49?'van':r<.55?'micra':r<.7?'hatch':'sedan'}
+function randType(){const r=R();if(r<.04){const q=R();return q<.25?'ambulance':q<.45?'firetruck':q<.75?'garbage':'delivery'}return r<.08?'police':r<.05?'highway':r<.13?'taxi':r<.17?'sports':r<.19?'hsv':r<.29?'ute':r<.35?'wagon':r<.43?'suv':r<.49?'van':r<.55?'micra':r<.7?'hatch':'sedan'}
 function copType(){return pick([[],['police'],['police','police','unmarked'],['police','unmarked','highway'],['highway','unmarked','highway'],['federal','highway','federal']][stars]||['police'])}
 function trySpawnPed(near){for(let t=0;t<12;t++){const a=R()*TAU,d=near?rr(100,spawnR):rr(spawnR*.85,spawnR+250);
   const x=player.x+Math.cos(a)*d,y=player.y+Math.sin(a)*d,tt=tileAtPx(x,y);if(tt!==WALK&&tt!==GRASS)continue;
@@ -1353,22 +1356,33 @@ function part(g,mat,sx,sy,sz,x,y,z){const m=new G3.T.Mesh(G3.box,mat);m.scale.se
 function shadowDisc(g,sx,sz){const m=new G3.T.Mesh(G3.disc,G3.shadowMat);m.scale.set(sx,1,sz);m.position.y=.6;g.add(m)}
 // ---------------------------------------------------------------- real vehicle models (Kenney, CC0); built-in blocky cars stand in for anything missing
 const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.json');
-const CARKIT={sedan:'sedan',hatch:'hatchback-sports',micra:'hatchback-sports',sports:'sedan-sports',hsv:'race',wagon:'suv',suv:'suv',van:'van',taxi:'taxi',
-  police:'police',highway:'police',unmarked:'sedan',federal:'suv-luxury',ute:'truck'};
+// Kenney Car Kit (CC0), converted to glTF JSON sharing models/car-kit/colormap.png
+const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sports'],sports:['sedan-sports'],hsv:['race'],wagon:['suv'],suv:['suv','suv-luxury'],
+  van:['van','delivery'],taxi:['taxi'],police:['police'],highway:['police'],unmarked:['sedan'],federal:['suv-luxury'],ute:['truck'],
+  ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
+const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{}};
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;res(true)},undefined,()=>res(false)));
-  UTE_MODELS.forEach(load);
-  fetch('models/car-kit/sedan.glb',{method:'HEAD'}).then(r=>{if(r.ok)new Set(Object.values(CARKIT)).forEach(n=>load('models/car-kit/'+n+'.glb'))}).catch(()=>{})}
+  UTE_MODELS.forEach(load);new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)))}
 // face +x like the rest of the game, sit on the ground, length 1
 function prepModel(sc){const T=G3.T,box=new T.Box3().setFromObject(sc),sz=new T.Vector3();box.getSize(sz);
   const inner=new T.Group();inner.add(sc);if(sz.z>sz.x)inner.rotation.y=PI/2;const len=Math.max(sz.x,sz.z);
   sc.position.set(-(box.min.x+box.max.x)/2,-box.min.y,-(box.min.z+box.max.z)/2);
   const wrap=new T.Group();wrap.add(inner);wrap.userData={len,top:sz.y};sc.traverse(o=>{if(o.isMesh){o.material.side=T.FrontSide}});return wrap}
-function modelFor(c){if(c.tram)return null;const ck=MODELS.tpl['models/car-kit/'+CARKIT[c.type]+'.glb'];
-  if(c.type==='ute'){const u=MODELS.tpl[UTE_MODELS[(CAR_COLORS.indexOf(c.color)+4)%4]];return ck&&R()<.3?ck:u}return ck||null}
+function modelFor(c){if(c.tram)return null;const pickN=(arr)=>arr[Math.floor(c.id*1e6)%arr.length];
+  if(c.type==='ute'){const opts=[...UTE_MODELS,ckUrl('truck')].filter(u=>MODELS.tpl[u]);return opts.length?MODELS.tpl[pickN(opts)]:null}
+  const list=CARKIT[c.type];return list?MODELS.tpl[ckUrl(pickN(list))]||MODELS.tpl[ckUrl(list[0])]||null:null}
 function carMesh(c){const tpl=modelFor(c);if(tpl)return modelMesh(c,tpl);return boxCarMesh(c)}
+// repaint the red body panels of everyday cars so traffic isn't a sea of red; liveried vehicles keep their colours
+const REPAINT=new Set(['sedan','hatch','micra','sports','hsv','wagon','suv','van','unmarked']);const paintCache={};
+function paintedMat(mat,col){if(!mat.map||!mat.map.image)return mat;const k=mat.uuid+col;if(paintCache[k])return paintCache[k];
+  const img=mat.map.image,cv2=document.createElement('canvas');cv2.width=img.width;cv2.height=img.height;const g=cv2.getContext('2d');g.drawImage(img,0,0);
+  const d=g.getImageData(0,0,cv2.width,cv2.height),a=d.data,n=parseInt(col.slice(1),16),tr=n>>16,tg=(n>>8)&255,tb=n&255;
+  for(let i=0;i<a.length;i+=4){const r=a[i],gg=a[i+1],b=a[i+2];if(r>120&&r>gg*1.9&&r>b*1.9){const v=r/235;a[i]=Math.min(255,tr*v);a[i+1]=Math.min(255,tg*v);a[i+2]=Math.min(255,tb*v)}}
+  g.putImageData(d,0,0);const t=mat.map.clone();t.image=cv2;t.needsUpdate=true;const m2=mat.clone();m2.map=t;return paintCache[k]=m2}
 function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*1.12/tpl.userData.len;m.scale.setScalar(k);g.add(m);shadowDisc(g,c.L*.62,c.Wd*.78);
+  if(REPAINT.has(c.type)&&!c.wreck)m.traverse(o=>{if(o.isMesh)o.material=paintedMat(o.material,c.type==='unmarked'?c.color:c.color)});
   const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;
   if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
   const top=tpl.userData.top*k;
