@@ -58,6 +58,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 #tbtns button,#ttop button{border-radius:50%;border:2px solid rgba(0,0,0,.6);color:#fff;font-size:14px;width:74px;height:74px;background:rgba(30,36,50,.72);touch-action:none}
 #tbtns button.on{filter:brightness(1.6)}
 #steerPad{position:absolute;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:12px;pointer-events:auto}
+#steerPad{position:absolute}#steerPad #bHb{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);width:66px;height:66px;font-size:16px;background:rgba(220,120,40,.8)}
 #steerPad button{width:82px;height:82px;border-radius:50%;border:2px solid rgba(0,0,0,.6);background:rgba(30,36,50,.72);color:#fff;font-size:30px;touch-action:none}
 #cbtns{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,74px);gap:10px;pointer-events:auto}
 #cbtns button{width:74px;height:74px;border-radius:50%;border:2px solid rgba(0,0,0,.6);color:#fff;font-size:14px;background:rgba(30,36,50,.72);touch-action:none}
@@ -89,6 +90,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
   <div id="steerPad" hidden>
     <button id="bLeft" type="button" aria-label="Steer left">&#9664;</button>
     <button id="bRight" type="button" aria-label="Steer right">&#9654;</button>
+    <button id="bHb" type="button" aria-label="Handbrake">HB</button>
   </div>
   <div id="cbtns" hidden>
     <button id="bExit" type="button">EXIT</button>
@@ -110,9 +112,9 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
     </div>
     <div class="help">
       <div><h3>On foot</h3><p><kbd>WASD</kbd> move, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
-      <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
-      <div><h3>Touch</h3><p>Drag the left side to walk. In a car, use the ◀ ▶ arrows to steer, GAS to go, BRAKE to stop and REV to reverse. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
-      <div><h3>The city</h3><p>Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
+      <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake (HB on touch), <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
+      <div><h3>Touch</h3><p>Drag the left side to walk and the right side to look around. In a car, use the ◀ ▶ arrows to steer, GAS to go, BRAKE to stop and REV to reverse. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
+      <div><h3>The city</h3><p>Turn the camera with <kbd>Z</kbd>/<kbd>C</kbd> or by right-dragging. Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
     </div>
   </div>
 </div>
@@ -345,6 +347,21 @@ function generate(){
     else if(tiles[i]===YARD&&hash(x,y,22)<.09)tiles[i]=TREE}
 }
 
+// ---------------------------------------------------------------- West Gate Bridge: height profile along the M1 over the Yarra
+let WG=null;
+function buildWestGate(){const P=fwPaths[2],S=[];let s=0;
+  for(let i=0;i<P.length-1;i++){const[a0,b0]=P[i],[a1,b1]=P[i+1],l=Math.hypot(a1-a0,b1-b0),n=Math.ceil(l*4);
+    for(let k=0;k<n;k++){const t=k/n,x=lerp(a0,a1,t),y=lerp(b0,b1,t);S.push({x:x*TS,y:y*TS,s:s+l*t*TS,wet:tAt(Math.floor(x),Math.floor(y))===BRIDGE});}s+=l*TS}
+  let best=null,cur=null;S.forEach((q,i)=>{if(q.wet){if(!cur)cur={a:i,b:i};cur.b=i}else if(cur&&i-cur.b>4){if(!best||cur.b-cur.a>best.b-best.a)best=cur;cur=null}});
+  if(cur&&(!best||cur.b-cur.a>best.b-best.a))best=cur;if(!best)return;
+  const s0=S[best.a].s,s1=S[best.b].s,R=14*TS,H=72,sm=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+  const pts=S.filter(q=>q.s>s0-R&&q.s<s1+R).map(q=>({x:q.x,y:q.y,s:q.s,h:H*(q.s<s0?sm((q.s-(s0-R))/R):q.s>s1?sm(((s1+R)-q.s)/R):1)}));
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(const q of pts){x0=Math.min(x0,q.x);y0=Math.min(y0,q.y);x1=Math.max(x1,q.x);y1=Math.max(y1,q.y)}
+  WG={pts,s0,s1,box:[x0-70,y0-70,x1+70,y1+70]}}
+// height of the road surface at a point (only the West Gate deck is above ground)
+function groundY(x,y){if(!WG)return 0;const b=WG.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])return 0;let bd=1e9,h=0;
+  for(const q of WG.pts){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;h=q.h}}return bd<56*56?h:0}
+
 // ================================================================ canvas + rendering setup
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 let cw=800,chh=600,dpr=1,safe={t:0,r:0,b:0,l:0},isTouch=false;
@@ -554,7 +571,7 @@ function mkPickup(x,y,kind,o={}){const[px,py]=nearestWalkable(x,y);return{x:px,y
 
 // ================================================================ input
 const keys={},pressed={};let mouse={x:0,y:0,down:false,used:false};
-const GAMEKEYS=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','ControlLeft'];
+const GAMEKEYS=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','KeyZ','KeyC','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','ControlLeft'];
 addEventListener('keydown',e=>{if(GAMEKEYS.includes(e.code)&&started)e.preventDefault();if(!keys[e.code])pressed[e.code]=true;keys[e.code]=true;
   if(!started)return;
   if(e.code==='KeyM'&&!shopOpen&&!paused){mapOpen=!mapOpen}
@@ -563,30 +580,34 @@ addEventListener('keydown',e=>{if(GAMEKEYS.includes(e.code)&&started)e.preventDe
 addEventListener('keyup',e=>{keys[e.code]=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;if(started&&!paused&&!shopOpen)setPaused(true)});
 cv.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.used=true});
-cv.addEventListener('mousedown',e=>{if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
+const camDrag={id:null,x:0};
+function turnCam(dx){if(!G3.ok)return;G3.yaw+=dx*.009;G3.manualT=0}
+addEventListener('mousemove',e=>{if(camDrag.id==='mouse'){turnCam(e.clientX-camDrag.x);camDrag.x=e.clientX}});
+addEventListener('mouseup',e=>{if(e.button===2)camDrag.id=null});
+cv.addEventListener('mousedown',e=>{if(e.button===2){camDrag.id='mouse';camDrag.x=e.clientX}if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
 addEventListener('mouseup',()=>{mouse.down=false});
 cv.addEventListener('wheel',e=>{if(started&&!paused)pressed.Wheel=e.deltaY>0?1:-1},{passive:true});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 
 // touch
 const touchEl=document.getElementById('touch'),stickBase=document.getElementById('stickBase'),stickKnob=document.getElementById('stickKnob');
-const stick={id:null,ox:0,oy:0,dx:0,dy:0,mag:0,ang:0};const tbtn={fire:false,brake:false,left:false,right:false,gas:false,rev:false,back:false,fire2:false};
+const stick={id:null,ox:0,oy:0,dx:0,dy:0,mag:0,ang:0};const tbtn={fire:false,brake:false,left:false,right:false,gas:false,rev:false,back:false,fire2:false,hb:false};
 function enableTouch(){if(isTouch)return;isTouch=true;mouse.used=false;touchEl.hidden=false}
 addEventListener('touchstart',()=>enableTouch(),{passive:true});
 cv.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;enableTouch();
   if(mapOpen){mapOpen=false;return}
-  if(player&&player.car)return;
+  if(player&&player.car||e.clientX>=cw*.55){if(camDrag.id===null){camDrag.id=e.pointerId;camDrag.x=e.clientX}return}
   if(e.clientX<cw*.55&&stick.id===null){stick.id=e.pointerId;stick.ox=e.clientX;stick.oy=e.clientY;stick.dx=stick.dy=stick.mag=0;
     stickBase.hidden=false;stickBase.style.left=e.clientX+'px';stickBase.style.top=e.clientY+'px';stickKnob.style.transform='';}});
-addEventListener('pointermove',e=>{if(e.pointerId!==stick.id)return;let dx=e.clientX-stick.ox,dy=e.clientY-stick.oy;const m=Math.hypot(dx,dy),mx=56;
+addEventListener('pointermove',e=>{if(e.pointerId===camDrag.id){turnCam(e.clientX-camDrag.x);camDrag.x=e.clientX;return}if(e.pointerId!==stick.id)return;let dx=e.clientX-stick.ox,dy=e.clientY-stick.oy;const m=Math.hypot(dx,dy),mx=56;
   if(m>mx){dx*=mx/m;dy*=mx/m}stick.dx=dx/mx;stick.dy=dy/mx;stick.mag=Math.min(1,m/mx);stick.ang=Math.atan2(dy,dx);
   stickKnob.style.transform=`translate(${dx}px,${dy}px)`});
-const endStick=e=>{if(e.pointerId!==stick.id)return;stick.id=null;stick.mag=0;stick.dx=stick.dy=0;stickBase.hidden=true};
+const endStick=e=>{if(e.pointerId===camDrag.id)camDrag.id=null;if(e.pointerId!==stick.id)return;stick.id=null;stick.mag=0;stick.dx=stick.dy=0;stickBase.hidden=true};
 addEventListener('pointerup',endStick);addEventListener('pointercancel',endStick);
 function holdBtn(id,key){const b=document.getElementById(id);
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tbtn[key]=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}});
   const up=()=>{tbtn[key]=false;b.classList.remove('on')};b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up)}
-holdBtn('bFire','fire');holdBtn('bBrake','brake');holdBtn('bLeft','left');holdBtn('bRight','right');holdBtn('bGas','gas');holdBtn('bRev','rev');holdBtn('bBack','back');holdBtn('bFire2','fire2');
+holdBtn('bFire','fire');holdBtn('bBrake','brake');holdBtn('bLeft','left');holdBtn('bRight','right');holdBtn('bGas','gas');holdBtn('bRev','rev');holdBtn('bBack','back');holdBtn('bHb','hb');holdBtn('bFire2','fire2');
 function tapBtn(id,fn){document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fn()})}
 tapBtn('bCar',()=>pressed.TouchCar=true);tapBtn('bExit',()=>pressed.TouchCar=true);tapBtn('bWpn',()=>pressed.TouchWpn=true);
 tapBtn('bMap',()=>{if(!paused&&!shopOpen)mapOpen=!mapOpen});tapBtn('bPause',()=>{if(!shopOpen)setPaused(true)});
@@ -610,8 +631,8 @@ function readControls(){
   c.brake=!!keys.Space||tbtn.brake;
   if(tbtn.brake&&inCar&&!c.point){c.thr=-1;if(stick.mag>.3)c.hb=true}
   // touch car pad: arrows steer, GAS drives, BRAKE stops and holds, REV reverses
-  if(isTouch&&inCar&&(tbtn.left||tbtn.right||tbtn.gas||tbtn.rev||tbtn.back||tbtn.fire2)){const v=fwdSpeed(player.car);c.point=false;c.steer=(tbtn.right?1:0)-(tbtn.left?1:0);
-    c.thr=tbtn.gas?1:tbtn.back?-1:tbtn.rev?(v>8?-1:v<-8?1:0):0;c.hb=tbtn.rev&&Math.abs(v)<20;c.brake=false}
+  if(isTouch&&inCar&&(tbtn.left||tbtn.right||tbtn.gas||tbtn.rev||tbtn.back||tbtn.fire2||tbtn.hb)){const v=fwdSpeed(player.car);c.point=false;c.steer=(tbtn.right?1:0)-(tbtn.left?1:0);
+    c.thr=tbtn.gas?1:tbtn.back?-1:tbtn.rev?(v>8?-1:v<-8?1:0):0;c.hb=tbtn.hb||tbtn.rev&&Math.abs(v)<20;c.brake=false}
   if(tbtn.fire2)c.fire=true;
   return c}
 // touch driving help: lift off and brake before a wall dead ahead, and keep the car straight in its lane when the stick is centred
@@ -661,19 +682,23 @@ function drive(c,thr,steer,hb,dt){
   if(thr>0)vf+=(vf<-5?700:T.acc)*thr*dt;
   else if(thr<0)vf+=(vf>5?-720:-T.acc*.6)*(-thr)*dt;
   else{const r=Math.min(Math.abs(vf),110*dt);vf-=Math.sign(vf)*r}
-  if(hb){const r=Math.min(Math.abs(vf),240*dt);vf-=Math.sign(vf)*r}
+  if(hb){const r=Math.min(Math.abs(vf),400*dt);vf-=Math.sign(vf)*r}
   const off=SLOW[tileAtPx(c.x,c.y)];
   let maxS=T.max*(c.hp<30?.72:1)*(off?.68:1);
   // cornering assist: hard lock without the handbrake scrubs speed so the car actually makes the turn
   if(c===player.car&&!hb&&Math.abs(steer)>.45)maxS=Math.min(maxS,lerp(T.max,210,clamp((Math.abs(steer)-.45)*2.2,0,1)));
   if(vf>maxS)vf=lerp(vf,maxS,Math.min(1,3*dt));vf=Math.max(vf,-170);
   vf-=vf*.18*dt;
-  const grip=hb?1.1:7.5;vr-=vr*Math.min(1,grip*dt);
+  const grip=hb?.8:7.5;vr-=vr*Math.min(1,grip*dt);
   const sp=Math.abs(vf);
-  const pl=c===player.car,turn=steer*(hb?3.4:2.6)*(pl?.9:1)*Math.min(1,sp/(pl?35:130))*(vf<0?-1:1)*dt/(1+sp/(pl?1300:1100));
+  const pl=c===player.car,turn=steer*(hb?(pl?4.2:3.4):2.6)*(pl?.9:1)*Math.min(1,sp/(pl?35:130))*(vf<0?-1:1)*dt/(1+sp/(pl?1300:1100));
   let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a)){let ok=false;for(const[ox,oy]of NUDGE)if(!carHits(c,c.x+ox,c.y+oy,na)){c.x+=ox;c.y+=oy;ok=true;break}if(!ok)na=c.a}c.a=na;
   const nfx=Math.cos(c.a),nfy=Math.sin(c.a);
   c.vx=nfx*vf-nfy*vr;c.vy=nfy*vf+nfx*vr;
+  // skid marks and tyre squeal when the player's car slides
+  if(c===player.car&&(hb&&sp>70||Math.abs(vr)>110)){c.skidT=(c.skidT||0)-dt;if(c.skidT<=0){c.skidT=.04;
+    for(const o of[-1,1])addDecal({type:'skid',x:c.x-nfx*c.L*.32-nfy*o*c.Wd*.36,y:c.y-nfy*c.L*.32+nfx*o*c.Wd*.36,r:3.5,a:c.a});
+    if((c.squealT=(c.squealT||0)-dt*12)<=0){c.squealT=1;SFX.noise(.16,2600,.07,'bandpass')}}}
   // move with tile collision (sliding)
   const steps=Math.ceil(Math.hypot(c.vx,c.vy)*dt/10)||1,sdt=dt/steps;let impact=0;
   const stuckIn=carHits(c,c.x,c.y,c.a);
@@ -794,7 +819,7 @@ function spawnTrams(){for(const r of tramRoutes)for(let k=0;k<3;k++){const along
 // ================================================================ combat
 function spark(x,y){parts.push({x,y,vx:rr(-120,120),vy:rr(-120,120),life:.25,max:.25,size:2,col:'#ffd27a'})}
 function blood(x,y,n=6){for(let i=0;i<n;i++)parts.push({x,y,vx:rr(-70,70),vy:rr(-70,70),life:.5,max:.5,size:rr(1.5,3),col:'#a01515'})}
-function addDecal(d){decals.push(d);if(decals.length>160)decals.shift()}
+function addDecal(d){decals.push(d);if(decals.length>200)decals.shift()}
 function smoke(x,y,dark){parts.push({x:x+rr(-4,4),y:y+rr(-4,4),vx:rr(-12,12),vy:rr(-25,-5),life:1.2,max:1.2,size:rr(5,9),col:dark?'#222':'#888',grow:1})}
 function fireP(x,y){parts.push({x:x+rr(-8,8),y:y+rr(-6,6),vx:rr(-15,15),vy:rr(-40,-10),life:.5,max:.5,size:rr(4,8),col:pick(['#ff9a1f','#ffcf3f','#ff5a1f']),grow:.5})}
 function witnessed(x,y,r=320){for(const c of cars)if(c.cop&&!c.wreck&&c.driver&&Math.hypot(c.x-x,c.y-y)<r)return true;
@@ -1202,7 +1227,7 @@ function render(){
   for(let cy=r0;cy<=r1;cy++)for(let cx=c0;cx<=c1;cx++){const g=getChunk(cx,cy);
     if(g)ctx.drawImage(g,cx*CPX,cy*CPX,CPX+.5,CPX+.5);else{ctx.imageSmoothingEnabled=false;ctx.drawImage(mini,cx*CH,cy*CH,CH,CH,cx*CPX,cy*CPX,CPX,CPX);ctx.imageSmoothingEnabled=true}}
   const vis=(x,y,m=60)=>x>vx0-m&&x<vx1+m&&y>vy0-m&&y<vy1+m;
-  for(const d of decals){if(!vis(d.x,d.y))continue;if(d.type==='blood'){ctx.fillStyle='rgba(120,10,10,.75)';ctx.beginPath();ctx.ellipse(d.x,d.y,d.r,d.r*.7,d.a,0,TAU);ctx.fill()}
+  for(const d of decals){if(!vis(d.x,d.y))continue;if(d.type==='skid'){ctx.fillStyle='rgba(20,20,20,.45)';ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.a);ctx.fillRect(-4,-2,8,4);ctx.restore();continue}if(d.type==='blood'){ctx.fillStyle='rgba(120,10,10,.75)';ctx.beginPath();ctx.ellipse(d.x,d.y,d.r,d.r*.7,d.a,0,TAU);ctx.fill()}
     else{const g=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r);g.addColorStop(0,'rgba(0,0,0,.7)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,TAU);ctx.fill()}}
   if(ROUTE.path.length>1){ctx.strokeStyle=routeColor();ctx.globalAlpha=.7;ctx.lineWidth=8;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();ROUTE.path.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();ctx.globalAlpha=1}
   drawMarkers(vis);
@@ -1378,9 +1403,9 @@ function init3D(){
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
     const mt=new T.CanvasTexture(mini);mt.magFilter=T.NearestFilter;
     const base=new T.Mesh(new T.PlaneGeometry(W*TS,H*TS).rotateX(-PI/2),new T.MeshLambertMaterial({map:mt}));base.position.set(W*TS/2,-1.5,H*TS/2);sc.add(base);
-    G3.waterTex=waterNormals();G3.waterMat=new T.MeshPhongMaterial({color:'#215f8c',specular:'#4f7f9f',shininess:35,normalMap:G3.waterTex,normalScale:new T.Vector2(.28,.28),transparent:true,opacity:.95});
+    G3.waterTex=waterNormals();G3.waterMat=new T.MeshPhongMaterial({color:'#215f8c',specular:'#2c4a60',shininess:22,normalMap:G3.waterTex,normalScale:new T.Vector2(.2,.2),transparent:true,opacity:.95});
     const seaTex=G3.waterTex.clone();seaTex.needsUpdate=true;seaTex.repeat.set(140,140);G3.seaTex=seaTex;
-    const sea=new T.Mesh(new T.PlaneGeometry(60000,60000).rotateX(-PI/2),new T.MeshPhongMaterial({color:'#1d5a86',specular:'#4f7f9f',shininess:35,normalMap:seaTex,normalScale:new T.Vector2(.28,.28)}));sea.receiveShadow=true;sea.position.set(W*TS/2,-3,H*TS/2);sc.add(sea);
+    const sea=new T.Mesh(new T.PlaneGeometry(60000,60000).rotateX(-PI/2),new T.MeshPhongMaterial({color:'#1d5a86',specular:'#2c4a60',shininess:22,normalMap:seaTex,normalScale:new T.Vector2(.2,.2)}));sea.receiveShadow=true;sea.position.set(W*TS/2,-3,H*TS/2);sc.add(sea);
     G3.pm=new T.InstancedMesh(G3.ico,new T.MeshBasicMaterial({color:0xffffff}),900);G3.pm.frustumCulled=false;
     G3.dm=new T.InstancedMesh(G3.disc,new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),200);G3.dm.frustumCulled=false;
     const wc=new T.Color(1,1,1);for(let i=0;i<900;i++)G3.pm.setColorAt(i,wc);for(let i=0;i<200;i++)G3.dm.setColorAt(i,wc);
@@ -1438,6 +1463,7 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),water=mkBuf(),col=new T.Color(),wcol=new T.Color(1,1,1),lots={};
   for(let ty=cy*CH;ty<Math.min(H,cy*CH+CH);ty++)for(let tx=cx*CH;tx<Math.min(W,cx*CH+CH);tx++){const i=ty*W+tx,t=tiles[i];
     if(t===TREE){addTree(tree,tx,ty);continue}
+    if(t===BRIDGE&&groundY((tx+.5)*TS,(ty+.5)*TS)>20){const x0=tx*TS,z0=ty*TS;water.quad([x0,.8,z0],[x0+TS,.8,z0],[x0+TS,.8,z0+TS],[x0,.8,z0+TS],[0,1,0],wcol,[x0/420,z0/420,(x0+TS)/420,(z0+TS)/420]);continue}
     if(t===BRIDGE){const x0=tx*TS,z0=ty*TS,c2=new T.Color('#b4b8be');
       for(const[dx,dz]of[[0,-1],[0,1],[-1,0],[1,0]]){const n=tAt(tx+dx,ty+dz);if(n!==WATER&&n!==RIVER)continue;
         const ax=dx>0?x0+TS-3:x0,az=dz>0?z0+TS-3:z0,bx=dx?ax+3:x0+TS,bz=dz?az+3:z0+TS,h=9;
@@ -1541,7 +1567,7 @@ function pedMesh(shirt,skin,hair,kind,stripes){const T=G3.T,g=new T.Group(),b=ne
   const head=new T.Mesh(G3.sph,M(skin));head.scale.set(3.3,3.5,3.3);head.position.y=21;b.add(head);
   const hr=new T.Mesh(G3.sph,M(kind==='cop'?'#0d1530':hair));hr.scale.set(3.5,kind==='cop'?2.4:1.9,3.5);hr.position.y=kind==='cop'?24:23.2;b.add(hr);
   const gun=part(b,M('#111111'),9,2.5,2.5,6,14,4);gun.visible=false;g.userData={b,legs,gun};return g}
-function syncPed(g,p,isPl){g.position.set(p.x,0,p.y);g.rotation.y=-p.a;const u=g.userData;
+function syncPed(g,p,isPl){g.position.set(p.x,groundY(p.x,p.y),p.y);g.rotation.y=-p.a;const u=g.userData;
   if(p.dead){u.b.rotation.z=-PI/2;u.b.position.y=3;u.legs[0].rotation.z=u.legs[1].rotation.z=0}
   else{u.b.rotation.z=0;u.b.position.y=0;const s=Math.sin(p.anim||0)*.55;u.legs[0].rotation.z=s;u.legs[1].rotation.z=-s}
   u.gun.visible=!p.dead&&!!(isPl?player.wi>0:(p.weapon&&(p.alert||p.kind==='cop')))}
@@ -1560,7 +1586,7 @@ const PICK_ICON={cash:['$','#3fae4a','#fff'],health:['+','#ffffff','#d32'],armor
 function castAll(g){g.traverse(o=>{if(o.isMesh&&o.material!==G3.shadowMat)o.castShadow=true})}
 function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
   for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver+(c.type==='bike'?(c.driver?'d':'n')+(c===player.car?'p':''):'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key;castAll(c.m3)}
-    c.m3.position.set(c.x,0,c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
+    c.m3.position.set(c.x,groundY(c.x,c.y),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
   for(const p of peds){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
@@ -1577,14 +1603,16 @@ function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(
   for(const p of parts){if(n>=900)break;const f=1-p.life/p.max;const y=p.grow?8+f*38:p.col==='#a01515'?5:8;v.set(p.x,y,p.y);s3.setScalar(p.grow?p.size:p.size*(.4+.6*(1-f)));m4.compose(v,q,s3);G3.pm.setMatrixAt(n,m4);G3.pm.setColorAt(n,col.set(p.col));n++}
   for(const b of bullets){if(n>=900)break;v.set(b.x,12,b.y);s3.setScalar(1.8);m4.compose(v,q,s3);G3.pm.setMatrixAt(n,m4);G3.pm.setColorAt(n,col.set('#ffe9a0'));n++}
   G3.pm.count=n;G3.pm.instanceMatrix.needsUpdate=true;G3.pm.instanceColor.needsUpdate=true;
-  let k=0;for(const d of decals){if(k>=200)break;v.set(d.x,.5,d.y);s3.set(d.r,1,d.r*(d.type==='blood'?.7:1));q.setFromAxisAngle(v.clone().set(0,1,0),d.a||0);m4.compose(v,q,s3);G3.dm.setMatrixAt(k,m4);G3.dm.setColorAt(k,col.set(d.type==='blood'?'#6e0a0a':'#141414'));k++}
+  let k=0;for(const d of decals){if(k>=200)break;v.set(d.x,.5,d.y);s3.set(d.r,1,d.r*(d.type==='blood'?.7:1));q.setFromAxisAngle(v.clone().set(0,1,0),d.a||0);m4.compose(v,q,s3);G3.dm.setMatrixAt(k,m4);G3.dm.setColorAt(k,col.set(d.type==='blood'?'#6e0a0a':d.type==='skid'?'#1b1b1b':'#141414'));k++}
   q.identity();G3.dm.count=k;G3.dm.instanceMatrix.needsUpdate=true;G3.dm.instanceColor.needsUpdate=true}
 function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot(pc.vx,pc.vy):0,asp=cw/chh;
   if(view==='chase'&&started){
-    if(pc){const back=fwdSpeed(pc)<-30;G3.yaw+=angDiff(back?pc.a:pc.a,G3.yaw)*Math.min(1,dt*2.6)}
-    else if(G3.footMove){const d=angDiff(player.a,G3.yaw);G3.yaw+=d*Math.min(1,dt*(Math.abs(d)<1.2?2.2:.9))}
+    G3.manualT=(G3.manualT||9)+dt;const kz=(keys.KeyC?1:0)-(keys.KeyZ?1:0);if(kz){G3.yaw+=kz*1.9*dt;G3.manualT=0}
+    // follow the car only while you're not turning the camera yourself; on foot only drift round when walking away from it
+    if(G3.manualT>1.6){if(pc){if(Math.abs(fwdSpeed(pc))>25)G3.yaw+=angDiff(pc.a,G3.yaw)*Math.min(1,dt*2.2)}
+      else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<.5)G3.yaw+=d*Math.min(1,dt*1.2)}}
     const d=pc?95+spd*.07:62,h=pc?40+spd*.02:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
-    c3.position.set(pp.x-Math.cos(G3.yaw)*d+sh,h+sh,pp.y-Math.sin(G3.yaw)*d);c3.lookAt(pp.x+Math.cos(G3.yaw)*70,8,pp.y+Math.sin(G3.yaw)*70);
+    const gy=groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(G3.yaw)*d+sh,h+sh+gy,pp.y-Math.sin(G3.yaw)*d);c3.lookAt(pp.x+Math.cos(G3.yaw)*70,8+gy,pp.y+Math.sin(G3.yaw)*70);
     G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250]}
   else{const hh=(pc?380+Math.min(300,spd*.5):300)*(asp<1?1.3:1),sh=cam.shake?rr(-cam.shake,cam.shake):0;
     c3.fov=clamp(2*Math.atan(Math.tan(24*PI/180)/asp)*180/PI,50,85);
@@ -1657,11 +1685,23 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
   // MCG light towers and taller stands
   {const[mx,my]=MCG_T;for(let i=0;i<6;i++){const a=i/6*TAU+.3,x=(mx+Math.cos(a)*MCG_R[0]*.86)*TS,z=(my+Math.sin(a)*MCG_R[1]*.86)*TS,g=new T.Group();g.position.set(x,0,z);
     cyl(g,OM('#cfcfcf'),2.5,4,210,0,105,0,8);const p=part(g,OM('#fffbe0','#8a8460'),32,20,4,0,215,0);p.lookAt(mx*TS-x,215,my*TS-z);root.add(g)}}
-  // West Gate Bridge: twin cable-stay pylons on the M1 where it crosses the Yarra
-  {const P=fwPaths[2],a=P[1],b=P[2];for(const f of[.35,.75]){const x=lerp(a[0],b[0],f)*TS,z=lerp(a[1],b[1],f)*TS,dx=b[0]-a[0],dz=b[1]-a[1],m=Math.hypot(dx,dz),nx=-dz/m,nz=dx/m,g=new T.Group();
-    for(const s of[-1,1])part(g,OM('#c2c6cc'),7,240,7,x+nx*s*62,120,z+nz*s*62);const beam=part(g,OM('#c2c6cc'),6,6,124,x,200,z);beam.rotation.y=-Math.atan2(nz,nx)+PI/2;
-    const pts=[];for(const s of[-1,1])for(let k=-4;k<=4;k++){if(!k)continue;pts.push(x+nx*s*62,236,z+nz*s*62,x+nx*s*48+dx/m*k*34,14,z+nz*s*48+dz/m*k*34)}
-    const lg=new T.BufferGeometry();lg.setAttribute('position',new T.Float32BufferAttribute(pts,3));g.add(new T.LineSegments(lg,new T.LineBasicMaterial({color:'#dfe3e8'})));root.add(g)}}
+  // West Gate Bridge: elevated deck over the Yarra on piers, with twin cable-stay pylons at mid-span
+  if(WG){const g=new T.Group(),deck=mkBuf(),dk=new T.Color('#4a4d53'),side=new T.Color('#a3a8b0'),yel=new T.Color('#f2c230'),P=WG.pts.filter((q,i)=>i%3===0),hw=54;
+    for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1],dx=b.x-a.x,dz=b.y-a.y,l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l;
+      const L=(q,o,y)=>[q.x+nx*o,y,q.y+nz*o];
+      deck.quad(L(a,-hw,a.h),L(b,-hw,b.h),L(b,hw,b.h),L(a,hw,a.h),[0,1,0],dk);
+      for(const o of[-1,1]){deck.quad(L(a,o*(hw-4),a.h+.4),L(b,o*(hw-4),b.h+.4),L(b,o*(hw-7),b.h+.4),L(a,o*(hw-7),a.h+.4),[0,1,0],yel);
+        deck.quad(L(a,o*hw,a.h-7),L(b,o*hw,b.h-7),L(b,o*hw,b.h+9),L(a,o*hw,a.h+9),[nx*o,0,nz*o],side);
+        deck.quad(L(a,o*(hw-3),a.h),L(b,o*(hw-3),b.h),L(b,o*(hw-3),b.h+9),L(a,o*(hw-3),a.h+9),[-nx*o,0,-nz*o],side)}
+      deck.quad(L(a,-hw,a.h-7),L(b,-hw,b.h-7),L(b,hw,b.h-7),L(a,hw,a.h-7),[0,-1,0],side)}
+    const dm=new T.Mesh(deck.geo(),G3.roofMat);g.add(dm);
+    WG.pts.forEach((q,i)=>{if(i%20||q.h<18)return;const pr=part(g,OM('#9aa0a8'),12,q.h-6,40,q.x,(q.h-6)/2,q.y);const n=WG.pts[Math.min(i+1,WG.pts.length-1)];pr.rotation.y=-Math.atan2(n.y-q.y,n.x-q.x)});
+    for(const f of[.3,.7]){const sp=WG.s0+(WG.s1-WG.s0)*f;let q=WG.pts[0];for(const r of WG.pts)if(Math.abs(r.s-sp)<Math.abs(q.s-sp))q=r;
+      const j=WG.pts.indexOf(q),n=WG.pts[Math.min(j+1,WG.pts.length-1)],dx=n.x-q.x,dz=n.y-q.y,l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,top=q.h+200;
+      for(const o of[-1,1])part(g,OM('#c2c6cc'),8,top,8,q.x+nx*o*62,top/2,q.y+nz*o*62);const beam=part(g,OM('#c2c6cc'),6,7,132,q.x,top-30,q.y);beam.rotation.y=-Math.atan2(nz,nx)+PI/2;
+      const pts=[];for(const o of[-1,1])for(let k=-5;k<=5;k++){if(!k)continue;const r=WG.pts[clamp(j+k*9,0,WG.pts.length-1)];pts.push(q.x+nx*o*62,top-6,q.y+nz*o*62,r.x+nx*o*50,r.h+8,r.y+nz*o*50)}
+      const lg=new T.BufferGeometry();lg.setAttribute('position',new T.Float32BufferAttribute(pts,3));g.add(new T.LineSegments(lg,new T.LineBasicMaterial({color:'#e6e9ee'})))}
+    root.add(g)}
   // Albert Park: grandstand and pit building on the start straight
   if(LAP){const g=new T.Group();g.position.set(LAP.x+TS*3.2,0,LAP.y);part(g,OM('#e8e8e8'),40,6,150,0,3,0);for(let i=0;i<5;i++)part(g,OM(i%2?'#d8221d':'#1d3c8c'),8,8+i*6,150,-16+i*8,4+i*3,0);
     part(g,OM('#f4f4f4'),44,3,154,0,40,0);root.add(g);const p=new T.Group();p.position.set(LAP.x-TS*2.6,0,LAP.y);part(p,OM('#9aa3a8'),30,18,120,0,9,0);root.add(p)}
@@ -1681,6 +1721,7 @@ function newGame(save){
   // a couple of parked cars right by the start
   for(let k=0;k<2;k++){const L=nearestRoadLane(player.x+(k?120:-120),player.y);if(L){const c=makeCar(k?'sedan':'hatch',L.x,L.y,L.a);c.driver=null;c.mode='parked'}}
   buildMarkers3D();
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
   started=true;titleEl.hidden=true;setPaused(false);
   if(progress<MISSIONS.length)sub(save?'Welcome back. Follow the pink arrow to your next job.':'Melbourne, 2004. The underworld war is in its sixth year. Follow the pink arrow to Vince for your first job.',6);
   showBig('MELBOURNE','#ff3d9a',2.5)}
@@ -1689,14 +1730,14 @@ function nearestRoadLane(x,y){const[nx,ny]=nearestWalkable(x,y,t=>t===ROAD);cons
   if(ty%G<2){const dir=R()<.5?1:-1;const L={axis:'h',line:(ty/G)|0,dir};return{x:nx,y:laneCoord(L),a:dir>0?0:PI}}return{x:nx,y:ny,a:0}}
 document.getElementById('btnNew').addEventListener('click',()=>{SFX.init();newGame(null)});
 document.getElementById('btnCont').addEventListener('click',()=>{SFX.init();newGame(loadSave())});
-document.getElementById('btnResume').addEventListener('click',()=>setPaused(false));
+document.getElementById('btnResume').addEventListener('click',e=>{e.currentTarget.blur();setPaused(false)});
 const btnDrive=document.getElementById('btnDrive');const driveLabel=()=>{btnDrive.textContent='Driving: '+(driveMode==='point'?'point (overhead only)':'GTA')};driveLabel();
 btnDrive.addEventListener('click',()=>{driveMode=driveMode==='point'?'gta':'point';driveLabel();try{localStorage.setItem('gta-melbourne-drive2',driveMode)}catch(e){}});
 document.getElementById('btnMute').addEventListener('click',e=>{SFX.setMuted(!SFX.muted);e.target.textContent='Sound: '+(SFX.muted?'off':'on')});
 document.getElementById('btnQuit').addEventListener('click',()=>{started=false;setPaused(true);pauseEl.hidden=true;titleEl.hidden=false;document.getElementById('btnCont').hidden=!loadSave();SFX.update(false,0,0,0)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&started&&!shopOpen)setPaused(true)});
 
-generate();buildMini();
+generate();buildMini();buildWestGate();
 if(view!=='2d'&&!init3D())view='2d';viewLabel();
 document.getElementById('btnCont').hidden=!loadSave();
 // attract mode behind the title: a slow drift over the CBD
@@ -1709,11 +1750,11 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   const driving=!!(isTouch&&player&&player.car&&started);
   tbEl.hidden=driving;cbEl.hidden=!driving;spEl.hidden=!driving;tbEl.style.visibility=cbEl.style.visibility=spEl.style.visibility=mapOpen?'hidden':'';
   if(driving&&stick.id!==null){stick.id=null;stick.mag=0;stick.dx=stick.dy=0;stickBase.hidden=true}
-  if(!driving)for(const k of['left','right','gas','rev','back','fire2'])tbtn[k]=false;
+  if(!driving)for(const k of['left','right','gas','rev','back','fire2','hb'])tbtn[k]=false;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get wg(){return WG&&{n:WG.pts.length,s0:WG.s0|0,s1:WG.s1|0}},get wgPts(){return WG.pts},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

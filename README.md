@@ -13,7 +13,8 @@ Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 
 | | Keyboard / mouse | Touch |
 |---|---|---|
 | Move on foot | WASD or arrows | Drag on the left half |
-| Drive | W gas, S brake/reverse, A/D steer | ◀ ▶ arrows steer, GAS, BRAKE, REV, EXIT |
+| Drive | W gas, S brake/reverse, A/D steer, Space handbrake | ◀ ▶ arrows steer, GAS, BRAKE, REV, HB (handbrake), EXIT |
+| Turn the camera | Z / C, or drag with the right mouse button | Drag the right side of the screen (anywhere while driving) |
 | Shoot | Click, Space (on foot), Ctrl or J | FIRE |
 | Get in / out of a car | E or F | CAR |
 | Brake | Space (in a car) | BRAKE |
@@ -27,6 +28,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 - Traffic uses real low-poly 3D models from Kenney's CC0 Car Kit and Starter Kit Racing: sedans, sports cars, SUVs, vans, taxis, police, utes, ambulances, fire trucks and garbage trucks, with spinning wheels and repainted bodies for variety. See `models/README.md`. Models load when the game is served over http(s), such as GitHub Pages.
 
+- The West Gate Bridge climbs over the Yarra on piers, with cable-stay pylons.
 - 3D Melbourne landmarks: Eureka Tower, Rialto Towers, Flinders Street Station, St Paul's, Federation Square, the Arts Centre spire, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park, the MCG with its light towers, and the West Gate Bridge pylons.
 - The Albert Park Grand Prix circuit loops around the lake, with kerbs, a grandstand and a lap timer at the start/finish line. The Tan running track loops around the Botanic Gardens.
 
