@@ -87,8 +87,8 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
     </div>
     <div class="help">
       <div><h3>On foot</h3><p><kbd>WASD</kbd> move, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
-      <div><h3>Driving</h3><p><kbd>W</kbd>/<kbd>S</kbd> gas and brake, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
-      <div><h3>Touch</h3><p>Drag the left side to move or steer. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
+      <div><h3>Driving</h3><p>Hold <kbd>WASD</kbd> toward where you want to go and the car steers itself there, U-turns included. <kbd>Space</kbd> brakes, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
+      <div><h3>Touch</h3><p>Drag the left side toward where you want to go, on foot or driving. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
     </div>
   </div>
@@ -97,8 +97,10 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 <div id="pause" class="ov" hidden>
   <div class="card">
     <h2 class="ttl">Paused</h2>
+    <p class="lede">Point driving steers the car toward the direction you hold. Classic is W/S for gas and brake, A/D to steer.</p>
     <div class="row">
       <button id="btnResume" class="big" type="button">Resume</button>
+      <button id="btnDrive" class="big alt" type="button">Driving: point</button>
       <button id="btnMute" class="big alt" type="button">Sound: on</button>
       <button id="btnQuit" class="big alt" type="button">Title</button>
     </div>
@@ -440,6 +442,7 @@ const WEAPONS=[
 let player,cars=[],peds=[],bullets=[],parts=[],decals=[],pickups=[];
 let heat=0,stars=0,unseen=0,gameT=0,paused=true,mapOpen=false,shopOpen=false,started=false;
 let mission=null,progress=0,deadT=0,deadKind='',cam={x:0,y:0,z:1,shake:0},spawnR=900;
+let driveMode='point';try{driveMode=localStorage.getItem('gta-melbourne-drive')||'point'}catch(e){}
 let objective='',subs=[],big=null,zone='',zoneT=0,carNameT=0,lastGunHeat=0,flowT=0;
 
 function makePlayer(x,y){return{x,y,a:0,hp:100,armor:0,car:null,wi:0,ammo:{pistol:0,uzi:0,shotgun:0},cool:0,anim:0,bustT:0,kx:0,ky:0,hitCool:0,isPlayer:true}}
@@ -528,13 +531,29 @@ function readControls(){
   c.enter=!!(pressed.KeyE||pressed.KeyF||pressed.TouchCar);c.swap=(pressed.KeyQ||pressed.Tab||pressed.TouchWpn)?1:(pressed.Wheel||0);
   for(let i=1;i<=4;i++)if(pressed['Digit'+i])c.sel=i-1;
   c.sprint=!!(keys.ShiftLeft||keys.ShiftRight);c.horn=!!keys.KeyH;
-  if(stick.mag>.15){
-    if(!inCar){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}c.sprint=stick.mag>.85}
-    else{const car=player.car,vf=car.vx*Math.cos(car.a)+car.vy*Math.sin(car.a),d=angDiff(stick.ang,car.a);
+  if(stick.mag>.15){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}if(!inCar)c.sprint=stick.mag>.85;
+    if(inCar&&driveMode==='classic'){const car=player.car,vf=fwdSpeed(car),d=angDiff(stick.ang,car.a);
       if(Math.abs(d)>2.4&&vf<80){c.thr=-stick.mag;c.steer=clamp(-angDiff(stick.ang,car.a+PI)*2,-1,1)}
       else{c.steer=clamp(d*1.4,-1,1);c.thr=stick.mag*(Math.abs(d)>1.6?.45:1)}}}
-  if(tbtn.brake&&inCar){c.thr=-1;if(stick.mag>.3)c.hb=true}
+  c.point=inCar&&driveMode==='point';
+  if(c.point){c.thr=0;c.steer=0}
+  c.brake=!!keys.Space||tbtn.brake;
+  if(tbtn.brake&&inCar&&!c.point){c.thr=-1;if(stick.mag>.3)c.hb=true}
   return c}
+// point-to-drive: hold a direction and the car turns itself around and goes that way
+function pointDrive(car,c,dt){
+  const mag=Math.hypot(c.mx,c.my),vf=fwdSpeed(car);
+  if(player.revT>0){player.revT-=dt;c.thr=-.9;c.steer=player.revSteer;c.hb=false;return}
+  if(c.brake){c.thr=vf>10?-1:vf<-10?1:0;c.hb=Math.abs(vf)>200;return}
+  if(mag<.1){c.thr=Math.abs(vf)>15?-Math.sign(vf)*.35:0;c.steer=0;player.stuckT=0;return}
+  const d=angDiff(Math.atan2(c.my,c.mx),car.a),ad=Math.abs(d);
+  c.steer=clamp(d*1.8,-1,1);c.hb=false;
+  if(ad>1.2){ // big turn: slow to a crawl and swing round on full lock
+    c.steer=Math.sign(d);c.thr=vf>110?-1:vf<70?.8:0;c.hb=vf>200}
+  else{c.thr=mag;if(ad>.6&&vf>300)c.thr=.2}
+  // blocked by a wall or car: back up on the opposite lock, then try again (three-point turn)
+  if(c.thr>0&&Math.abs(vf)<22)player.stuckT=(player.stuckT||0)+dt;else player.stuckT=0;
+  if(player.stuckT>.35){player.stuckT=0;player.revT=.6;player.revSteer=-Math.sign(d||1)}}
 
 // ================================================================ movement helpers
 function circSolid(x,y,r){return solidPx(x-r,y-r)||solidPx(x+r,y-r)||solidPx(x-r,y+r)||solidPx(x+r,y+r)}
@@ -566,7 +585,7 @@ function drive(c,thr,steer,hb,dt){
   vf-=vf*.18*dt;
   const grip=hb?1.1:7.5;vr-=vr*Math.min(1,grip*dt);
   const sp=Math.abs(vf);
-  const turn=steer*(hb?3.3:2.6)*(c===player.car?.7:1)*Math.min(1,sp/130)*(vf<0?-1:1)*dt/(1+sp/1100);
+  const turn=steer*(hb?3.3:2.6)*(c===player.car?.75:1)*Math.min(1,sp/(c===player.car&&driveMode==='point'?55:130))*(vf<0?-1:1)*dt/(1+sp/1100);
   let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a))na=c.a;c.a=na;
   const nfx=Math.cos(c.a),nfy=Math.sin(c.a);
   c.vx=nfx*vf-nfy*vr;c.vy=nfy*vf+nfx*vr;
@@ -690,7 +709,7 @@ function addHeat(v){heat=Math.min(40,heat+v);let s=0;for(let i=1;i<=5;i++)if(hea
 function setStars(n){heat=Math.max(heat,STAR_T[n]+.01);addHeat(0)}
 function isPlayerSrc(s){return s===player||(s&&s===player.car)}
 function panicAround(x,y,r){for(const p of peds)if(p.kind==='civ'&&!p.dead&&Math.hypot(p.x-x,p.y-y)<r){p.panic=rr(4,7);p.fx=x;p.fy=y}}
-function damagePlayer(d,src){if(deadT>0)return;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
+function damagePlayer(d,src){if(deadT>0)return;player.lastHurt=gameT;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
   if(player.hp<=0){player.hp=0;killPlayer('WASTED')}}
 function damagePed(p,d,src,kx=0,ky=0){if(p.dead)return;p.hp-=d;blood(p.x,p.y,4);p.kx+=kx;p.ky+=ky;
   if(p.kind==='civ'){p.panic=rr(5,8);const s=src||player;p.fx=s.x;p.fy=s.y}
@@ -719,7 +738,7 @@ function fire(sh,x,y,a,w,ownerCar){
   if(w.melee){SFX.punch();const tgts=sh===player?peds:[];
     for(const p of tgts)if(!p.dead){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&Math.abs(angDiff(Math.atan2(p.y-y,p.x-x),a))<1.1)damagePed(p,w.dmg,sh,Math.cos(a)*120,Math.sin(a)*120)}
     if(sh!==player&&!player.car&&Math.hypot(player.x-x,player.y-y)<30)damagePlayer(w.dmg*.6,sh);return}
-  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?1:1.8),sp=w.speed*rr(.92,1.05);
+  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?1:sh.kind==='cop'?3:1.8),sp=w.speed*rr(.92,1.05);
     bullets.push({x,y,vx:Math.cos(aa)*sp,vy:Math.sin(aa)*sp,life:.75,dmg:w.dmg,owner:sh,ownerCar:ownerCar||null})}
   SFX.shot(w.id);parts.push({x:x+Math.cos(a)*6,y:y+Math.sin(a)*6,vx:0,vy:0,life:.06,max:.06,size:6,col:'#fff2a8'});
   panicAround(x,y,300);
@@ -737,7 +756,7 @@ function updateBullets(dt){
       for(const p of peds){if(p.dead||p===b.owner)continue;if(Math.abs(p.x-b.x)<8&&Math.abs(p.y-b.y)<8){
         if(!(b.owner&&b.owner.kind==='cop'&&p.kind==='cop')){damagePed(p,b.dmg,b.owner,b.vx*.08,b.vy*.08);dead=true;break}}}
       if(dead)break;
-      if(!player.car&&b.owner!==player&&deadT<=0&&Math.abs(player.x-b.x)<8&&Math.abs(player.y-b.y)<8){damagePlayer(b.dmg,b.owner);blood(b.x,b.y,4);dead=true}}
+      if(!player.car&&b.owner!==player&&deadT<=0&&Math.abs(player.x-b.x)<8&&Math.abs(player.y-b.y)<8){damagePlayer(b.dmg*(b.owner&&b.owner.kind==='cop'?.5:1),b.owner);blood(b.x,b.y,4);dead=true}}
     if(dead)bullets.splice(bi,1)}}
 
 // ================================================================ peds
@@ -754,7 +773,7 @@ function chaseMove(p,tgt,sp,dt,stopAt){
   let tx=tgt.x,ty=tgt.y;if(d>40&&!los(p.x,p.y,tgt.x,tgt.y)){const f=flowTarget(p.x,p.y,2);if(f){tx=f[0];ty=f[1]}}
   const a=Math.atan2(ty-p.y,tx-p.x);p.a=a;moveCircle(p,Math.cos(a)*sp*dt,Math.sin(a)*sp*dt,6);p.anim+=dt*12;return d}
 function pedShoot(p,tgt,dt){p.cool-=dt;if(p.cool>0)return;const w=WEAPONS[p.weapon]||WEAPONS[1];
-  p.cool=p.kind==='cop'?rr(.8,1.3):w.id==='uzi'?rr(.12,.25):rr(.6,1.1);
+  p.cool=p.kind==='cop'?rr(1.4,2.2):w.id==='uzi'?rr(.12,.25):rr(.6,1.1);
   const a=Math.atan2(tgt.y-p.y,tgt.x-p.x);p.a=a;fire(p,p.x+Math.cos(a)*10,p.y+Math.sin(a)*10,a,w,null)}
 function updatePeds(dt){
   const ptarget=player.car||player;
@@ -772,8 +791,8 @@ function updatePeds(dt){
       if(stars===0){if(dp>spawnR*.8){peds.splice(i,1);continue}if(p.car&&!p.car.wreck){const d=chaseMove(p,p.car,110,dt,20);if(d<24){p.car.driver='cop';p.car.mode='traffic';p.car.driver='ai';p.car.exited=false;assignLane(p.car);peds.splice(i,1)}}continue}
       if(player.car&&p.car&&!p.car.wreck&&dp>260&&!p.car.driver){const d=chaseMove(p,p.car,150,dt,20);if(d<24){p.car.driver='cop';p.car.mode='chase';p.car.exited=false;peds.splice(i,1)}continue}
       const d=chaseMove(p,ptarget,player.car?155:140,dt,player.car?28:16);
-      if(stars>=2&&d<260&&d>40&&!player.car&&los(p.x,p.y,player.x,player.y))pedShoot(p,player,dt);
-      if(stars>=3&&player.car&&d<220&&los(p.x,p.y,ptarget.x,ptarget.y))pedShoot(p,ptarget,dt);
+      if(stars>=3&&d<230&&d>40&&!player.car&&los(p.x,p.y,player.x,player.y))pedShoot(p,player,dt);
+      if(stars>=4&&player.car&&d<200&&los(p.x,p.y,ptarget.x,ptarget.y))pedShoot(p,ptarget,dt);
       const close=player.car?(Math.abs(fwdSpeed(player.car))<25&&d<40):d<22;
       if(close&&deadT<=0){player.bustT+=dt*(stars>=3?.6:1)/Math.max(1,0)}
       if(dp>spawnR+700)peds.splice(i,1)}
@@ -788,7 +807,7 @@ function updatePeds(dt){
       if(p.alert){const a=Math.atan2(p.y-ptarget.y,p.x-ptarget.x)+Math.sin(gameT*1.3)*.5;p.a=a;if(moveCircle(p,Math.cos(a)*125*dt,Math.sin(a)*125*dt,6)){const f=flowTarget(p.x,p.y,1);p.a+=rr(-1.5,1.5);moveCircle(p,Math.cos(p.a+1.5)*125*dt,Math.sin(p.a+1.5)*125*dt,6)}p.anim+=dt*12}}
     if(p.kind!=='civ')pushOutCars(p,6);
     if(!p.mission&&(p.kind==='civ'||p.ambient)&&dp>spawnR+500)peds.splice(i,1)}
-  if(player.bustT>0){player.bustT-=dt*.5;if(player.bustT>1.1)killPlayer('BUSTED')}}
+  if(player.bustT>0){player.bustT-=dt*.5;if(player.bustT>1.8)killPlayer('BUSTED')}}
 
 // ================================================================ spawning
 function viewHalfDiag(){return Math.hypot(cw,chh)/2/cam.z}
@@ -832,7 +851,7 @@ function manageSpawns(dt){
   if(spawnTimer>0)return;spawnTimer=.25;
   const traffic=cars.filter(c=>c.driver==='ai').length,civs=peds.filter(p=>p.kind==='civ'&&!p.dead).length;
   const urban=1;if(traffic<26*urban)trySpawnTraffic(false);if(civs<34)trySpawnPed(false);
-  const want=[0,1,2,3,5,7][stars],have=cars.filter(c=>c.mode==='chase'&&!c.wreck&&(c.driver==='cop'||c.exited)).length;
+  const want=[0,1,1,2,3,4][stars],have=cars.filter(c=>c.mode==='chase'&&!c.wreck&&(c.driver==='cop'||c.exited)).length;
   if(have<want&&R()<.35)trySpawnTraffic(false,copType(),'chase')}
 
 // ================================================================ player
@@ -850,12 +869,15 @@ function exitCar(){const c=player.car;
 function cycleWeapon(dir){for(let n=1;n<=4;n++){const i=(player.wi+dir*n+8)%4;if(i===0||player.ammo[WEAPONS[i].id]>0){player.wi=i;return}}}
 function updatePlayer(dt,c){
   player.cool-=dt;player.hitCool-=dt;
+  if(player.hp<100&&gameT-(player.lastHurt||0)>6)player.hp=Math.min(100,player.hp+3*dt);
+  if(player.car&&player.car.burning>0&&!player.fireWarned){player.fireWarned=true;sub(isTouch?'Your car is on fire! Tap CAR to get out!':'Your car is on fire! Press E to get out!',3)}else if(!player.car||!player.car.burning)player.fireWarned=false;
   if(c.swap)cycleWeapon(c.swap);if(c.sel>=0&&(c.sel===0||player.ammo[WEAPONS[c.sel].id]>0))player.wi=c.sel;
   if(player.wi>0&&player.ammo[WEAPONS[player.wi].id]<=0)player.wi=0;
   const w=WEAPONS[player.wi];
   if(player.car){const car=player.car;
     if(c.enter&&Math.abs(fwdSpeed(car))<200){exitCar();return}
     // ease steering in and out so a tap is a nudge, not a swerve
+    if(c.point)pointDrive(car,c,dt);
     player.steerS=lerp(player.steerS||0,c.steer,Math.min(1,dt*(Math.abs(c.steer)<Math.abs(player.steerS||0)?8:4)));
     drive(car,c.thr,player.steerS,c.hb,dt);player.x=car.x;player.y=car.y;player.a=car.a;
     if(c.horn&&car.horn<=0){SFX.horn();car.horn=.5;panicAround(car.x,car.y,120)}car.horn-=dt;
@@ -1011,7 +1033,7 @@ function update(dt){
   if(stars>0){let seen=false;const pp=player.car||player;
     for(const c2 of cars)if(c2.cop&&c2.driver&&!c2.wreck&&Math.hypot(c2.x-pp.x,c2.y-pp.y)<480){seen=true;break}
     if(!seen)for(const p of peds)if(p.kind==='cop'&&!p.dead&&Math.hypot(p.x-pp.x,p.y-pp.y)<380){seen=true;break}
-    if(seen)unseen=0;else{unseen+=dt;if(unseen>7+stars*2.5){unseen=0;heat=STAR_T[stars]-.001;if(stars===1)heat=0;addHeat(0);let s=0;for(let i=1;i<=5;i++)if(heat>=STAR_T[i])s=i;stars=s}}}
+    if(seen)unseen=0;else{unseen+=dt;if(unseen>5+stars*1.5){unseen=0;heat=STAR_T[stars]-.001;if(stars===1)heat=0;addHeat(0);let s=0;for(let i=1;i<=5;i++)if(heat>=STAR_T[i])s=i;stars=s}}}
   else heat=Math.max(0,heat-dt*.05);
   flowT-=dt;if(flowT<=0&&(stars>0||peds.some(p=>p.alert||p.kind==='cop'))){flowT=.35;computeFlow()}
   manageSpawns(dt);updateMission(dt);if(deadT<=0)updateLocations(dt);
@@ -1038,7 +1060,7 @@ function collideCars(a,b){const ca=circles(a),cb=circles(b),ra=a.Wd/2+1,rb=b.Wd/
     if(!a.tram&&!carHits(a,ax,ay,a.a)){a.x=ax;a.y=ay}if(!b.tram&&!carHits(b,bx,by,b.a)){b.x=bx;b.y=by}
     const rv=(b.vx-a.vx)*dx+(b.vy-a.vy)*dy;
     if(rv<0){const j=-1.3*rv;if(ma){a.vx-=dx*j*ta;a.vy-=dy*j*ta}if(mb){b.vx+=dx*j*tb;b.vy+=dy*j*tb}
-      const imp=-rv;if(imp>90){const dmg=(imp-90)*.07;damageCar(a,dmg,b===player.car?player:b.driver==='cop'?b:null);damageCar(b,dmg,a===player.car?player:a.driver==='cop'?a:null);
+      const imp=-rv;if(imp>90){const dmg=(imp-90)*.07,soft=(a===player.car&&b.cop)||(b===player.car&&a.cop)?.4:1;damageCar(a,dmg*(a===player.car?soft:1),b===player.car?player:b.driver==='cop'?b:null);damageCar(b,dmg*(b===player.car?soft:1),a===player.car?player:a.driver==='cop'?a:null);
         if(a===player.car||b===player.car){SFX.crash(imp/500);cam.shake=Math.min(10,imp/60);const o=a===player.car?b:a;if(o.cop&&o.driver&&imp>150)addHeat(.5)}
         for(let k=0;k<3;k++)spark((p[0]+q[0])/2,(p[1]+q[1])/2)}}
     return}}
@@ -1224,6 +1246,8 @@ function nearestRoadLane(x,y){const[nx,ny]=nearestWalkable(x,y,t=>t===ROAD);cons
 document.getElementById('btnNew').addEventListener('click',()=>{SFX.init();newGame(null)});
 document.getElementById('btnCont').addEventListener('click',()=>{SFX.init();newGame(loadSave())});
 document.getElementById('btnResume').addEventListener('click',()=>setPaused(false));
+const btnDrive=document.getElementById('btnDrive');const driveLabel=()=>{btnDrive.textContent='Driving: '+(driveMode==='point'?'point':'classic')};driveLabel();
+btnDrive.addEventListener('click',()=>{driveMode=driveMode==='point'?'classic':'point';driveLabel();try{localStorage.setItem('gta-melbourne-drive',driveMode)}catch(e){}});
 document.getElementById('btnMute').addEventListener('click',e=>{SFX.setMuted(!SFX.muted);e.target.textContent='Sound: '+(SFX.muted?'off':'on')});
 document.getElementById('btnQuit').addEventListener('click',()=>{started=false;setPaused(true);pauseEl.hidden=true;titleEl.hidden=false;document.getElementById('btnCont').hidden=!loadSave();SFX.update(false,0,0,0)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&started&&!shopOpen)setPaused(true)});
