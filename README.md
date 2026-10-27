@@ -1,6 +1,6 @@
 # GTA Melbourne
 
-A top-down, GTA 2-style game set in Melbourne. It's a single `index.html` with no build step and no dependencies. Open it in a browser and play.
+A 3D GTA-style game set in Melbourne. It's a single `index.html` with no build step. It loads Three.js from a CDN for the 3D view and falls back to the original 2D view if that can't load.
 
 **Melbourne, 2004.** The underworld war between the Lygon Street Crew and the Broadmeadows mob is in its sixth year, and Taskforce Kestrel is closing in. All characters, crews and vehicles are fictional.
 
@@ -16,10 +16,13 @@ Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 
 | Brake | Space (in a car) | BRAKE |
 | Switch weapon | Q, Tab, wheel, 1–4 | GUN |
 | Map / pause / horn | M / P or Esc / H | MAP / II |
+| Camera | V cycles 3D overhead, 3D chase cam and classic 2D | CAM |
 
 Prefer tank-style driving (W/S gas and brake, A/D steer)? Switch **Driving: classic** in the pause menu.
 
 ## What's in it
+
+- In 3D, buildings rise from the map: CBD towers, a Southbank skyline, houses with backyards, the MCG bowl and shipping containers at the port. Buildings and trams go see-through when they come between the camera and you.
 
 - The city is generated from `reference-map.png`. It includes Port Phillip Bay, the Yarra and Maribyrnong rivers, the freeway network (M1, M2, M3, M80), Tullamarine Airport, the Port of Melbourne, St Kilda Pier, the MCG, parks and beaches, with the CBD towers giving way to suburban houses further out.
 - Traffic drives on the left, follows the street grid and freeways, and queues behind trams on the Swanston St / St Kilda Rd and Flinders St lines.
