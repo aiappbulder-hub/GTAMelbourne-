@@ -62,7 +62,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 #cbtns{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,74px);gap:10px;pointer-events:auto}
 #cbtns button{width:74px;height:74px;border-radius:50%;border:2px solid rgba(0,0,0,.6);color:#fff;font-size:14px;background:rgba(30,36,50,.72);touch-action:none}
 #steerPad button.on,#cbtns button.on{filter:brightness(1.7)}
-#cbtns{grid-template-areas:'exit gas' 'brake gas' 'back fire'}#bExit{grid-area:exit}#bRev{grid-area:brake}#bBack{grid-area:back;background:rgba(90,120,200,.8)!important}#bFire2{grid-area:fire}
+#cbtns{grid-template-areas:'exit gas' 'brake gas' 'fire back'}#bExit{grid-area:exit}#bRev{grid-area:brake}#bBack{grid-area:back;background:rgba(90,120,200,.8)!important}#bFire2{grid-area:fire}
 #bGas{grid-area:gas;height:158px!important;border-radius:40px!important;background:rgba(70,170,80,.85)!important}
 #bExit{background:rgba(255,204,51,.75)!important;color:#000!important}
 #bFire2{background:rgba(255,74,74,.7)!important}
@@ -194,7 +194,7 @@ const FREEWAYS=[
   [[900,650],[1100,760],[1220,860],[1240,1015]],
   [[690,672],[760,775],[820,860],[860,1015]]];
 const LANDMARKS=[['Flinders Street Station',690,495],['Federation Square',718,497],['MCG',768,478],['Crown Casino',650,545],['Eureka Tower',690,545],
-  ['Lygon Street',735,380],['Royal Exhibition Building',735,402],['Shrine of Remembrance',752,567],['The Tan',820,560],['Albert Park Circuit',703,628],['Rialto Towers',668,470],['Melbourne Star',600,470],['Arts Centre',716,540],['St Paul\'s Cathedral',706,478],['Luna Park',705,718],['Queen Vic Market',668,430],['West Gate Bridge',420,500],['Bolte Bridge',560,485],['Chapel Street',800,600],['Rod Laver Arena',760,500]];
+  ['Lygon Street',735,380],['Royal Exhibition Building',735,402],['Shrine of Remembrance',752,567],['The Tan',820,560],['Fairfield Boathouse',952,352],['Albert Park Circuit',703,628],['Rialto Towers',668,470],['Melbourne Star',600,470],['Arts Centre',716,540],['St Paul\'s Cathedral',706,478],['Luna Park',705,718],['Queen Vic Market',668,430],['West Gate Bridge',420,500],['Bolte Bridge',560,485],['Chapel Street',800,600],['Rod Laver Arena',760,500]];
 const LANDMARK_SITES=[['flinders',690,495,6,2],['stpauls',706,478,2,2],['fedsq',718,497,3,2],['eureka',690,545,2,2],['arts',716,540,2,2],
   ['crown',650,545,5,2],['rialto',668,470,2,2],['star',600,470,2,2],['reb',735,402,5,3],['shrine',752,567,3,3],['luna',703,722,3,2]];
 const SITE_RECTS=[];
@@ -211,7 +211,7 @@ function claimBlock(s){const[cx,cy]=toT(s[1],s[2]);let best=null,bd=1e9;
 let LAP=null;
 const PIER_PTS=[[688,712],[660,770],[652,812],[650,846]];
 const DISTRICTS=[['TULLAMARINE AIRPORT',340,95],['SUNBURY',555,40],['CRAIGIEBURN',820,40],['EPPING',1110,70],['BROADMEADOWS',590,130],
-  ['ESSENDON',500,232],['BRUNSWICK',728,217],['PRESTON',905,232],['HEIDELBERG',1135,250],['ST ALBANS',120,340],['SUNSHINE',240,382],
+  ['ESSENDON',500,232],['BRUNSWICK',728,217],['PRESTON',905,232],['FAIRFIELD',905,318],['HEIDELBERG',1135,250],['ST ALBANS',120,340],['SUNSHINE',240,382],
   ['FOOTSCRAY',500,362],['FITZROY',780,325],['KEW',1008,365],['BOX HILL',1245,415],['MELBOURNE CBD',707,462],['SOUTHBANK',665,505],
   ['RICHMOND',875,477],['YARRAVILLE',295,512],['PORT OF MELBOURNE',440,588],['ROYAL BOTANIC GARDENS',800,555],['ALBERT PARK',700,612],
   ['HAWTHORN',1030,505],['CAMBERWELL',1180,520],['ST KILDA',705,700],['CAULFIELD',970,700],['GLEN WAVERLEY',1203,686],['ELWOOD',815,763],
@@ -705,15 +705,15 @@ function fwdSpeed(c){return c.vx*Math.cos(c.a)+c.vy*Math.sin(c.a)}
 function obstacleAhead(c,range=140,width=19){const fx=Math.cos(c.a),fy=Math.sin(c.a);let best=1e9;
   const test=(x,y,w)=>{const dx=x-c.x,dy=y-c.y;if(Math.abs(dx)>range+60||Math.abs(dy)>range+60)return;const f=dx*fx+dy*fy,l=-dx*fy+dy*fx;
     if(f>0&&f<range&&Math.abs(l)<width+w&&f<best)best=f};
-  for(const o of cars){if(o===c)continue;const cross=Math.abs(Math.cos(o.a-c.a))<.5;if(cross&&Math.hypot(o.x-c.x,o.y-c.y)>58)continue;test(o.x,o.y,o.type==='tram'?14:4)}
+  for(const o of cars){if(o===c)continue;const cross=Math.abs(Math.cos(o.a-c.a))<.5;if(cross&&Math.hypot(o.x-c.x,o.y-c.y)>46)continue;if(cross&&c.id>o.id&&Math.abs(fwdSpeed(o))>20)continue;test(o.x,o.y,o.type==='tram'?14:4)}
   if(!player.car&&deadT<=0)test(player.x,player.y,0);
-  for(const p of peds)if(!p.dead){const t=tileAtPx(p.x,p.y);if(t===ROAD||t===BRIDGE||t===FWY)test(p.x,p.y,0)}
+  for(const p of peds)if(!p.dead&&Math.abs(p.x-c.x)<80&&Math.abs(p.y-c.y)<80){const t=tileAtPx(p.x,p.y);if(t===ROAD||t===BRIDGE||t===FWY)test(p.x,p.y,0)}
   return best}
 function aiTraffic(c,dt){
   if(c.fw)return aiFreeway(c,dt);
-  if(!c.lane&&!assignLane(c)){c.thr=0;c.hb=true;c.steer=0;return}
+  if(!c.lane&&!assignLane(c))return recoverToRoad(c,dt);
   const L=c.lane,along=L.axis==='v'?c.y:c.x,lat=L.axis==='v'?c.x:c.y,lc=laneCoord(L);
-  if(Math.abs(lat-lc)>TS*2.2){if(!assignLane(c)){c.thr=0;c.hb=true;return}return}
+  if(Math.abs(lat-lc)>TS*2.2){if(!assignLane(c))return recoverToRoad(c,dt);return}
   if(c.nextI===undefined)c.nextI=nextInter(L,along);
   const cen=(c.nextI*G+1)*TS,toC=(cen-along)*L.dir;
   if(!c.turn&&toC<TS*5)c.turn=chooseTurn(L,c.nextI);
@@ -725,7 +725,7 @@ function aiTraffic(c,dt){
   let want=c.panicT>0?c.cruise*1.5:c.cruise;if(turning&&toC<TS*3.5)want=Math.min(want,105);
   if(T&&T.axis===L.axis&&T.dir!==L.dir)want=Math.min(want,70);
   const ob=c.pushT>0?1e9:obstacleAhead(c);if(ob<1e8)want=Math.min(want,Math.max(0,(ob-46)*2.6));
-  if(c.pushT>0)c.pushT-=dt;else if(want<15){c.waitT=(c.waitT||0)+dt;if(c.waitT>3.5){c.waitT=0;c.pushT=1.4}}else c.waitT=0;
+  if(c.pushT>0)c.pushT-=dt;else if(want<15){c.waitT=(c.waitT||0)+dt;if(c.waitT>2.2){c.waitT=0;c.pushT=1.6}}else c.waitT=0;
   if(Math.abs(fwdSpeed(c))<5)c.jamT=(c.jamT||0)+dt;else c.jamT=0;
   if(ob<70&&!player.car&&dist(c,player)<90&&R()<.01){c.horn=.4;SFX.horn()}
   const v=fwdSpeed(c);
@@ -733,6 +733,14 @@ function aiTraffic(c,dt){
   c.thr=v<want-10?1:v>want+25?-1:0;c.hb=false;
   if(want>40&&Math.abs(v)<8){c.stuckT+=dt;if(c.stuckT>2.2){c.stuckT=0;c.revT=.8}}else c.stuckT=0;
 }
+// a car knocked onto the footpath drives itself back to the nearest lane instead of parking there for good
+function recoverToRoad(c,dt){c.lostT=(c.lostT||0)+dt;
+  if(!c.rec||c.lostT>4){c.rec=nearestRoadLane(c.x,c.y);c.lostT=0}
+  const r=c.rec,d=Math.hypot(r.x-c.x,r.y-c.y);
+  if(d<14||tileAtPx(c.x,c.y)===ROAD){c.rec=null;c.a=Math.abs(angDiff(r.a,c.a))<PI/2?c.a:c.a;if(assignLane(c))return}
+  if(c.revT>0){c.revT-=dt;c.thr=-.7;c.steer=-c.steer;return}
+  const a=steerTo(c,r.x,r.y,2.4),v=fwdSpeed(c);c.hb=false;c.thr=Math.abs(a)>1.6&&v<30?-.6:v<90?.8:0;
+  if(Math.abs(v)<6){c.stuckT+=dt;if(c.stuckT>1){c.stuckT=0;c.revT=.7}}else c.stuckT=0}
 function aiFreeway(c,dt){const F=c.fw,p=fwPaths[F.path];
   let q=p[F.idx];let tx=q[0]*TS,ty=q[1]*TS;const pv=p[F.idx-F.dir]||q;let dx=q[0]-pv[0],dy=q[1]-pv[1];const m=Math.hypot(dx,dy)||1;dx/=m;dy/=m;
   tx+=dy*.75*TS;ty+=-dx*.75*TS;
@@ -933,7 +941,7 @@ let spawnTimer=0;
 function manageSpawns(dt){
   spawnR=Math.max(520,viewHalfDiag()+120);spawnTimer-=dt;
   for(let i=cars.length-1;i>=0;i--){const c=cars[i];if(c.mission||c===player.car)continue;const d=Math.hypot(c.x-player.x,c.y-player.y);
-    if(d>spawnR+(c===player.lastCar?2200:650)||(c.driver==='ai'&&c.jamT>15&&d>viewHalfDiag()+60))cars.splice(i,1)}
+    if(d>spawnR+(c===player.lastCar?2200:650)||(c.driver==='ai'&&c.jamT>9&&d>viewHalfDiag()+60))cars.splice(i,1)}
   if(spawnTimer>0)return;spawnTimer=.25;
   const traffic=cars.filter(c=>c.driver==='ai').length,civs=peds.filter(p=>p.kind==='civ'&&!p.dead).length;
   const urban=1;if(traffic<22*urban)trySpawnTraffic(false);if(civs<34)trySpawnPed(false);
@@ -1163,7 +1171,7 @@ function update(dt){
   // audio
   let sirenL=0;for(const c2 of cars)if(c2.siren&&!c2.wreck){const d=Math.hypot(c2.x-player.x,c2.y-player.y);sirenL=Math.max(sirenL,clamp(1-d/900,0,1))}
   SFX.update(!!pc&&!pc.wreck,spd,sirenL,gameT)}
-function collideCars(a,b){const ca=circles(a),cb=circles(b),ra=a.Wd/2+1,rb=b.Wd/2+1;
+function collideCars(a,b){if(a!==player.car&&b!==player.car&&a.driver==='ai'&&b.driver==='ai'&&(a.pushT>0||b.pushT>0))return;const ca=circles(a),cb=circles(b),ra=a.Wd/2+1,rb=b.Wd/2+1;
   for(const p of ca)for(const q of cb){let dx=q[0]-p[0],dy=q[1]-p[1];const d=Math.hypot(dx,dy),min=ra+rb;if(d>=min||d===0)continue;
     dx/=d;dy/=d;const ov=min-d;const ma=a.tram?0:1,mb=b.tram?0:1;if(ma+mb===0)continue;
     const ta=ma/(ma+mb),tb=mb/(ma+mb);
@@ -1298,7 +1306,6 @@ function drawHUD(){
   if(mission&&mission.timer>0){const t=Math.ceil(mission.timer);outlined(`${(t/60)|0}:${String(t%60).padStart(2,'0')}`,cw/2,T0+(sm?30:38),sm?28:36,t<15?'#ff6060':'#fff','center',5)}
   // objective + subtitles
   const lines=[];if(objective)lines.push([objective,'#ffcc33']);for(const s of subs.slice(0,2))lines.push([s.t,'#fff']);
-  if(ROUTE.path.length>1&&started){const km=ROUTE.tiles*.125;lines.unshift([`➜ ${km<1?Math.max(10,Math.round(km*100)*10)+' m':km.toFixed(1)+' km'} to ${mission?'objective':'next job'}. Follow the line`,routeColor()])}
   let y=chh-(isTouch?(cw<560?370:200):70)-safe.b;ctx.font=`${sm?15:19}px ${FONT}`;
   for(let i=lines.length-1;i>=0;i--){const ws=wrap(lines[i][0],Math.min(cw-40,680));for(let k=ws.length-1;k>=0;k--){outlined(ws[k],cw/2,y,sm?15:19,lines[i][1],'center',4);y-=sm?20:25}y-=4}
   // big
@@ -1306,7 +1313,9 @@ function drawHUD(){
     outlined(big.t,cw/2,chh*.38,s,big.col,'center',8);if(big.sub)outlined(big.sub,cw/2,chh*.38+s*.9,s*.55,'#fff','center',6);ctx.globalAlpha=1}
   // hints
   if(!player.car&&deadT<=0){const n=nearestEnterable();if(n&&gameT<240&&Math.hypot(n.x-player.x,n.y-player.y)<50){outlined(isTouch?'Tap CAR to get in':'Press E to get in',cw/2,chh*.62,sm?16:18,'#fff','center',4)}}
-  drawMinimap(sm)}
+  drawMinimap(sm);
+  if(ROUTE.path.length>1&&started&&!mapOpen){const km=ROUTE.tiles*.125,txt=(km<1?Math.max(10,Math.round(km*100)*10)+' m':km.toFixed(1)+' km')+(mission?' to objective':' to next job');
+    const x=12+safe.l,y=(isTouch?12+safe.t+(sm?112:156)+64:12+safe.t+(sm?112:156)+24);outlined(txt,x,y,sm?15:18,routeColor(),'left',4)}}
 function lapFmt(t){return`${(t/60)|0}:${(t%60).toFixed(1).padStart(4,'0')}`}
 function wrap(t,max){const ws=t.split(' '),out=[];let l='';for(const w of ws){const tl=l?l+' '+w:w;if(ctx.measureText(tl).width>max&&l){out.push(l);l=w}else l=tl}if(l)out.push(l);return out}
 function drawMinimap(sm){const S=sm?112:156,x0=12+safe.l,y0=12+safe.t,sc=sm?1.25:1.4;const pp=player.car||player;
