@@ -11,7 +11,7 @@ Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 
 | | Keyboard / mouse | Touch |
 |---|---|---|
 | Move on foot | WASD or arrows | Drag on the left half |
-| Drive | W gas, S brake/reverse, A/D steer | Stick up for gas, down to reverse, left/right to steer |
+| Drive | W gas, S brake/reverse, A/D steer | ◀ ▶ arrows steer, GAS, BRAKE (hold to reverse), EXIT |
 | Shoot | Click, Space (on foot), Ctrl or J | FIRE |
 | Get in / out of a car | E or F | CAR |
 | Brake | Space (in a car) | BRAKE |

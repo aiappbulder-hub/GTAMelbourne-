@@ -21,7 +21,7 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--fg);overflow:hi
 #gl,#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
 #gl{background:#a8c8e0}
 #cv{background:transparent}
-button{font-family:var(--display);letter-spacing:.06em;cursor:pointer}
+button{font-family:var(--display);letter-spacing:.06em;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
@@ -57,6 +57,14 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 #tbtns{position:absolute;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,74px);gap:10px;pointer-events:auto}
 #tbtns button,#ttop button{border-radius:50%;border:2px solid rgba(0,0,0,.6);color:#fff;font-size:14px;width:74px;height:74px;background:rgba(30,36,50,.72);touch-action:none}
 #tbtns button.on{filter:brightness(1.6)}
+#steerPad{position:absolute;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:12px;pointer-events:auto}
+#steerPad button{width:82px;height:82px;border-radius:50%;border:2px solid rgba(0,0,0,.6);background:rgba(30,36,50,.72);color:#fff;font-size:30px;touch-action:none}
+#cbtns{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,74px);gap:10px;pointer-events:auto}
+#cbtns button{width:74px;height:74px;border-radius:50%;border:2px solid rgba(0,0,0,.6);color:#fff;font-size:14px;background:rgba(30,36,50,.72);touch-action:none}
+#steerPad button.on,#cbtns button.on{filter:brightness(1.7)}
+#bGas{grid-row:span 2;height:158px!important;border-radius:40px!important;background:rgba(70,170,80,.85)!important}
+#bExit{background:rgba(255,204,51,.75)!important;color:#000!important}
+#bFire2{background:rgba(255,74,74,.7)!important}
 #bFire{background:rgba(255,74,74,.78)!important;grid-row:span 2;height:158px!important;border-radius:40px!important}
 #bCar{background:rgba(255,204,51,.75)!important;color:#000!important}
 #ttop{position:absolute;left:calc(12px + env(safe-area-inset-left,0px));top:calc(132px + env(safe-area-inset-top,0px));display:flex;gap:8px;pointer-events:auto}
@@ -77,6 +85,16 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
     <button id="bBrake" type="button">BRAKE</button>
     <button id="bWpn" type="button">GUN</button>
   </div>
+  <div id="steerPad" hidden>
+    <button id="bLeft" type="button" aria-label="Steer left">&#9664;</button>
+    <button id="bRight" type="button" aria-label="Steer right">&#9654;</button>
+  </div>
+  <div id="cbtns" hidden>
+    <button id="bExit" type="button">EXIT</button>
+    <button id="bGas" type="button">GAS</button>
+    <button id="bRev" type="button">BRAKE</button>
+    <button id="bFire2" type="button">FIRE</button>
+  </div>
 </div>
 
 <div id="title" class="ov">
@@ -91,7 +109,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
     <div class="help">
       <div><h3>On foot</h3><p><kbd>WASD</kbd> move, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
       <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
-      <div><h3>Touch</h3><p>Drag the left side to move. In a car, push up for gas, down to reverse, left and right to steer. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
+      <div><h3>Touch</h3><p>Drag the left side to walk. In a car, use the ◀ ▶ arrows to steer, GAS to go and BRAKE to stop or reverse. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
     </div>
   </div>
@@ -549,11 +567,12 @@ cv.addEventListener('contextmenu',e=>e.preventDefault());
 
 // touch
 const touchEl=document.getElementById('touch'),stickBase=document.getElementById('stickBase'),stickKnob=document.getElementById('stickKnob');
-const stick={id:null,ox:0,oy:0,dx:0,dy:0,mag:0,ang:0};const tbtn={fire:false,brake:false};
+const stick={id:null,ox:0,oy:0,dx:0,dy:0,mag:0,ang:0};const tbtn={fire:false,brake:false,left:false,right:false,gas:false,rev:false,fire2:false};
 function enableTouch(){if(isTouch)return;isTouch=true;mouse.used=false;touchEl.hidden=false}
 addEventListener('touchstart',()=>enableTouch(),{passive:true});
 cv.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;enableTouch();
   if(mapOpen){mapOpen=false;return}
+  if(player&&player.car)return;
   if(e.clientX<cw*.55&&stick.id===null){stick.id=e.pointerId;stick.ox=e.clientX;stick.oy=e.clientY;stick.dx=stick.dy=stick.mag=0;
     stickBase.hidden=false;stickBase.style.left=e.clientX+'px';stickBase.style.top=e.clientY+'px';stickKnob.style.transform='';}});
 addEventListener('pointermove',e=>{if(e.pointerId!==stick.id)return;let dx=e.clientX-stick.ox,dy=e.clientY-stick.oy;const m=Math.hypot(dx,dy),mx=56;
@@ -564,9 +583,9 @@ addEventListener('pointerup',endStick);addEventListener('pointercancel',endStick
 function holdBtn(id,key){const b=document.getElementById(id);
   b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();tbtn[key]=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}});
   const up=()=>{tbtn[key]=false;b.classList.remove('on')};b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up)}
-holdBtn('bFire','fire');holdBtn('bBrake','brake');
+holdBtn('bFire','fire');holdBtn('bBrake','brake');holdBtn('bLeft','left');holdBtn('bRight','right');holdBtn('bGas','gas');holdBtn('bRev','rev');holdBtn('bFire2','fire2');
 function tapBtn(id,fn){document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fn()})}
-tapBtn('bCar',()=>pressed.TouchCar=true);tapBtn('bWpn',()=>pressed.TouchWpn=true);
+tapBtn('bCar',()=>pressed.TouchCar=true);tapBtn('bExit',()=>pressed.TouchCar=true);tapBtn('bWpn',()=>pressed.TouchWpn=true);
 tapBtn('bMap',()=>{if(!paused&&!shopOpen)mapOpen=!mapOpen});tapBtn('bPause',()=>{if(!shopOpen)setPaused(true)});
 
 function readControls(){
@@ -587,6 +606,9 @@ function readControls(){
   if(c.point){c.thr=0;c.steer=0}
   c.brake=!!keys.Space||tbtn.brake;
   if(tbtn.brake&&inCar&&!c.point){c.thr=-1;if(stick.mag>.3)c.hb=true}
+  // touch car pad: arrows steer, GAS drives, BRAKE stops then reverses (steering stays the right way round)
+  if(isTouch&&inCar&&(tbtn.left||tbtn.right||tbtn.gas||tbtn.rev||tbtn.fire2)){c.point=false;c.steer=(tbtn.right?1:0)-(tbtn.left?1:0);c.thr=tbtn.gas?1:tbtn.rev?-1:0;c.hb=tbtn.gas&&tbtn.rev;c.brake=false}
+  if(tbtn.fire2)c.fire=true;
   return c}
 // touch driving help: lift off and brake before a wall dead ahead, and keep the car straight in its lane when the stick is centred
 function touchAssist(car,c,dt){const v=fwdSpeed(car);if(v<40)return;
@@ -1482,7 +1504,7 @@ function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(
 function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot(pc.vx,pc.vy):0,asp=cw/chh;
   if(view==='chase'&&started){
     if(pc){const back=fwdSpeed(pc)<-30;G3.yaw+=angDiff(back?pc.a:pc.a,G3.yaw)*Math.min(1,dt*2.6)}
-    else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<1.0)G3.yaw+=d*Math.min(1,dt*1.5)}
+    else if(G3.footMove){const d=angDiff(player.a,G3.yaw);G3.yaw+=d*Math.min(1,dt*(Math.abs(d)<1.2?2.2:.9))}
     const d=pc?95+spd*.07:62,h=pc?40+spd*.02:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     c3.position.set(pp.x-Math.cos(G3.yaw)*d+sh,h+sh,pp.y-Math.sin(G3.yaw)*d);c3.lookAt(pp.x+Math.cos(G3.yaw)*70,8,pp.y+Math.sin(G3.yaw)*70);
     G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250]}
@@ -1593,11 +1615,15 @@ if(view!=='2d'&&!init3D())view='2d';viewLabel();
 document.getElementById('btnCont').hidden=!loadSave();
 // attract mode behind the title: a slow drift over the CBD
 buildLocations();player=makePlayer(LOC.start.x,LOC.start.y);cam.x=player.x;cam.y=player.y;cam.z=clamp(Math.min(cw,chh)/720,.55,1.05);spawnTrams();
+const tbEl=document.getElementById('tbtns'),cbEl=document.getElementById('cbtns'),spEl=document.getElementById('steerPad');
 let last=performance.now();
 function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   if(started&&!paused&&!mapOpen&&!shopOpen)update(dt);
   else if(!started){gameT+=dt;cam.x+=dt*40;for(const c of cars)if(c.tram)updateTram(c,dt)}
-  const tb=document.getElementById('tbtns');if(tb)tb.style.visibility=mapOpen?'hidden':'';
+  const driving=!!(isTouch&&player&&player.car&&started);
+  tbEl.hidden=driving;cbEl.hidden=!driving;spEl.hidden=!driving;tbEl.style.visibility=cbEl.style.visibility=spEl.style.visibility=mapOpen?'hidden':'';
+  if(driving&&stick.id!==null){stick.id=null;stick.mag=0;stick.dx=stick.dy=0;stickBase.hidden=true}
+  if(!driving)for(const k of['left','right','gas','rev','fire2'])tbtn[k]=false;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
