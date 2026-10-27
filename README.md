@@ -40,4 +40,5 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 - Weapons are fists, pistol, Uzi and shotgun, with drive-bys forward from the car. Cars smoke, catch fire and explode, with chain reactions.
 - There are five story missions, timed checkpoints, Ammu-Nation shops (plus a $20 pie for health), hospitals, police stations, safe houses that save to localStorage, and pickups.
 - Street crews hold their turf: the Lygon Street Crew in Carlton/Fitzroy, the Broadmeadows mob up north and the Westside Nomads in Sunshine. They leave you alone until you start something.
+- The Fjord Strainger Wildtrak is a dual-cab 4x4 ute built in-game, with flares, bull bar, snorkel, sports bar and roof light bar.
 - Cars carry parody Aussie badges (Holdan Comodo, FPB Typhoon F6, HSB Clubbie R8, Holdan Ute SS, Fjord Territorial, Toyoda Tarrago, and more).
