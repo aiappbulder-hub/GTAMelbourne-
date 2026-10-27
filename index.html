@@ -111,7 +111,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
       <button id="btnCont" class="big alt" type="button" hidden>Continue</button>
     </div>
     <div class="help">
-      <div><h3>On foot</h3><p><kbd>WASD</kbd> move, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
+      <div><h3>On foot</h3><p><kbd>WASD</kbd> move (in the chase camera <kbd>A</kbd>/<kbd>D</kbd> turn you), <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
       <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake (HB on touch), <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
       <div><h3>Touch</h3><p>Drag the left side to walk and the right side to look around. In a car, use the ◀ ▶ arrows to steer, GAS to go, BRAKE to stop and REV to reverse. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Turn the camera with <kbd>Z</kbd>/<kbd>C</kbd> or by right-dragging. Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
@@ -626,6 +626,8 @@ function readControls(){
   if(stick.mag>.15){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}if(!inCar)c.sprint=stick.mag>.85;
     // GTA stick: push up for gas, pull down to brake/reverse, left/right to steer
     if(inCar&&(driveMode==='gta'||view==='chase')){const sx=Math.abs(stick.dx)>.12?stick.dx:0,sy=Math.abs(stick.dy)>.18?stick.dy:0;c.steer=clamp(sx*1.25,-1,1);c.thr=clamp(-sy*1.3,-1,1)}}
+  // chase camera on a keyboard: A/D turn you, W walks forward, S steps back (the camera stays behind you)
+  if(G3.active&&view==='chase'&&!inCar&&!isTouch&&stick.mag<=.15){c.tank=true;c.turn=(rt?1:0)-(lf?1:0);c.fwd=(up?1:0)-(dn?1:0);c.mx=c.my=0}
   if(G3.active&&view==='chase'&&!inCar&&(c.mx||c.my)){const r=G3.yaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
   c.point=inCar&&driveMode==='point'&&view!=='chase';
   if(c.point){c.thr=0;c.steer=0}
@@ -1007,10 +1009,11 @@ function updatePlayer(dt,c){
     return}
   if(c.enter){const t=nearestEnterable();if(t){enterCar(t);return}}
   const sp=c.sprint?185:125;
-  if(G3.ok)G3.footMove=!!(c.mx||c.my);
-  if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used)player.a=Math.atan2(c.my,c.mx)}
+  if(c.tank){player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}
+  if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
+  if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used&&!c.tank)player.a=Math.atan2(c.my,c.mx)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
-  if(mouse.used&&!isTouch){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
+  if(mouse.used&&!isTouch&&(!c.tank||mouse.down)){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
   pushOutCars(player,6);
   if(c.fire&&player.cool<=0){player.cool=w.rate;let a=player.a;
     if(isTouch){let best=null,bs=1.0;for(const p of peds){if(p.dead)continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d>300)continue;
@@ -1637,6 +1640,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     G3.manualT=(G3.manualT||9)+dt;const kz=(keys.KeyC?1:0)-(keys.KeyZ?1:0);if(kz){G3.yaw+=kz*1.9*dt;G3.manualT=0}
     // follow the car only while you're not turning the camera yourself; on foot only drift round when walking away from it
     if(G3.manualT>1.6){if(pc){if(Math.abs(fwdSpeed(pc))>25)G3.yaw+=angDiff(pc.a,G3.yaw)*Math.min(1,dt*2.2)}
+      else if(G3.tank)G3.yaw+=angDiff(player.a,G3.yaw)*Math.min(1,dt*4.5);
       else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<2.4)G3.yaw+=d*Math.min(1,dt*1.7)}}
     const d=pc?95+spd*.07:62,h=pc?40+spd*.02:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     const gy=groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(G3.yaw)*d+sh,h+sh+gy,pp.y-Math.sin(G3.yaw)*d);c3.lookAt(pp.x+Math.cos(G3.yaw)*70,8+gy,pp.y+Math.sin(G3.yaw)*70);
@@ -1781,7 +1785,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get wg(){return WG&&{n:WG.pts.length,s0:WG.s0|0,s1:WG.s1|0}},get wgPts(){return WG.pts},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get gameT(){return gameT},get wg(){return WG&&{n:WG.pts.length,s0:WG.s0|0,s1:WG.s1|0}},get wgPts(){return WG.pts},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

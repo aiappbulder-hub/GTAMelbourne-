@@ -12,7 +12,7 @@ Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 
 
 | | Keyboard / mouse | Touch |
 |---|---|---|
-| Move on foot | WASD or arrows | Drag on the left half |
+| Move on foot | WASD or arrows (chase camera: A/D turn, W forward, S back) | Drag on the left half |
 | Drive | W gas, S brake/reverse, A/D steer, Space handbrake | ◀ ▶ arrows steer, GAS, BRAKE, REV, HB (handbrake), EXIT |
 | Turn the camera | Z / C, or drag with the right mouse button | Drag the right side of the screen (anywhere while driving) |
 | Shoot | Click, Space (on foot), Ctrl or J | FIRE |
