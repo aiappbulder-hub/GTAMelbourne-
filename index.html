@@ -121,6 +121,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -1293,6 +1294,7 @@ function init3D(){
     sc.add(G3.pm);sc.add(G3.dm);
     G3.mk=new T.Group();sc.add(G3.mk);
     buildLandmarks3D();
+    loadModels();
     G3.ok=true;
   }catch(e){console.error(e);G3.ok=false}
   return G3.ok}
@@ -1349,7 +1351,30 @@ function chunks3D(){const[fx,fy,R]=G3.focus,need=[];
 function M(col,emis){const k=col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=new G3.T.MeshLambertMaterial({color:col,emissive:emis||'#000000'}))}
 function part(g,mat,sx,sy,sz,x,y,z){const m=new G3.T.Mesh(G3.box,mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m}
 function shadowDisc(g,sx,sz){const m=new G3.T.Mesh(G3.disc,G3.shadowMat);m.scale.set(sx,1,sz);m.position.y=.6;g.add(m)}
-function carMesh(c){const g=new G3.T.Group(),L=c.L,Wd=c.Wd,glass=M('#1b2633'),dark=M('#161616');shadowDisc(g,L*.62,Wd*.75);
+// ---------------------------------------------------------------- real vehicle models (Kenney, CC0); built-in blocky cars stand in for anything missing
+const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.glb');
+const CARKIT={sedan:'sedan',hatch:'hatchback-sports',micra:'hatchback-sports',sports:'sedan-sports',hsv:'race',wagon:'suv',suv:'suv',van:'van',taxi:'taxi',
+  police:'police',highway:'police',unmarked:'sedan',federal:'suv-luxury',ute:'truck'};
+const MODELS={ver:0,tpl:{}};
+function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
+  const load=url=>new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;res(true)},undefined,()=>res(false)));
+  UTE_MODELS.forEach(load);
+  fetch('models/car-kit/sedan.glb',{method:'HEAD'}).then(r=>{if(r.ok)new Set(Object.values(CARKIT)).forEach(n=>load('models/car-kit/'+n+'.glb'))}).catch(()=>{})}
+// face +x like the rest of the game, sit on the ground, length 1
+function prepModel(sc){const T=G3.T,box=new T.Box3().setFromObject(sc),sz=new T.Vector3();box.getSize(sz);
+  const inner=new T.Group();inner.add(sc);if(sz.z>sz.x)inner.rotation.y=PI/2;const len=Math.max(sz.x,sz.z);
+  sc.position.set(-(box.min.x+box.max.x)/2,-box.min.y,-(box.min.z+box.max.z)/2);
+  const wrap=new T.Group();wrap.add(inner);wrap.userData={len,top:sz.y};sc.traverse(o=>{if(o.isMesh){o.material.side=T.FrontSide}});return wrap}
+function modelFor(c){if(c.tram)return null;const ck=MODELS.tpl['models/car-kit/'+CARKIT[c.type]+'.glb'];
+  if(c.type==='ute'){const u=MODELS.tpl[UTE_MODELS[(CAR_COLORS.indexOf(c.color)+4)%4]];return ck&&R()<.3?ck:u}return ck||null}
+function carMesh(c){const tpl=modelFor(c);if(tpl)return modelMesh(c,tpl);return boxCarMesh(c)}
+function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*1.12/tpl.userData.len;m.scale.setScalar(k);g.add(m);shadowDisc(g,c.L*.62,c.Wd*.78);
+  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;
+  if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
+  const top=tpl.userData.top*k;
+  if(c.cop&&c.type!=='unmarked'&&!c.wreck){g.userData.lr=part(g,M('#161616'),4,2.5,c.Wd*.38,-c.L*.05,top+1.2,-c.Wd*.2);g.userData.lb=part(g,M('#161616'),4,2.5,c.Wd*.38,-c.L*.05,top+1.2,c.Wd*.2)}
+  return g}
+function boxCarMesh(c){const g=new G3.T.Group(),L=c.L,Wd=c.Wd,glass=M('#1b2633'),dark=M('#161616');shadowDisc(g,L*.62,Wd*.75);
   if(c.tram){const TM=col=>G3.mats['t'+col]||(G3.mats['t'+col]=occlude(new G3.T.MeshLambertMaterial({color:col})));
     part(g,TM('#e9ece6'),L,20,Wd,0,15,0);part(g,TM('#2f8f5b'),L+.5,4,Wd+.5,0,8,0);part(g,TM('#1b2633'),L-10,7,Wd+.6,0,18,0);part(g,TM('#c9ccc6'),L-24,2,Wd-6,0,26,0);
     const pole=part(g,dark,22,1.2,1.2,0,30,0);pole.rotation.z=.3;
@@ -1395,8 +1420,9 @@ function buildMarkers3D(){if(!G3.ok)return;const T=G3.T;while(G3.mk.children.len
   G3.mm=add({x:0,y:0},'#ff3d9a','M',24,40,22);G3.blips=[];for(let i=0;i<8;i++){const g=add({x:0,y:0},'#ffcc33','!',22,38,18);G3.blips.push(g)}}
 const PICK_ICON={cash:['$','#3fae4a','#fff'],health:['+','#ffffff','#d32'],armor:['A','#3a7bd5','#fff'],pistol:['P','#c9a227','#111'],uzi:['U','#c9a227','#111'],shotgun:['S','#c9a227','#111']};
 function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
-  for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key}
+  for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver;if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key}
     c.m3.position.set(c.x,0,c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
+    if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
   for(const p of peds){if(!p.m3)p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);syncPed(p.m3,p,false);touch(p.m3)}
   if(!player.car&&started){if(!G3.pl)G3.pl=pedMesh('#ff4fa3','#e8b896','#3a2414','pl',false);syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
@@ -1536,7 +1562,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

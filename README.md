@@ -23,6 +23,8 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 ## What's in it
 
+- Utes on the road are real 3D models: the CC0 4x4s from Kenney's Starter Kit Racing. To give the rest of the traffic real models too, drop Kenney's free Car Kit into `models/car-kit/` (steps in `models/README.md`). Models load when the game is served over http(s), such as GitHub Pages.
+
 - 3D Melbourne landmarks: Eureka Tower, Rialto Towers, Flinders Street Station, St Paul's, Federation Square, the Arts Centre spire, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park, the MCG with its light towers, and the West Gate Bridge pylons.
 - The Albert Park Grand Prix circuit loops around the lake, with kerbs, a grandstand and a lap timer at the start/finish line. The Tan running track loops around the Botanic Gardens.
 
