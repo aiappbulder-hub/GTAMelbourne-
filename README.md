@@ -23,6 +23,9 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 ## What's in it
 
+- 3D Melbourne landmarks: Eureka Tower, Rialto Towers, Flinders Street Station, St Paul's, Federation Square, the Arts Centre spire, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park, the MCG with its light towers, and the West Gate Bridge pylons.
+- The Albert Park Grand Prix circuit loops around the lake, with kerbs, a grandstand and a lap timer at the start/finish line. The Tan running track loops around the Botanic Gardens.
+
 - In 3D, buildings rise from the map: CBD towers, a Southbank skyline, houses with backyards, the MCG bowl and shipping containers at the port. Buildings and trams go see-through when they come between the camera and you.
 
 - The city is generated from `reference-map.png`. It includes Port Phillip Bay, the Yarra and Maribyrnong rivers, the freeway network (M1, M2, M3, M80), Tullamarine Airport, the Port of Melbourne, St Kilda Pier, the MCG, parks and beaches, with the CBD towers giving way to suburban houses further out.
