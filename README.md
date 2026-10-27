@@ -10,15 +10,16 @@ Open `index.html` in a desktop or mobile browser. To serve it locally: `python3 
 
 | | Keyboard / mouse | Touch |
 |---|---|---|
-| Move / drive | WASD or arrows: hold the direction you want to go and the car turns itself around | Drag on the left half toward where you want to go |
+| Move on foot | WASD or arrows | Drag on the left half |
+| Drive | W gas, S brake/reverse, A/D steer | Stick up for gas, down to reverse, left/right to steer |
 | Shoot | Click, Space (on foot), Ctrl or J | FIRE |
 | Get in / out of a car | E or F | CAR |
 | Brake | Space (in a car) | BRAKE |
 | Switch weapon | Q, Tab, wheel, 1–4 | GUN |
 | Map / pause / horn | M / P or Esc / H | MAP / II |
-| Camera | V cycles 3D overhead, 3D chase cam and classic 2D | CAM |
+| Camera | V cycles 3D chase cam, 3D overhead and classic 2D | CAM |
 
-Prefer tank-style driving (W/S gas and brake, A/D steer)? Switch **Driving: classic** in the pause menu.
+Prefer pointing the stick where you want to go? Switch **Driving: point** in the pause menu (overhead and 2D cameras).
 
 ## What's in it
 

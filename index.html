@@ -90,8 +90,8 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
     </div>
     <div class="help">
       <div><h3>On foot</h3><p><kbd>WASD</kbd> move, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
-      <div><h3>Driving</h3><p>Hold <kbd>WASD</kbd> toward where you want to go and the car steers itself there, U-turns included. <kbd>Space</kbd> brakes, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
-      <div><h3>Touch</h3><p>Drag the left side toward where you want to go, on foot or driving. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
+      <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake, <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
+      <div><h3>Touch</h3><p>Drag the left side to move. In a car, push up for gas, down to reverse, left and right to steer. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
     </div>
   </div>
@@ -100,7 +100,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 <div id="pause" class="ov" hidden>
   <div class="card">
     <h2 class="ttl">Paused</h2>
-    <p class="lede">Point driving steers the car toward the direction you hold. Classic is W/S for gas and brake, A/D to steer.</p>
+    <p class="lede">GTA driving: W or stick up for gas, S or stick down to brake and reverse, A/D to steer, Space for the handbrake. Point driving steers toward the direction you hold, in the overhead and 2D views.</p>
     <div class="row">
       <button id="btnResume" class="big" type="button">Resume</button>
       <button id="btnView" class="big alt" type="button">View: 3D overhead</button>
@@ -448,7 +448,7 @@ const WEAPONS=[
 let player,cars=[],peds=[],bullets=[],parts=[],decals=[],pickups=[];
 let heat=0,stars=0,unseen=0,gameT=0,paused=true,mapOpen=false,shopOpen=false,started=false;
 let mission=null,progress=0,deadT=0,deadKind='',cam={x:0,y:0,z:1,shake:0},spawnR=900;
-let driveMode='point';try{driveMode=localStorage.getItem('gta-melbourne-drive')||'point'}catch(e){}
+let driveMode='gta';try{driveMode=localStorage.getItem('gta-melbourne-drive2')||'gta'}catch(e){}
 let objective='',subs=[],big=null,zone='',zoneT=0,carNameT=0,lastGunHeat=0,flowT=0;
 
 function makePlayer(x,y){return{x,y,a:0,hp:100,armor:0,car:null,wi:0,ammo:{pistol:0,uzi:0,shotgun:0},cool:0,anim:0,bustT:0,kx:0,ky:0,hitCool:0,isPlayer:true}}
@@ -539,11 +539,10 @@ function readControls(){
   for(let i=1;i<=4;i++)if(pressed['Digit'+i])c.sel=i-1;
   c.sprint=!!(keys.ShiftLeft||keys.ShiftRight);c.horn=!!keys.KeyH;
   if(stick.mag>.15){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}if(!inCar)c.sprint=stick.mag>.85;
-    if(inCar&&driveMode==='classic'){const car=player.car,vf=fwdSpeed(car),d=angDiff(stick.ang,car.a);
-      if(Math.abs(d)>2.4&&vf<80){c.thr=-stick.mag;c.steer=clamp(-angDiff(stick.ang,car.a+PI)*2,-1,1)}
-      else{c.steer=clamp(d*1.4,-1,1);c.thr=stick.mag*(Math.abs(d)>1.6?.45:1)}}}
-  if(G3.active&&view==='chase'&&(c.mx||c.my)){const r=G3.yaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
-  c.point=inCar&&driveMode==='point';
+    // GTA stick: push up for gas, pull down to brake/reverse, left/right to steer
+    if(inCar&&(driveMode==='gta'||view==='chase')){const sx=Math.abs(stick.dx)>.12?stick.dx:0,sy=Math.abs(stick.dy)>.18?stick.dy:0;c.steer=clamp(sx*1.25,-1,1);c.thr=clamp(-sy*1.3,-1,1)}}
+  if(G3.active&&view==='chase'&&!inCar&&(c.mx||c.my)){const r=G3.yaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
+  c.point=inCar&&driveMode==='point'&&view!=='chase';
   if(c.point){c.thr=0;c.steer=0}
   c.brake=!!keys.Space||tbtn.brake;
   if(tbtn.brake&&inCar&&!c.point){c.thr=-1;if(stick.mag>.3)c.hb=true}
@@ -579,6 +578,7 @@ function carHits(c,x,y,a){const ca=Math.cos(a),sa=Math.sin(a),hl=c.L/2-1,hw=c.Wd
   for(const[px,py]of pts)if(solidPx(x+px*ca-py*sa,y+px*sa+py*ca))return true;return false}
 
 // ================================================================ cars
+const NUDGE=[[3,0],[-3,0],[0,3],[0,-3],[3,3],[-3,3],[3,-3],[-3,-3],[6,0],[-6,0],[0,6],[0,-6],[6,6],[-6,6],[6,-6],[-6,-6]];
 function drive(c,thr,steer,hb,dt){
   const T=CARS[c.type],fx=Math.cos(c.a),fy=Math.sin(c.a);
   let vf=c.vx*fx+c.vy*fy,vr=-c.vx*fy+c.vy*fx;
@@ -593,8 +593,8 @@ function drive(c,thr,steer,hb,dt){
   vf-=vf*.18*dt;
   const grip=hb?1.1:7.5;vr-=vr*Math.min(1,grip*dt);
   const sp=Math.abs(vf);
-  const turn=steer*(hb?3.3:2.6)*(c===player.car?.75:1)*Math.min(1,sp/(c===player.car&&driveMode==='point'?55:130))*(vf<0?-1:1)*dt/(1+sp/1100);
-  let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a))na=c.a;c.a=na;
+  const pl=c===player.car,turn=steer*(hb?3.4:2.6)*(pl?.9:1)*Math.min(1,sp/(pl?35:130))*(vf<0?-1:1)*dt/(1+sp/(pl?1300:1100));
+  let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a)){let ok=false;for(const[ox,oy]of NUDGE)if(!carHits(c,c.x+ox,c.y+oy,na)){c.x+=ox;c.y+=oy;ok=true;break}if(!ok)na=c.a}c.a=na;
   const nfx=Math.cos(c.a),nfy=Math.sin(c.a);
   c.vx=nfx*vf-nfy*vr;c.vy=nfy*vf+nfx*vr;
   // move with tile collision (sliding)
@@ -886,7 +886,7 @@ function updatePlayer(dt,c){
     if(c.enter&&Math.abs(fwdSpeed(car))<200){exitCar();return}
     // ease steering in and out so a tap is a nudge, not a swerve
     if(c.point)pointDrive(car,c,dt);
-    player.steerS=lerp(player.steerS||0,c.steer,Math.min(1,dt*(Math.abs(c.steer)<Math.abs(player.steerS||0)?8:4)));
+    player.steerS=lerp(player.steerS||0,c.steer,Math.min(1,dt*(Math.abs(c.steer)<Math.abs(player.steerS||0)?12:7)));
     drive(car,c.thr,player.steerS,c.hb,dt);player.x=car.x;player.y=car.y;player.a=car.a;
     if(c.horn&&car.horn<=0){SFX.horn();car.horn=.5;panicAround(car.x,car.y,120)}car.horn-=dt;
     if(c.fire&&player.cool<=0&&!w.melee&&!car.wreck){player.cool=w.rate*1.2;player.ammo[w.id]--;
@@ -894,6 +894,7 @@ function updatePlayer(dt,c){
     return}
   if(c.enter){const t=nearestEnterable();if(t){enterCar(t);return}}
   const sp=c.sprint?185:125;
+  if(G3.ok)G3.footMove=!!(c.mx||c.my);
   if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used)player.a=Math.atan2(c.my,c.mx)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
   if(mouse.used&&!isTouch){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
@@ -1235,8 +1236,8 @@ function drawFullMap(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1018'
   outlined(isTouch?'Tap to close':'Press M to close',cw/2,chh-10-safe.b,14,'#9aa4b5','center',3)}
 
 // ================================================================ 3D view (three.js). The simulation stays 2D: world x/y become x/z, y is up.
-let view='3d';try{view=localStorage.getItem('gta-melbourne-view')||'3d'}catch(e){}
-const VIEWS=['3d','chase','2d'],VIEW_NAMES={'3d':'3D overhead',chase:'3D chase cam','2d':'Classic 2D'};
+let view='chase';try{view=localStorage.getItem('gta-melbourne-view2')||'chase'}catch(e){}
+const VIEWS=['chase','3d','2d'],VIEW_NAMES={'3d':'3D overhead',chase:'3D chase cam','2d':'Classic 2D'};
 const G3={ok:false,active:false,yaw:-PI/2,chunks:new Map(),live:new Set(),frame:0,mats:{},icons:{},lastT:0};
 const glEl=document.getElementById('gl');
 function init3D(){
@@ -1385,7 +1386,8 @@ function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(
   q.identity();G3.dm.count=k;G3.dm.instanceMatrix.needsUpdate=true;G3.dm.instanceColor.needsUpdate=true}
 function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot(pc.vx,pc.vy):0,asp=cw/chh;
   if(view==='chase'&&started){
-    G3.yaw+=angDiff(pc?pc.a:player.a,G3.yaw)*Math.min(1,dt*(pc?2.4:3.5));
+    if(pc){const back=fwdSpeed(pc)<-30;G3.yaw+=angDiff(back?pc.a:pc.a,G3.yaw)*Math.min(1,dt*2.6)}
+    else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<1.0)G3.yaw+=d*Math.min(1,dt*1.5)}
     const d=pc?95+spd*.07:62,h=pc?40+spd*.02:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     c3.position.set(pp.x-Math.cos(G3.yaw)*d+sh,h+sh,pp.y-Math.sin(G3.yaw)*d);c3.lookAt(pp.x+Math.cos(G3.yaw)*70,8,pp.y+Math.sin(G3.yaw)*70);
     G3.sc.fog.near=650;G3.sc.fog.far=1500;G3.focus=[pp.x+Math.cos(G3.yaw)*450,pp.y+Math.sin(G3.yaw)*450,1050]}
@@ -1407,7 +1409,7 @@ function drawBlipArrows3D(){const bl=missionBlips();if(!mission&&progress<MISSIO
     ctx.save();ctx.translate(cw/2+Math.cos(a)*k,chh/2+Math.sin(a)*k);ctx.rotate(a);ctx.fillStyle=mission?'#ffcc33':'#ff3d9a';ctx.strokeStyle='#000';ctx.lineWidth=3;
     ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-10,-12);ctx.lineTo(-4,0);ctx.lineTo(-10,12);ctx.closePath();ctx.stroke();ctx.fill();ctx.restore()}}
 function cycleView(){let i=VIEWS.indexOf(view);for(let n=0;n<3;n++){i=(i+1)%3;if(VIEWS[i]==='2d'||init3D())break}view=VIEWS[i];if(view!=='2d')buildMarkers3D();G3.active=view!=='2d';
-  try{localStorage.setItem('gta-melbourne-view',view)}catch(e){}if(started)sub('Camera: '+VIEW_NAMES[view],2);viewLabel()}
+  try{localStorage.setItem('gta-melbourne-view2',view)}catch(e){}if(started)sub('Camera: '+VIEW_NAMES[view],2);viewLabel()}
 const btnView=document.getElementById('btnView');function viewLabel(){btnView.textContent='View: '+VIEW_NAMES[view]}
 btnView.addEventListener('click',cycleView);tapBtn('bCam',cycleView);
 
@@ -1434,8 +1436,8 @@ function nearestRoadLane(x,y){const[nx,ny]=nearestWalkable(x,y,t=>t===ROAD);cons
 document.getElementById('btnNew').addEventListener('click',()=>{SFX.init();newGame(null)});
 document.getElementById('btnCont').addEventListener('click',()=>{SFX.init();newGame(loadSave())});
 document.getElementById('btnResume').addEventListener('click',()=>setPaused(false));
-const btnDrive=document.getElementById('btnDrive');const driveLabel=()=>{btnDrive.textContent='Driving: '+(driveMode==='point'?'point':'classic')};driveLabel();
-btnDrive.addEventListener('click',()=>{driveMode=driveMode==='point'?'classic':'point';driveLabel();try{localStorage.setItem('gta-melbourne-drive',driveMode)}catch(e){}});
+const btnDrive=document.getElementById('btnDrive');const driveLabel=()=>{btnDrive.textContent='Driving: '+(driveMode==='point'?'point (overhead only)':'GTA')};driveLabel();
+btnDrive.addEventListener('click',()=>{driveMode=driveMode==='point'?'gta':'point';driveLabel();try{localStorage.setItem('gta-melbourne-drive2',driveMode)}catch(e){}});
 document.getElementById('btnMute').addEventListener('click',e=>{SFX.setMuted(!SFX.muted);e.target.textContent='Sound: '+(SFX.muted?'off':'on')});
 document.getElementById('btnQuit').addEventListener('click',()=>{started=false;setPaused(true);pauseEl.hidden=true;titleEl.hidden=false;document.getElementById('btnCont').hidden=!loadSave();SFX.update(false,0,0,0)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&started&&!shopOpen)setPaused(true)});
@@ -1453,7 +1455,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get player(){return player},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get player(){return player},get yaw(){return G3.yaw},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
