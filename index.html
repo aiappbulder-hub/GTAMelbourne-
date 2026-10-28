@@ -105,6 +105,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
   <div class="card">
     <div class="logo"><span class="gta">grand theft auto</span><span class="mel">Melbourne</span></div>
     <p class="tag">Same city. Different rules.</p>
+    <p class="lede" id="buildInfo" style="font-size:13px;opacity:.75">Build 21 · loading 3D models…</p>
     <p class="lede">Melbourne, 2004. The underworld war between the Lygon Street Crew and the Broadmeadows mob is in its sixth year, Taskforce Kestrel is closing in, and you just got off the plane at Tullamarine.</p>
     <div class="row">
       <button id="btnNew" class="big" type="button">New game</button>
@@ -488,10 +489,18 @@ function renderChunk(g,cx,cy,for3d){
       let near=false;for(const q of P){const x=q[0]*TS,y=q[1]*TS;if(x>X0-120&&x<X1+120&&y>Y0-120&&y<Y1+120){near=true;break}}if(!near)continue;
       const path=()=>{g.beginPath();P.forEach((q,i)=>i?g.lineTo(q[0]*TS,q[1]*TS):g.moveTo(q[0]*TS,q[1]*TS))};
       const off=o=>{g.beginPath();P.forEach((q,i)=>{const a=P[Math.max(0,i-1)],b=P[Math.min(P.length-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,x=q[0]*TS-dy/l*o,y=q[1]*TS+dx/l*o;i?g.lineTo(x,y):g.moveTo(x,y)})};
+      path();g.strokeStyle='#5c8043';g.lineWidth=port?112:138;g.stroke();   // smooth grass verge hides the tile steps
       path();g.strokeStyle='#f2c230';g.lineWidth=hw*2+6;g.stroke();path();g.strokeStyle='#3d4047';g.lineWidth=hw*2-2;g.stroke();
       g.strokeStyle='#e4dfcf';if(port){g.setLineDash([18,22]);g.lineWidth=2;path();g.stroke()}
       else{g.setLineDash([]);g.lineWidth=3;path();g.stroke();g.setLineDash([18,24]);g.lineWidth=2;off(23);g.stroke();off(-23);g.stroke()}g.setLineDash([])}
-    g.restore()}
+    g.restore();
+    // where a street runs into or across a freeway, paint the street through so it visibly joins instead of stopping at the verge
+    const smp=[];for(const P of fwPaths)for(let i=0;i<P.length-1;i++){const q=P[i],n=P[i+1],x=q[0]*TS,y=q[1]*TS;if(x<X0-100||x>X1+100||y<Y0-100||y>Y1+100)continue;
+      const dx=n[0]-q[0],dy=n[1]-q[1],l=Math.hypot(dx,dy)||1;smp.push([x,y,dx/l,dy/l])}
+    if(smp.length)for(let ty=y0;ty<y0+CH;ty++)for(let tx=x0;tx<x0+CH;tx++){if(tAt(tx,ty)!==ROAD)continue;const lx=tx%G,ly=ty%G,vert=lx<2&&ly>=2,hor=ly<2&&lx>=2;if(!vert&&!hor)continue;
+      const cx=(tx+.5)*TS,cy=(ty+.5)*TS;let bd=1e18,bs=null;for(const q of smp){const d=(q[0]-cx)**2+(q[1]-cy)**2;if(d<bd){bd=d;bs=q}}
+      if(bd>78*78)continue;const along=vert?Math.abs(bs[3]):Math.abs(bs[2]);if(along>.75)continue;   // street runs alongside: leave the freeway alone
+      g.fillStyle='#3a3d43';g.fillRect((tx-x0)*TS,(ty-y0)*TS,TS,TS)}}
   // cast shadows (sun from the north-west)
   g.fillStyle='rgba(0,0,0,.28)';
   for(let ty=y0;ty<y0+CH;ty++)for(let tx=x0;tx<x0+CH;tx++){const t=tAt(tx,ty);if(SOLID[t]&&t!==WATER&&t!==RIVER)continue;
@@ -1183,8 +1192,8 @@ function sub(t,d=3){subs.push({t,d});if(subs.length>3)subs.shift()}
 function showBig(t,col,d,sub2){big={t,col,d,max:d,sub:sub2||''}}
 
 // ================================================================ street names
-const STREETS=['High St','Sydney Rd','Nicholson St','Chapel St','Glenferrie Rd','Burke Rd','Warrigal Rd','Springvale Rd','Station St','Bell St','Plenty Rd',
-  'Bridge Rd','Toorak Rd','Barkly St','Ballarat Rd','Racecourse Rd','Mt Alexander Rd','Union Rd','Keilor Rd','Glen Huntly Rd','Hawthorn Rd','Koornang Rd',
+const STREETS=['High St','Nicholson St','Glenferrie Rd','Burke Rd','Warrigal Rd','Springvale Rd','Station St','Bell St','Plenty Rd',
+  'Barkly St','Ballarat Rd','Racecourse Rd','Mt Alexander Rd','Union Rd','Keilor Rd','Glen Huntly Rd','Hawthorn Rd','Koornang Rd',
   'Waverley Rd','Ferntree Gully Rd','Canterbury Rd','Maroondah Hwy','Doncaster Rd','Heidelberg Rd','Johnston St','Gertrude St','Elgin St','Rathdowne St',
   'Queens Pde','Dandenong Rd','Balaclava Rd','North Rd','South Rd','Centre Rd','Bay St','Carlisle St','Fitzroy St','Acland St','Clarendon St','Kings Way',
   'Cecil St','Lorimer St','Williamstown Rd','Francis St','Somerville Rd','Geelong Rd','Buckley St','Gordon St','Hampshire Rd','Main Rd','Whitehorse Rd',
@@ -1604,9 +1613,11 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
   van:['van','delivery'],taxi:['taxi'],police:['police'],highway:['police'],unmarked:['sedan'],federal:['suv-luxury'],ute:['truck'],
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
-const MODELS={ver:0,tpl:{}};
+const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
+const BUILD='Build 21';
+function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
-  const load=url=>new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;res(true)},undefined,()=>res(false)));
+  const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
   UTE_MODELS.forEach(load);load(BIKE_MODEL);new Set(Object.values(CUSTOM)).forEach(n=>load(cuUrl(n)));new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)));
   // suburban buildings: bake each model to one geometry sitting on the ground, then rebuild the city chunks to use them
   Promise.all(CITY.names.map(n=>new Promise(res=>ld.load('models/city/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);let mesh=null;sc.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
@@ -1878,7 +1889,7 @@ document.getElementById('btnMute').addEventListener('click',e=>{SFX.setMuted(!SF
 document.getElementById('btnQuit').addEventListener('click',()=>{started=false;setPaused(true);pauseEl.hidden=true;titleEl.hidden=false;document.getElementById('btnCont').hidden=!loadSave();SFX.update(false,0,0,0)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&started&&!shopOpen)setPaused(true)});
 
-generate();buildMini();buildWestGate();buildReach();
+generate();buildMini();buildWestGate();buildReach();setTimeout(modelStatus,0);
 if(view!=='2d'&&!init3D())view='2d';viewLabel();
 document.getElementById('btnCont').hidden=!loadSave();
 // attract mode behind the title: a slow drift over the CBD
