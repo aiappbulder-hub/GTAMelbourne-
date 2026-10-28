@@ -303,7 +303,7 @@ def car(spec):
     b = loft("body", st, hw, paint, s.get("tumble", .74))
     cut_arches(b, [(fa, wr), (ra, wr)], wr + .07, W)
     for y in (fa, ra):  # dark wheel wells so the arches don't show the inside of the shell
-        cyl("wheel-well", wr + .065, W - .2, (0, y, wr), mat("Under", "#141416", rough=1), verts=20)
+        cyl("arch-well", wr + .065, W - .2, (0, y, wr), mat("Under", "#141416", rough=1), verts=20)
     ws = next(x[0] for x in st if x[5] == "w")
     wz = st[[x[0] for x in st].index(ws)][3]
     flo = wz - .35

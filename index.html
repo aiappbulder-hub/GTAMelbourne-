@@ -1618,7 +1618,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
-const BUILD='Build 22';
+const BUILD='Build 23';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1647,7 +1647,7 @@ function paintedMat(mat,col){if(!mat.map||!mat.map.image)return mat;const k=mat.
   g.putImageData(d,0,0);const t=mat.map.clone();t.image=cv2;t.needsUpdate=true;const m2=mat.clone();m2.map=t;return paintCache[k]=m2}
 function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*(c.tram?1:1.12)/tpl.userData.len;m.scale.setScalar(k);g.add(m);shadowDisc(g,c.L*.62,c.Wd*.78);
   if((REPAINT.has(c.type)||c.type==='ranger')&&!c.wreck)m.traverse(o=>{if(!o.isMesh)return;o.material=o.material.name==='Body'?bodyMat(o.material,c.color):paintedMat(o.material,c.color)});
-  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;
+  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;
   if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
   const top=tpl.userData.top*k;
   if(c.type==='bike'&&c.driver){const r=pedMesh(c===player.car?'#ff4fa3':'#151515','#d9a47c','#2a1b10','rider',false);r.position.set(-3,4,0);r.userData.legs.forEach(l=>l.rotation.z=1.25);g.add(r)}
