@@ -318,7 +318,7 @@ function generate(){
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(tiles[i]!==GRASS)continue;
     if([i-1,i+1,i-W,i+W].some(n=>flags[n]&BAY)&&x*TS>PJ.ox-1400){tiles[i]=SAND;continue}
     if(flags[i]&(PITCH|PORT))continue;const f=(y*SUB+2)*FW+x*SUB+2;if(OCC[f]&&!(flags[i]&PARK))continue;
-    const p=(flags[i]&PARK)?(shade[i]===1?.42:.1):realR(x*TS,y*TS)>3500?.16:.05;if(hash(x,y,21)<p&&[i-1,i+1,i-W,i+W].every(n=>tiles[n]===GRASS||tiles[n]===TREE)){tiles[i]=TREE;for(let a=1;a<3;a++)for(let b=1;b<3;b++)SOL[(y*SUB+a)*FW+x*SUB+b]=1}}
+    const p=(flags[i]&PARK)?(shade[i]===1?.42:.1):realR(x*TS,y*TS)>3500?.16:.05;if(hash(x,y,21)<p&&[i-1,i+1,i-W,i+W].every(n=>tiles[n]===GRASS||tiles[n]===TREE)){tiles[i]=TREE}}   // trees are scenery: you drive straight through them
   // tile-level walls follow the fine collision grid (path-finding for cops, pedestrians and the GPS uses tiles)
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,t=tiles[i];if(t===GRASS||t===WALK||t===SAND||t===YARD||t===IND){const c=(y*SUB+2)*FW+x*SUB+2;if(SOL[c]&&SOL[c-FW-1]){const b=BUILDINGS[bldAt[i]];tiles[i]=b?(b.k==='tower'?TOWER:b.k==='house'||b.k==='model'?HOUSE:BLD):BLD;shade[i]=b?b.c:0}}}
   tramRoutes=MAP.trams.map(rt=>{const f=[];for(const v of rt){const E=EDGES[v>>1];if(!E)continue;const rev=v&1;for(let k=0;k<E.n;k++){const j=rev?E.n-1-k:k;if(f.length&&k===0)continue;f.push(E.P[2*j],E.P[2*j+1])}}
@@ -432,12 +432,10 @@ function tunSolid(x,y){if(tunnelAt(x,y,-2))return false;for(const p of PORTALS)i
 // a car goes underground when it drives into a portal ramp, and comes back up when it leaves the tunnel
 function updateUG(c){if(!TUN.length||c.tram)return;const t=tunnelAt(c.x,c.y,6);if(!t){c.ug=false;return}
   const y=tunY(t.E,t.s);if(!c.ug){if(y<terrainH(c.x,c.y)-24)return;c.ug=true}c.tunY=y;c.tunE=t.E}
-// freeways are fenced: a car on the freeway only drives freeway and ramps, a car on the streets can't cross the fence;
-// both can use a ramp, and that's where you change from one to the other. Streets cross freeways on overpasses.
+// freeways are open: drive on from anywhere. A car only remembers whether it's on the freeway (c.fl) so that where a
+// street crosses on an overpass, freeway traffic stays underneath and street traffic goes over the top.
 const fidx=(x,y)=>{const fx=Math.floor(x/FS),fy=Math.floor(y/FS);return fx<0||fy<0||fx>=FW||fy>=FH?-1:fy*FW+fx};
-function laySolid(c,x,y){const i=fidx(x,y);if(i<0)return true;const m=FWM[i];
-  if(c.fl){if(m&3)return false;const k=fidx(c.x,c.y);return!(k>=0&&FWM[k]&2)||SOL[i]===1}
-  if(SOL[i])return true;if((m&1)&&!(m&6)){const k=fidx(c.x,c.y);return!(k>=0&&FWM[k]&2)}return false}
+function laySolid(c,x,y){const i=fidx(x,y);return i<0||SOL[i]===1}
 const carSolid=(c,x,y)=>c.ug?tunSolid(x,y):laySolid(c,x,y);
 function updateLayer(c){if(c.ug||c.tram)return;const k=fidx(c.x,c.y);if(k<0)return;const m=FWM[k];if((m&1)&&!(m&6))c.fl=true;else if(!(m&3))c.fl=false}
 const fenced=(x,y)=>{const i=fidx(x,y);return i>=0&&(FWM[i]&1)&&!(FWM[i]&6)};
@@ -546,7 +544,7 @@ function renderChunk(g,cx,cy,for3d){
   if(CIRCUIT_LOOP&&hasBox(CIRCUIT_LOOP,X0-120,Y0-120,X1+120,Y1+120)){const L=CIRCUIT_LOOP;linePath(g,L);g.lineWidth=80;g.strokeStyle='#d8221d';g.setLineDash([10,10]);g.stroke();
     g.setLineDash([]);g.strokeStyle='#f4f4f4';g.lineWidth=80;g.globalAlpha=.5;g.stroke();g.globalAlpha=1;linePath(g,L);g.strokeStyle='#3a3c40';g.lineWidth=70;g.stroke();
     if(LAP){g.save();g.translate(LAP.x,LAP.y);for(let a=0;a<2;a++)for(let b=-4;b<4;b++){g.fillStyle=(a+b)%2?'#111':'#f4f4f4';g.fillRect(-8+a*8,b*9,8,9)}g.restore()}}
-  // roads: streets first (footpaths, kerbs, asphalt, paint), then the fenced freeways and their ramps on top, then in 2D the overpasses
+  // roads: streets first (footpaths, kerbs, asphalt, paint), then the freeways and their ramps on top, then in 2D the overpasses
   // carrying streets across. In 3D the stretch of street on an overpass is a real deck, so it's left off the ground.
   const ES=K.e.filter(E=>!E.tun&&!E.fw&&!E.ramp),FR=K.e.filter(E=>!E.tun&&(E.fw||E.ramp));
   const ranges=(E,s0=0,s1=E.len)=>{let r=[[s0,s1]];if(for3d&&E.ovp)for(const[a,b]of E.ovp){const o=[];for(const[p,q]of r){if(b<=p||a>=q){o.push([p,q]);continue}if(a>p)o.push([p,a]);if(b<q)o.push([b,q])}r=o}return r.filter(([p,q])=>q-p>2)};
@@ -821,7 +819,7 @@ function pointDrive(car,c,dt){
 
 // ================================================================ movement helpers
 function circSolid(x,y,r){return solidPx(x-r,y-r)||solidPx(x+r,y-r)||solidPx(x-r,y+r)||solidPx(x+r,y+r)}
-function moveCircle(e,dx,dy,r){if(!fenced(e.x,e.y)){const ox=e.x,oy=e.y,hit=moveCircle2(e,dx,dy,r);if(fenced(e.x,e.y)){e.x=ox;e.y=oy;return true}return hit}return moveCircle2(e,dx,dy,r)}
+function moveCircle(e,dx,dy,r){if(e!==player&&!fenced(e.x,e.y)){const ox=e.x,oy=e.y,hit=moveCircle2(e,dx,dy,r);if(fenced(e.x,e.y)){e.x=ox;e.y=oy;return true}return hit}return moveCircle2(e,dx,dy,r)}
 function moveCircle2(e,dx,dy,r){let hit=false;const nx=e.x+dx;if(!circSolid(nx,e.y,r))e.x=nx;else hit=true;const ny=e.y+dy;if(!circSolid(e.x,ny,r))e.y=ny;else hit=true;return hit}
 function los(x0,y0,x1,y1){const d=Math.hypot(x1-x0,y1-y0),n=Math.ceil(d/12);for(let i=1;i<n;i++){const t=i/n,x=lerp(x0,x1,t),y=lerp(y0,y1,t),tt=tileAtPx(x,y);if(SOLID[tt]&&tt!==WATER&&tt!==RIVER)return false}return true}
 function carLocal(c,x,y){const dx=x-c.x,dy=y-c.y,ca=Math.cos(c.a),sa=Math.sin(c.a);return[dx*ca+dy*sa,-dx*sa+dy*ca]}
@@ -865,12 +863,16 @@ function drive(c,thr,steer,hb,dt){
     if((c.squealT=(c.squealT||0)-dt*12)<=0){c.squealT=1;SFX.noise(.16,2600,.07,'bandpass')}}}
   // move with tile collision (sliding)
   const steps=Math.ceil(Math.hypot(c.vx,c.vy)*dt/10)||1,sdt=dt/steps;let impact=0;
-  const stuckIn=carHits(c,c.x,c.y,c.a);
+  const stuckIn=carHits(c,c.x,c.y,c.a),ox=c.x,oy=c.y;
   for(let s=0;s<steps;s++){const nx=c.x+c.vx*sdt,ny=c.y+c.vy*sdt;
     if(stuckIn||!carHits(c,nx,ny,c.a)){c.x=nx;c.y=ny;continue}
     if(!carHits(c,nx,c.y,c.a)){c.x=nx;impact=Math.max(impact,Math.abs(c.vy));c.vy*=-.15;slideAlign(c,c.vx>=0?0:PI,sdt)}
     else if(!carHits(c,c.x,ny,c.a)){c.y=ny;impact=Math.max(impact,Math.abs(c.vx));c.vx*=-.15;slideAlign(c,c.vy>=0?PI/2:-PI/2,sdt)}
     else{impact=Math.max(impact,Math.hypot(c.vx,c.vy));c.vx*=-.3;c.vy*=-.3;break}}
+  // wedged with the pedal down and going nowhere: hop back onto the nearest road
+  if(pl&&!c.ug&&thr!==0&&Math.hypot(c.x-ox,c.y-oy)<20*dt){c.stuckT=(c.stuckT||0)+dt;if(c.stuckT>1.5){c.stuckT=0;
+    const r=nearestEdge(c.x,c.y,1500,E=>!E.tun);if(r){const E=EDGES[r.e],q=edgeAt(E,r.s);c.x=q.x;c.y=q.y;c.a=Math.atan2(q.dy,q.dx)+(Math.cos(c.a)*q.dx+Math.sin(c.a)*q.dy<0?PI:0);c.vx=c.vy=0;c.fl=!!E.fw;sub('Back on the road',2)}}}
+  else if(pl)c.stuckT=0;
   if(impact>200){damageCar(c,(impact-200)*.045,null);if(c===player.car){SFX.crash(impact/600);cam.shake=Math.min(8,impact/80)}
     for(let i=0;i<4;i++)spark(c.x+Math.cos(c.a)*c.L/2,c.y+Math.sin(c.a)*c.L/2)}
 }
@@ -1711,7 +1713,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 31';
+const BUILD='Build 32';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
