@@ -489,7 +489,72 @@ def make_rialto():
     done("rialto")
 
 
+# ------------------------------------------------------------------ Parliament House, Spring Street (130 x 80)
+# The great west front: a sweep of steps up to a colonnade of eight giant columns under a flat balustraded
+# parapet (the planned dome was never built), with lower colonnaded wings either side and the big bronze lamps.
+def make_parliament():
+    reset()
+    blue = mat("Bluestone", "#59595a", rough=.95)
+    col = mat("Column", "#e6dcc4", rough=.8)
+    win = mat("Windows", "#26303a", rough=.2, metal=.4)
+    bronze = mat("Bronze", "#5a4a2e", metal=.6, rough=.4)
+    box("plinth", (130, 70, 8), (0, 6, 4), blue)
+    box("chamber-block", (118, 46, 44), (0, 16, 8 + 22), SAND())
+    box("roof", (112, 40, 6), (0, 16, 8 + 44 + 3), SLATE())
+    # the steps: the full width of the centre, falling to the footpath
+    for i in range(7):
+        box("step", (78 + i * 2, 3.2, 8 - i * 1.15), (0, -29 - i * 3.2, (8 - i * 1.15) / 2), STONE())
+    # main colonnade: eight giant columns with bases and capitals
+    z, h = 8, 34
+    for i in range(8):
+        x = -31.5 + i * 9
+        box("base", (7, 7, 2), (x, -25, z + 1), STONE())
+        zcyl("column", 2.9, h - 4, (x, -25, z + 2), col, verts=14)
+        box("capital", (7.4, 7.4, 2), (x, -25, z + h - 1), STONE())
+    box("portico-back", (78, 4, h), (0, -8, z + h / 2), SAND())
+    for x in range(-28, 32, 9):
+        arch_window(x - 4.5 + 4.5, -10.2, z + 6, 4, 16, win, depth=1)
+    box("architrave", (80, 16, 4), (0, -18, z + h + 2), STONE())
+    box("frieze", (80, 16, 3), (0, -18, z + h + 5.5), SAND())
+    box("cornice", (84, 18, 2), (0, -18, z + h + 8), STONE())
+    # balustrade along the top of the portico
+    top = z + h + 9
+    box("rail", (82, 2, 1.4), (0, -26, top + 5), STONE())
+    box("rail-base", (82, 2, 1.2), (0, -26, top + .6), STONE())
+    for k in range(27):
+        zcyl("baluster", .55, 4, (-39 + k * 3, -26, top + 1), STONE(), verts=6)
+    for x in (-41, -14, 14, 41):
+        box("pier", (3, 3, 7), (x, -26, top + 3.5), STONE())
+    # the two wings: a storey lower, each with a small colonnade and two rows of windows
+    for sx in (-1, 1):
+        cx = sx * 52
+        box("wing", (26, 50, 34), (cx, 2, 8 + 17), SAND())
+        box("wing-cornice", (28, 52, 2.5), (cx, 2, 8 + 34 + 1.2), STONE())
+        box("wing-parapet", (27, 51, 3), (cx, 2, 8 + 34 + 4), SAND())
+        for i in range(4):
+            zcyl("wing-col", 1.6, 22, (cx - 9 + i * 6, -24.5, 8 + 6), col, verts=10)
+        box("wing-podium", (26, 3, 6), (cx, -24, 8 + 3), STONE())
+        box("wing-entab", (26, 4, 3), (cx, -24.5, 8 + 29.5), STONE())
+        for x in (-8, 0, 8):
+            arch_window(cx + x, -23.2, 8 + 10, 3.4, 12, win, depth=1)
+        for y in (-8, 6, 20):
+            for zz in (12, 26):
+                box("side-win", (1, 4, 7), (cx + sx * 13.1, y, 8 + zz), win)
+    # side windows along the main block
+    for x in range(-50, 52, 10):
+        for zz in (14, 30):
+            box("rear-win", (4, 1, 8), (x, 39.1, 8 + zz), win)
+    # the great bronze lamps flanking the steps
+    for sx in (-1, 1):
+        box("lamp-plinth", (6, 6, 6), (sx * 42, -42, 3), STONE())
+        zcyl("lamp-post", 1, 16, (sx * 42, -42, 6), bronze, verts=8)
+        for dx in (-2.5, 2.5):
+            box("lamp", (2.4, 2.4, 3.4), (sx * 42 + dx, -42, 23), LAMP())
+        box("lamp-cap", (7, 3, 1), (sx * 42, -42, 25.2), bronze)
+    done("parliament")
+
+
 if __name__ == "__main__":
     for build in (make_flinders, make_arts, make_mcg, make_westgate, make_bolte, make_eureka, make_shrine, make_fedsq,
-                  make_star, make_stpauls, make_reb, make_luna, make_crown, make_rialto):
+                  make_star, make_stpauls, make_reb, make_luna, make_crown, make_rialto, make_parliament):
         build()

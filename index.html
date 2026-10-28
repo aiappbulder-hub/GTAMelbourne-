@@ -237,7 +237,7 @@ const ll=a=>{const o=[];for(const[lo,la]of a)o.push(...proj(lo,la));return o};
 const PORT_LL=[[144.9035,-37.7985],[144.9235,-37.7985],[144.9365,-37.8052],[144.9395,-37.8128],[144.9255,-37.8185],[144.9035,-37.8185]];
 const PIER_LL=[[144.9727,-37.8617],[144.9697,-37.8626],[144.9670,-37.8634],[144.9662,-37.8644]];
 const LANDMARK_LL=[['Flinders Street Station',144.9671,-37.8183],['Federation Square',144.9690,-37.8180],['MCG',144.9834,-37.8199],['Crown Casino',144.9595,-37.8235],
-  ['Eureka Tower',144.9644,-37.8216],['Lygon Street',144.9665,-37.7990],['Royal Exhibition Building',144.9717,-37.8047],['Shrine of Remembrance',144.9735,-37.8305],
+  ['Eureka Tower',144.9644,-37.8216],['Lygon Street',144.9665,-37.7990],['Royal Exhibition Building',144.9717,-37.8047],['Parliament House',144.9737,-37.8110],['Shrine of Remembrance',144.9735,-37.8305],
   ['The Tan',144.9810,-37.8300],['Fairfield Boathouse',145.0158,-37.7849],['Albert Park Circuit',144.9690,-37.8440],['Rialto Towers',144.9580,-37.8188],
   ['Melbourne Star',144.9373,-37.8115],['Arts Centre',144.9686,-37.8221],['St Paul\'s Cathedral',144.9675,-37.8170],['Luna Park',144.9745,-37.8676],
   ['Queen Vic Market',144.9568,-37.8076],['West Gate Bridge',144.8996,-37.8300],['Bolte Bridge',144.9323,-37.8180],['Chapel Street',144.9935,-37.8450],
@@ -246,7 +246,7 @@ const LANDMARKS=LANDMARK_LL.map(([n,lo,la])=>[n,...proj(lo,la)]);
 // footprints the 3D landmark models stand on: id, lon, lat, length, depth (px)
 const SITE_LL=[['flinders',144.9671,-37.8182,210,64],['stpauls',144.9675,-37.8170,70,60],['fedsq',144.9690,-37.8180,100,70],['eureka',144.9644,-37.8216,60,60],
   ['arts',144.9686,-37.8221,70,70],['crown',144.9595,-37.8235,170,70],['rialto',144.9580,-37.8188,70,60],['star',144.9373,-37.8115,70,50],
-  ['reb',144.9717,-37.8047,150,90],['shrine',144.9735,-37.8305,100,100],['luna',144.9745,-37.8676,90,60]];
+  ['reb',144.9717,-37.8047,150,90],['shrine',144.9735,-37.8305,100,100],['luna',144.9745,-37.8676,90,60],['parliament',144.9737,-37.8110,130,80]];
 const SITES={};
 let LAP=null,TAN_LOOP=null,CIRCUIT_LOOP=null,MCG=null,PIER_PTS=[],PORT_POLY=[];
 const BUILDINGS=[];          // {x,y,a,w,d,h,k: tower|bld|shop|house|ware|model, c (colour idx), m (model)}
@@ -1760,8 +1760,8 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
-const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 37';
+const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
+const BUILD='Build 38';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1966,6 +1966,7 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
     for(let i=0;i<6;i++){const r=part(g,OM('#dfe3e8'),33-i*5,1.2,33-i*5,0,70+i*45,0);r.rotation.y=PI/4}});
   at('crown',(g,w,d)=>{part(g,OM('#3a3f4a'),w,46,d,0,23,0);part(g,OM('#c9a46a','#2a1d08'),w+1,8,d+1,0,30,0);cyl(g,OM('#c9a46a'),26,30,250,-w/4,125,-d/4,24);
     for(let i=0;i<6;i++){part(g,OM('#2b2b2b'),6,36,6,-w/2+12+i*(w-24)/5,18,d/2+8);part(g,OM('#ff9a1f','#ff6a00'),5,5,5,-w/2+12+i*(w-24)/5,38,d/2+8)}});
+  at('parliament',(g,w,d)=>{const st=OM('#b9a98c');part(g,OM('#59595a'),w,8,d*.85,0,4,d*.05);part(g,st,w*.9,44,d*.55,0,30,d*.2);for(let i=0;i<8;i++)part(g,OM('#e6dcc4'),5,34,5,-31.5+i*9,25,-25);part(g,st,84,10,18,0,47,-18)});
   at('rialto',(g,w,d)=>{const a=part(g,OM('#1f3550'),w,640,d*.48,0,320,-d*.25),b=part(g,OM('#24405f'),w,560,d*.48,0,280,d*.25);a.rotation.y=.05;b.rotation.y=-.05});
   at('star',(g)=>{const wm=OM('#e8eef2'),R=84,cy=R+16;const ring=new T.Mesh(new T.TorusGeometry(R,2.5,6,48),wm);ring.position.y=cy;g.add(ring);
     const ring2=ring.clone();ring2.position.z=8;g.add(ring2);
@@ -2086,7 +2087,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
