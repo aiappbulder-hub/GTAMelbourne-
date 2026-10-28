@@ -31,6 +31,8 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 - The map is real Melbourne, built from OpenStreetMap: the actual streets, freeways, tram lines, railways, the Yarra, the bay, parks and suburbs, from Sunshine to Ringwood and Essendon to Dandenong. It's a fisheye, so the CBD is close to true size and the suburbs are squeezed into a short drive. The Monash runs through Glen Waverley to Dandenong and EastLink from Ringwood to Dandenong (south of the OSM extract these are filled in by hand).
 - The top of the screen always shows your suburb and the real street you're on, or the freeway's name.
+- Only the main streets and longer side streets are kept, and short dead ends and offshoots are pruned, so the network is easy to drive.
+- In 3D the ground rolls: gentle hills that rise towards the Dandenongs in the east and settle to sea level along the bay and rivers. CBD towers step back as they rise.
 - Roads follow the real curves, with footpaths, kerbs, lane markings, stop lines and tram tracks. Buildings line up with the street: towers in the CBD, mid-rise round it, shops on the main roads and houses in the suburbs.
 - The West Gate and Bolte bridges climb over the Yarra on piers, with cable-stay pylons.
 - Melbourne landmarks modelled in Blender and placed where they really are: Flinders Street Station with its dome and clocks, the Arts Centre spire, the MCG with its stands and light towers, Eureka Tower, Rialto, St Paul's, Federation Square, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park's face, and the West Gate and Bolte bridge pylons.

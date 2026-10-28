@@ -20,7 +20,7 @@ DEBUG = sys.argv[3] if len(sys.argv) > 3 else None
 # ------------------------------------------------------------------ projection
 LON0, LAT0 = 144.9628, -37.8142
 KX, KY = 111320 * math.cos(math.radians(LAT0)), 110950
-R0M, S0 = 900.0, 1.2            # metres of near-true scale, and px per metre at the centre
+R0M, S0 = 1100.0, 1.6           # metres of near-true scale, and px per metre at the centre
 RR = R0M * S0
 BOUNDS = (144.79, -38.0, 145.30, -37.70)
 MARGIN = 160
@@ -54,6 +54,17 @@ def P(lon, lat):
 
 def in_bounds(lon, lat):
     return BOUNDS[0] <= lon <= BOUNDS[2] and BOUNDS[1] <= lat <= BOUNDS[3]
+
+
+def coast_lon(lat):
+    """Longitude of the bayside shore south of Brighton (outside the OSM pages), by latitude."""
+    pts = [(-37.918, 144.987), (-37.930, 144.992), (-37.948, 145.002), (-37.963, 145.012), (-37.976, 145.022), (-37.990, 145.034), (-38.0, 145.040)]
+    if lat > pts[0][0]:
+        return 0
+    for (a, x), (b, y) in zip(pts, pts[1:]):
+        if b <= lat <= a:
+            return x + (y - x) * (a - lat) / (a - b)
+    return pts[-1][1]
 
 
 def in_extension(lon, lat):
@@ -164,8 +175,8 @@ def road_kind(r):
         return None
     if name in SKIP_NAMES:
         return None
-    if cls == 4 and (name.startswith("Little ") or name.endswith(" Lane") or "Lane" in name.split()):
-        return None
+    if cls == 4 or "Service Road" in name or name.endswith(" Lane") or name.startswith("Little "):
+        return None    # laneways, service roads and little streets only clutter the game map
     return (name, cls, fw)
 
 
@@ -257,11 +268,11 @@ LOCAL_NAMES = ["Coleman Pde", "Bogong Ave", "Myrtle St", "Euneva Ave", "Railway 
                "Huntingdale Rd", "Golf Rd", "Ellen St", "Garnett Rd", "Wallace Ave"]
 # a loose street grid through the new suburbs so there is somewhere to drive besides the arterials
 _k = 0
-for i, lon in enumerate([145.072 + j * 0.0065 for j in range(36)]):
+for i, lon in enumerate([145.076 + j * 0.0135 for j in range(18)]):
     pts = [(lon + 0.0004 * math.sin(lat * 900), lat) for lat in [-37.8745 - j * 0.0025 for j in range(51)]]
     HAND.append((LOCAL_NAMES[_k % len(LOCAL_NAMES)], 3, False, pts))
     _k += 1
-for lat in [-37.8800 - j * 0.0058 for j in range(21)]:
+for lat in [-37.8830 - j * 0.0115 for j in range(10)]:
     pts = [(lon, lat + 0.0003 * math.sin(lon * 700)) for lon in [144.978 + j * 0.0032 for j in range(101)]]
     HAND.append((LOCAL_NAMES[_k % len(LOCAL_NAMES)], 3, False, pts))
     _k += 1
@@ -399,7 +410,7 @@ for name, cls, fw, ll in HAND:
     for lon, lat in ll:
         ok = in_bounds(lon, lat) and (in_extension(lon, lat) or cls < 3)
         if cls >= 3:
-            ok = ok and in_extension(lon, lat) and not (lon < 145.0 and lat < -37.93)
+            ok = ok and in_extension(lon, lat) and lon > coast_lon(lat) + .005
         if ok:
             cur.append((lon, lat))
         elif cur:
@@ -449,7 +460,7 @@ def near_tram(x, y, r=14):
 
 # ------------------------------------------------------------------ greedy street selection
 WIDTH = {0: 88, 1: 80, 2: 72, 3: 64, 4: 56, 5: 56}
-GAP = {0: 40, 1: 50, 2: 70, 3: 105, 4: 120, 5: 120}
+GAP = {0: 40, 1: 60, 2: 90, 3: 135, 4: 170, 5: 170}
 
 
 def sample(pts, step=10):
@@ -520,11 +531,12 @@ for c in CHAINS:
     c["gap"] = 30 if fw else GAP[min(cls, 3) if c["tram"] else cls]
     mid = c["pts"][len(c["pts"]) // 2]
     if real_r(*mid) < 2500:
-        c["gap"] = min(c["gap"], 40)
+        c["gap"] = min(c["gap"], 70)
     if cls <= 3 and not c["hand"] and crosses_river(c["pts"]):
         c["rank"] = min(c["rank"], 1)
         c["gap"] = 16
 
+CHAINS = [c for c in CHAINS if c["rank"] < 5 or c["len"] > 700 or c["tram"]]   # only long side streets stay
 CHAINS.sort(key=lambda c: (c["rank"], -c["len"]))
 acc = Grid(96)
 PIECES = []    # accepted runs: attr, pts [(x,y,key)], w, tram, fw, hand
@@ -558,7 +570,7 @@ for c in CHAINS:
         print("DEBUG", c["attr"], round(c["len"]), "rank", c["rank"], "ok", sum(ok), "/", len(ok), "ends", c["keys"][0] is not None, c["keys"][-1] is not None)
     # runs of unblocked samples
     i = 0
-    minrun = 0 if c["attr"][2] else 150
+    minrun = 0 if c["attr"][2] else 260
     runs = []
     while i < len(S):
         if not ok[i]:
@@ -800,12 +812,12 @@ for e in EDGES:
 EDGES = [e for e in EDGES if not (e[0] == e[1] and plen(e[5]) < 30)]
 
 # prune short dead-end stubs, and small islands
-for _ in range(3):
+for _ in range(12):
     d = collections.Counter()
     for e in EDGES:
         d[e[0]] += 1
         d[e[1]] += 1
-    EDGES = [e for e in EDGES if e[2][2] or not ((d[e[0]] == 1 or d[e[1]] == 1) and plen(e[5]) < 170)]
+    EDGES = [e for e in EDGES if e[2][2] or not ((d[e[0]] == 1 or d[e[1]] == 1) and plen(e[5]) < 1300)]   # dead ends and offshoots go
 par = list(range(len(NODES)))
 
 
