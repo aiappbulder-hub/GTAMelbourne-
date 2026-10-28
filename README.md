@@ -29,6 +29,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 - Traffic uses real low-poly 3D models from Kenney's CC0 Car Kit and Starter Kit Racing: sedans, sports cars, SUVs, vans, taxis, police, utes, ambulances, fire trucks and garbage trucks, with spinning wheels and repainted bodies for variety. See `models/README.md`. Models load when the game is served over http(s), such as GitHub Pages.
 
+- The top of the screen always shows your suburb and street (Flinders St, Swanston St, St Kilda Rd and so on, or the freeway's name). EastLink runs from Ringwood to Dandenong and the Monash runs through Glen Waverley.
 - Freeways are smooth curved roads with yellow edges and lane markings, street corners have rounded kerbs, and the GPS line follows the road's curves.
 - The West Gate Bridge climbs over the Yarra on piers, with cable-stay pylons.
 - 3D Melbourne landmarks: Eureka Tower, Rialto Towers, Flinders Street Station, St Paul's, Federation Square, the Arts Centre spire, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park, the MCG with its light towers, and the West Gate Bridge pylons.
@@ -42,5 +43,5 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 - Weapons are fists, pistol, Uzi and shotgun, with drive-bys forward from the car. Cars smoke, catch fire and explode, with chain reactions.
 - There are five story missions, timed checkpoints, Ammu-Nation shops (plus a $20 pie for health), hospitals, police stations, safe houses that save to localStorage, and pickups.
 - Street crews hold their turf: the Lygon Street Crew in Carlton/Fitzroy, the Broadmeadows mob up north and the Westside Nomads in Sunshine. They leave you alone until you start something.
-- The Fjord Strainger Wildtrak is a dual-cab 4x4 ute built in-game, with flares, bull bar, snorkel, sports bar and roof light bar.
+- Custom low-poly vehicles modelled in Blender (`tools/make_models.py`): Comodo sedan, Barrina hatch, Victoria Police car with checker band, taxi, E-class style tram and the Fjord Strainger Wildtrak, a dual-cab 4x4 ute with flares, bull bar, snorkel, sports bar and roof light bar.
 - Cars carry parody Aussie badges (Holdan Comodo, FPB Typhoon F6, HSB Clubbie R8, Holdan Ute SS, Fjord Territorial, Toyoda Tarrago, and more).
