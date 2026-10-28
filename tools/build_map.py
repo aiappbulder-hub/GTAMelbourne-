@@ -168,8 +168,8 @@ def road_kind(r):
     name = r.get("n") or ""
     if cls == 6 and name == "North East Link":
         cls = 0      # still being built in the OSM data; finished in the game
-    if cls == 6 and any(w in name for w in ("Ramp", "Onramp", "Offramp", "Exit")) and not tags.get("tunnel") and not r.get("t"):
-        return (name, 6, False, False)      # freeway on and off ramps
+    if cls == 6 or any(w in name for w in ("Ramp", "Onramp", "Offramp", "Exit")):
+        return None      # OSM's tangle of slip roads is dropped: the game builds a few simple interchanges of its own
     if cls > 5 or r.get("t"):
         return None
     if tags.get("service") or tags.get("tunnel") == "building_passage":
@@ -178,6 +178,8 @@ def road_kind(r):
     tun = fw and tags.get("tunnel") == "yes"
     if tags.get("tunnel") and not fw:
         return None
+    if name.startswith("West Gate Freeway") or (name == "West Gate Tunnel" and not tun):
+        name = "West Gate Freeway"     # local, express and widened lanes are one freeway in the game
     if name in SKIP_NAMES:
         return None
     if cls == 4 or "Service Road" in name or name.endswith(" Lane") or name.startswith("Little "):
@@ -796,6 +798,36 @@ def near_piece(p, x, y):
     return best
 
 
+def near_named(attr, x, y):
+    """the nearest point within 60px on any piece of the same road"""
+    best = None
+    for pj in by_attr[attr]:
+        pts = PIECES[pj]["pts"]
+        for si in range(len(pts) - 1):
+            t, px, py, d = project(x, y, pts[si], pts[si + 1])
+            if d < 150 and (best is None or d < best[5]):
+                best = (pj, si, t, px, py, d)
+    return best
+
+
+by_attr = collections.defaultdict(list)
+for pj, p_ in enumerate(PIECES):
+    by_attr[p_["attr"]].append(pj)
+
+
+# where a freeway piece stops with no other freeway carrying on, the freeway ends; no interchange is built right by it
+fw_pts = Grid(100)
+for pj, p_ in enumerate(PIECES):
+    if p_["attr"][2]:
+        for q in p_["pts"]:
+            fw_pts.add(q[0], q[1], (pj, q[0], q[1]))
+TERMINI = []
+for pj, p_ in enumerate(PIECES):
+    if not p_["attr"][2]:
+        continue
+    for q in (p_["pts"][0], p_["pts"][-1]):
+        if p_["attr"][3] or not any(o != pj and math.hypot(X - q[0], Y - q[1]) < 60 for o, X, Y in fw_pts.near(q[0], q[1], 60)):
+            TERMINI.append((q[0], q[1]))
 done_iv, new_pieces = [], []
 for pi, p in enumerate(PIECES):
     if not p["attr"][2] or p["attr"][3]:
@@ -818,7 +850,7 @@ for pi, p in enumerate(PIECES):
             if not r:
                 continue
             x, y = a[0] + (b[0] - a[0]) * r[0], a[1] + (b[1] - a[1]) * r[0]
-            if any(math.hypot(q[0] - x, q[1] - y) < 650 for q in ramp_grid.near(x, y, 650)) or any(math.hypot(x - X, y - Y) < 450 for X, Y in done_iv):
+            if any(math.hypot(X - x, Y - y) < 1000 for X, Y in TERMINI) or any(math.hypot(q[0] - x, q[1] - y) < 650 for q in ramp_grid.near(x, y, 650)) or any(math.hypot(x - X, y - Y) < 1500 for X, Y in done_iv):
                 continue
             done_iv.append((x, y))
             fx, fy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
@@ -826,19 +858,21 @@ for pi, p in enumerate(PIECES):
             rx, ry = (d_[0] - c_[0]) / ol, (d_[1] - c_[1]) / ol
             Fk, Ak = {}, {}
             for sf in (1, -1):
-                n = near_piece(p, x + fx * sf * 380, y + fy * sf * 380)
-                if n[4] > 60:
+                n = near_named(p["attr"], x + fx * sf * 380, y + fy * sf * 380)
+                if not n:
                     continue
                 k = fresh()
-                inserts[pi].append((n[0], n[1], n[2], n[3], k))
-                Fk[sf] = (n[2], n[3], k)
+                inserts[n[0]].append((n[1], n[2], n[3], n[4], k))
+                Fk[sf] = (n[3], n[4], k)
             for sr in (1, -1):
-                n = near_piece(o, x + rx * sr * 190, y + ry * sr * 190)
-                if n[4] > 60:
+                n = near_named(o["attr"], x + rx * sr * 270, y + ry * sr * 270)
+                if not n:
                     continue
                 k = fresh()
-                inserts[oj].append((n[0], n[1], n[2], n[3], k))
-                Ak[sr] = (n[2], n[3], k)
+                inserts[n[0]].append((n[1], n[2], n[3], n[4], k))
+                Ak[sr] = (n[2 + 1], n[4], k)
+            if DEBUG:
+                print("DIAMOND", p["attr"][0], "x", o["attr"][0], round(x), round(y), "F", len(Fk), "A", len(Ak))
             for sf, F in Fk.items():
                 for sr, A in Ak.items():
                     cx, cy = x + fx * sf * 150 + rx * sr * 200, y + fy * sf * 150 + ry * sr * 200
@@ -850,7 +884,7 @@ for pi, p in enumerate(PIECES):
                         pts.append((px, py, F[2] if k == 0 else A[2] if k == 8 else None))
                     new_pieces.append({"attr": (p["attr"][0] + " ramp", 6, False, False), "pts": pts, "w": 48, "tram": False, "hand": False})
 PIECES += new_pieces
-print("diamond interchanges", len(done_iv))
+print("diamond interchanges", len(done_iv), "ramp pieces", len(new_pieces))
 
 for pi, lst in inserts.items():
     p = PIECES[pi]
@@ -893,6 +927,7 @@ for p in PIECES:
                 EDGES.append([node_for(seg[0]), node_for(seg[-1]), p["attr"], p["w"], p["tram"], [(q[0], q[1]) for q in seg]])
             start = i
 
+if DEBUG: print("RAMPS pre-remap", sum(1 for e in EDGES if e[2][1] == 6), sum(1 for p in PIECES if p["attr"][1] == 6))
 # merge near-coincident nodes (snapping can leave two nodes a few px apart)
 ng = Grid(16)
 remap = {}
@@ -910,14 +945,36 @@ for i, (x, y) in enumerate(NODES):
 for e in EDGES:
     e[0], e[1] = remap[e[0]], remap[e[1]]
 EDGES = [e for e in EDGES if not (e[0] == e[1] and plen(e[5]) < 30)]
+if DEBUG: print("RAMPS", 'after-build', sum(1 for e in EDGES if e[2][1] == 6))
 
-# prune short dead-end stubs, and small islands
-for _ in range(12):
-    d = collections.Counter()
+# every street goes somewhere: dead ends are cut back to the last junction (freeways keep theirs, barricaded)
+
+
+def edge_of_map(n, m=2000):
+    x, y = NODES[n]
+    return x < _bb[0] + m or y < _bb[1] + m or x > _bb[2] - m or y > _bb[3] - m
+
+
+FINAL = False
+while True:
+    # short doubled links between the same two junctions: keep the bigger road
+    seen = {}
+    for e in sorted(EDGES, key=lambda e: (-e[3], plen(e[5]))):
+        k = (min(e[0], e[1]), max(e[0], e[1]))
+        if k in seen and plen(e[5]) < 400 and not e[2][2]:
+            e.append("dup")
+        seen.setdefault(k, e)
+    EDGES = [e for e in EDGES if e[-1] != "dup"]
+    nb = collections.defaultdict(set)
     for e in EDGES:
-        d[e[0]] += 1
-        d[e[1]] += 1
-    EDGES = [e for e in EDGES if e[2][2] or not ((d[e[0]] == 1 or d[e[1]] == 1) and plen(e[5]) < 1300)]   # dead ends and offshoots go
+        nb[e[0]].add(e[1])
+        nb[e[1]].add(e[0])
+    d = {n: len(v) for n, v in nb.items()}     # a junction counts the different places it leads to
+    n0 = len(EDGES)
+    EDGES = [e for e in EDGES if ((not FINAL or not (d[e[0]] == 1 and not edge_of_map(e[0]) or d[e[1]] == 1 and not edge_of_map(e[1])))
+                                  if e[2][2] else not (d[e[0]] == 1 or d[e[1]] == 1))]
+    if len(EDGES) == n0:
+        break
 par = list(range(len(NODES)))
 
 
@@ -935,6 +992,7 @@ for e in EDGES:
     comp_len[find(e[0])] += plen(e[5])
 big = max(comp_len.values())
 EDGES = [e for e in EDGES if comp_len[find(e[0])] > 2500 or e[2][2]]
+if DEBUG: print("RAMPS", 'after-islands', sum(1 for e in EDGES if e[2][1] == 6))
 # join edges back together through nodes where nothing else meets (left behind where a side street was dropped)
 while True:
     inc = collections.defaultdict(list)
@@ -960,36 +1018,297 @@ while True:
     EDGES = [e for k, e in enumerate(EDGES) if k not in gone]
     if not merged:
         break
+# roads doubled up side by side (twin carriageways, a hand road over an OSM one): keep the bigger one
+def drop_doubles():
+    global EDGES
+    g = Grid(150)
+    for i, e in enumerate(EDGES):
+        for k in range(len(e[5]) - 1):
+            a, b = e[5][k], e[5][k + 1]
+            g.add((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (i, k))
+    order = sorted(range(len(EDGES)), key=lambda i: (-EDGES[i][3], -plen(EDGES[i][5])))
+    rank = {i: r for r, i in enumerate(order)}
+    gone = set()
+    for i in reversed(order):
+        e = EDGES[i]
+        L = plen(e[5])
+        tot = hit = 0
+        s_ = 0
+        for k in range(len(e[5]) - 1):
+            a, b = e[5][k], e[5][k + 1]
+            l = math.hypot(b[0] - a[0], b[1] - a[1])
+            for t in range(0, int(l), 20):
+                pos = s_ + t
+                s_t = t / l
+                px, py = a[0] + (b[0] - a[0]) * s_t, a[1] + (b[1] - a[1]) * s_t
+                if pos < 100 or pos > L - 100:
+                    continue
+                tot += 1
+                for j, m in g.near(px, py, 200):
+                    if j == i or j in gone or rank[j] > rank[i] or EDGES[j][2][3] != e[2][3]:
+                        continue
+                    o = EDGES[j]
+                    c, dd = o[5][m], o[5][m + 1]
+                    cl = math.hypot(dd[0] - c[0], dd[1] - c[1]) or 1
+                    if abs(((b[0] - a[0]) * (dd[0] - c[0]) + (b[1] - a[1]) * (dd[1] - c[1])) / (l * cl)) < .85:
+                        continue
+                    if project(px, py, c, dd)[3] < (e[3] + o[3]) / 2 + 10:
+                        hit += 1
+                        break
+            s_ += l
+        if tot and hit / tot > .5:
+            gone.add(i)
+    print("doubled-up roads dropped", len(gone))
+    EDGES = [e for k, e in enumerate(EDGES) if k not in gone]
+
+
+drop_doubles()
+
+
+def split_edge(ei, x, y):
+    e = EDGES[ei]
+    pts = e[5]
+    best = None
+    for i in range(len(pts) - 1):
+        t, px, py, d = project(x, y, pts[i], pts[i + 1])
+        if best is None or d < best[0]:
+            best = (d, i, px, py)
+    _, i, px, py = best
+    for end, q in ((0, pts[0]), (1, pts[-1])):
+        if math.hypot(q[0] - px, q[1] - py) < 30:
+            return e[end]
+    n = len(NODES)
+    NODES.append([px, py])
+    EDGES[ei] = [e[0], n, e[2], e[3], e[4], pts[:i + 1] + [(px, py)]]
+    EDGES.append([n, e[1], e[2], e[3], e[4], [(px, py)] + pts[i + 1:]])
+    return n
+
+
 # a tunnel must come out somewhere: join any loose tunnel end to the nearest surface freeway with a short ramp
 deg = collections.Counter()
 for e in EDGES:
     deg[e[0]] += 1
     deg[e[1]] += 1
-for e in [e for e in EDGES if e[2][3]]:
-    for end in (0, 1):
-        n = e[end]
-        if deg[n] != 1:
+def tunnel_exit(n):
+    x, y = NODES[n]
+    best = None
+    for oi, o in enumerate(EDGES):
+        if o[2][3] or not o[2][2]:
             continue
+        for i in range(len(o[5]) - 1):
+            dd = project(x, y, o[5][i], o[5][i + 1])[3]
+            if dd < 400 and (best is None or dd < best[0]):
+                best = (dd, oi)
+    return best
+
+
+for e in [e for e in EDGES if e[2][3]]:
+    loose = [n for n in (e[0], e[1]) if deg[n] == 1]
+    ex = [tunnel_exit(n) for n in loose]
+    if not all(ex):
+        e.append("dead")     # a leftover stub of a twin tunnel: drop it
+        continue
+    for n in loose:
+        best = tunnel_exit(n)
         x, y = NODES[n]
-        best = None
-        for o in EDGES:
-            if o[2][3] or not o[2][2]:
-                continue
-            for m in (o[0], o[1]):
-                d = math.hypot(NODES[m][0] - x, NODES[m][1] - y)
-                if d < 700 and (best is None or d < best[0]):
-                    best = (d, m)
-        if best:
-            m = best[1]
-            EDGES.append([n, m, e[2][:3] + (False,), e[3], False, [(x, y), tuple(NODES[m])]])
-            deg[n] += 1
-            deg[m] += 1
-            print("tunnel ramp", e[2][0], round(best[0]))
-        else:
-            e.append("dead")     # a leftover stub of a twin tunnel: drop it
+        m = split_edge(best[1], x, y)
+        EDGES.append([n, m, e[2][:3] + (False,), e[3], False, [(x, y), tuple(NODES[m])]])
+        deg[n] += 1
+        deg[m] += 1
+        print("tunnel ramp", e[2][0], round(best[0]))
 EDGES = [e for e in EDGES if e[-1] != "dead"]
 if False:
     pass
+# a freeway that ends inside the map runs into the nearest main road
+d = collections.Counter()
+for e in EDGES:
+    d[e[0]] += 1
+    d[e[1]] += 1
+
+
+def end_dir(f, end):
+    x, y = f[5][-1] if end else f[5][0]
+    nb = f[5][-2] if end else f[5][1]
+    L = math.hypot(x - nb[0], y - nb[1]) or 1
+    return x, y, (x - nb[0]) / L, (y - nb[1]) / L
+
+
+# a loose freeway stub running alongside a tunnel of the same freeway (the other carriageway on the surface)
+# is cut back, so it doesn't get joined up into a tangle
+def shadow_frac(f):
+    tot = hit = 0
+    for k in range(len(f[5]) - 1):
+        a, b = f[5][k], f[5][k + 1]
+        l = math.hypot(b[0] - a[0], b[1] - a[1])
+        for t in range(0, int(l), 40):
+            px, py = a[0] + (b[0] - a[0]) * t / l, a[1] + (b[1] - a[1]) * t / l
+            tot += 1
+            if any(o[2][3] and o[2][0] == f[2][0] and
+                   any(project(px, py, o[5][i], o[5][i + 1])[3] < 600 for i in range(len(o[5]) - 1)) for o in EDGES):
+                hit += 1
+    return hit / tot if tot else 0
+
+
+while True:
+    d = collections.Counter()
+    for e in EDGES:
+        d[e[0]] += 1
+        d[e[1]] += 1
+    at_edge = lambda n: NODES[n][0] < 2000 or NODES[n][1] < 2000 or NODES[n][0] > WPX - 2000 or NODES[n][1] > HPX - 2000
+    stubs = [f for f in EDGES if f[2][2] and not f[2][3] and any(d[n] == 1 and not at_edge(n) for n in f[:2]) and shadow_frac(f) > .5]
+    if not stubs:
+        break
+    for f in stubs:
+        print("twin freeway stub dropped", f[2][0], round(plen(f[5])))
+    EDGES = [e for e in EDGES if not any(e is f for f in stubs)]
+d = collections.Counter()
+for e in EDGES:
+    d[e[0]] += 1
+    d[e[1]] += 1
+
+
+# two loose freeway ends facing each other are one freeway with a gap in the data: bridge it with a smooth curve
+# (CityLink's gap is the Burnley and Domain tunnels under the Domain and the Yarra)
+loose = [(fi, end) for fi, f in enumerate(EDGES) if f[2][2] and not f[2][3] for end in (0, 1) if d[f[end]] == 1]
+paired = set()
+if DEBUG:
+    for fa, ea in loose:
+        print("LOOSE", EDGES[fa][2][0], [round(v, 2) for v in end_dir(EDGES[fa], ea)])
+for i, (fa, ea) in enumerate(loose):
+    best = None
+    xa, ya, dxa, dya = end_dir(EDGES[fa], ea)
+    for fb, eb in loose[i + 1:]:
+        if fb == fa or (fa, ea) in paired or (fb, eb) in paired:
+            continue
+        xb, yb, dxb, dyb = end_dir(EDGES[fb], eb)
+        D = math.hypot(xb - xa, yb - ya)
+        if D > 3500 or D < 1:
+            continue
+        ux, uy = (xb - xa) / D, (yb - ya) / D
+        if ux * dxa + uy * dya > .5 and -(ux * dxb + uy * dyb) > .5 and (best is None or D < best[0]):
+            best = (D, fb, eb, xb, yb, dxb, dyb)
+    if not best:
+        continue
+    D, fb, eb, xb, yb, dxb, dyb = best
+    f = EDGES[fa]
+    c1, c2 = (xa + dxa * D / 3, ya + dya * D / 3), (xb + dxb * D / 3, yb + dyb * D / 3)
+    mx, my = (xa + xb + 3 * c1[0] + 3 * c2[0]) / 8, (ya + yb + 3 * c1[1] + 3 * c2[1]) / 8
+    if D > 400 and any(project(mx, my, o[5][i], o[5][i + 1])[3] < 250 for o in EDGES if o[2][2] for i in range(len(o[5]) - 1)):
+        continue     # a freeway already runs there (the stub is a twin carriageway)
+    paired |= {(fa, ea), (fb, eb)}
+    pts = []
+    for k in range(17):
+        t = k / 16
+        u = 1 - t
+        pts.append((u ** 3 * xa + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t ** 3 * xb,
+                    u ** 3 * ya + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t ** 3 * yb))
+    tun = False
+    na, nb_ = f[ea], EDGES[fb][eb]
+    if tun:   # surface approaches either side, tunnel in the middle
+        k0, k1 = 3, 13
+        m0, m1 = len(NODES), len(NODES) + 1
+        NODES.extend([list(pts[k0]), list(pts[k1])])
+        EDGES.append([na, m0, f[2], f[3], False, pts[:k0 + 1]])
+        EDGES.append([m0, m1, f[2][:3] + (True,), f[3], False, pts[k0:k1 + 1]])
+        EDGES.append([m1, nb_, f[2], f[3], False, pts[k1:]])
+    else:
+        EDGES.append([na, nb_, f[2], f[3], False, pts])
+    d[na] += 1
+    d[nb_] += 1
+    print("freeway gap joined", f[2][0], "to", EDGES[fb][2][0], round(D), "tunnel" if tun else "")
+for fi in range(len(EDGES)):
+    f = EDGES[fi]
+    if not f[2][2] or f[2][3]:
+        continue
+    for end in (0, 1):
+        n = f[end]
+        if d[n] != 1:
+            continue
+        x, y = NODES[n]
+        nb = f[5][-2] if end else f[5][1]
+        ex, ey = x - nb[0], y - nb[1]
+        el = math.hypot(ex, ey) or 1
+        best = None
+        for oi, o in enumerate(EDGES):     # first another freeway it should run on into
+            if oi == fi or not o[2][2] or o[2][3] or n in (o[0], o[1]):
+                continue
+            for i in range(len(o[5]) - 1):
+                t, px, py, dd = project(x, y, o[5][i], o[5][i + 1])
+                if dd < 1500 and ((px - x) * ex + (py - y) * ey) / el > dd * .5 and (best is None or dd < best[0]):
+                    best = (dd, oi, px, py)
+        if best:
+            m = split_edge(best[1], best[2], best[3])
+            EDGES.append([n, m, f[2], f[3], False, [(x, y), tuple(NODES[m])]])
+            d[n] += 1
+            d[m] += 2
+            print("freeway end runs on into", EDGES[best[1]][2][0], f[2][0], round(best[0]))
+            continue
+        for oi, o in enumerate(EDGES):
+            if o[2][2] or o[2][1] > 2 or o[2][3]:
+                continue
+            for i in range(len(o[5]) - 1):
+                t, px, py, dd = project(x, y, o[5][i], o[5][i + 1])
+                if dd < 700 and ((px - x) * ex + (py - y) * ey) / el > -60 and (best is None or dd < best[0]):
+                    best = (dd, oi, px, py)
+        if best:
+            m = split_edge(best[1], best[2], best[3])
+            EDGES.append([n, m, (f[2][0] + " ramp", 6, False, False), 48, False, [(x, y), tuple(NODES[m])]])
+            d[n] += 1
+            d[m] += 2
+            print("freeway end joins", EDGES[best[1]][2][0], f[2][0], round(best[0]))
+# a freeway left ending inside the map is a stub of a twin carriageway: cut it back too. Only freeways at the edge of the map keep a dead end.
+_live = {n for e in EDGES for n in (e[0], e[1])}
+_xs, _ys = [NODES[n][0] for n in _live], [NODES[n][1] for n in _live]
+_bb = (max(0, min(_xs)), max(0, min(_ys)), min(WPX, max(_xs)), min(HPX, max(_ys)))
+FINAL = True
+# every street goes somewhere: dead ends are cut back to the last junction 
+while True:
+    # short doubled links between the same two junctions: keep the bigger road
+    seen = {}
+    for e in sorted(EDGES, key=lambda e: (-e[3], plen(e[5]))):
+        k = (min(e[0], e[1]), max(e[0], e[1]))
+        if k in seen and plen(e[5]) < 400 and not e[2][2]:
+            e.append("dup")
+        seen.setdefault(k, e)
+    EDGES = [e for e in EDGES if e[-1] != "dup"]
+    nb = collections.defaultdict(set)
+    for e in EDGES:
+        nb[e[0]].add(e[1])
+        nb[e[1]].add(e[0])
+    d = {n: len(v) for n, v in nb.items()}     # a junction counts the different places it leads to
+    n0 = len(EDGES)
+    EDGES = [e for e in EDGES if ((not FINAL or not (d[e[0]] == 1 and not edge_of_map(e[0]) or d[e[1]] == 1 and not edge_of_map(e[1])))
+                                  if e[2][2] else not (d[e[0]] == 1 or d[e[1]] == 1))]
+    if len(EDGES) == n0:
+        break
+par = list(range(len(NODES)))
+
+
+# join edges back together through nodes where nothing else meets (left behind where a side street was dropped)
+while True:
+    inc = collections.defaultdict(list)
+    for i, e in enumerate(EDGES):
+        inc[e[0]].append(i)
+        if e[1] != e[0]:
+            inc[e[1]].append(i)
+    gone, merged = set(), 0
+    for n, lst in inc.items():
+        if len(lst) != 2 or lst[0] in gone or lst[1] in gone:
+            continue
+        i, j = lst
+        A, B = EDGES[i], EDGES[j]
+        if i == j or A[0] == A[1] or B[0] == B[1] or (A[2], A[3], A[4]) != (B[2], B[3], B[4]):
+            continue
+        pa = A[5] if A[1] == n else A[5][::-1]
+        pb = B[5] if B[0] == n else B[5][::-1]
+        a0 = A[0] if A[1] == n else A[1]
+        b1 = B[1] if B[0] == n else B[0]
+        EDGES[i] = [a0, b1, A[2], A[3], A[4], pa + pb[1:]]
+        gone.add(j)
+        merged += 1
+    EDGES = [e for k, e in enumerate(EDGES) if k not in gone]
+    if not merged:
+        break
 used = sorted({e[0] for e in EDGES} | {e[1] for e in EDGES})
 nmap = {o: i for i, o in enumerate(used)}
 NODES = [NODES[o] for o in used]
@@ -999,6 +1318,7 @@ for e in EDGES:
     e[5][0] = tuple(NODES[e[0]])
     e[5][-1] = tuple(NODES[e[1]])
 print("graph", len(NODES), "nodes", len(EDGES), "edges", "main component", round(big))
+if DEBUG: print("RAMPS", 'final', sum(1 for e in EDGES if e[2][1] == 6))
 
 # ------------------------------------------------------------------ tram routes: chains of tram edges
 tadj = collections.defaultdict(list)
@@ -1135,6 +1455,21 @@ for n, lo, la in [("Glen Waverley", 145.164, -37.878), ("Mount Waverley", 145.12
                   ("Huntingdale", 145.105, -37.91), ("Notting Hill", 145.14, -37.905), ("Ferntree Gully", 145.29, -37.885)]:
     LABELS.setdefault(n, P(lo, la))
 
+# freeway ends left over (the map edge, or nowhere to go) get a barricade across them
+deg = collections.Counter()
+for e in EDGES:
+    deg[e[0]] += 1
+    deg[e[1]] += 1
+ENDS = []
+for e in EDGES:
+    for end in (0, 1):
+        if deg[e[end]] == 1 and not e[2][3]:
+            pts = e[5] if end else e[5][::-1]
+            a, b = pts[-2], pts[-1]
+            L = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
+            ENDS.append([round(b[0]), round(b[1]), round((b[0] - a[0]) / L, 3), round((b[1] - a[1]) / L, 3), e[3]])
+print("barricaded ends", len(ENDS))
+
 # ------------------------------------------------------------------ write
 names = sorted({e[2][0] for e in EDGES})
 nid = {n: i for i, n in enumerate(names)}
@@ -1145,6 +1480,7 @@ out = {
     "nodes": flat(NODES),
     "edges": [[e[0], e[1], e[2][1], nid[e[2][0]], (1 if e[2][2] else 0) | (2 if e[4] else 0) | (4 if e[2][3] else 0), e[3], flat(e[5])] for e in EDGES],
     "trams": ROUTES,
+    "ends": ENDS,
     "rails": [flat(r) for r in RAILS],
     "sea": flat(SEA),
     "water": [flat(w) for w in WATER],

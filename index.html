@@ -277,6 +277,8 @@ function generate(){
   // stretches of road over water, for the bridge railings
   for(const E of EDGES){E.br=[];if(E.tun)continue;let st=-1;for(let s=0;s<=E.len;s+=12){const p=edgeAt(E,s),w=tileAtPx(p.x,p.y)===BRIDGE;if(w&&st<0)st=s;if(!w&&st>=0){if(s-st>20)E.br.push([Math.max(0,st-14),Math.min(E.len,s+2)]);st=-1}}if(st>=0)E.br.push([st,E.len])}
   buildFences();
+  // a freeway that runs off the edge of the map ends at a barricade
+  for(const B of BARRIERS)strokePoly([B.x-B.nx*B.half,B.y-B.ny*B.half,B.x+B.nx*B.half,B.y+B.ny*B.half],7,FS,FW,FH,fine(i=>SOL[i]=1));
   // Port of Melbourne: container yards on the docks west of Docklands
   PORT_POLY=ll(PORT_LL);fillPoly(PORT_POLY,TS,W,H,tile(i=>{flags[i]|=PORT;flags[i]&=~PARK}));
   // MCG: oval stands with a striped pitch and four gates
@@ -441,6 +443,8 @@ function updateLayer(c){if(c.ug||c.tram)return;const k=fidx(c.x,c.y);if(k<0)retu
 const fenced=(x,y)=>{const i=fidx(x,y);return i>=0&&(FWM[i]&1)&&!(FWM[i]&6)};
 const sameLayer=(a,b)=>!!a.fl===!!b.fl||[a,b].some(c=>{const k=fidx(c.x,c.y);return k>=0&&FWM[k]&2});
 const OVP=[];
+// barricades across the freeway ends at the edge of the map: x,y the barrier's middle, (nx,ny) across the road
+const BARRIERS=(MAP.ends||[]).map(([x,y,dx,dy,w])=>({x:x-dx*20,y:y-dy*20,dx,dy,nx:-dy,ny:dx,half:w/2+26}));
 function buildFences(){const fine=fn=>(x,y)=>fn(y*FW+x);
   for(const E of EDGES){if(!E.fw)continue;for(const f of E.tun?tunOpen(E).map(([a,b])=>subPoly(E,a,b)):[E.P])strokePoly(f,E.hw+10,FS,FW,FH,fine(i=>FWM[i]|=1))}
   for(const E of EDGES)if(E.ramp)strokePoly(E.P,E.hw+8,FS,FW,FH,fine(i=>FWM[i]|=2));
@@ -564,9 +568,13 @@ function renderChunk(g,cx,cy,for3d){
   for(const E of FR){const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)continue;st(E,E.hw-6,3,'#f2c230',s0,s1);st(E,-E.hw+6,3,'#f2c230',s0,s1);
     if(E.fw){st(E,0,5,'#9a9a96',s0,s1);st(E,28,2,'#e4dfcf',s0,s1,[18,24]);st(E,-28,2,'#e4dfcf',s0,s1,[18,24])}}
   if(!for3d)for(const o of OVP){if(Math.abs(o.x-X0-CPX/2)>CPX/2+o.half+260||Math.abs(o.y-Y0-CPX/2)>CPX/2+o.half+260)continue;const E=o.E,a=Math.max(0,o.s-o.half-40),b=Math.min(E.len,o.s+o.half+40);
-    g.save();g.translate(9,12);edgePath(g,E,0,a,b);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=E.w+14;g.stroke();g.restore();
+    g.save();g.lineCap='butt';g.save();g.translate(9,12);edgePath(g,E,0,a,b);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=E.w+14;g.stroke();g.restore();
     edgePath(g,E,0,a,b);g.strokeStyle='#b4b8be';g.lineWidth=E.w+14;g.stroke();g.strokeStyle=COL.asphalt;g.lineWidth=E.w;g.stroke();
-    g.setLineDash([14,18]);g.strokeStyle='rgba(233,229,214,.85)';g.lineWidth=2;g.stroke();g.setLineDash([])}
+    g.setLineDash([14,18]);g.strokeStyle='rgba(233,229,214,.85)';g.lineWidth=2;g.stroke();g.setLineDash([]);g.restore()}
+  // barricades: red and white boards across the road, with a chevron sign
+  for(const B of BARRIERS){if(B.x<X0-200||B.x>X1+200||B.y<Y0-200||B.y>Y1+200)continue;g.save();g.translate(B.x,B.y);g.rotate(Math.atan2(B.ny,B.nx));
+    if(!for3d){g.fillStyle='rgba(0,0,0,.3)';g.fillRect(-B.half+4,-2,B.half*2,12)}
+    for(let k=-B.half,i=0;k<B.half;k+=16,i++){g.fillStyle=i%2?'#f4f4f4':'#d8221d';g.fillRect(k,-6,Math.min(16,B.half-k),10)}g.restore()}
   // tunnel portals: open trenches running down into the mouth; in 2D a faint line shows where the tunnel runs underground
   for(const E of K.e){if(!E.tun)continue;g.save();g.lineCap='butt';
     if(!for3d){g.setLineDash([14,16]);g.strokeStyle='rgba(30,30,40,.28)';g.lineWidth=E.w*.7;edgePath(g,E,0);g.stroke();g.setLineDash([])}
@@ -1703,7 +1711,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 30';
+const BUILD='Build 31';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1943,6 +1951,10 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
       const pts=[];for(const o of[-1,1])for(let k=-5;k<=5;k++){if(!k)continue;const r=WG.pts[clamp(j+k*9,0,WG.pts.length-1)];pts.push(q.x+nx*o*62,top-6,q.y+nz*o*62,r.x+nx*o*50,r.h+8,r.y+nz*o*50)}
       const lg=new T.BufferGeometry();lg.setAttribute('position',new T.Float32BufferAttribute(pts,3));g.add(new T.LineSegments(lg,new T.LineBasicMaterial({color:'#e6e9ee'})))}
     root.add(g)}
+  // barricades at the freeway ends: striped boards on posts, flashing lamps on top
+  for(const B of BARRIERS){const g=new T.Group(),y0=terrainH(B.x,B.y);g.position.set(B.x,y0,B.y);g.rotation.y=-Math.atan2(B.ny,B.nx);
+    for(let k=-B.half,i=0;k<B.half;k+=16,i++){part(g,OM(i%2?'#f4f4f4':'#d8221d'),16,7,4,k+8,11,0);if(i%3===0){part(g,OM('#555'),2,9,2,k+8,4.5,0);part(g,OM('#ffb020','#cc6600'),3,3,3,k+8,16,0)}}
+    const sign=part(g,OM('#f2c230'),46,22,2,0,30,-4);part(g,OM('#555'),3,20,3,0,10,-4);root.add(g)}
   // tunnels: a lit tube underground, and open trenches with retaining walls at the portals
   {const tube=mkBuf(),lit=mkBuf(),road=new T.Color('#2e3035'),wallc=new T.Color('#c9c3a6'),trench=new T.Color('#a8aaad'),roofc=new T.Color('#4c4e53'),lamp=new T.Color('#fff1c4'),yel=new T.Color('#f2c230');
     for(const E of TUN){const st=16,N=Math.ceil(E.len/st),wh=E.hw+8;
