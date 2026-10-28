@@ -35,6 +35,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 - In 3D the ground rolls: gentle hills that rise towards the Dandenongs in the east and settle to sea level along the bay and rivers. CBD towers step back as they rise.
 - Roads follow the real curves, with footpaths, kerbs, lane markings, stop lines and tram tracks. Buildings line up with the street: towers in the CBD, mid-rise round it, shops on the main roads and houses in the suburbs.
 - The West Gate and Bolte bridges climb over the Yarra on piers, with cable-stay pylons.
+- Tunnels run underground: CityLink's Burnley Tunnel under the Yarra, the West Gate Tunnel, EastLink's Melba Tunnel and the North East Link (built in the game, from the Eastern Freeway at Bulleen north under Watsonia). Portals are open trenches that ramp down to a lit tunnel mouth; underground you're out of sight of the streets above, so cops on the surface lose you, and you can't get out of the car until you're back up.
 - Melbourne landmarks modelled in Blender and placed where they really are: Flinders Street Station with its dome and clocks, the Arts Centre spire, the MCG with its stands and light towers, Eureka Tower, Rialto, St Paul's, Federation Square, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park's face, and the West Gate and Bolte bridge pylons.
 - The Albert Park Grand Prix circuit loops around the lake, with kerbs, a grandstand and a lap timer at the start/finish line. The Tan running track loops around the Botanic Gardens.
 

@@ -159,25 +159,28 @@ PAGES = DATA["pages"]
 print("pages", len(PAGES), "world", WPX, "x", HPX)
 
 FREEWAY_WORDS = ("Freeway", "CityLink", "EastLink", "Ring Road", "Bypass", "Tollway")
-SKIP_NAMES = {"Aughtie Drive", "Lakeside Drive", "West Gate Tunnel"}   # the circuit replaces these; the tunnel duplicates the West Gate
+SKIP_NAMES = {"Aughtie Drive", "Lakeside Drive"}   # the Albert Park circuit replaces these
 
 
 def road_kind(r):
     cls = r["r"]
     tags = r.get("tags") or {}
     name = r.get("n") or ""
+    if cls == 6 and name == "North East Link":
+        cls = 0      # still being built in the OSM data; finished in the game
     if cls > 5 or r.get("t"):
         return None
     if tags.get("service") or tags.get("tunnel") == "building_passage":
         return None
-    fw = cls == 0 and any(w in name for w in FREEWAY_WORDS)
+    fw = cls == 0 and (any(w in name for w in FREEWAY_WORDS) or name in ("North East Link", "West Gate Tunnel"))
+    tun = fw and tags.get("tunnel") == "yes"
     if tags.get("tunnel") and not fw:
         return None
     if name in SKIP_NAMES:
         return None
     if cls == 4 or "Service Road" in name or name.endswith(" Lane") or name.startswith("Little "):
         return None    # laneways, service roads and little streets only clutter the game map
-    return (name, cls, fw)
+    return (name, cls, fw, tun)
 
 
 # ---------------------------------------------------------------- road topology: segments keyed by OSM node position
@@ -361,6 +364,8 @@ for n, lst in at_node.items():
             if ci == cj:
                 continue
             A, B = CHAINS[ci]["attr"], CHAINS[cj]["attr"]
+            if A[3] != B[3]:
+                continue     # a tunnel and the road outside its portal stay separate
             same = A[0] and A[0] == B[0]
             if not same and not (not A[0] and not B[0] and A[1] == B[1]):
                 continue
@@ -421,7 +426,7 @@ for name, cls, fw, ll in HAND:
     for r in runs:
         if len(r) < 2:
             continue
-        CHAINS.append({"attr": (name, cls, fw), "keys": [None] * len(r), "pts": [P(*q) for q in r], "hand": True})
+        CHAINS.append({"attr": (name, cls, fw, False), "keys": [None] * len(r), "pts": [P(*q) for q in r], "hand": True})
 print("chains", len(CHAINS))
 
 # ------------------------------------------------------------------ trams (to boost the streets they run along)
@@ -518,7 +523,7 @@ def real_r(x, y):
 
 
 for c in CHAINS:
-    name, cls, fw = c["attr"]
+    name, cls, fw = c["attr"][:3]
     c["len"] = plen(c["pts"])
     c["S"] = sample(c["pts"])
     tram = sum(1 for q in c["S"] if near_tram(q[0], q[1])) / max(1, len(c["S"]))
@@ -527,6 +532,8 @@ for c in CHAINS:
     if c["tram"]:
         rank = min(rank, 2)
     c["rank"] = rank
+    if c["attr"][3] and c["len"] < 250:
+        c["attr"] = c["attr"][:3] + (False,)     # underpasses too short to bother with stay on the surface
     c["w"] = 112 if fw else max(WIDTH[cls], 72 if c["tram"] else 0)
     c["gap"] = 30 if fw else GAP[min(cls, 3) if c["tram"] else cls]
     mid = c["pts"][len(c["pts"]) // 2]
@@ -538,7 +545,7 @@ for c in CHAINS:
 
 CHAINS = [c for c in CHAINS if c["rank"] < 5 or c["len"] > 700 or c["tram"]]   # only long side streets stay
 CHAINS.sort(key=lambda c: (c["rank"], -c["len"]))
-acc = Grid(96)
+acc, acc_t = Grid(96), Grid(96)    # surface roads and tunnels don't crowd each other out
 PIECES = []    # accepted runs: attr, pts [(x,y,key)], w, tram, fw, hand
 touch = collections.defaultdict(set)    # node key -> accepted pieces that end there
 for c in CHAINS:
@@ -555,7 +562,7 @@ for c in CHAINS:
     for x, y, dx, dy, s in S:
         blocked = False
         R = hw + 56 + c["gap"]
-        for (qx, qy, qdx, qdy, qhw, qp) in acc.near(x, y, R):
+        for (qx, qy, qdx, qdy, qhw, qp) in (acc_t if c["attr"][3] else acc).near(x, y, R):
             d = math.hypot(qx - x, qy - y)
             if d < hw + qhw + c["gap"] and abs(dx * qdx + dy * qdy) > .75:
                 lim = hw + qhw + c["gap"] + 30
@@ -612,7 +619,7 @@ for c in CHAINS:
                 touch[q[2]].add(pid)
         for x, y, dx, dy, s in S:
             if s0 - 1 <= s <= s1 + 1:
-                acc.add(x, y, (x, y, dx, dy, hw, pid))
+                (acc_t if c["attr"][3] else acc).add(x, y, (x, y, dx, dy, hw, pid))
 print("accepted pieces", len(PIECES))
 _rk = collections.Counter(c["rank"] for c in CHAINS)
 _ra = collections.Counter()
@@ -665,7 +672,7 @@ for pi, p in enumerate(PIECES):
         ex, ey = ex / el, ey / el
         best = None
         for oj, si in seg_grid.near(q[0], q[1], 200):
-            if oj == pi:
+            if oj == pi or PIECES[oj]["attr"][3] != p["attr"][3]:
                 continue
             o = PIECES[oj]
             a, b = o["pts"][si], o["pts"][si + 1]
@@ -738,7 +745,7 @@ for pi, p in enumerate(PIECES):
             t = min(1, k * 60 / max(L, 1))
             cand.update(seg_grid.near(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 130))
         for oj, si in cand:
-            if oj == pi or (min(pi, oj), max(pi, oj), i, si) in done_x:
+            if oj == pi or PIECES[oj]["attr"][3] or (min(pi, oj), max(pi, oj), i, si) in done_x:
                 continue
             o = PIECES[oj]
             c_, d_ = o["pts"][si], o["pts"][si + 1]
@@ -860,6 +867,36 @@ while True:
     EDGES = [e for k, e in enumerate(EDGES) if k not in gone]
     if not merged:
         break
+# a tunnel must come out somewhere: join any loose tunnel end to the nearest surface freeway with a short ramp
+deg = collections.Counter()
+for e in EDGES:
+    deg[e[0]] += 1
+    deg[e[1]] += 1
+for e in [e for e in EDGES if e[2][3]]:
+    for end in (0, 1):
+        n = e[end]
+        if deg[n] != 1:
+            continue
+        x, y = NODES[n]
+        best = None
+        for o in EDGES:
+            if o[2][3] or not o[2][2]:
+                continue
+            for m in (o[0], o[1]):
+                d = math.hypot(NODES[m][0] - x, NODES[m][1] - y)
+                if d < 700 and (best is None or d < best[0]):
+                    best = (d, m)
+        if best:
+            m = best[1]
+            EDGES.append([n, m, e[2][:3] + (False,), e[3], False, [(x, y), tuple(NODES[m])]])
+            deg[n] += 1
+            deg[m] += 1
+            print("tunnel ramp", e[2][0], round(best[0]))
+        else:
+            e.append("dead")     # a leftover stub of a twin tunnel: drop it
+EDGES = [e for e in EDGES if e[-1] != "dead"]
+if False:
+    pass
 used = sorted({e[0] for e in EDGES} | {e[1] for e in EDGES})
 nmap = {o: i for i, o in enumerate(used)}
 NODES = [NODES[o] for o in used]
@@ -1013,7 +1050,7 @@ out = {
     "proj": {"lon0": LON0, "lat0": LAT0, "kx": KX, "ky": KY, "r0": R0M, "rr": RR, "ox": OX, "oy": OY},
     "names": names,
     "nodes": flat(NODES),
-    "edges": [[e[0], e[1], e[2][1], nid[e[2][0]], (1 if e[2][2] else 0) | (2 if e[4] else 0), e[3], flat(e[5])] for e in EDGES],
+    "edges": [[e[0], e[1], e[2][1], nid[e[2][0]], (1 if e[2][2] else 0) | (2 if e[4] else 0) | (4 if e[2][3] else 0), e[3], flat(e[5])] for e in EDGES],
     "trams": ROUTES,
     "rails": [flat(r) for r in RAILS],
     "sea": flat(SEA),
