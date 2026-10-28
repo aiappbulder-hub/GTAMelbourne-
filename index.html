@@ -114,7 +114,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
       <button id="btnCont" class="big alt" type="button" hidden>Continue</button>
     </div>
     <div class="help">
-      <div><h3>On foot</h3><p><kbd>WASD</kbd> move (in the chase camera <kbd>A</kbd>/<kbd>D</kbd> turn you and the mouse looks around a little). Hold the right mouse button to aim over the shoulder, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
+      <div><h3>On foot</h3><p><kbd>WASD</kbd> move, and you always turn to face the way you walk (in the chase camera, <kbd>S</kbd> walks back towards the camera). Hold the right mouse button to aim over the shoulder, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
       <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake (HB on touch, next to FIRE), <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
       <div><h3>Touch</h3><p>Drag the left side to walk and the right side to look around. Tap a baddie to lock on (tap empty ground to let go); holding FIRE with nothing locked locks on to the nearest one after you. In a car, use the ◀ ▶ arrows to steer, REV underneath them to reverse, GAS to go and BRAKE to stop. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Turn the camera with <kbd>Z</kbd>/<kbd>C</kbd> or by right-dragging. Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
@@ -792,8 +792,9 @@ function readControls(){
   if(stick.mag>.15){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}if(!inCar)c.sprint=stick.mag>.85;
     // GTA stick: push up for gas, pull down to brake/reverse, left/right to steer
     if(inCar&&(driveMode==='gta'||view==='chase')){const sx=Math.abs(stick.dx)>.12?stick.dx:0,sy=Math.abs(stick.dy)>.18?stick.dy:0;c.steer=clamp(sx*1.25,-1,1);c.thr=clamp(-sy*1.3,-1,1)}}
-  // chase camera on a keyboard: A/D turn you, W walks forward, S steps back (the camera stays behind you)
-  if(G3.active&&view==='chase'&&!inCar&&!isTouch&&stick.mag<=.15){c.tank=true;c.turn=(rt?1:0)-(lf?1:0);c.fwd=(up?1:0)-(dn?1:0);c.mx=c.my=0}
+  // chase camera on a keyboard: WASD walk relative to the camera and you turn to face where you walk;
+  // only while aiming (right mouse) do A/D turn you on the spot and W/S step forward and back
+  if(G3.active&&view==='chase'&&!inCar&&!isTouch&&stick.mag<=.15&&mouse.aim){c.tank=true;c.turn=(rt?1:0)-(lf?1:0);c.fwd=(up?1:0)-(dn?1:0);c.mx=c.my=0}
   if(G3.active&&view==='chase'&&!inCar&&(c.mx||c.my)){const r=G3.yaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
   c.point=inCar&&driveMode==='point'&&view!=='chase';
   if(c.point){c.thr=0;c.steer=0}
@@ -1181,17 +1182,19 @@ function updatePlayer(dt,c){
   if(c.tank){if(mouse.aim){player.a+=c.turn*2.4*dt;if(c.fwd){const k=c.fwd>0?.75:-.5;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}   // aiming: A/D still turn you
     else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
-  if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used&&!c.tank)player.a=Math.atan2(c.my,c.mx)}
+  const moving=!!(c.mx||c.my)&&!c.tank,chase=G3.active&&view==='chase';
+  // walking: always turn round to face the way you're going (never walk backwards)
+  if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(moving)player.a+=angDiff(Math.atan2(c.my,c.mx),player.a)*Math.min(1,dt*14)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
-  if(c.tank){if(mouse.down&&G3.ok&&!mouse.aim&&!c.turn)player.a=G3.yaw+(G3.look||0)}   // shooting without aiming fires where the camera looks
-  else if(mouse.used&&!isTouch){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
+  if(chase){if(c.fire&&!mouse.aim&&!moving&&!isTouch&&!player.lock)player.a=G3.yaw+(G3.look||0)}   // standing and shooting without aiming fires where the camera looks
+  else if(mouse.used&&!isTouch&&(!moving||c.fire)){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}   // the mouse points you when you stop or shoot
   pushOutCars(player,6);
   // lock-on: a tapped (or clicked) baddie, or, when you fire with nothing locked, the nearest one coming for you.
   // While locked you turn to face them and every shot goes their way.
   if(player.lock&&(player.lock.dead||Math.hypot(player.lock.x-player.x,player.lock.y-player.y)>560))player.lock=null;
   if(c.fire&&!player.lock&&!w.melee)player.lock=nearestThreat();
-  if(player.lock&&!w.melee)player.a=Math.atan2(player.lock.y-player.y,player.lock.x-player.x);
-  player.aimT=w.melee?null:player.lock||(c.tank?aimTarget(player.a):null);
+  if(player.lock&&!w.melee&&!moving)player.a=Math.atan2(player.lock.y-player.y,player.lock.x-player.x);   // stand still and you face your target; walk and you face where you're going (shots still find the target)
+  player.aimT=w.melee?null:player.lock||(c.tank||chase?aimTarget(player.a):null);
   if(c.fire&&player.cool<=0){player.cool=w.rate;let a=player.a;if(player.aimT){a=Math.atan2(player.aimT.y-player.y,player.aimT.x-player.x)}
     if(isTouch&&!player.lock){let best=null,bs=1.0;for(const p of peds){if(p.dead)continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d>300)continue;
       const ad=Math.abs(angDiff(Math.atan2(p.y-player.y,p.x-player.x),a));const hostile=p.kind!=='civ'?.4:0;const sc=ad/1-hostile+d/900;if(ad<.9&&sc<bs){bs=sc;best=p}}
@@ -1758,7 +1761,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 36';
+const BUILD='Build 37';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1897,7 +1900,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     // follow the car only while you're not turning the camera yourself; on foot only drift round when walking away from it
     if(G3.manualT>1.6){if(pc){if(Math.abs(fwdSpeed(pc))>25)G3.yaw+=angDiff(pc.a,G3.yaw)*Math.min(1,dt*2.2)}
       else if(G3.tank)G3.yaw+=angDiff(player.a,G3.yaw)*Math.min(1,dt*4.5);
-      else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<2.4)G3.yaw+=d*Math.min(1,dt*1.7)}}
+      else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<1.4)G3.yaw+=d*Math.min(1,dt*1.7)}}   // walking towards the camera doesn't swing it round
     const d=pc?(pc.ug?78:95+spd*.07):62,h=pc?(pc.ug?30:40+spd*.02):32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     // on foot with a mouse, the pointer nudges the camera a little around your back (about 30 degrees each way) and up or down
     G3.aimK=lerp(G3.aimK||0,mouse.aim&&!pc?1:0,Math.min(1,dt*8));if(mouse.aim&&!pc){G3.yaw=player.a;G3.manualT=0}
