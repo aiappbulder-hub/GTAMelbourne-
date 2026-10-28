@@ -592,7 +592,7 @@ function renderChunk(g,cx,cy,for3d){
     if(for3d){g.fillStyle='#5f6062';g.fillRect(px,py,TS,TS);continue}g.fillStyle=PAL.cont[shade[i]%6];g.fillRect(px+1,py+1,TS-2,TS-2);g.fillStyle='rgba(0,0,0,.18)';for(let k=0;k<4;k++)g.fillRect(px+k*8+3,py+3,1,TS-6)}
   // buildings: in 3D they are real boxes, so only their footprint shadow goes on the ground
   for(const b of K.b){const ca=Math.cos(b.a),sa=Math.sin(b.a);g.save();g.translate(b.x,b.y);g.rotate(b.a);
-    if(for3d){g.fillStyle='rgba(0,0,0,.25)';g.fillRect(-b.w/2-3,-b.d/2-3,b.w+6,b.d+6);g.restore();continue}
+    if(for3d){g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=18;g.fillStyle='rgba(0,0,0,.3)';g.fillRect(-b.w/2-2,-b.d/2-2,b.w+4,b.d+4);g.shadowBlur=0;g.restore();continue}
     const sh=Math.min(26,6+b.h*.05);g.fillStyle='rgba(0,0,0,.3)';g.save();g.rotate(-b.a);g.translate(sh*.6,sh*.8);g.rotate(b.a);g.fillRect(-b.w/2,-b.d/2,b.w,b.d);g.restore();
     const col=bldRoof(b);g.fillStyle=col;g.fillRect(-b.w/2,-b.d/2,b.w,b.d);g.fillStyle=shadeHex(col,.2);g.fillRect(-b.w/2,-b.d/2,b.w,3);g.fillRect(-b.w/2,-b.d/2,3,b.d);
     g.fillStyle=shadeHex(col,-.3);g.fillRect(-b.w/2,b.d/2-4,b.w,4);g.fillRect(b.w/2-4,-b.d/2,4,b.d);
@@ -600,6 +600,10 @@ function renderChunk(g,cx,cy,for3d){
     else if(b.k==='tower'){g.fillStyle=shadeHex(col,.12);g.fillRect(-b.w/2+8,-b.d/2+8,b.w-16,b.d-16);if(hash(b.x|0,b.y|0,7)<.2){g.strokeStyle='#e8e8e8';g.lineWidth=2;g.beginPath();g.arc(0,0,9,0,TAU);g.stroke()}}
     else{g.fillStyle=shadeHex(col,-.12);g.fillRect(-6,-5,12,10)}
     g.restore()}
+  // in 3D the trees are models: just a soft dark patch on the grass under each one
+  if(for3d)for(let ty=cy*CH-1;ty<=cy*CH+CH;ty++)for(let tx=cx*CH-1;tx<=cx*CH+CH;tx++){if(tAt(tx,ty)!==TREE||tx>=W||ty>=H)continue;
+    const px=tx*TS+16,py=ty*TS+16,r=16+hash(tx,ty,9)*6,gr=g.createRadialGradient(px,py,0,px,py,r);gr.addColorStop(0,'rgba(0,0,0,.38)');gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gr;g.fillRect(px-r,py-r,r*2,r*2)}
   if(!for3d)for(let ty=cy*CH-1;ty<=cy*CH+CH;ty++)for(let tx=cx*CH-1;tx<=cx*CH+CH;tx++){if(tAt(tx,ty)!==TREE||tx>=W||ty>=H)continue;
     const px=tx*TS+16,py=ty*TS+16,r=13+hash(tx,ty,9)*5;
     g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.arc(px+5,py+6,r,0,TAU);g.fill();
@@ -1587,10 +1591,10 @@ function init3D(){
       gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.47,'#e6f0fa');gr.addColorStop(.53,'#77736a');gr.addColorStop(1,'#3b3a36');g.fillStyle=gr;g.fillRect(0,0,2,128);
       es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));
       const pm=new T.PMREMGenerator(r);sc.environment=pm.fromScene(es).texture;pm.dispose()}
-    sc.add(new T.HemisphereLight(0xdcecff,0x5a6450,.62));const sun=new T.DirectionalLight(0xfff0d8,.9);sc.add(sun);sc.add(sun.target);
+    sc.add(new T.HemisphereLight(0xd6e8ff,0x66594a,.6));const sun=new T.DirectionalLight(0xffecd0,1);sc.add(sun);sc.add(sun.target);
     r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=isTouch||cw<800?1024:2048;sun.shadow.mapSize.set(sm,sm);
     Object.assign(sun.shadow.camera,{left:-700,right:700,top:700,bottom:-700,near:10,far:3200});sun.shadow.bias=-.0006;sun.shadow.normalBias=.6;
-    Object.assign(G3,{sun,shadows:true,T,r,sc,cam:new T.PerspectiveCamera(50,cw/chh,4,8000),aniso:Math.min(8,r.capabilities.getMaxAnisotropy()),
+    Object.assign(G3,{sun,shadows:true,T,r,sc,cam:new T.PerspectiveCamera(50,cw/chh,8,8000),aniso:Math.min(8,r.capabilities.getMaxAnisotropy()),
       box:new T.BoxGeometry(1,1,1),plane:new T.PlaneGeometry(CPX,CPX).rotateX(-PI/2),disc:new T.CircleGeometry(1,16).rotateX(-PI/2),
       ico:new T.IcosahedronGeometry(1,0),sph:new T.SphereGeometry(1,8,6),ray:new T.Raycaster(),gp:new T.Plane(new T.Vector3(0,1,0),-10),
       occ:{uCam:{value:new T.Vector3()},uTarget:{value:new T.Vector3()},uRad:{value:70}}});
@@ -1620,10 +1624,24 @@ function init3D(){
     G3.mk=new T.Group();sc.add(G3.mk);
     buildLandmarks3D();
     loadModels();
-    G3.ok=true;
+    G3.ok=true;initAO();if(!isTouch)glEl.style.filter='saturate(1.12) contrast(1.03)';   // a light colour grade (left off phones, where it costs frames)
   }catch(e){console.error(e);G3.ok=false}
   return G3.ok}
-addEventListener('resize',()=>{if(G3.ok)G3.r.setSize(cw,chh,false)});
+addEventListener('resize',()=>{if(G3.ok){G3.r.setSize(cw,chh,false);if(G3.comp){const pr=G3.r.getPixelRatio();G3.comp.setSize(cw,chh);G3.ao.setSize(cw*pr,chh*pr)}}});
+// screen-space ambient occlusion (three.js's SSAOPass): soft shading in corners, under eaves and where walls meet the road.
+// Desktop only; it switches itself off if the frame rate can't keep up.
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function initAO(){if(isTouch||cw<900||G3.aoTried)return;G3.aoTried=true;
+  const base='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
+  try{for(const f of['shaders/CopyShader.js','shaders/SSAOShader.js','math/SimplexNoise.js','postprocessing/EffectComposer.js','postprocessing/ShaderPass.js','postprocessing/SSAOPass.js'])await loadScript(base+f);
+    const T=THREE,pr=G3.r.getPixelRatio(),comp=new T.EffectComposer(G3.r),ao=new T.SSAOPass(G3.sc,G3.cam,cw*pr,chh*pr);
+    Object.assign(ao,{kernelRadius:AO.radius,minDistance:AO.min,maxDistance:AO.max});comp.addPass(ao);comp.setSize(cw,chh);G3.comp=comp;G3.ao=ao;G3.aoSlow=0}
+  catch(e){console.warn('ambient occlusion unavailable',e)}}
+const AO={radius:40,min:.00004,max:.003};
+function present3D(dt){if(G3.comp){const t0=performance.now();G3.comp.render(dt);
+    // a slow machine: drop the effect rather than the frame rate
+    if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
+  else G3.r.render(G3.sc,G3.cam)}
 // buildings between the camera and the player go see-through (screen-door dither) so towers never hide you
 function occlude(m){m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,G3.occ);
   sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
@@ -1639,10 +1657,11 @@ function windowTex(){const c=document.createElement('canvas');c.width=c.height=6
   const t=new G3.T.CanvasTexture(c);t.wrapS=t.wrapT=G3.T.RepeatWrapping;t.anisotropy=G3.aniso||1;return t}
 const CITY={ready:false,tpl:{},names:['building-small-a','building-small-b','building-small-c','building-small-d','building-garage']};
 function mkBuf(){const b={p:[],n:[],c:[],uv:[]};
-  b.quad=(A,B,C,D,n,col,r)=>{const ux=B[0]-A[0],uy=B[1]-A[1],uz=B[2]-A[2],vx=C[0]-A[0],vy=C[1]-A[1],vz=C[2]-A[2];
+  // sh: optional shade by height, for the darkening where a wall meets the ground
+  b.quad=(A,B,C,D,n,col,r,sh)=>{const ux=B[0]-A[0],uy=B[1]-A[1],uz=B[2]-A[2],vx=C[0]-A[0],vy=C[1]-A[1],vz=C[2]-A[2];
     let q=[A,B,C,D],u=r?[[r[0],r[1]],[r[2],r[1]],[r[2],r[3]],[r[0],r[3]]]:[[0,0],[0,0],[0,0],[0,0]];
     if((uy*vz-uz*vy)*n[0]+(uz*vx-ux*vz)*n[1]+(ux*vy-uy*vx)*n[2]<0){q=[A,D,C,B];u=[u[0],u[3],u[2],u[1]]}
-    for(const k of[0,1,2,0,2,3]){b.p.push(q[k][0],q[k][1],q[k][2]);b.n.push(n[0],n[1],n[2]);b.c.push(col.r,col.g,col.b);b.uv.push(u[k][0],u[k][1])}};
+    for(const k of[0,1,2,0,2,3]){const f=sh?sh(q[k][1]):1;b.p.push(q[k][0],q[k][1],q[k][2]);b.n.push(n[0],n[1],n[2]);b.c.push(col.r*f,col.g*f,col.b*f);b.uv.push(u[k][0],u[k][1])}};
   b.tri=(A,B,C,n,col)=>{const ux=B[0]-A[0],uy=B[1]-A[1],uz=B[2]-A[2],vx=C[0]-A[0],vy=C[1]-A[1],vz=C[2]-A[2];let q=[A,B,C];
     if((uy*vz-uz*vy)*n[0]+(uz*vx-ux*vz)*n[1]+(ux*vy-uy*vx)*n[2]<0)q=[A,C,B];for(const p of q){b.p.push(p[0],p[1],p[2]);b.n.push(n[0],n[1],n[2]);b.c.push(col.r,col.g,col.b);b.uv.push(0,0)}};
   b.geo=()=>{const T=G3.T,g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(b.p,3));g.setAttribute('normal',new T.Float32BufferAttribute(b.n,3));
@@ -1652,11 +1671,15 @@ function addTree(b,tx,ty){const T=G3.T,x=(tx+.5)*TS,z=(ty+.5)*TS,y0=terrainH(x,z
   b.quad([x-w,y0,z-w],[x-w,y0,z+w],[x-w,th,z+w],[x-w,th,z-w],[-1,0,0],tr);b.quad([x+w,y0,z-w],[x+w,y0,z+w],[x+w,th,z+w],[x+w,th,z-w],[1,0,0],tr);
   const P=G3.ico.attributes.position.array,N=G3.ico.attributes.normal.array,cy=th+r*.85;
   for(let i=0;i<P.length;i+=3){b.p.push(x+P[i]*r,cy+P[i+1]*r*1.1,z+P[i+2]*r);b.n.push(N[i],N[i+1],N[i+2]);const k=.9+((i/9)%3)*.06;b.c.push(col.r*k,col.g*k,col.b*k);b.uv.push(0,0)}}
+// ambient occlusion baked into the walls: darker at the foot, fading out over the first AO_H px
+const AO_H=18,aoShade=gy=>y=>.58+.42*clamp((y-gy)/AO_H,0,1);
 // a building: walls with windows and a flat roof (towers step back as they rise), or a pitched roof for houses; it sits into the slope
 function addBuilding(wall,roof,b){const T=G3.T,ca=Math.cos(b.a),sa=Math.sin(b.a),P=(u,v,y)=>[b.x+ca*u-sa*v,y,b.y+sa*u+ca*v];
   const wc=new T.Color(bldWall(b)),rc=new T.Color(bldRoof(b)),gy=terrainH(b.x,b.y),base=gy-10;
   const block=(hw,hd,y0,y1,top)=>{for(const[u0,v0,u1,v1]of[[-hw,-hd,hw,-hd],[hw,-hd,hw,hd],[hw,hd,-hw,hd],[-hw,hd,-hw,-hd]]){const len=Math.hypot(u1-u0,v1-v0),mu=(u0+u1)/2,mv=(v0+v1)/2,l=Math.hypot(mu,mv)||1,n=[(ca*mu-sa*mv)/l,0,(sa*mu+ca*mv)/l];
-      wall.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,y1),P(u0,v0,y1),n,wc,[0,(y0-gy)/40,len/32,(y1-gy)/40])}
+      const uv=(a,c)=>[0,(a-gy)/40,len/32,(c-gy)/40],ya=gy+AO_H;
+      if(y0<=gy&&y1>ya){wall.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,ya),P(u0,v0,ya),n,wc,uv(y0,ya),aoShade(gy));wall.quad(P(u0,v0,ya),P(u1,v1,ya),P(u1,v1,y1),P(u0,v0,y1),n,wc,uv(ya,y1))}
+      else wall.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,y1),P(u0,v0,y1),n,wc,uv(y0,y1),y0<=gy?aoShade(gy):null)}
     if(top)roof.quad(P(-hw,-hd,y1),P(hw,-hd,y1),P(hw,hd,y1),P(-hw,hd,y1),[0,1,0],top)};
   const hw=b.w/2,hd=b.d/2,h=gy+b.h;
   if(b.k==='house'||b.k==='model'){block(hw,hd,base,h,null);const rh=b.d*.38;
@@ -1715,7 +1738,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 34';
+const BUILD='Build 35';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1883,7 +1906,7 @@ function route3D(){if(ROUTE.mver===ROUTE.ver)return;ROUTE.mver=ROUTE.ver;const T
 function render3D(){G3.active=true;const now=performance.now(),dt=Math.min(.05,(now-(G3.lastT||now))/1000);G3.lastT=now;
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
   if(mapOpen){drawFullMap();return}
-  cam3D(dt);chunks3D();sync3D();route3D();G3.r.render(G3.sc,G3.cam);
+  cam3D(dt);chunks3D();sync3D();route3D();present3D(dt);
   ctx.setTransform(dpr,0,0,dpr,0,0);if(started){drawBlipArrows3D();drawHUD()}}
 function drawBlipArrows3D(){const bl=missionBlips();if(!mission&&progress<MISSIONS.length)bl.push(missionStart(progress));
   const v=new G3.T.Vector3();for(const b of bl){if(!b||b.dead)continue;v.set(b.x,10,b.y).project(G3.cam);let x=v.x,y=-v.y;const behind=v.z>1;if(behind){x=-x;y=-y}
@@ -2040,7 +2063,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},get G3(){return G3},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

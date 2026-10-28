@@ -49,3 +49,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 - Street crews hold their turf: the Lygon Street Crew in Carlton/Fitzroy, the Broadmeadows mob in Essendon and Coburg, and the Westside Nomads in Sunshine. They leave you alone until you start something.
 - Custom low-poly vehicles modelled in Blender (`tools/make_models.py`): Comodo sedan, Barrina hatch, Victoria Police car with checker band, taxi, E-class style tram and the Fjord Strainger Wildtrak, a dual-cab 4x4 ute with flares, bull bar, snorkel, sports bar and roof light bar.
 - Cars carry parody Aussie badges (Holdan Comodo, FPB Typhoon F6, HSB Clubbie R8, Holdan Ute SS, Fjord Territorial, Toyoda Tarrago, and more).
+
+### Graphics
+
+On desktop the 3D view adds screen-space ambient occlusion (three.js's own `SSAOPass`, loaded on demand) and a light colour grade; it switches itself off if the frame rate can't keep up. Everywhere, walls darken towards their base and buildings and trees leave soft contact shadows on the ground.
