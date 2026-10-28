@@ -366,26 +366,50 @@ function indexChunks(){for(let i=0;i<NCX*NCY;i++)CHK.push({e:[],p:[],w:[],r:[],b
 
 // ---------------------------------------------------------------- raised bridge decks: the West Gate and the Bolte
 let DECKS=[];
-function buildDecks(){DECKS=[];
-  for(const[name,lo,la,Hh]of[['West Gate Freeway',144.8996,-37.8300,72],['CityLink',144.9323,-37.8180,38]]){const[x0,y0]=proj(lo,la);
+function buildDecks(){DECKS=[];const sm=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+  // [road, bridge lon/lat, height, and for the West Gate the viaduct that carries it on through Port Melbourne to Montague St]
+  for(const[name,lo,la,Hh,via]of[['West Gate Freeway',144.8996,-37.8300,72,{H:36,lon:144.9480}],['CityLink',144.9323,-37.8180,38]]){const[x0,y0]=proj(lo,la);
     const ne=nearestEdge(x0,y0,500,E=>E.fw&&E.name===name);if(!ne)continue;
     // walk the road both ways from the bridge to collect a long enough run of centreline
     const pts=[];const take=(E,rev)=>{const o=[];for(let k=0;k<E.n;k++){const j=rev?E.n-1-k:k;o.push([E.P[2*j],E.P[2*j+1]])}return o};
     const grow=(eid,node,maxL)=>{let L=0,out=[],e=eid,n=node;while(L<maxL){const N=NODES[n];const nx=N.e.find(o=>o!==e&&EDGES[o].fw&&EDGES[o].name===name);if(nx===undefined)break;
       const E=EDGES[nx],rev=E.b===n;const seg=take(E,rev);out.push(...seg.slice(1));L+=E.len;e=nx;n=rev?E.a:E.b}return out};
-    const E0=EDGES[ne.e];const back=grow(E0.id,E0.a,1100).reverse(),fwd=grow(E0.id,E0.b,1100);pts.push(...back,...take(E0,false),...fwd);
+    const E0=EDGES[ne.e],gl=via?5000:1100;const back=grow(E0.id,E0.a,gl).reverse(),fwd=grow(E0.id,E0.b,gl);pts.push(...back,...take(E0,false),...fwd);
     const S=[];let s=0;for(let i=0;i<pts.length-1;i++){const[a0,b0]=pts[i],[a1,b1]=pts[i+1],l=Math.hypot(a1-a0,b1-b0),n=Math.ceil(l/8);
       for(let k=0;k<n;k++){const t=k/n,x=lerp(a0,a1,t),y=lerp(b0,b1,t),tt=tileAtPx(x,y);S.push({x,y,s:s+l*t,wet:tt===BRIDGE})}s+=l}
     let best=null,cur=null;S.forEach((q,i)=>{if(q.wet){if(!cur)cur={a:i,b:i};cur.b=i}else if(cur&&i-cur.b>6){if(!best||cur.b-cur.a>best.b-best.a)best=cur;cur=null}});
     if(cur&&(!best||cur.b-cur.a>best.b-best.a))best=cur;if(!best)continue;
-    const s0=S[best.a].s,s1=S[best.b].s,R=Hh*7,sm=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
-    const P=S.filter(q=>q.s>s0-R&&q.s<s1+R).map(q=>({x:q.x,y:q.y,s:q.s,h:Hh*(q.s<s0?sm((q.s-(s0-R))/R):q.s>s1?sm(((s1+R)-q.s)/R):1)}));
+    const s0=S[best.a].s,s1=S[best.b].s,R=Hh*7;let vh=()=>0;
+    if(via){const xe=proj(via.lon,la)[0],east=S[S.length-1].x>S[0].x;   // the viaduct holds its height east of the bridge until near its end, then comes down
+      vh=q=>(east?q.s>s1:q.s<s0)?via.H*sm((xe-q.x)/(via.H*7)):0}
+    const P=S.map(q=>({x:q.x,y:q.y,s:q.s,h:Math.max(vh(q),Hh*(q.s<s0?sm((q.s-(s0-R))/R):q.s>s1?sm(((s1+R)-q.s)/R):1))})).filter(q=>q.h>.5);
     let bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;for(const q of P){bx0=Math.min(bx0,q.x);by0=Math.min(by0,q.y);bx1=Math.max(bx1,q.x);by1=Math.max(by1,q.y)}
-    DECKS.push({name:name==='CityLink'?'Bolte Bridge':'West Gate Bridge',pts:P,s0,s1,H:Hh,hw:E0.hw,box:[bx0-90,by0-90,bx1+90,by1+90]})}}
+    DECKS.push({name:name==='CityLink'?'Bolte Bridge':'West Gate Bridge',src:name,pts:P,s0,s1,H:Hh,hw:E0.hw,box:[bx0-90,by0-90,bx1+90,by1+90]})}
+  const main=DECKS.slice(),onMain=(x,y,pad)=>{for(const D of main){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;
+    let bh=-1;for(const q of D.pts)if((q.x-x)**2+(q.y-y)**2<(D.hw+pad)**2&&q.h>bh)bh=q.h;if(bh>=0)return bh}return-1};
+  // streets cross under the raised decks rather than over the freeway on an overpass
+  for(let i=OVP.length-1;i>=0;i--){const o=OVP[i];if(onMain(o.x,o.y,40)<20)continue;OVP.splice(i,1);o.E.ovp=(o.E.ovp||[]).filter(r=>r!==o.r)}
+  // ramps and link roads that join a raised deck climb up to it at 1 in 7, carried along their whole chain
+  const onDeck=E=>E.fw&&main.some(D=>D.src===E.name&&[.2,.5,.8].some(f=>{const q=edgeAt(E,E.len*f);return D.pts.some(r=>(r.x-q.x)**2+(r.y-q.y)**2<(D.hw+10)**2)}));
+  const deckE=new Set(EDGES.filter(onDeck)),ok=E=>!E.tun&&(E.ramp||E.fw)&&!deckE.has(E);
+  const hN=new Float32Array(NODES.length),Q=[];
+  NODES.forEach((n,i)=>{if(!n.e.some(e=>deckE.has(EDGES[e]))||!n.e.some(e=>ok(EDGES[e])))return;const h=onMain(n.x,n.y,12);if(h>=6){hN[i]=h;Q.push(i)}});
+  while(Q.length){const i=Q.shift();for(const e of NODES[i].e){const E=EDGES[e];if(!ok(E))continue;const j=E.a===i?E.b:E.a,h=hN[i]-E.len/7;if(h>hN[j]+1){hN[j]=h;Q.push(j)}}}
+  for(const E of EDGES){if(!ok(E))continue;const ha=hN[E.a],hb=hN[E.b];if(Math.max(ha,hb)<6)continue;const P=[];
+    for(let s=0;s<=E.len+7;s+=8){const t=Math.min(s,E.len),q=edgeAt(E,t);P.push({x:q.x,y:q.y,s:t,h:Math.max(0,ha-t/7,hb-(E.len-t)/7)})}
+    let bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;for(const q of P){bx0=Math.min(bx0,q.x);by0=Math.min(by0,q.y);bx1=Math.max(bx1,q.x);by1=Math.max(by1,q.y)}
+    E.dh=[ha,hb];DECKS.unshift({name:E.name,ramp:true,pts:P,s0:0,s1:0,H:Math.max(ha,hb),hw:E.hw,box:[bx0-90,by0-90,bx1+90,by1+90]})}}
 // height of the road surface at a point (only the raised bridge decks are above ground)
-function groundY(x,y,noOvp){const t=terrainH(x,y);for(const D of DECKS){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;let bd=1e9,h=0;
-  for(const q of D.pts){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;h=q.h}}if(bd<(D.hw+10)**2)return Math.max(h,t)}return noOvp?t:t+ovpH(x,y)}
-const groundYF=(x,y)=>groundY(x,y,true);
+function groundY(x,y,noOvp,mainOnly){const t=terrainH(x,y);for(const D of DECKS){if(mainOnly&&D.ramp)continue;const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;let bd=1e9,h=0,pad=D.ramp?6:10;
+  for(const q of D.pts){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;h=q.h}}if(bd<(D.hw+pad)**2&&!(D.ramp&&h<1))return Math.max(h,t)}return noOvp?t:t+ovpH(x,y)}
+// streets and footpaths run under the raised decks, only lifting over the freeway on an overpass
+const streetY=(x,y)=>terrainH(x,y)+ovpH(x,y);
+// a car's road height: on the freeway or a ramp it follows the road it's actually on, so a ramp running alongside a raised freeway keeps its own height
+function carY(c){if(c.ug)return c.tunY;const k=fidx(c.x,c.y),m=k>=0?FWM[k]:0;if(!c.fl&&!(m&2))return streetY(c.x,c.y);
+  let r=c.dE&&nearestEdge(c.x,c.y,c.dE.hw+6,F=>F===c.dE);if(!r){r=nearestEdge(c.x,c.y,120,F=>(F.fw||F.ramp)&&!F.tun);c.dE=r?EDGES[r.e]:null}
+  const E=r&&EDGES[r.e];if(E&&E.dh)return Math.max(terrainH(c.x,c.y),E.dh[0]-r.s/7,E.dh[1]-(E.len-r.s)/7);
+  return E&&E.ramp?terrainH(c.x,c.y):groundY(c.x,c.y,true,true)}
+const pedY=p=>{const k=fidx(p.x,p.y);return k>=0&&FWM[k]&3?groundY(p.x,p.y,true,true):streetY(p.x,p.y)};
 // ---------------------------------------------------------------- tunnels: CityLink (Burnley and Domain), the West Gate Tunnel, EastLink's tunnel and the North East Link.
 // Each portal is an open trench ramping down; past it the road runs underground in a lit tube, out of sight of the streets above.
 const TUN=EDGES.filter(E=>E.tun),TDEPTH=80,TRAMP=360,TOPEN=250,PORTALS=[];
@@ -431,7 +455,7 @@ function buildFences(){const fine=fn=>(x,y)=>fn(y*FW+x);
           const cx2=F.P[2*j],cy2=F.P[2*j+1],dx=F.P[2*j+2]-cx2,dy=F.P[2*j+3]-cy2,rx=bx-ax,ry=by-ay,den=rx*dy-ry*dx;if(Math.abs(den)<1e-9)continue;
           const t=((cx2-ax)*dy-(cy2-ay)*dx)/den,u=((cx2-ax)*ry-(cy2-ay)*rx)/den;if(t<0||t>1||u<0||u>1)continue;
           const x=ax+rx*t,y=ay+ry*t,k=fidx(x,y);if(k>=0&&FWM[k]&2)continue;const s=E.S[i]+L*t;if(OVP.some(o=>o.E===E&&Math.abs(o.s-s)<300))continue;
-          const half=F.hw+26;OVP.push({E,s,x,y,half,H:36});(E.ovp=E.ovp||[]).push([Math.max(0,s-half-170),Math.min(E.len,s+half+170)])}}}}
+          const half=F.hw+26,r=[Math.max(0,s-half-170),Math.min(E.len,s+half+170)];OVP.push({E,s,x,y,half,H:36,r});(E.ovp=E.ovp||[]).push(r)}}}}
   for(const E of EDGES)if(!E.fw&&!E.ramp&&!E.tun)strokePoly(E.P,E.hw+2,FS,FW,FH,fine(i=>{if(FWM[i]&1)FWM[i]|=4}))}
 function ovpH(x,y){let h=0;for(const o of OVP){if(Math.abs(x-o.x)>o.half+260||Math.abs(y-o.y)>o.half+260)continue;const E=o.E,s=projS(E,x,y,o.s),p=edgeAt(E,s);
   if(Math.hypot(x-p.x,y-p.y)>E.hw+16)continue;const d=Math.abs(s-o.s),k=d<o.half?1:clamp(1-(d-o.half)/170,0,1);h=Math.max(h,o.H*k*k*(3-2*k))}return h}
@@ -447,7 +471,7 @@ function vnoise(x,y,cell,seed){const gx=Math.floor(x/cell),gy=Math.floor(y/cell)
 function terrainH(x,y){if(!WDIST)return 0;const fx=clamp(x/TG,0,TGW-1.001),fy=clamp(y/TG,0,TGH-1.001),ix=fx|0,iy=fy|0,tx=fx-ix,ty=fy-iy,i=iy*TGW+ix;
   const d=lerp(lerp(WDIST[i],WDIST[i+1],tx),lerp(WDIST[i+TGW],WDIST[i+TGW+1],tx),ty),shore=clamp((d-90)/900,0,1),sh=shore*shore*(3-2*shore);if(sh<=0)return 0;
   const east=clamp((x-PJ.ox)/12000,0,1),amp=60+190*east,n=vnoise(x,y,2600,61)*.6+vnoise(x,y,900,62)*.3+vnoise(x,y,330,63)*.1;return Math.max(0,(n-.22)*amp)*sh}
-function deckAt(x,y){for(const D of DECKS){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;for(const q of D.pts)if((q.x-x)**2+(q.y-y)**2<(D.hw+10)**2&&q.h>5)return D}return null}
+function deckAt(x,y){for(const D of DECKS){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;for(const q of D.pts)if((q.x-x)**2+(q.y-y)**2<(D.hw+(D.ramp?6:10))**2&&q.h>5)return D}return null}
 
 // ================================================================ canvas + rendering setup
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
@@ -534,7 +558,7 @@ function renderChunk(g,cx,cy,for3d){
     if(E.t1){const p=edgeAt(E,E.len-E.t1-3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+p.dy*(E.hw-3),p.y-p.dx*(E.hw-3));g.stroke()}};
   for(const E of ES)paint(E);
   g.strokeStyle='#a3a6ab';g.lineWidth=2;for(const E of ES){if(!E.tram)continue;for(const o of[-17,-10,10,17])st(E,o,2,'#a3a6ab')}   // tram tracks down the middle
-  for(const E of FR)st(E,0,E.w+(E.fw?52:30),COL.verge);
+  for(const E of FR){let s=0;for(const[a,b]of E.br||[]){st(E,0,E.w+(E.fw?52:30),COL.verge,s,a);s=b}st(E,0,E.w+(E.fw?52:30),COL.verge,s,E.len)}   // no grass verge on bridges
   for(const E of FR)st(E,0,E.w+8,'#8c8f96');
   for(const E of FR)st(E,0,E.w,COL.fwy);
   for(const E of FR){const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)continue;st(E,E.hw-6,3,'#f2c230',s0,s1);st(E,-E.hw+6,3,'#f2c230',s0,s1);
@@ -1679,7 +1703,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 29';
+const BUILD='Build 30';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1772,7 +1796,7 @@ function pedMesh(shirt,skin,hair,kind,stripes){const T=G3.T,g=new T.Group(),b=ne
   const head=new T.Mesh(G3.sph,M(skin));head.scale.set(3.3,3.5,3.3);head.position.y=21;b.add(head);
   const hr=new T.Mesh(G3.sph,M(kind==='cop'?'#0d1530':hair));hr.scale.set(3.5,kind==='cop'?2.4:1.9,3.5);hr.position.y=kind==='cop'?24:23.2;b.add(hr);
   const gun=part(arms[1],M('#111111'),2.5,2.5,8,0,-8.2,3);gun.visible=false;g.userData={b,legs,gun,arms};return g}
-function syncPed(g,p,isPl){g.position.set(p.x,groundY(p.x,p.y),p.y);g.rotation.y=-p.a;const u=g.userData;
+function syncPed(g,p,isPl){g.position.set(p.x,pedY(p),p.y);g.rotation.y=-p.a;const u=g.userData;
   if(p.dead){u.b.rotation.z=-PI/2;u.b.position.y=3;u.legs[0].rotation.z=u.legs[1].rotation.z=0}
   else{u.b.rotation.z=0;u.b.position.y=0;const s=Math.sin(p.anim||0)*.55;u.legs[0].rotation.z=s;u.legs[1].rotation.z=-s;
     const armed=isPl?player.wi>0:(p.weapon&&(p.alert||p.kind==='cop'));u.arms[0].rotation.z=-s*.8;u.arms[1].rotation.z=armed?1.45:s*.8;
@@ -1793,7 +1817,7 @@ const PICK_ICON={cash:['$','#3fae4a','#fff'],health:['+','#ffffff','#d32'],armor
 function castAll(g){g.traverse(o=>{if(o.isMesh&&o.material!==G3.shadowMat)o.castShadow=true})}
 function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
   for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver+(c.type==='bike'?(c.driver?'d':'n')+(c===player.car?'p':''):'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key;castAll(c.m3)}
-    c.m3.position.set(c.x,c.ug?c.tunY:c.fl?groundYF(c.x,c.y):groundY(c.x,c.y),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
+    c.m3.position.set(c.x,carY(c),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
   for(const p of peds){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
@@ -1825,7 +1849,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     const free=!pc&&!isTouch&&mouse.used&&!mouse.aim,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
     G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6));const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
     const ak=G3.aimK,dd=lerp(d,40,ak),h2=lerp(hh,24,ak),sx=-Math.sin(yw)*11*ak,sz=Math.cos(yw)*11*ak,la=lerp(70,320,ak);
-    const gy=pc&&pc.ug?pc.tunY:pc&&pc.fl?groundYF(pp.x,pp.y):groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(yw)*dd+sh+sx,h2+sh+gy,pp.y-Math.sin(yw)*dd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
+    const gy=pc?carY(pc):pedY(pp);c3.position.set(pp.x-Math.cos(yw)*dd+sh+sx,h2+sh+gy,pp.y-Math.sin(yw)*dd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
     G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250]}
   else{const hh=(pc?380+Math.min(300,spd*.5):300)*(asp<1?1.3:1),sh=cam.shake?rr(-cam.shake,cam.shake):0;
     c3.fov=clamp(2*Math.atan(Math.tan(24*PI/180)/asp)*180/PI,50,85);
@@ -1910,6 +1934,7 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
       deck.quad(L(a,-hw,a.h-7),L(b,-hw,b.h-7),L(b,hw,b.h-7),L(a,hw,a.h-7),[0,-1,0],side)}
     const dm=new T.Mesh(deck.geo(),G3.roofMat);g.add(dm);
     WG.pts.forEach((q,i)=>{if(i%30||q.h<18)return;const pr=part(g,OM('#9aa0a8'),12,q.h-6,40,q.x,(q.h-6)/2,q.y);const n=WG.pts[Math.min(i+1,WG.pts.length-1)];pr.rotation.y=-Math.atan2(n.y-q.y,n.x-q.x)});
+    if(WG.ramp){root.add(g);continue}
     const pyl=WG.name==='Bolte Bridge'?LMT.bolte:LMT.westgate;
     for(const f of WG.name==='Bolte Bridge'?[.5]:[.3,.7]){const sp=WG.s0+(WG.s1-WG.s0)*f;let q=WG.pts[0];for(const r of WG.pts)if(Math.abs(r.s-sp)<Math.abs(q.s-sp))q=r;
       if(pyl){const j=WG.pts.indexOf(q),n=WG.pts[Math.min(j+1,WG.pts.length-1)],m=pyl.clone();m.position.set(q.x,0,q.y);m.rotation.y=-Math.atan2(n.y-q.y,n.x-q.x);m.scale.y=q.h/(WG.name==='Bolte Bridge'?38:72);if(WG.name==='Bolte Bridge')m.scale.y=1;g.add(m);continue}
@@ -1993,7 +2018,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

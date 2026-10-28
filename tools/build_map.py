@@ -428,7 +428,22 @@ for name, cls, fw, ll in HAND:
     for r in runs:
         if len(r) < 2:
             continue
-        CHAINS.append({"attr": (name, cls, fw, False), "keys": [None] * len(r), "pts": [P(*q) for q in r], "hand": True})
+        # shared corner points join hand roads to each other (Monash x EastLink)
+        keys, pts = [("h", round(lon, 4), round(lat, 4)) for lon, lat in r], [P(*q) for q in r]
+        if fw:
+            # a hand freeway carries on from the end of the OSM one with the same name
+            for e in (0, -1):
+                best = None
+                for c in CHAINS:
+                    if c["hand"] or c["attr"][0] != name:
+                        continue
+                    for k, q in ((c["keys"][0], c["pts"][0]), (c["keys"][-1], c["pts"][-1])):
+                        d = math.hypot(q[0] - pts[e][0], q[1] - pts[e][1])
+                        if d < 600 and (best is None or d < best[0]):
+                            best = (d, k, q)
+                if best:
+                    keys[e], pts[e] = best[1], best[2]
+        CHAINS.append({"attr": (name, cls, fw, False), "keys": keys, "pts": pts, "hand": True})
 print("chains", len(CHAINS))
 
 # ------------------------------------------------------------------ trams (to boost the streets they run along)
