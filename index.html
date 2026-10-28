@@ -891,7 +891,7 @@ function addHeat(v,why){heat=Math.min(40,heat+v);let s=0;for(let i=1;i<=5;i++)if
 function setStars(n){heat=Math.max(heat,STAR_T[n]+.01);addHeat(0)}
 function isPlayerSrc(s){return s===player||(s&&s===player.car)}
 function panicAround(x,y,r){for(const p of peds)if(p.kind==='civ'&&!p.dead&&Math.hypot(p.x-x,p.y-y)<r){p.panic=rr(4,7);p.fx=x;p.fy=y}}
-function damagePlayer(d,src){if(deadT>0)return;player.lastHurt=gameT;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
+function damagePlayer(d,src){if(deadT>0||gameT<(player.safeUntil||0))return;player.lastHurt=gameT;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
   if(player.hp<=0){player.hp=0;killPlayer('WASTED')}}
 function damagePed(p,d,src,kx=0,ky=0){if(p.dead)return;p.hp-=d;blood(p.x,p.y,4);p.kx+=kx;p.ky+=ky;
   if(p.kind==='civ'){p.panic=rr(5,8);const s=src||player;p.fx=s.x;p.fy=s.y}
@@ -918,8 +918,8 @@ function wreckCar(c){c.wreck=true;c.burning=0;c.siren=false;const src=c.lastHit;
 function fire(sh,x,y,a,w,ownerCar){
   if(w.melee){SFX.punch();if(sh===player){player.punchT=.28;player.punchN=(player.punchN||0)+1}const tgts=sh===player?peds:[];
     for(const p of tgts)if(!p.dead){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&Math.abs(angDiff(Math.atan2(p.y-y,p.x-x),a))<1.1)damagePed(p,w.dmg,sh,Math.cos(a)*120,Math.sin(a)*120)}
-    if(sh!==player&&!player.car&&Math.hypot(player.x-x,player.y-y)<30)damagePlayer(w.dmg*.6,sh);return}
-  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?1:sh.kind==='cop'?3:1.8),sp=w.speed*rr(.92,1.05);
+    if(sh!==player&&!player.car&&Math.hypot(player.x-x,player.y-y)<30)damagePlayer(w.dmg*.3,sh);return}
+  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?1:sh.kind==='cop'?4.5:3.5),sp=w.speed*rr(.92,1.05);
     bullets.push({x,y,vx:Math.cos(aa)*sp,vy:Math.sin(aa)*sp,life:.75,dmg:w.dmg,owner:sh,ownerCar:ownerCar||null})}
   SFX.shot(w.id);parts.push({x:x+Math.cos(a)*6,y:y+Math.sin(a)*6,vx:0,vy:0,life:.06,max:.06,size:6,col:'#fff2a8'});
   panicAround(x,y,300);
@@ -937,7 +937,7 @@ function updateBullets(dt){
       for(const p of peds){if(p.dead||p===b.owner)continue;if(Math.abs(p.x-b.x)<8&&Math.abs(p.y-b.y)<8){
         if(!(b.owner&&b.owner.kind==='cop'&&p.kind==='cop')){damagePed(p,b.dmg,b.owner,b.vx*.08,b.vy*.08);dead=true;break}}}
       if(dead)break;
-      if(!player.car&&b.owner!==player&&deadT<=0&&Math.abs(player.x-b.x)<8&&Math.abs(player.y-b.y)<8){damagePlayer(b.dmg*(b.owner&&b.owner.kind==='cop'?.5:1),b.owner);blood(b.x,b.y,4);dead=true}}
+      if(!player.car&&b.owner!==player&&deadT<=0&&Math.abs(player.x-b.x)<8&&Math.abs(player.y-b.y)<8){damagePlayer(b.dmg*(b.owner&&b.owner.kind==='cop'?.25:.4),b.owner);blood(b.x,b.y,4);dead=true}}
     if(dead)bullets.splice(bi,1)}}
 
 // ================================================================ peds
@@ -954,7 +954,7 @@ function chaseMove(p,tgt,sp,dt,stopAt){
   let tx=tgt.x,ty=tgt.y;if(d>40&&!los(p.x,p.y,tgt.x,tgt.y)){const f=flowTarget(p.x,p.y,2);if(f){tx=f[0];ty=f[1]}}
   const a=Math.atan2(ty-p.y,tx-p.x);p.a=a;moveCircle(p,Math.cos(a)*sp*dt,Math.sin(a)*sp*dt,6);p.anim+=dt*12;return d}
 function pedShoot(p,tgt,dt){p.cool-=dt;if(p.cool>0)return;const w=WEAPONS[p.weapon]||WEAPONS[1];
-  p.cool=p.kind==='cop'?rr(1.4,2.2):w.id==='uzi'?rr(.12,.25):rr(.6,1.1);
+  p.cool=p.kind==='cop'?rr(1.6,2.6):w.id==='uzi'?rr(.2,.4):rr(1.1,1.9);
   const a=Math.atan2(tgt.y-p.y,tgt.x-p.x);p.a=a;fire(p,p.x+Math.cos(a)*10,p.y+Math.sin(a)*10,a,w,null)}
 function updatePeds(dt){
   const ptarget=player.car||player;
@@ -1050,7 +1050,7 @@ function exitCar(){const c=player.car;
 function cycleWeapon(dir){for(let n=1;n<=4;n++){const i=(player.wi+dir*n+8)%4;if(i===0||player.ammo[WEAPONS[i].id]>0){player.wi=i;return}}}
 function updatePlayer(dt,c){
   player.cool-=dt;player.hitCool-=dt;if(player.punchT>0)player.punchT-=dt;
-  if(player.hp<100&&gameT-(player.lastHurt||0)>6)player.hp=Math.min(100,player.hp+3*dt);
+  if(player.hp<100&&gameT-(player.lastHurt||0)>4)player.hp=Math.min(100,player.hp+8*dt);
   if(player.car&&player.car.burning>0&&!player.fireWarned){player.fireWarned=true;sub(isTouch?'Your car is on fire! Tap CAR to get out!':'Your car is on fire! Press E to get out!',3)}else if(!player.car||!player.car.burning)player.fireWarned=false;
   if(c.swap)cycleWeapon(c.swap);if(c.sel>=0&&(c.sel===0||player.ammo[WEAPONS[c.sel].id]>0))player.wi=c.sel;
   if(player.wi>0&&player.ammo[WEAPONS[player.wi].id]<=0)player.wi=0;
@@ -1094,7 +1094,8 @@ function respawn(){const list=deadKind==='WASTED'?LOC.hosp:LOC.police;let best=l
   if(player.car){player.car.driver=null;player.car=null}
   const fee=deadKind==='WASTED'?Math.min(player.money,100):Math.min(player.money,Math.max(100,(player.money*.1)|0));player.money-=fee;
   player.x=best.x;player.y=best.y+30;const[nx,ny]=nearestWalkable(player.x,player.y);player.x=nx;player.y=ny;
-  player.hp=100;player.armor=0;player.ammo={pistol:24,uzi:0,shotgun:0};player.wi=1;player.bustT=0;heat=0;stars=0;deadT=0;
+  player.hp=100;player.armor=50;player.safeUntil=gameT+6;player.ammo={pistol:24,uzi:0,shotgun:0};player.wi=1;player.bustT=0;heat=0;stars=0;deadT=0;
+  for(const p of peds)if((p.kind==='gang'||p.kind==='guard')&&!p.mission&&Math.hypot(p.x-player.x,p.y-player.y)<900)p.alert=false;  // fresh start, nobody waiting to finish you off
   for(let i=cars.length-1;i>=0;i--)if(cars[i].mode==='chase')cars.splice(i,1);
   for(let i=peds.length-1;i>=0;i--)if(peds[i].kind==='cop')peds.splice(i,1);
   sub(deadKind==='WASTED'?`Hospital bill: $${fee}. You kept a pistol.`:`Fine paid: $${fee}. The cops took your guns but missed a pistol.`,4)}
@@ -1618,7 +1619,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
-const BUILD='Build 23';
+const BUILD='Build 24';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
