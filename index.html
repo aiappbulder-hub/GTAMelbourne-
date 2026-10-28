@@ -111,7 +111,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
       <button id="btnCont" class="big alt" type="button" hidden>Continue</button>
     </div>
     <div class="help">
-      <div><h3>On foot</h3><p><kbd>WASD</kbd> move (in the chase camera <kbd>A</kbd>/<kbd>D</kbd> turn you and the mouse looks around a little), <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
+      <div><h3>On foot</h3><p><kbd>WASD</kbd> move (in the chase camera <kbd>A</kbd>/<kbd>D</kbd> turn you and the mouse looks around a little). Hold the right mouse button to aim over the shoulder, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>Space</kbd> shoots, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>4</kbd> swaps weapon.</p></div>
       <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake (HB on touch), <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
       <div><h3>Touch</h3><p>Drag the left side to walk and the right side to look around. In a car, use the ◀ ▶ arrows to steer, GAS to go, BRAKE to stop and REV to reverse. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Turn the camera with <kbd>Z</kbd>/<kbd>C</kbd> or by right-dragging. Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
@@ -221,6 +221,12 @@ const DISTRICTS=[['TULLAMARINE AIRPORT',340,95],['SUNBURY',555,40],['CRAIGIEBURN
 
 // ================================================================ world generation
 function pip(poly,x,y){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
+// Catmull-Rom curve through the points, sampled about every half tile, so freeways bend instead of zig-zagging
+function smoothPath(P){if(P.length<3)return P;const out=[];
+  for(let i=0;i<P.length-1;i++){const p0=P[Math.max(0,i-1)],p1=P[i],p2=P[i+1],p3=P[Math.min(P.length-1,i+2)],n=Math.max(2,Math.ceil(Math.hypot(p2[0]-p1[0],p2[1]-p1[1])*2));
+    for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;out.push([0,1].map(j=>.5*((2*p1[j])+(-p0[j]+p2[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))}}
+  out.push(P[P.length-1]);return out}
+let PORT_ROAD=[];
 function stampLine(pts,r,fn){
   for(let s=0;s<pts.length-1;s++){
     const[a0,b0]=pts[s],[a1,b1]=pts[s+1];const n=Math.ceil(Math.hypot(a1-a0,b1-b0)*3);
@@ -305,7 +311,7 @@ function generate(){
     if(ax%3<2&&ay%3<2){tiles[i]=HOUSE;shade[i]=(hash(bx*3+((ax/3)|0),by*3+((ay/3)|0),5)*6)|0}else tiles[i]=YARD;
   }
   // freeways
-  fwPaths=FREEWAYS.map(p=>p.map(q=>toT(q[0],q[1])));
+  fwPaths=FREEWAYS.map(p=>smoothPath(p.map(q=>toT(q[0],q[1]))));
   for(const p of fwPaths)stampLine(p,1.55,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
   // airport
   const rect=(a,b,c,d,t)=>{const[x0,y0]=toT(a,b),[x1,y1]=toT(c,d);for(let y=Math.floor(y0);y<=Math.floor(y1);y++)for(let x=Math.floor(x0);x<=Math.floor(x1);x++)if(x>=0&&y>=0&&x<W&&y<H)tiles[y*W+x]=t};
@@ -317,7 +323,8 @@ function generate(){
     const[ix]=toImg(x,y);if(ix<590)continue;
     if(near(x,y,1)||(near(x,y,2)&&!SOLID[t]))tiles[i]=SAND}
   // Port access road: from the Footscray grid south over the Yarra into the container yard
-  stampLine([toT(477,468),toT(477,512),toT(477,566),toT(462,580)],1.4,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
+  PORT_ROAD=smoothPath([toT(477,468),toT(477,512),toT(477,560),toT(462,580)]);
+  stampLine(PORT_ROAD,1.4,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
   // pier
   stampLine(PIER_PTS.map(p=>toT(p[0],p[1])),0.9,(x,y,i)=>{if(tiles[i]===WATER){tiles[i]=WALK;flags[i]|=PIER}});
   // MCG: stadium ring with a pitch inside and four gates
@@ -404,7 +411,8 @@ function renderChunk(g,cx,cy,for3d){
         g.fillStyle='rgba(0,0,0,.07)';for(let k=0;k<4;k++)g.fillRect(px+hash(tx,ty,k+30)*28,py+hash(tx,ty,k+40)*28,4,3);break;
       case YARD:g.fillStyle='#5f9040';g.fillRect(px,py,TS,TS);g.fillStyle='rgba(255,255,255,.05)';g.fillRect(px,py+((h*4)|0)*8,TS,4);break;
       case ROAD:case FWY:case BRIDGE:{
-        g.fillStyle=t===FWY?'#3d4047':t===BRIDGE?'#4a4d53':'#34373c';g.fillRect(px,py,TS,TS);
+        if(t===FWY){g.fillStyle='#5c8043';g.fillRect(px,py,TS,TS);g.fillStyle='rgba(120,110,80,.25)';g.fillRect(px+h*24,py+hash(tx,ty,2)*24,7,5);break}
+        g.fillStyle=t===BRIDGE?'#4a4d53':'#34373c';g.fillRect(px,py,TS,TS);
         g.fillStyle='rgba(255,255,255,.025)';g.fillRect(px+h*24,py+hash(tx,ty,2)*24,6,5);
         const lx=tx%G,ly=ty%G;
         if(t===ROAD){g.fillStyle='#d9d3bd';
@@ -428,7 +436,15 @@ function renderChunk(g,cx,cy,for3d){
         if(f&PIER){for(let s=0;s<4;s++)g.fillRect(px,py+s*8,TS,1)}else{g.fillRect(px,py,TS,1);g.fillRect(px,py,1,TS);g.fillRect(px+16,py,1,TS)}
         g.fillStyle='#6d6b65';
         if(tAt(tx-1,ty)===ROAD)g.fillRect(px,py,3,TS);if(tAt(tx+1,ty)===ROAD)g.fillRect(px+TS-3,py,3,TS);
-        if(tAt(tx,ty-1)===ROAD)g.fillRect(px,py,TS,3);if(tAt(tx,ty+1)===ROAD)g.fillRect(px,py+TS-3,TS,3);break;
+        if(tAt(tx,ty-1)===ROAD)g.fillRect(px,py,TS,3);if(tAt(tx,ty+1)===ROAD)g.fillRect(px,py+TS-3,TS,3);
+        {const rd=(x,y)=>tAt(x,y)===ROAD,Rr=22;   // rounded kerb where two streets meet at this corner
+          for(const[sx,sy]of[[-1,-1],[1,-1],[-1,1],[1,1]]){if(!rd(tx+sx,ty)||!rd(tx,ty+sy)||!rd(tx+sx,ty+sy))continue;
+            const cx=sx<0?px:px+TS,cy=sy<0?py:py+TS,ox=cx-sx*Rr,oy=cy-sy*Rr,a1=sx>0?0:PI,a2=sy>0?PI/2:-PI/2;
+            g.save();g.beginPath();g.rect(px,py,TS,TS);g.clip();
+            g.fillStyle='#34373c';g.fillRect(Math.min(cx,ox),Math.min(cy,oy),Rr,Rr);
+            g.fillStyle=(f&PIER)?'#8a6d4f':'#8f8d86';g.beginPath();g.arc(ox,oy,Rr,0,TAU);g.fill();
+            g.strokeStyle='#6d6b65';g.lineWidth=3;g.beginPath();g.arc(ox,oy,Rr-1.5,a1,a2,angDiff(a2,a1)<0);g.stroke();g.restore()}}
+        break;
       case WATER:case RIVER:g.fillStyle=t===WATER?'#1c4d78':'#2a6a96';g.fillRect(px,py,TS,TS);
         g.fillStyle='rgba(255,255,255,.08)';if(h<.5)g.fillRect(px+h*30,py+hash(tx,ty,5)*28,10,2);break;
       case SAND:g.fillStyle='#dcc88a';g.fillRect(px,py,TS,TS);g.fillStyle='rgba(120,90,40,.12)';g.fillRect(px+h*26,py+hash(tx,ty,6)*26,3,3);break;
@@ -454,6 +470,16 @@ function renderChunk(g,cx,cy,for3d){
       }
     }
   }
+  // smooth freeway ribbons: yellow edges, asphalt, a centre median and dashed lanes
+  {const X0=x0*TS,Y0=y0*TS,X1=X0+CH*TS,Y1=Y0+CH*TS;g.save();g.translate(-X0,-Y0);g.lineCap='round';g.lineJoin='round';
+    for(const P of[...fwPaths,PORT_ROAD]){if(!P.length)continue;const port=P===PORT_ROAD,hw=port?36:46;
+      let near=false;for(const q of P){const x=q[0]*TS,y=q[1]*TS;if(x>X0-120&&x<X1+120&&y>Y0-120&&y<Y1+120){near=true;break}}if(!near)continue;
+      const path=()=>{g.beginPath();P.forEach((q,i)=>i?g.lineTo(q[0]*TS,q[1]*TS):g.moveTo(q[0]*TS,q[1]*TS))};
+      const off=o=>{g.beginPath();P.forEach((q,i)=>{const a=P[Math.max(0,i-1)],b=P[Math.min(P.length-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1,x=q[0]*TS-dy/l*o,y=q[1]*TS+dx/l*o;i?g.lineTo(x,y):g.moveTo(x,y)})};
+      path();g.strokeStyle='#f2c230';g.lineWidth=hw*2+6;g.stroke();path();g.strokeStyle='#3d4047';g.lineWidth=hw*2-2;g.stroke();
+      g.strokeStyle='#e4dfcf';if(port){g.setLineDash([18,22]);g.lineWidth=2;path();g.stroke()}
+      else{g.setLineDash([]);g.lineWidth=3;path();g.stroke();g.setLineDash([18,24]);g.lineWidth=2;off(23);g.stroke();off(-23);g.stroke()}g.setLineDash([])}
+    g.restore()}
   // cast shadows (sun from the north-west)
   g.fillStyle='rgba(0,0,0,.28)';
   for(let ty=y0;ty<y0+CH;ty++)for(let tx=x0;tx<x0+CH;tx++){const t=tAt(tx,ty);if(SOLID[t]&&t!==WATER&&t!==RIVER)continue;
@@ -586,13 +612,14 @@ addEventListener('keydown',e=>{if(GAMEKEYS.includes(e.code)&&started)e.preventDe
   else if(e.code==='KeyV'&&!shopOpen)cycleView();
   else if((e.code==='Escape'||e.code==='KeyP')&&!shopOpen){if(mapOpen)mapOpen=false;else setPaused(!paused)}});
 addEventListener('keyup',e=>{keys[e.code]=false});
-addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;if(started&&!paused&&!shopOpen)setPaused(true)});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mouse.down=false;mouse.aim=false;if(started&&!paused&&!shopOpen)setPaused(true)});
 cv.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.used=true});
 const camDrag={id:null,x:0};
+const aimOK=()=>started&&player&&!player.car&&G3.active&&view==='chase'&&!isTouch;
 function turnCam(dx){if(!G3.ok)return;G3.yaw+=dx*.009;G3.manualT=0}
-addEventListener('mousemove',e=>{if(camDrag.id==='mouse'){turnCam(e.clientX-camDrag.x);camDrag.x=e.clientX}});
-addEventListener('mouseup',e=>{if(e.button===2)camDrag.id=null});
-cv.addEventListener('mousedown',e=>{if(e.button===2){camDrag.id='mouse';camDrag.x=e.clientX}if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
+addEventListener('mousemove',e=>{if(mouse.aim&&aimOK()){player.a+=(e.movementX||0)*.0055;return}if(camDrag.id==='mouse'){turnCam(e.clientX-camDrag.x);camDrag.x=e.clientX}});
+addEventListener('mouseup',e=>{if(e.button===2){camDrag.id=null;mouse.aim=false}});
+cv.addEventListener('mousedown',e=>{if(e.button===2){if(aimOK())mouse.aim=true;else{camDrag.id='mouse';camDrag.x=e.clientX}}if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
 addEventListener('mouseup',()=>{mouse.down=false});
 cv.addEventListener('wheel',e=>{if(started&&!paused)pressed.Wheel=e.deltaY>0?1:-1},{passive:true});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1020,18 +1047,23 @@ function updatePlayer(dt,c){
     return}
   if(c.enter){const t=nearestEnterable();if(t){enterCar(t);return}}
   const sp=c.sprint?185:125;
-  if(c.tank){player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}
+  if(c.tank){if(mouse.aim){const a=player.a,f=c.fwd*.75,st=c.turn*.75;c.mx=Math.cos(a)*f-Math.sin(a)*st;c.my=Math.sin(a)*f+Math.cos(a)*st}   // aiming: A/D strafe
+    else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
   if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used&&!c.tank)player.a=Math.atan2(c.my,c.mx)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
-  if(c.tank){if(mouse.down&&G3.ok)player.a=G3.yaw+(G3.look||0)}   // shooting on foot fires where the camera looks
+  if(c.tank){if(mouse.down&&G3.ok&&!mouse.aim)player.a=G3.yaw+(G3.look||0)}   // shooting without aiming fires where the camera looks
   else if(mouse.used&&!isTouch){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
   pushOutCars(player,6);
-  if(c.fire&&player.cool<=0){player.cool=w.rate;let a=player.a;
+  player.aimT=c.tank&&!w.melee?aimTarget(player.a):null;
+  if(c.fire&&player.cool<=0){player.cool=w.rate;let a=player.a;if(player.aimT){a=Math.atan2(player.aimT.y-player.y,player.aimT.x-player.x)}
     if(isTouch){let best=null,bs=1.0;for(const p of peds){if(p.dead)continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d>300)continue;
       const ad=Math.abs(angDiff(Math.atan2(p.y-player.y,p.x-player.x),a));const hostile=p.kind!=='civ'?.4:0;const sc=ad/1-hostile+d/900;if(ad<.9&&sc<bs){bs=sc;best=p}}
       if(best){a=Math.atan2(best.y-player.y,best.x-player.x);player.a=a}}
     if(!w.melee)player.ammo[w.id]--;fire(player,player.x+Math.cos(a)*12,player.y+Math.sin(a)*12,a,w,null)}}
+// soft lock-on: the nearest person close to where you're pointing, in sight and in range
+function aimTarget(a){let best=null,bs=.16;for(const p of peds){if(p.dead)continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d<10||d>460)continue;
+  const ad=Math.abs(angDiff(Math.atan2(p.y-player.y,p.x-player.x),a));if(ad<bs&&los(player.x,player.y,p.x,p.y)){bs=ad;best=p}}return best}
 function screenToWorld(sx,sy){if(G3.active){const p=new G3.T.Vector3();G3.ray.setFromCamera({x:sx/cw*2-1,y:1-sy/chh*2},G3.cam);if(G3.ray.ray.intersectPlane(G3.gp,p))return[p.x,p.z];return[player.x,player.y]}return[(sx-cw/2)/cam.z+cam.x,(sy-chh/2)/cam.z+cam.y]}
 
 function killPlayer(kind){if(deadT>0)return;deadKind=kind;deadT=3.2;showBig(kind,kind==='WASTED'?'#d33':'#4a8cff',3);
@@ -1153,7 +1185,11 @@ function updateRoute(dt){ROUTE.t-=dt;if(ROUTE.t>0)return;ROUTE.t=.6;const tg=rou
   const pts=[[pp.x,pp.y]];let cur=start,dir=-1;
   while(cur!==goal){let best=-1;for(const j of[dir>=0?cur+dir:-1,cur-1,cur+1,cur-W,cur+W]){if(j<0||j>=W*H||rdist[j]!==rdist[cur]-1)continue;best=j;break}
     if(best<0)break;const nd=best-cur;if(nd!==dir&&pts.length>1||pts.length===1)pts.push([(cur%W+.5)*TS,((cur/W|0)+.5)*TS]);dir=nd;cur=best}
-  pts.push([(goal%W+.5)*TS,((goal/W|0)+.5)*TS],[tg.x,tg.y]);ROUTE.path=pts;ROUTE.tiles=rdist[start];ROUTE.ver++}
+  pts.push([(goal%W+.5)*TS,((goal/W|0)+.5)*TS],[tg.x,tg.y]);ROUTE.path=smoothRoute(pts);ROUTE.tiles=rdist[start];ROUTE.ver++}
+// pull the tile-by-tile route taut along the road (so freeway curves don't zig-zag), then round off the corners
+function smoothRoute(P){if(P.length<3)return P;const onRoad=(a,b)=>{const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/8);for(let k=1;k<n;k++){const x=lerp(a[0],b[0],k/n),y=lerp(a[1],b[1],k/n);if(!isRoadT(tileAtPx(x,y)))return false}return true};
+  const out=[P[0]];let i=0;while(i<P.length-1){let j=Math.min(P.length-1,i+40);while(j>i+1&&!onRoad(P[i],P[j]))j--;out.push(P[j]);i=j}
+  let Q=out;for(let it=0;it<2;it++){const R2=[Q[0]];for(let k=0;k<Q.length-1;k++){const a=Q[k],b=Q[k+1];R2.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}R2.push(Q[Q.length-1]);Q=R2}return Q}
 function routeColor(){return mission?'#ffcc33':'#ff3d9a'}
 
 // ================================================================ update
@@ -1355,6 +1391,12 @@ function drawHUD(){
   // hints
   if(!player.car&&deadT<=0){const n=nearestEnterable();if(n&&gameT<240&&Math.hypot(n.x-player.x,n.y-player.y)<50){outlined(isTouch?'Tap CAR to get in':'Press E to get in',cw/2,chh*.62,sm?16:18,'#fff','center',4)}}
   drawMinimap(sm);
+  if(G3.active&&view==='chase'&&!player.car&&!isTouch&&player.wi>0&&deadT<=0){const t=player.aimT,v=new G3.T.Vector3();
+    if(t)v.set(t.x,14,t.y);else v.set(player.x+Math.cos(player.a)*320,14,player.y+Math.sin(player.a)*320);v.project(G3.cam);
+    if(v.z<1){const x=(v.x+1)/2*cw,y=(1-v.y)/2*chh,r=t?11:8,col=t?'#ff3b3b':'#ffffff';ctx.lineWidth=2.5;ctx.strokeStyle='#000';
+      for(const lw of[4.5,2]){ctx.lineWidth=lw;ctx.strokeStyle=lw>3?'rgba(0,0,0,.6)':col;ctx.beginPath();ctx.arc(x,y,r,0,TAU);
+        ctx.moveTo(x-r-6,y);ctx.lineTo(x-r+3,y);ctx.moveTo(x+r-3,y);ctx.lineTo(x+r+6,y);ctx.moveTo(x,y-r-6);ctx.lineTo(x,y-r+3);ctx.moveTo(x,y+r-3);ctx.lineTo(x,y+r+6);ctx.stroke()}
+      if(!mouse.aim&&!t&&gameT<200)outlined('Hold right mouse to aim',x,y+34,13,'#fff','center',3)}}
   if(ROUTE.path.length>1&&started&&!mapOpen){const km=ROUTE.tiles*.125,txt=(km<1?Math.max(10,Math.round(km*100)*10)+' m':km.toFixed(1)+' km')+(mission?' to objective':' to next job');
     const x=12+safe.l,y=(isTouch?12+safe.t+(sm?112:156)+64:12+safe.t+(sm?112:156)+24);outlined(txt,x,y,sm?15:18,routeColor(),'left',4)}}
 function lapFmt(t){return`${(t/60)|0}:${(t%60).toFixed(1).padStart(4,'0')}`}
@@ -1658,9 +1700,11 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
       else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<2.4)G3.yaw+=d*Math.min(1,dt*1.7)}}
     const d=pc?95+spd*.07:62,h=pc?40+spd*.02:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     // on foot with a mouse, the pointer nudges the camera a little around your back (about 30 degrees each way) and up or down
-    const free=!pc&&!isTouch&&mouse.used,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
+    G3.aimK=lerp(G3.aimK||0,mouse.aim&&!pc?1:0,Math.min(1,dt*8));if(mouse.aim&&!pc){G3.yaw=player.a;G3.manualT=0}
+    const free=!pc&&!isTouch&&mouse.used&&!mouse.aim,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
     G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6));const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
-    const gy=groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(yw)*d+sh,hh+sh+gy,pp.y-Math.sin(yw)*d);c3.lookAt(pp.x+Math.cos(yw)*70,8+gy-G3.pitch*10,pp.y+Math.sin(yw)*70);
+    const ak=G3.aimK,dd=lerp(d,40,ak),h2=lerp(hh,24,ak),sx=-Math.sin(yw)*11*ak,sz=Math.cos(yw)*11*ak,la=lerp(70,320,ak);
+    const gy=groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(yw)*dd+sh+sx,h2+sh+gy,pp.y-Math.sin(yw)*dd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
     G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250]}
   else{const hh=(pc?380+Math.min(300,spd*.5):300)*(asp<1?1.3:1),sh=cam.shake?rr(-cam.shake,cam.shake):0;
     c3.fov=clamp(2*Math.atan(Math.tan(24*PI/180)/asp)*180/PI,50,85);
