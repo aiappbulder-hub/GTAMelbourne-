@@ -227,6 +227,15 @@ function smoothPath(P){if(P.length<3)return P;const out=[];
     for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;out.push([0,1].map(j=>.5*((2*p1[j])+(-p0[j]+p2[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))}}
   out.push(P[P.length-1]);return out}
 let PORT_ROAD=[];
+// every loose freeway end runs on to the nearest other freeway, or failing that into the street grid
+function linkFreeways(L){const edge=q=>q[0]<6||q[1]<4||q[0]>W-6||q[1]>H-4;
+  const nearestOn=(q,skip)=>{let best=null,bd=1e9;L.forEach((P,j)=>{if(j===skip)return;for(let k=0;k<P.length-1;k++){const a=P[k],b=P[k+1],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy||1,
+      t=clamp(((q[0]-a[0])*dx+(q[1]-a[1])*dy)/l2,0,1),x=a[0]+dx*t,y=a[1]+dy*t,d=Math.hypot(x-q[0],y-q[1]);if(d<bd){bd=d;best=[x,y]}}});return[best,bd]};
+  const nearestRoad=q=>{for(let r=1;r<30;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+      const x=Math.floor(q[0])+dx,y=Math.floor(q[1])+dy;if(tAt(x,y)===ROAD&&x%G<2&&y%G<2)return[(Math.floor(x/G)*G+1),(Math.floor(y/G)*G+1)]}return null};
+  return L.map((P,i)=>{P=P.slice();for(const end of[0,1]){const q=end?P[P.length-1]:P[0];if(edge(q))continue;
+      const[on,d]=nearestOn(q,i);let add=null;if(on&&d<22)add=on;else add=nearestRoad(q);
+      if(add&&Math.hypot(add[0]-q[0],add[1]-q[1])>.5){if(end)P.push(add);else P.unshift(add)}}return P})}
 function stampLine(pts,r,fn){
   for(let s=0;s<pts.length-1;s++){
     const[a0,b0]=pts[s],[a1,b1]=pts[s+1];const n=Math.ceil(Math.hypot(a1-a0,b1-b0)*3);
@@ -311,8 +320,9 @@ function generate(){
     if(ax%3<2&&ay%3<2){tiles[i]=HOUSE;shade[i]=(hash(bx*3+((ax/3)|0),by*3+((ay/3)|0),5)*6)|0}else tiles[i]=YARD;
   }
   // freeways
-  fwPaths=FREEWAYS.map(p=>smoothPath(p.map(q=>toT(q[0],q[1]))));
-  for(const p of fwPaths)stampLine(p,1.55,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
+  fwPaths=linkFreeways(FREEWAYS.map(p=>p.map(q=>toT(q[0],q[1])))).map(smoothPath);
+  // clear a band as wide as the painted road (plus verge) so nothing overlaps it
+  for(const p of fwPaths)stampLine(p,2.25,(x,y,i)=>{if(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE){tiles[i]=BRIDGE;shade[i]=200}else if(tiles[i]!==ROAD)tiles[i]=FWY});
   // airport
   const rect=(a,b,c,d,t)=>{const[x0,y0]=toT(a,b),[x1,y1]=toT(c,d);for(let y=Math.floor(y0);y<=Math.floor(y1);y++)for(let x=Math.floor(x0);x<=Math.floor(x1);x++)if(x>=0&&y>=0&&x<W&&y<H)tiles[y*W+x]=t};
   rect(250,100,425,116,RUNWAY);rect(322,42,336,214,RUNWAY);rect(372,140,412,176,BLD);rect(372,180,412,198,IND);
@@ -324,7 +334,7 @@ function generate(){
     if(near(x,y,1)||(near(x,y,2)&&!SOLID[t]))tiles[i]=SAND}
   // Port access road: from the Footscray grid south over the Yarra into the container yard
   PORT_ROAD=smoothPath([toT(477,468),toT(477,512),toT(477,560),toT(462,580)]);
-  stampLine(PORT_ROAD,1.4,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
+  stampLine(PORT_ROAD,1.85,(x,y,i)=>{tiles[i]=(tiles[i]===WATER||tiles[i]===RIVER||tiles[i]===BRIDGE)?BRIDGE:(tiles[i]===ROAD?ROAD:FWY)});
   // pier
   stampLine(PIER_PTS.map(p=>toT(p[0],p[1])),0.9,(x,y,i)=>{if(tiles[i]===WATER){tiles[i]=WALK;flags[i]|=PIER}});
   // MCG: stadium ring with a pitch inside and four gates
@@ -1523,7 +1533,8 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
     if(t===TREE){addTree(tree,tx,ty);continue}
     if(t===BRIDGE&&groundY((tx+.5)*TS,(ty+.5)*TS)>20){const x0=tx*TS,z0=ty*TS;water.quad([x0,.8,z0],[x0+TS,.8,z0],[x0+TS,.8,z0+TS],[x0,.8,z0+TS],[0,1,0],wcol,[x0/420,z0/420,(x0+TS)/420,(z0+TS)/420]);continue}
     if(t===BRIDGE){const x0=tx*TS,z0=ty*TS,c2=new T.Color('#b4b8be');
-      for(const[dx,dz]of[[0,-1],[0,1],[-1,0],[1,0]]){const n=tAt(tx+dx,ty+dz);if(n!==WATER&&n!==RIVER)continue;
+      const vRoad=tx%G<2&&ty%G>=2,hRoad=ty%G<2&&tx%G>=2;
+      for(const[dx,dz]of[[0,-1],[0,1],[-1,0],[1,0]]){const n=tAt(tx+dx,ty+dz);if(n!==WATER&&n!==RIVER)continue;if(!(vRoad&&dx)&&!(hRoad&&dz)||shade[ty*W+tx]===200)continue;
         const ax=dx>0?x0+TS-3:x0,az=dz>0?z0+TS-3:z0,bx=dx?ax+3:x0+TS,bz=dz?az+3:z0+TS,h=9;
         roof.quad([ax,h,az],[bx,h,az],[bx,h,bz],[ax,h,bz],[0,1,0],c2);
         roof.quad([ax,0,az],[bx,0,az],[bx,h,az],[ax,h,az],[0,0,-1],c2);roof.quad([ax,0,bz],[bx,0,bz],[bx,h,bz],[ax,h,bz],[0,0,1],c2);
