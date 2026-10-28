@@ -569,5 +569,6 @@ def make_tram():
     export("tram")
 
 
-for build in (make_sedan, make_police, make_taxi, make_hatch, make_clubbie, make_suv, make_ute, make_tram):
-    build()
+if __name__ == "__main__":
+    for build in (make_sedan, make_police, make_taxi, make_hatch, make_clubbie, make_suv, make_ute, make_tram):
+        build()

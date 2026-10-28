@@ -300,7 +300,7 @@ function generate(){
   // landmark sites, squared up with the nearest street
   for(const[id,lo,la,w,d]of SITE_LL){const[x0,y0]=proj(lo,la),ne=nearestEdge(x0,y0,300),a=ne?Math.atan2(ne.dy,ne.dx):0;let site=null;
     for(let r=0;r<420&&!site;r+=12)for(let k=0;k<(r?Math.ceil(r/6):1)&&!site;k++){const q=k/Math.max(1,Math.ceil(r/6))*TAU,b={x:x0+Math.cos(q)*r,y:y0+Math.sin(q)*r,a,w,d};if(rectFree(b,4))site=b}
-    if(!site)site={x:x0,y:y0,a,w,d,none:true};SITES[id]=site;
+    if(!site)site={x:x0,y:y0,a,w,d,none:true};SITES[id]=site;{const ne2=nearestEdge(site.x,site.y,500);site.face=ne2&&(-(ne2.px-site.x)*Math.sin(a)+(ne2.py-site.y)*Math.cos(a))<0?-1:1}
     if(!site.none){rectCells(site,6,FS,FW,FH,(x,y)=>{OCC[y*FW+x]=1});rectCells(site,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});rectCells(site,0,TS,W,H,(x,y)=>{tiles[y*W+x]=LMK;shade[y*W+x]=0})}}
   placeLots();
   // container stacks in the empty port land
@@ -1573,10 +1573,14 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
-const BUILD='Build 25';
+const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
+const BUILD='Build 26';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
+  // Melbourne landmarks built in Blender (tools/make_landmarks.py); the box versions stand in until they arrive
+  Promise.all(LM_IDS.map(id=>{MODELS.want++;return new Promise(res=>ld.load('models/landmarks/'+id+'.json',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.material=occlude(o.material);o.castShadow=o.receiveShadow=true}});LMT[id]=sc;MODELS.got++;modelStatus();res()},undefined,()=>{MODELS.failed++;modelStatus();res()}))}))
+    .then(()=>{if(G3.lm){G3.sc.remove(G3.lm)}buildLandmarks3D()});
   UTE_MODELS.forEach(load);load(BIKE_MODEL);new Set(Object.values(CUSTOM)).forEach(n=>load(cuUrl(n)));new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)));
   // suburban buildings: bake each model to one geometry sitting on the ground, then rebuild the city chunks to use them
   Promise.all(CITY.names.map(n=>new Promise(res=>ld.load('models/city/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);let mesh=null;sc.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
@@ -1757,7 +1761,7 @@ function lunaFace(){const c=document.createElement('canvas');c.width=256;c.heigh
   g.fillStyle='#b3261e';g.beginPath();g.ellipse(128,92,70,30,0,0,PI);g.fill();g.fillStyle='#fff';for(let i=0;i<9;i++)g.fillRect(64+i*14,90,11,12);
   g.fillStyle='#e05a2a';g.beginPath();g.moveTo(128,30);g.lineTo(118,70);g.lineTo(138,70);g.fill();return new G3.T.CanvasTexture(c)}
 function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
-  const at=(id,fn)=>{const b=siteBox(id),g=new T.Group();g.position.set(b.x,0,b.z);g.rotation.y=-b.a;fn(g,b.w,b.d);root.add(g);return g};
+  const at=(id,fn)=>{const b=siteBox(id),g=new T.Group();g.position.set(b.x,0,b.z);g.rotation.y=-b.a;if(LMT[id]){const m=LMT[id].clone();if((SITES[id]||{}).face<0)m.rotation.y=PI;g.add(m)}else fn(g,b.w,b.d);root.add(g);return g};
   at('flinders',(g,w,d)=>{const och=OM('#d9a441'),cream=OM('#efe0b0');part(g,och,w,38,d,0,19,0);part(g,cream,w+1,3,d+1,0,16,0);part(g,cream,w+1,3,d+1,0,37,0);
     for(let i=0;i<9;i++)part(g,OM('#7a4b22'),8,14,d+1.5,-w/2+14+i*(w-28)/8,10,0);
     const dome=new T.Mesh(new T.SphereGeometry(20,16,10,0,TAU,0,PI/2),OM('#5f9c84'));dome.position.set(-w*.12,38,0);g.add(dome);cyl(g,och,20,20,8,-w*.12,40,0);
@@ -1786,8 +1790,9 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
   at('luna',(g,w,d)=>{const face=new T.Mesh(new T.PlaneGeometry(w*.7,40),new T.MeshLambertMaterial({map:lunaFace()}));face.position.set(0,32,d/2+.6);g.add(face);
     part(g,OM('#f3e3a6'),w*.7,46,d*.6,0,23,0);for(const s of[-1,1]){cyl(g,OM('#d84b3a'),9,9,72,s*w*.4,36,d*.2,12);const b=new T.Mesh(G3.sph,OM('#ffcc33'));b.scale.setScalar(10);b.position.set(s*w*.4,78,d*.2);g.add(b)}
   });
-  // MCG light towers
-  if(MCG){for(let i=0;i<6;i++){const a=i/6*TAU+.3,x=MCG.x+Math.cos(a)*MCG.rx*.86,z=MCG.y+Math.sin(a)*MCG.ry*.86,g=new T.Group();g.position.set(x,0,z);
+  // the MCG: Blender model of the stands and light towers, or simple towers until it loads
+  if(MCG&&LMT.mcg){const m=LMT.mcg.clone();m.position.set(MCG.x,0,MCG.y);m.scale.set(MCG.rx/150,1,MCG.ry/126);root.add(m)}
+  else if(MCG){for(let i=0;i<6;i++){const a=i/6*TAU+.3,x=MCG.x+Math.cos(a)*MCG.rx*.86,z=MCG.y+Math.sin(a)*MCG.ry*.86,g=new T.Group();g.position.set(x,0,z);
     cyl(g,OM('#cfcfcf'),2.5,4,210,0,105,0,8);const p=part(g,OM('#fffbe0','#8a8460'),32,20,4,0,215,0);p.lookAt(MCG.x-x,215,MCG.y-z);root.add(g)}}
   // West Gate Bridge: elevated deck over the Yarra on piers, with twin cable-stay pylons at mid-span
   for(const WG of DECKS){const g=new T.Group(),deck=mkBuf(),dk=new T.Color('#4a4d53'),side=new T.Color('#a3a8b0'),yel=new T.Color('#f2c230'),P=WG.pts.filter((q,i)=>i%2===0),hw=WG.hw+8;
@@ -1800,7 +1805,9 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
       deck.quad(L(a,-hw,a.h-7),L(b,-hw,b.h-7),L(b,hw,b.h-7),L(a,hw,a.h-7),[0,-1,0],side)}
     const dm=new T.Mesh(deck.geo(),G3.roofMat);g.add(dm);
     WG.pts.forEach((q,i)=>{if(i%30||q.h<18)return;const pr=part(g,OM('#9aa0a8'),12,q.h-6,40,q.x,(q.h-6)/2,q.y);const n=WG.pts[Math.min(i+1,WG.pts.length-1)];pr.rotation.y=-Math.atan2(n.y-q.y,n.x-q.x)});
-    for(const f of[.3,.7]){const sp=WG.s0+(WG.s1-WG.s0)*f;let q=WG.pts[0];for(const r of WG.pts)if(Math.abs(r.s-sp)<Math.abs(q.s-sp))q=r;
+    const pyl=WG.name==='Bolte Bridge'?LMT.bolte:LMT.westgate;
+    for(const f of WG.name==='Bolte Bridge'?[.5]:[.3,.7]){const sp=WG.s0+(WG.s1-WG.s0)*f;let q=WG.pts[0];for(const r of WG.pts)if(Math.abs(r.s-sp)<Math.abs(q.s-sp))q=r;
+      if(pyl){const j=WG.pts.indexOf(q),n=WG.pts[Math.min(j+1,WG.pts.length-1)],m=pyl.clone();m.position.set(q.x,0,q.y);m.rotation.y=-Math.atan2(n.y-q.y,n.x-q.x);m.scale.y=q.h/(WG.name==='Bolte Bridge'?38:72);if(WG.name==='Bolte Bridge')m.scale.y=1;g.add(m);continue}
       const j=WG.pts.indexOf(q),n=WG.pts[Math.min(j+1,WG.pts.length-1)],dx=n.x-q.x,dz=n.y-q.y,l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,top=q.h+WG.H*2.8;
       for(const o of[-1,1])part(g,OM('#c2c6cc'),8,top,8,q.x+nx*o*62,top/2,q.y+nz*o*62);const beam=part(g,OM('#c2c6cc'),6,7,132,q.x,top-30,q.y);beam.rotation.y=-Math.atan2(nz,nx)+PI/2;
       const pts=[];for(const o of[-1,1])for(let k=-5;k<=5;k++){if(!k)continue;const r=WG.pts[clamp(j+k*9,0,WG.pts.length-1)];pts.push(q.x+nx*o*62,top-6,q.y+nz*o*62,r.x+nx*o*50,r.h+8,r.y+nz*o*50)}

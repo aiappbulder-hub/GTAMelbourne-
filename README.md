@@ -33,7 +33,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 - The top of the screen always shows your suburb and the real street you're on, or the freeway's name.
 - Roads follow the real curves, with footpaths, kerbs, lane markings, stop lines and tram tracks. Buildings line up with the street: towers in the CBD, mid-rise round it, shops on the main roads and houses in the suburbs.
 - The West Gate and Bolte bridges climb over the Yarra on piers, with cable-stay pylons.
-- 3D Melbourne landmarks: Eureka Tower, Rialto Towers, Flinders Street Station, St Paul's, Federation Square, the Arts Centre spire, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park, the MCG with its light towers, and the West Gate Bridge pylons.
+- Melbourne landmarks modelled in Blender and placed where they really are: Flinders Street Station with its dome and clocks, the Arts Centre spire, the MCG with its stands and light towers, Eureka Tower, Rialto, St Paul's, Federation Square, Crown, the Melbourne Star, the Royal Exhibition Building, the Shrine of Remembrance, Luna Park's face, and the West Gate and Bolte bridge pylons.
 - The Albert Park Grand Prix circuit loops around the lake, with kerbs, a grandstand and a lap timer at the start/finish line. The Tan running track loops around the Botanic Gardens.
 
 - Buildings and trams go see-through when they come between the camera and you.
