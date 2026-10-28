@@ -168,6 +168,8 @@ def road_kind(r):
     name = r.get("n") or ""
     if cls == 6 and name == "North East Link":
         cls = 0      # still being built in the OSM data; finished in the game
+    if cls == 6 and any(w in name for w in ("Ramp", "Onramp", "Offramp", "Exit")) and not tags.get("tunnel") and not r.get("t"):
+        return (name, 6, False, False)      # freeway on and off ramps
     if cls > 5 or r.get("t"):
         return None
     if tags.get("service") or tags.get("tunnel") == "building_passage":
@@ -464,8 +466,8 @@ def near_tram(x, y, r=14):
 
 
 # ------------------------------------------------------------------ greedy street selection
-WIDTH = {0: 88, 1: 80, 2: 72, 3: 64, 4: 56, 5: 56}
-GAP = {0: 40, 1: 60, 2: 90, 3: 135, 4: 170, 5: 170}
+WIDTH = {0: 88, 1: 80, 2: 72, 3: 64, 4: 56, 5: 56, 6: 48}
+GAP = {0: 40, 1: 60, 2: 90, 3: 135, 4: 170, 5: 170, 6: 20}
 
 
 def sample(pts, step=10):
@@ -528,7 +530,7 @@ for c in CHAINS:
     c["S"] = sample(c["pts"])
     tram = sum(1 for q in c["S"] if near_tram(q[0], q[1])) / max(1, len(c["S"]))
     c["tram"] = tram > .5 and c["len"] > 60
-    rank = 0 if fw else {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 5}[cls]
+    rank = 0 if fw else {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 5, 6: 1}[cls]
     if c["tram"]:
         rank = min(rank, 2)
     c["rank"] = rank
@@ -545,7 +547,8 @@ for c in CHAINS:
 
 CHAINS = [c for c in CHAINS if c["rank"] < 5 or c["len"] > 700 or c["tram"]]   # only long side streets stay
 CHAINS.sort(key=lambda c: (c["rank"], -c["len"]))
-acc, acc_t = Grid(96), Grid(96)    # surface roads and tunnels don't crowd each other out
+acc, acc_t, acc_r = Grid(96), Grid(96), Grid(96)    # surface roads, tunnels and ramps don't crowd each other out
+grid_of = lambda c: acc_t if c["attr"][3] else acc_r if c["attr"][1] == 6 else acc
 PIECES = []    # accepted runs: attr, pts [(x,y,key)], w, tram, fw, hand
 touch = collections.defaultdict(set)    # node key -> accepted pieces that end there
 for c in CHAINS:
@@ -562,7 +565,7 @@ for c in CHAINS:
     for x, y, dx, dy, s in S:
         blocked = False
         R = hw + 56 + c["gap"]
-        for (qx, qy, qdx, qdy, qhw, qp) in (acc_t if c["attr"][3] else acc).near(x, y, R):
+        for (qx, qy, qdx, qdy, qhw, qp) in grid_of(c).near(x, y, R):
             d = math.hypot(qx - x, qy - y)
             if d < hw + qhw + c["gap"] and abs(dx * qdx + dy * qdy) > .75:
                 lim = hw + qhw + c["gap"] + 30
@@ -577,7 +580,7 @@ for c in CHAINS:
         print("DEBUG", c["attr"], round(c["len"]), "rank", c["rank"], "ok", sum(ok), "/", len(ok), "ends", c["keys"][0] is not None, c["keys"][-1] is not None)
     # runs of unblocked samples
     i = 0
-    minrun = 0 if c["attr"][2] else 260
+    minrun = 0 if c["attr"][2] or c["attr"][1] == 6 else 260
     runs = []
     while i < len(S):
         if not ok[i]:
@@ -619,7 +622,7 @@ for c in CHAINS:
                 touch[q[2]].add(pid)
         for x, y, dx, dy, s in S:
             if s0 - 1 <= s <= s1 + 1:
-                (acc_t if c["attr"][3] else acc).add(x, y, (x, y, dx, dy, hw, pid))
+                grid_of(c).add(x, y, (x, y, dx, dy, hw, pid))
 print("accepted pieces", len(PIECES))
 _rk = collections.Counter(c["rank"] for c in CHAINS)
 _ra = collections.Counter()
@@ -674,6 +677,8 @@ for pi, p in enumerate(PIECES):
         for oj, si in seg_grid.near(q[0], q[1], 200):
             if oj == pi or PIECES[oj]["attr"][3] != p["attr"][3]:
                 continue
+            if PIECES[oj]["attr"][2] != p["attr"][2] and 6 not in (PIECES[oj]["attr"][1], p["attr"][1]):
+                continue     # streets don't join freeways except by a ramp
             o = PIECES[oj]
             a, b = o["pts"][si], o["pts"][si + 1]
             t, x, y, d = project(q[0], q[1], a, b)
@@ -745,7 +750,7 @@ for pi, p in enumerate(PIECES):
             t = min(1, k * 60 / max(L, 1))
             cand.update(seg_grid.near(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 130))
         for oj, si in cand:
-            if oj == pi or PIECES[oj]["attr"][3] or (min(pi, oj), max(pi, oj), i, si) in done_x:
+            if oj == pi or PIECES[oj]["attr"][3] or PIECES[oj]["attr"][2] != p["attr"][2] or (min(pi, oj), max(pi, oj), i, si) in done_x:
                 continue
             o = PIECES[oj]
             c_, d_ = o["pts"][si], o["pts"][si + 1]
@@ -758,6 +763,79 @@ for pi, p in enumerate(PIECES):
             k = fresh()
             inserts[pi].append((i, t, x, y, k))
             inserts[oj].append((si, u, x, y, k))
+
+# grade-separated crossings: where a main road crosses a freeway and there are no ramps nearby, build a diamond interchange
+ramp_grid = Grid(200)
+for p in PIECES:
+    if p["attr"][1] == 6:
+        for q in p["pts"]:
+            ramp_grid.add(q[0], q[1], (q[0], q[1]))
+
+
+def near_piece(p, x, y):
+    best = None
+    for i in range(len(p["pts"]) - 1):
+        t, px, py, d = project(x, y, p["pts"][i], p["pts"][i + 1])
+        if best is None or d < best[3]:
+            best = (i, t, px, py, d)
+    return best
+
+
+done_iv, new_pieces = [], []
+for pi, p in enumerate(PIECES):
+    if not p["attr"][2] or p["attr"][3]:
+        continue
+    for i in range(len(p["pts"]) - 1):
+        a, b = p["pts"][i], p["pts"][i + 1]
+        L = math.hypot(b[0] - a[0], b[1] - a[1])
+        if L < 1:
+            continue
+        cand = set()
+        for k in range(int(L // 60) + 2):
+            t = min(1, k * 60 / L)
+            cand.update(seg_grid.near(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, 130))
+        for oj, si in cand:
+            o = PIECES[oj]
+            if o["attr"][2] or o["attr"][3] or o["attr"][1] > 1:
+                continue
+            c_, d_ = o["pts"][si], o["pts"][si + 1]
+            r = seg_x(a, b, c_, d_)
+            if not r:
+                continue
+            x, y = a[0] + (b[0] - a[0]) * r[0], a[1] + (b[1] - a[1]) * r[0]
+            if any(math.hypot(q[0] - x, q[1] - y) < 650 for q in ramp_grid.near(x, y, 650)) or any(math.hypot(x - X, y - Y) < 450 for X, Y in done_iv):
+                continue
+            done_iv.append((x, y))
+            fx, fy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+            ol = math.hypot(d_[0] - c_[0], d_[1] - c_[1]) or 1
+            rx, ry = (d_[0] - c_[0]) / ol, (d_[1] - c_[1]) / ol
+            Fk, Ak = {}, {}
+            for sf in (1, -1):
+                n = near_piece(p, x + fx * sf * 380, y + fy * sf * 380)
+                if n[4] > 60:
+                    continue
+                k = fresh()
+                inserts[pi].append((n[0], n[1], n[2], n[3], k))
+                Fk[sf] = (n[2], n[3], k)
+            for sr in (1, -1):
+                n = near_piece(o, x + rx * sr * 190, y + ry * sr * 190)
+                if n[4] > 60:
+                    continue
+                k = fresh()
+                inserts[oj].append((n[0], n[1], n[2], n[3], k))
+                Ak[sr] = (n[2], n[3], k)
+            for sf, F in Fk.items():
+                for sr, A in Ak.items():
+                    cx, cy = x + fx * sf * 150 + rx * sr * 200, y + fy * sf * 150 + ry * sr * 200
+                    pts = []
+                    for k in range(9):
+                        t = k / 8
+                        px = (1 - t) ** 2 * F[0] + 2 * (1 - t) * t * cx + t * t * A[0]
+                        py = (1 - t) ** 2 * F[1] + 2 * (1 - t) * t * cy + t * t * A[1]
+                        pts.append((px, py, F[2] if k == 0 else A[2] if k == 8 else None))
+                    new_pieces.append({"attr": (p["attr"][0] + " ramp", 6, False, False), "pts": pts, "w": 48, "tram": False, "hand": False})
+PIECES += new_pieces
+print("diamond interchanges", len(done_iv))
 
 for pi, lst in inserts.items():
     p = PIECES[pi]

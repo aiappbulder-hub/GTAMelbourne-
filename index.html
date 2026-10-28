@@ -179,7 +179,7 @@ const tAt=(tx,ty)=>(tx<0||ty<0||tx>=W||ty>=H)?WATER:tiles[ty*W+tx];
 const tileAtPx=(x,y)=>tAt(Math.floor(x/TS),Math.floor(y/TS));
 // collision runs on a finer 8px grid so walls follow the real shapes of buildings and riverbanks
 const FS=8,SUB=TS/FS,FW=W*SUB,FH=H*SUB;
-const SOL=new Uint8Array(FW*FH),OCC=new Uint8Array(FW*FH);   // SOL: solid. OCC: taken (road, footpath, water, park, building) for placing lots
+const SOL=new Uint8Array(FW*FH),OCC=new Uint8Array(FW*FH),FWM=new Uint8Array(FW*FH);   // FWM: 1 freeway, 2 ramp, 4 street crossing a freeway   // SOL: solid. OCC: taken (road, footpath, water, park, building) for placing lots
 const solidPx=(x,y)=>{const fx=Math.floor(x/FS),fy=Math.floor(y/FS);return fx<0||fy<0||fx>=FW||fy>=FH||SOL[fy*FW+fx]===1};
 
 // ---------------------------------------------------------------- road network
@@ -187,7 +187,7 @@ const NODES=[],EDGES=[];
 {const nd=MAP.nodes;for(let i=0;i<nd.length;i+=2)NODES.push({x:nd[i],y:nd[i+1],e:[]});
   MAP.edges.forEach((r,id)=>{const[a,b,cls,ni,fl,w,f]=r,n=f.length/2,P=new Float32Array(f),S=new Float32Array(n);
     for(let i=1;i<n;i++)S[i]=S[i-1]+Math.hypot(f[2*i]-f[2*i-2],f[2*i+1]-f[2*i-1]);
-    const fw=!!(fl&1);EDGES.push({id,a,b,cls,name:MAP.names[ni]||'',fw,tun:!!(fl&4),w,hw:w/2,P,S,n,len:S[n-1],t0:0,t1:0});NODES[a].e.push(id);if(b!==a)NODES[b].e.push(id)})}
+    const fw=!!(fl&1);EDGES.push({id,a,b,cls,name:MAP.names[ni]||'',fw,ramp:cls===6,tun:!!(fl&4),w,hw:w/2,P,S,n,len:S[n-1],t0:0,t1:0});NODES[a].e.push(id);if(b!==a)NODES[b].e.push(id)})}
 // junction clearance at each end, so markings, lots and stop lines keep out of the intersection
 for(const E of EDGES)for(const end of[0,1]){const N=NODES[end?E.b:E.a];let m=0;if(N.e.length>2||N.e.length===2&&EDGES[N.e[0]].name!==EDGES[N.e[1]===E.id?N.e[0]:N.e[1]].name)for(const o of N.e)if(o!==E.id)m=Math.max(m,EDGES[o].hw);
   if(end)E.t1=m?m+6:0;else E.t0=m?m+6:0}
@@ -276,6 +276,7 @@ function generate(){
     strokePoly(E.P,E.hw+walk,FS,FW,FH,fine(i=>OCC[i]=1));strokePoly(E.P,E.hw+2,FS,FW,FH,fine(i=>SOL[i]=0))}
   // stretches of road over water, for the bridge railings
   for(const E of EDGES){E.br=[];if(E.tun)continue;let st=-1;for(let s=0;s<=E.len;s+=12){const p=edgeAt(E,s),w=tileAtPx(p.x,p.y)===BRIDGE;if(w&&st<0)st=s;if(!w&&st>=0){if(s-st>20)E.br.push([Math.max(0,st-14),Math.min(E.len,s+2)]);st=-1}}if(st>=0)E.br.push([st,E.len])}
+  buildFences();
   // Port of Melbourne: container yards on the docks west of Docklands
   PORT_POLY=ll(PORT_LL);fillPoly(PORT_POLY,TS,W,H,tile(i=>{flags[i]|=PORT;flags[i]&=~PARK}));
   // MCG: oval stands with a striped pitch and four gates
@@ -285,15 +286,18 @@ function generate(){
     for(let y=Math.floor((cy-ry)/TS);y<=(cy+ry)/TS;y++)for(let x=Math.floor((cx-rx)/TS);x<=(cx+rx)/TS;x++){const e=Math.hypot(((x+.5)*TS-cx)/rx,((y+.5)*TS-cy)/ry),i=y*W+x;
       if(e<.72){tiles[i]=GRASS;flags[i]=(flags[i]|PITCH)&~PARK}else if(e<1&&SOL[(y*SUB+2)*FW+x*SUB+2]){tiles[i]=TOWER;shade[i]=4}}}
   // Albert Park circuit: a loop around the lake, start/finish on the east side
-  {const lk=(MAP.lakes['Albert Park Lake']||[]).slice().sort((a,b)=>b.length-a.length)[0];
-    if(lk){let cx=0,cy=0;for(let i=0;i<lk.length;i+=2){cx+=lk[i];cy+=lk[i+1]}cx/=lk.length/2;cy/=lk.length/2;
-      const N=96,rad=[];for(let k=0;k<N;k++){const a=k/N*TAU,dx=Math.cos(a),dy=Math.sin(a);let r=0;
-        for(let i=0,n=lk.length/2,j=n-1;i<n;j=i++){const ax=lk[2*j]-cx,ay=lk[2*j+1]-cy,bx=lk[2*i]-cx,by=lk[2*i+1]-cy,ex=bx-ax,ey=by-ay,den=dx*ey-dy*ex;if(Math.abs(den)<1e-9)continue;
-          const t=(ax*ey-ay*ex)/den,u=(ax*dy-ay*dx)/den;if(t>0&&u>=0&&u<=1)r=Math.max(r,t)}rad.push(r+95)}
-      const sm=rad.map((r,k)=>{let s=0;for(let j=-4;j<=4;j++)s+=rad[(k+j+N)%N];return s/9}),loop=[];
-      for(let k=0;k<N;k++){const a=k/N*TAU;loop.push(cx+Math.cos(a)*sm[k],cy+Math.sin(a)*sm[k])}loop.push(loop[0],loop[1]);CIRCUIT_LOOP=loop;
+  {const P=[];for(const f of MAP.lakes['Albert Park Lake']||[])for(let i=0;i<f.length;i+=2)P.push([f[i],f[i+1]]);
+    if(P.length>3){// the lake comes in pieces: take its whole outline, then run the track a steady distance outside the shore
+      P.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],hi=[];
+      for(const p of P){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+      for(let k=P.length-1;k>=0;k--){const p=P[k];while(hi.length>1&&cr(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p)}
+      const hull=lo.slice(0,-1).concat(hi.slice(0,-1));let cx=0,cy=0;for(const p of hull){cx+=p[0];cy+=p[1]}cx/=hull.length;cy/=hull.length;
+      const R=[];for(let k=0;k<hull.length;k++){const a=hull[k],b=hull[(k+1)%hull.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/30));for(let m=0;m<n;m++)R.push([lerp(a[0],b[0],m/n),lerp(a[1],b[1],m/n)])}
+      let L=R.map((p,k)=>{const a=R[(k-1+R.length)%R.length],b=R[(k+1)%R.length];let nx=-(b[1]-a[1]),ny=b[0]-a[0];const l=Math.hypot(nx,ny)||1;nx/=l;ny/=l;if(nx*(p[0]-cx)+ny*(p[1]-cy)<0){nx=-nx;ny=-ny}return[p[0]+nx*80,p[1]+ny*80]});
+      for(let it=0;it<3;it++){const Q=[];for(let k=0;k<L.length;k++){const a=L[k],b=L[(k+1)%L.length];Q.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75])}L=Q}
+      const loop=[];for(const p of L)loop.push(p[0],p[1]);loop.push(loop[0],loop[1]);CIRCUIT_LOOP=loop;
       strokePoly(loop,36,TS,W,H,tile(i=>{if(tiles[i]!==WATER&&tiles[i]!==RIVER){tiles[i]=CIRCUIT;shade[i]=0}}));strokePoly(loop,40,FS,FW,FH,fine(i=>{OCC[i]=1;SOL[i]=0}));
-      let bi=0;for(let k=1;k<N;k++)if(loop[2*k]>loop[2*bi])bi=k;LAP={x:loop[2*bi],y:loop[2*bi+1],t0:0,best:0,inGate:false}}}
+      let bi=0;for(let k=1;k<L.length;k++)if(L[k][0]>L[bi][0])bi=k;LAP={x:L[bi][0],y:L[bi][1],t0:0,best:0,inGate:false}}}
   // the Tan: a gravel running loop just inside the edge of the Botanic Gardens
   {const[gx,gy]=proj(144.9795,-37.8302);let best=null,ba=0;for(const[t,n,f]of MAP.parks){if(!pipF(f,gx,gy))continue;let a=0;for(let i=0,k=f.length/2,j=k-1;i<k;j=i++)a+=f[2*j]*f[2*i+1]-f[2*i]*f[2*j+1];a=Math.abs(a)/2;if(a>ba){ba=a;best=f}}
     if(best){let cx=0,cy=0;for(let i=0;i<best.length;i+=2){cx+=best[i];cy+=best[i+1]}cx/=best.length/2;cy/=best.length/2;const loop=[];
@@ -336,7 +340,7 @@ function placeLots(){
     if(b.k==='tower'&&hash(E.id,k,45)<.22){b.k='bld';b.h=Math.round(b.h*.35)+40}if(b.k==='model'&&hash(E.id,k,46)<.55)b.k='house';
     const id=BUILDINGS.length;BUILDINGS.push(b);rectCells(b,Math.max(1,Z.gap*.5-1.5),FS,FW,FH,(x,y)=>{OCC[y*FW+x]=1});rectCells(b,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});
     rectCells(b,0,TS,W,H,(x,y)=>{bldAt[y*W+x]=id})};
-  for(const E of EDGES){if(E.fw)continue;
+  for(const E of EDGES){if(E.fw||E.ramp)continue;
     for(const side of[1,-1]){const tr=realR(E.P[0],E.P[1])<3800?20:28;let s=E.t0+tr,k=0;const end=E.len-E.t1-tr;
       while(s<end){k++;const p=edgeAt(E,s),Z=zone(p.x,p.y,E),hk=k*2+(side>0?1:0),h1=hash(E.id,hk,41);
         let F=lerp(Z.F[0],Z.F[1],h1);if(s+F>end){if(end-s<Z.F[0]*.8)break;F=end-s}
@@ -379,8 +383,9 @@ function buildDecks(){DECKS=[];
     let bx0=1e9,by0=1e9,bx1=-1e9,by1=-1e9;for(const q of P){bx0=Math.min(bx0,q.x);by0=Math.min(by0,q.y);bx1=Math.max(bx1,q.x);by1=Math.max(by1,q.y)}
     DECKS.push({name:name==='CityLink'?'Bolte Bridge':'West Gate Bridge',pts:P,s0,s1,H:Hh,hw:E0.hw,box:[bx0-90,by0-90,bx1+90,by1+90]})}}
 // height of the road surface at a point (only the raised bridge decks are above ground)
-function groundY(x,y){const t=terrainH(x,y);for(const D of DECKS){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;let bd=1e9,h=0;
-  for(const q of D.pts){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;h=q.h}}if(bd<(D.hw+10)**2)return Math.max(h,t)}return t}
+function groundY(x,y,noOvp){const t=terrainH(x,y);for(const D of DECKS){const b=D.box;if(x<b[0]||y<b[1]||x>b[2]||y>b[3])continue;let bd=1e9,h=0;
+  for(const q of D.pts){const d=(q.x-x)**2+(q.y-y)**2;if(d<bd){bd=d;h=q.h}}if(bd<(D.hw+10)**2)return Math.max(h,t)}return noOvp?t:t+ovpH(x,y)}
+const groundYF=(x,y)=>groundY(x,y,true);
 // ---------------------------------------------------------------- tunnels: CityLink (Burnley and Domain), the West Gate Tunnel, EastLink's tunnel and the North East Link.
 // Each portal is an open trench ramping down; past it the road runs underground in a lit tube, out of sight of the streets above.
 const TUN=EDGES.filter(E=>E.tun),TDEPTH=80,TRAMP=360,TOPEN=250,PORTALS=[];
@@ -401,7 +406,35 @@ function tunSolid(x,y){if(tunnelAt(x,y,-2))return false;for(const p of PORTALS)i
 // a car goes underground when it drives into a portal ramp, and comes back up when it leaves the tunnel
 function updateUG(c){if(!TUN.length||c.tram)return;const t=tunnelAt(c.x,c.y,6);if(!t){c.ug=false;return}
   const y=tunY(t.E,t.s);if(!c.ug){if(y<terrainH(c.x,c.y)-24)return;c.ug=true}c.tunY=y;c.tunE=t.E}
-const carSolid=(c,x,y)=>c.ug?tunSolid(x,y):solidPx(x,y);
+// freeways are fenced: a car on the freeway only drives freeway and ramps, a car on the streets can't cross the fence;
+// both can use a ramp, and that's where you change from one to the other. Streets cross freeways on overpasses.
+const fidx=(x,y)=>{const fx=Math.floor(x/FS),fy=Math.floor(y/FS);return fx<0||fy<0||fx>=FW||fy>=FH?-1:fy*FW+fx};
+function laySolid(c,x,y){const i=fidx(x,y);if(i<0)return true;const m=FWM[i];
+  if(c.fl){if(m&3)return false;const k=fidx(c.x,c.y);return!(k>=0&&FWM[k]&2)||SOL[i]===1}
+  if(SOL[i])return true;if((m&1)&&!(m&6)){const k=fidx(c.x,c.y);return!(k>=0&&FWM[k]&2)}return false}
+const carSolid=(c,x,y)=>c.ug?tunSolid(x,y):laySolid(c,x,y);
+function updateLayer(c){if(c.ug||c.tram)return;const k=fidx(c.x,c.y);if(k<0)return;const m=FWM[k];if((m&1)&&!(m&6))c.fl=true;else if(!(m&3))c.fl=false}
+const fenced=(x,y)=>{const i=fidx(x,y);return i>=0&&(FWM[i]&1)&&!(FWM[i]&6)};
+const sameLayer=(a,b)=>!!a.fl===!!b.fl||[a,b].some(c=>{const k=fidx(c.x,c.y);return k>=0&&FWM[k]&2});
+const OVP=[];
+function buildFences(){const fine=fn=>(x,y)=>fn(y*FW+x);
+  for(const E of EDGES){if(!E.fw)continue;for(const f of E.tun?tunOpen(E).map(([a,b])=>subPoly(E,a,b)):[E.P])strokePoly(f,E.hw+10,FS,FW,FH,fine(i=>FWM[i]|=1))}
+  for(const E of EDGES)if(E.ramp)strokePoly(E.P,E.hw+8,FS,FW,FH,fine(i=>FWM[i]|=2));
+  // where a freeway runs straight on into an ordinary road, that junction works like a ramp
+  NODES.forEach((N,n)=>{if(!N.e.some(i=>EDGES[i].fw&&!EDGES[i].tun)||!N.e.some(i=>!EDGES[i].fw&&!EDGES[i].ramp))return;
+    for(const i of N.e){const E=EDGES[i];strokePoly(E.a===n?subPoly(E,0,Math.min(E.len,280)):subPoly(E,Math.max(0,E.len-280),E.len),E.hw+8,FS,FW,FH,fine(k=>FWM[k]|=2))}});
+  // overpasses: every street that crosses a freeway goes over it on a bridge
+  for(const E of EDGES){if(E.fw||E.ramp||E.tun)continue;
+    for(let i=0;i<E.n-1;i++){const ax=E.P[2*i],ay=E.P[2*i+1],bx=E.P[2*i+2],by=E.P[2*i+3],L=Math.hypot(bx-ax,by-ay)||1;
+      for(let cy=Math.floor((Math.min(ay,by)-60)/EGC);cy<=Math.floor((Math.max(ay,by)+60)/EGC);cy++)for(let cx=Math.floor((Math.min(ax,bx)-60)/EGC);cx<=Math.floor((Math.max(ax,bx)+60)/EGC);cx++){
+        for(const v of EG.get(cy*4096+cx)||[]){const F=EDGES[(v/4096)|0],j=v%4096;if(!F.fw||F.tun&&tunK(F,F.S[j])>.5)continue;
+          const cx2=F.P[2*j],cy2=F.P[2*j+1],dx=F.P[2*j+2]-cx2,dy=F.P[2*j+3]-cy2,rx=bx-ax,ry=by-ay,den=rx*dy-ry*dx;if(Math.abs(den)<1e-9)continue;
+          const t=((cx2-ax)*dy-(cy2-ay)*dx)/den,u=((cx2-ax)*ry-(cy2-ay)*rx)/den;if(t<0||t>1||u<0||u>1)continue;
+          const x=ax+rx*t,y=ay+ry*t,k=fidx(x,y);if(k>=0&&FWM[k]&2)continue;const s=E.S[i]+L*t;if(OVP.some(o=>o.E===E&&Math.abs(o.s-s)<300))continue;
+          const half=F.hw+26;OVP.push({E,s,x,y,half,H:36});(E.ovp=E.ovp||[]).push([Math.max(0,s-half-170),Math.min(E.len,s+half+170)])}}}}
+  for(const E of EDGES)if(!E.fw&&!E.ramp&&!E.tun)strokePoly(E.P,E.hw+2,FS,FW,FH,fine(i=>{if(FWM[i]&1)FWM[i]|=4}))}
+function ovpH(x,y){let h=0;for(const o of OVP){if(Math.abs(x-o.x)>o.half+260||Math.abs(y-o.y)>o.half+260)continue;const E=o.E,s=projS(E,x,y,o.s),p=edgeAt(E,s);
+  if(Math.hypot(x-p.x,y-p.y)>E.hw+16)continue;const d=Math.abs(s-o.s),k=d<o.half?1:clamp(1-(d-o.half)/170,0,1);h=Math.max(h,o.H*k*k*(3-2*k))}return h}
 
 // ---------------------------------------------------------------- terrain: gentle rolling hills, rising towards the Dandenongs in the east
 // and settling to sea level along the bay and the rivers. The game itself stays flat underneath; only what you see follows the ground.
@@ -485,21 +518,31 @@ function renderChunk(g,cx,cy,for3d){
   if(CIRCUIT_LOOP&&hasBox(CIRCUIT_LOOP,X0-120,Y0-120,X1+120,Y1+120)){const L=CIRCUIT_LOOP;linePath(g,L);g.lineWidth=80;g.strokeStyle='#d8221d';g.setLineDash([10,10]);g.stroke();
     g.setLineDash([]);g.strokeStyle='#f4f4f4';g.lineWidth=80;g.globalAlpha=.5;g.stroke();g.globalAlpha=1;linePath(g,L);g.strokeStyle='#3a3c40';g.lineWidth=70;g.stroke();
     if(LAP){g.save();g.translate(LAP.x,LAP.y);for(let a=0;a<2;a++)for(let b=-4;b<4;b++){g.fillStyle=(a+b)%2?'#111':'#f4f4f4';g.fillRect(-8+a*8,b*9,8,9)}g.restore()}}
-  // roads, layer by layer so junctions merge cleanly: footpaths and verges, kerbs, asphalt, then the paint
-  const ES=K.e.filter(E=>!E.tun);
-  for(const E of ES){edgePath(g,E,0);g.strokeStyle=E.fw?COL.verge:COL.walk;g.lineWidth=E.w+(E.fw?52:40);g.stroke()}
-  for(const E of ES){if(E.fw)continue;edgePath(g,E,0);g.strokeStyle=COL.kerb;g.lineWidth=E.w+6;g.stroke()}
-  for(const E of ES){if(!E.fw)continue;edgePath(g,E,0);g.strokeStyle='#8c8f96';g.lineWidth=E.w+8;g.stroke()}
-  for(const E of ES){edgePath(g,E,0);g.strokeStyle=E.fw?COL.fwy:COL.asphalt;g.lineWidth=E.w;g.stroke()}
-  for(const E of ES){const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)continue;
-    if(E.fw){g.strokeStyle='#f2c230';g.lineWidth=3;edgePath(g,E,E.hw-7,s0,s1);g.stroke();edgePath(g,E,-E.hw+7,s0,s1);g.stroke();
-      g.strokeStyle='#9a9a96';g.lineWidth=5;edgePath(g,E,0,s0,s1);g.stroke();g.strokeStyle='#e4dfcf';g.lineWidth=2;g.setLineDash([18,24]);edgePath(g,E,28,s0,s1);g.stroke();edgePath(g,E,-28,s0,s1);g.stroke();g.setLineDash([])}
-    else if(E.w>=80){g.strokeStyle='#e9e5d6';g.lineWidth=2;edgePath(g,E,3,s0,s1);g.stroke();edgePath(g,E,-3,s0,s1);g.stroke();g.setLineDash([14,20]);edgePath(g,E,E.hw*.5,s0,s1);g.stroke();edgePath(g,E,-E.hw*.5,s0,s1);g.stroke();g.setLineDash([])}
-    else{g.strokeStyle='rgba(233,229,214,.85)';g.lineWidth=2;g.setLineDash([14,18]);edgePath(g,E,0,s0,s1);g.stroke();g.setLineDash([])}
-    // stop lines where the road meets a junction
-    g.strokeStyle='#e9e5d6';g.lineWidth=4;
-    if(E.t0&&!E.fw){const p=edgeAt(E,E.t0+3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x-p.dy*(E.hw-3),p.y+p.dx*(E.hw-3));g.stroke()}
-    if(E.t1&&!E.fw){const p=edgeAt(E,E.len-E.t1-3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+p.dy*(E.hw-3),p.y-p.dx*(E.hw-3));g.stroke()}}
+  // roads: streets first (footpaths, kerbs, asphalt, paint), then the fenced freeways and their ramps on top, then in 2D the overpasses
+  // carrying streets across. In 3D the stretch of street on an overpass is a real deck, so it's left off the ground.
+  const ES=K.e.filter(E=>!E.tun&&!E.fw&&!E.ramp),FR=K.e.filter(E=>!E.tun&&(E.fw||E.ramp));
+  const ranges=(E,s0=0,s1=E.len)=>{let r=[[s0,s1]];if(for3d&&E.ovp)for(const[a,b]of E.ovp){const o=[];for(const[p,q]of r){if(b<=p||a>=q){o.push([p,q]);continue}if(a>p)o.push([p,a]);if(b<q)o.push([b,q])}r=o}return r.filter(([p,q])=>q-p>2)};
+  const st=(E,o,w,col,s0,s1,dash)=>{g.strokeStyle=col;g.lineWidth=w;if(dash)g.setLineDash(dash);for(const[a,b]of ranges(E,s0,s1)){edgePath(g,E,o,a,b);g.stroke()}if(dash)g.setLineDash([])};
+  for(const E of ES)st(E,0,E.w+40,COL.walk);
+  for(const E of ES)st(E,0,E.w+6,COL.kerb);
+  for(const E of ES)st(E,0,E.w,COL.asphalt);
+  const paint=E=>{const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)return;
+    if(E.w>=80){st(E,3,2,'#e9e5d6',s0,s1);st(E,-3,2,'#e9e5d6',s0,s1);st(E,E.hw*.5,2,'#e9e5d6',s0,s1,[14,20]);st(E,-E.hw*.5,2,'#e9e5d6',s0,s1,[14,20])}
+    else st(E,0,2,'rgba(233,229,214,.85)',s0,s1,[14,18]);
+    g.strokeStyle='#e9e5d6';g.lineWidth=4;    // stop lines where the road meets a junction
+    if(E.t0){const p=edgeAt(E,E.t0+3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x-p.dy*(E.hw-3),p.y+p.dx*(E.hw-3));g.stroke()}
+    if(E.t1){const p=edgeAt(E,E.len-E.t1-3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+p.dy*(E.hw-3),p.y-p.dx*(E.hw-3));g.stroke()}};
+  for(const E of ES)paint(E);
+  g.strokeStyle='#a3a6ab';g.lineWidth=2;for(const E of ES){if(!E.tram)continue;for(const o of[-17,-10,10,17])st(E,o,2,'#a3a6ab')}   // tram tracks down the middle
+  for(const E of FR)st(E,0,E.w+(E.fw?52:30),COL.verge);
+  for(const E of FR)st(E,0,E.w+8,'#8c8f96');
+  for(const E of FR)st(E,0,E.w,COL.fwy);
+  for(const E of FR){const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)continue;st(E,E.hw-6,3,'#f2c230',s0,s1);st(E,-E.hw+6,3,'#f2c230',s0,s1);
+    if(E.fw){st(E,0,5,'#9a9a96',s0,s1);st(E,28,2,'#e4dfcf',s0,s1,[18,24]);st(E,-28,2,'#e4dfcf',s0,s1,[18,24])}}
+  if(!for3d)for(const o of OVP){if(Math.abs(o.x-X0-CPX/2)>CPX/2+o.half+260||Math.abs(o.y-Y0-CPX/2)>CPX/2+o.half+260)continue;const E=o.E,a=Math.max(0,o.s-o.half-40),b=Math.min(E.len,o.s+o.half+40);
+    g.save();g.translate(9,12);edgePath(g,E,0,a,b);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=E.w+14;g.stroke();g.restore();
+    edgePath(g,E,0,a,b);g.strokeStyle='#b4b8be';g.lineWidth=E.w+14;g.stroke();g.strokeStyle=COL.asphalt;g.lineWidth=E.w;g.stroke();
+    g.setLineDash([14,18]);g.strokeStyle='rgba(233,229,214,.85)';g.lineWidth=2;g.stroke();g.setLineDash([])}
   // tunnel portals: open trenches running down into the mouth; in 2D a faint line shows where the tunnel runs underground
   for(const E of K.e){if(!E.tun)continue;g.save();g.lineCap='butt';
     if(!for3d){g.setLineDash([14,16]);g.strokeStyle='rgba(30,30,40,.28)';g.lineWidth=E.w*.7;edgePath(g,E,0);g.stroke();g.setLineDash([])}
@@ -508,10 +551,8 @@ function renderChunk(g,cx,cy,for3d){
       g.strokeStyle='#f2c230';g.lineWidth=3;edgePath(g,E,E.hw-7,a,b);g.stroke();edgePath(g,E,-E.hw+7,a,b);g.stroke();
       const m=edgeAt(E,a?a:b),k=a?1:-1;g.fillStyle='#0b0c0e';g.save();g.translate(m.x,m.y);g.rotate(Math.atan2(m.dy,m.dx));g.fillRect(a?0:-28,-E.hw-10,28,E.w+20);g.restore()}
     g.restore()}
-  // tram tracks run down the middle
-  g.strokeStyle='#a3a6ab';g.lineWidth=2;for(const E of ES){if(!E.tram)continue;for(const o of[-17,-10,10,17]){edgePath(g,E,o);g.stroke()}}
   // bridge railings
-  g.strokeStyle='#b4b8be';g.lineWidth=5;for(const E of ES)for(const[a,b]of E.br||[]){for(const o of[E.hw+(E.fw?22:18),-E.hw-(E.fw?22:18)]){edgePath(g,E,o,a,b);g.stroke()}}
+  g.strokeStyle='#b4b8be';g.lineWidth=5;for(const E of K.e)for(const[a,b]of E.br||[]){for(const o of[E.hw+(E.fw?22:18),-E.hw-(E.fw?22:18)]){edgePath(g,E,o,a,b);g.stroke()}}
   // under the raised West Gate and Bolte decks the river shows through
   if(for3d)for(const D of DECKS){const bx=D.box;if(bx[2]<X0||bx[0]>X1||bx[3]<Y0||bx[1]>Y1)continue;g.save();g.globalCompositeOperation='destination-out';
     for(const q of D.pts){if(q.h<20||tileAtPx(q.x,q.y)!==BRIDGE)continue;g.beginPath();g.arc(q.x,q.y,D.hw+30,0,TAU);g.fill()}g.restore()}
@@ -548,6 +589,7 @@ function buildMini(transparentWater){const c=document.createElement('canvas');c.
   for(const f of MAP.water){polyPath(g,f);g.fillStyle='#1f6ea8';g.fill()}for(const f of MAP.rivers){linePath(g,f);g.strokeStyle='#1f6ea8';g.lineWidth=60;g.stroke()}g.restore();
   for(const f of MAP.rails){linePath(g,f);g.strokeStyle='#8a7a6a';g.lineWidth=24;g.stroke()}
   for(const E of EDGES){if(E.fw)continue;linePath(g,E.P);g.strokeStyle='#cfcab8';g.lineWidth=Math.max(E.w,56);g.stroke()}
+  for(const E of EDGES){if(!E.ramp)continue;linePath(g,E.P);g.strokeStyle='#e0b530';g.lineWidth=E.w+8;g.stroke()}
   for(const E of EDGES){if(!E.fw||E.tun&&transparentWater)continue;linePath(g,E.P);g.strokeStyle='#f2c230';g.lineWidth=E.w+20;if(E.tun)g.setLineDash([90,70]);g.stroke();g.setLineDash([])}
   if(CIRCUIT_LOOP){linePath(g,CIRCUIT_LOOP);g.strokeStyle='#e6e2d6';g.lineWidth=70;g.stroke()}
   return c}
@@ -669,8 +711,9 @@ const camDrag={id:null,x:0};
 const aimOK=()=>started&&player&&!player.car&&G3.active&&view==='chase'&&!isTouch;
 function turnCam(dx){if(!G3.ok)return;G3.yaw+=dx*.009;G3.manualT=0}
 addEventListener('mousemove',e=>{if(mouse.aim&&aimOK()){player.a+=(e.movementX||0)*.0055;return}if(camDrag.id==='mouse'){turnCam(e.clientX-camDrag.x);camDrag.x=e.clientX}});
-addEventListener('mouseup',e=>{if(e.button===2){camDrag.id=null;mouse.aim=false}});
-cv.addEventListener('mousedown',e=>{if(e.button===2){if(aimOK())mouse.aim=true;else{camDrag.id='mouse';camDrag.x=e.clientX}}if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
+addEventListener('mouseup',e=>{if(e.button===2){camDrag.id=null;mouse.aim=false;if(document.pointerLockElement&&document.exitPointerLock)document.exitPointerLock()}});
+document.addEventListener('pointerlockchange',()=>{if(!document.pointerLockElement)mouse.aim=false});
+cv.addEventListener('mousedown',e=>{if(e.button===2){if(aimOK()){mouse.aim=true;try{cv.requestPointerLock&&cv.requestPointerLock()}catch(err){}}else{camDrag.id='mouse';camDrag.x=e.clientX}}if(e.button===0){mouse.down=true;mouse.used=true;mouse.x=e.clientX;mouse.y=e.clientY}if(mapOpen)mapOpen=false});
 addEventListener('mouseup',()=>{mouse.down=false});
 cv.addEventListener('wheel',e=>{if(started&&!paused)pressed.Wheel=e.deltaY>0?1:-1},{passive:true});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
@@ -746,7 +789,8 @@ function pointDrive(car,c,dt){
 
 // ================================================================ movement helpers
 function circSolid(x,y,r){return solidPx(x-r,y-r)||solidPx(x+r,y-r)||solidPx(x-r,y+r)||solidPx(x+r,y+r)}
-function moveCircle(e,dx,dy,r){let hit=false;const nx=e.x+dx;if(!circSolid(nx,e.y,r))e.x=nx;else hit=true;const ny=e.y+dy;if(!circSolid(e.x,ny,r))e.y=ny;else hit=true;return hit}
+function moveCircle(e,dx,dy,r){if(!fenced(e.x,e.y)){const ox=e.x,oy=e.y,hit=moveCircle2(e,dx,dy,r);if(fenced(e.x,e.y)){e.x=ox;e.y=oy;return true}return hit}return moveCircle2(e,dx,dy,r)}
+function moveCircle2(e,dx,dy,r){let hit=false;const nx=e.x+dx;if(!circSolid(nx,e.y,r))e.x=nx;else hit=true;const ny=e.y+dy;if(!circSolid(e.x,ny,r))e.y=ny;else hit=true;return hit}
 function los(x0,y0,x1,y1){const d=Math.hypot(x1-x0,y1-y0),n=Math.ceil(d/12);for(let i=1;i<n;i++){const t=i/n,x=lerp(x0,x1,t),y=lerp(y0,y1,t),tt=tileAtPx(x,y);if(SOLID[tt]&&tt!==WATER&&tt!==RIVER)return false}return true}
 function carLocal(c,x,y){const dx=x-c.x,dy=y-c.y,ca=Math.cos(c.a),sa=Math.sin(c.a);return[dx*ca+dy*sa,-dx*sa+dy*ca]}
 function inCarRect(c,x,y,pad=0){const[lx,ly]=carLocal(c,x,y);return Math.abs(lx)<c.L/2+pad&&Math.abs(ly)<c.Wd/2+pad}
@@ -771,7 +815,7 @@ function drive(c,thr,steer,hb,dt){
   else if(thr<0)vf+=(vf>5?-720:-T.acc*.6)*(-thr)*dt;
   else{const r=Math.min(Math.abs(vf),110*dt);vf-=Math.sign(vf)*r}
   if(hb){const r=Math.min(Math.abs(vf),400*dt);vf-=Math.sign(vf)*r}
-  const off=SLOW[tileAtPx(c.x,c.y)];
+  const off=!c.ug&&!c.fl&&SLOW[tileAtPx(c.x,c.y)];
   let maxS=T.max*(c.hp<30?.72:1)*(off?.68:1);
   // cornering assist: hard lock without the handbrake scrubs speed so the car actually makes the turn
   if(c===player.car&&!hb&&Math.abs(steer)>.45)maxS=Math.min(maxS,lerp(T.max,210,clamp((Math.abs(steer)-.45)*2.2,0,1)));
@@ -812,7 +856,7 @@ function fwdSpeed(c){return c.vx*Math.cos(c.a)+c.vy*Math.sin(c.a)}
 function obstacleAhead(c,range=140,width=19){const fx=Math.cos(c.a),fy=Math.sin(c.a);let best=1e9;
   const test=(x,y,w)=>{const dx=x-c.x,dy=y-c.y;if(Math.abs(dx)>range+60||Math.abs(dy)>range+60)return;const f=dx*fx+dy*fy,l=-dx*fy+dy*fx;
     if(f>0&&f<range&&Math.abs(l)<width+w&&f<best)best=f};
-  for(const o of cars){if(o===c||!!o.ug!==!!c.ug)continue;const cross=Math.abs(Math.cos(o.a-c.a))<.5;if(cross&&Math.hypot(o.x-c.x,o.y-c.y)>46)continue;if(cross&&c.id>o.id&&Math.abs(fwdSpeed(o))>20)continue;test(o.x,o.y,o.type==='tram'?14:4)}
+  for(const o of cars){if(o===c||!!o.ug!==!!c.ug||!sameLayer(o,c))continue;const cross=Math.abs(Math.cos(o.a-c.a))<.5;if(cross&&Math.hypot(o.x-c.x,o.y-c.y)>46)continue;if(cross&&c.id>o.id&&Math.abs(fwdSpeed(o))>20)continue;test(o.x,o.y,o.type==='tram'?14:4)}
   if(c.ug)return best;   // nobody walks in the tunnels
   if(!player.car&&deadT<=0)test(player.x,player.y,0);
   for(const p of peds)if(!p.dead&&Math.abs(p.x-c.x)<80&&Math.abs(p.y-c.y)<80){const t=tileAtPx(p.x,p.y);if(t===ROAD||t===BRIDGE||t===FWY)test(p.x,p.y,0)}
@@ -1017,14 +1061,14 @@ function trySpawnTraffic(near,type,mode){
     if(Math.hypot(p.x-player.x,p.y-player.y)<(near?140:spawnR*.9))continue;
     if(cars.some(o=>Math.abs(o.x-p.x)<60&&Math.abs(o.y-p.y)<60))continue;
     const a=Math.atan2(p.fy,p.fx);if(carHits({L:46,Wd:22},p.x,p.y,a))continue;
-    const c=makeCar(type||randType(),p.x,p.y,a,{driver:mode==='chase'?'cop':'ai',mode:mode||'traffic'});c.e=r.e;c.dir=dir;c.sd=sd;c.ln=ln;
+    const c=makeCar(type||randType(),p.x,p.y,a,{driver:mode==='chase'?'cop':'ai',mode:mode||'traffic'});c.e=r.e;c.dir=dir;c.sd=sd;c.ln=ln;c.fl=E.fw;
     if(mode==='chase'){c.siren=true;const s=Math.min(300,dd*.3);c.vx=Math.cos(a)*s;c.vy=Math.sin(a)*s}return c}
   return null}
 const WEST_X=proj(144.885,-37.79)[0];
 function randType(){const r=R();if(player.x<WEST_X&&R()<.25)return'bike';if(r>.97)return'bike';if(r>.89)return'ranger';if(r<.04){const q=R();return q<.25?'ambulance':q<.45?'firetruck':q<.75?'garbage':'delivery'}return r<.08?'police':r<.05?'highway':r<.13?'taxi':r<.17?'sports':r<.19?'hsv':r<.29?'ute':r<.35?'wagon':r<.43?'suv':r<.49?'van':r<.55?'micra':r<.7?'hatch':'sedan'}
 function copType(){return pick([[],['police'],['police','police','unmarked'],['police','unmarked','highway'],['highway','unmarked','highway'],['federal','highway','federal']][stars]||['police'])}
 // pedestrians walk the footpaths of real streets
-function civAttach(p){const r=nearestEdge(p.x,p.y,110,E=>!E.fw&&!E.tun);if(!r)return false;const E=EDGES[r.e];p.e=r.e;p.dir=R()<.5?1:-1;p.sd=p.dir>0?r.s:E.len-r.s;p.lside=-p.dir*r.side;return true}
+function civAttach(p){const r=nearestEdge(p.x,p.y,110,E=>!E.fw&&!E.tun&&!E.ramp);if(!r)return false;const E=EDGES[r.e];p.e=r.e;p.dir=R()<.5?1:-1;p.sd=p.dir>0?r.s:E.len-r.s;p.lside=-p.dir*r.side;return true}
 function civWalk(p,dt,speed){
   if(p.e==null&&!civAttach(p)){const dx=p.tx-p.x,dy=p.ty-p.y,d=Math.hypot(dx,dy);if(d<2)civStep(p);else{const s=Math.min(d,speed*dt);p.a=Math.atan2(dy,dx);if(moveCircle(p,dx/d*s,dy/d*s,5))civStep(p);p.anim+=dt*8}return}
   let E=EDGES[p.e];p.sd+=speed*dt;
@@ -1034,7 +1078,7 @@ function civWalk(p,dt,speed){
   if(d>140){p.e=null;return}
   if(d>1){const s=Math.min(d,speed*dt*1.6);p.a=Math.atan2(dy,dx);if(moveCircle(p,dx/d*s,dy/d*s,5)){p.blockT=(p.blockT||0)+dt;if(p.blockT>1.2){p.dir=-p.dir;p.sd=E.len-p.sd;p.lside=-p.lside;p.blockT=0}}else p.blockT=0;p.anim+=dt*8}}
 function trySpawnPed(near){for(let t=0;t<12;t++){const a=R()*TAU,d=near?rr(100,spawnR):rr(spawnR*.85,spawnR+250);
-  const r=nearestEdge(player.x+Math.cos(a)*d,player.y+Math.sin(a)*d,220,E=>!E.fw);if(!r)continue;const E=EDGES[r.e],side=R()<.5?1:-1,o=(E.hw+10)*side,x=r.px-r.dy*o,y=r.py+r.dx*o;
+  const r=nearestEdge(player.x+Math.cos(a)*d,player.y+Math.sin(a)*d,220,E=>!E.fw&&!E.ramp&&!E.tun);if(!r)continue;const E=EDGES[r.e],side=R()<.5?1:-1,o=(E.hw+10)*side,x=r.px-r.dy*o,y=r.py+r.dx*o;
   if(solidPx(x,y)||Math.hypot(x-player.x,y-player.y)<(near?90:spawnR*.8))continue;
   const crew=crewAt(x,y);let p;
   if(crew&&R()<.14&&peds.filter(q=>q.ambient&&!q.dead).length<8){p=makePed(x,y,'gang',{shirt:crew.shirt,weapon:R()<.25?2:1});p.ambient=true;p.crew=crew.id;p.speed=55}
@@ -1091,12 +1135,12 @@ function updatePlayer(dt,c){
     return}
   if(c.enter){const t=nearestEnterable();if(t){enterCar(t);return}}
   const sp=c.sprint?185:125;
-  if(c.tank){if(mouse.aim){const a=player.a,f=c.fwd*.75,st=c.turn*.75;c.mx=Math.cos(a)*f-Math.sin(a)*st;c.my=Math.sin(a)*f+Math.cos(a)*st}   // aiming: A/D strafe
+  if(c.tank){if(mouse.aim){player.a+=c.turn*2.4*dt;if(c.fwd){const k=c.fwd>0?.75:-.5;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}   // aiming: A/D still turn you
     else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
   if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(!mouse.used&&!c.tank)player.a=Math.atan2(c.my,c.mx)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
-  if(c.tank){if(mouse.down&&G3.ok&&!mouse.aim)player.a=G3.yaw+(G3.look||0)}   // shooting without aiming fires where the camera looks
+  if(c.tank){if(mouse.down&&G3.ok&&!mouse.aim&&!c.turn)player.a=G3.yaw+(G3.look||0)}   // shooting without aiming fires where the camera looks
   else if(mouse.used&&!isTouch){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}
   pushOutCars(player,6);
   player.aimT=c.tank&&!w.melee?aimTarget(player.a):null;
@@ -1257,7 +1301,7 @@ function update(dt){
     else if(car.wreck||!car.driver)drive(car,0,0,true,dt);
     else if(car.mode==='chase'){aiChase(car,dt);drive(car,car.thr,car.steer,car.hb,dt)}
     else{if(car.panicT>0)car.panicT-=dt;aiTraffic(car,dt);drive(car,car.thr,car.steer,car.hb,dt)}
-    updateUG(car);
+    updateUG(car);updateLayer(car);
     if(car.burning>0){car.burning-=dt;if(R()<.6)fireP(car.x,car.y);if(car.burning<=0)wreckCar(car)}
     else if(!car.wreck&&car.hp<35&&R()<.25)smoke(car.x+Math.cos(car.a)*car.L/3,car.y+Math.sin(car.a)*car.L/3,car.hp<15);
     if(car.wreck&&R()<.05)smoke(car.x,car.y,true);
@@ -1302,7 +1346,7 @@ function update(dt){
   // audio
   let sirenL=0;for(const c2 of cars)if(c2.siren&&!c2.wreck){const d=Math.hypot(c2.x-player.x,c2.y-player.y);sirenL=Math.max(sirenL,clamp(1-d/900,0,1))}
   SFX.update(!!pc&&!pc.wreck,spd,sirenL,gameT)}
-function collideCars(a,b){if(!!a.ug!==!!b.ug)return;if(a!==player.car&&b!==player.car&&a.driver==='ai'&&b.driver==='ai'&&(a.pushT>0||b.pushT>0))return;const ca=circles(a),cb=circles(b),ra=a.Wd/2+1,rb=b.Wd/2+1;
+function collideCars(a,b){if(!!a.ug!==!!b.ug||!sameLayer(a,b))return;if(a!==player.car&&b!==player.car&&a.driver==='ai'&&b.driver==='ai'&&(a.pushT>0||b.pushT>0))return;const ca=circles(a),cb=circles(b),ra=a.Wd/2+1,rb=b.Wd/2+1;
   for(const p of ca)for(const q of cb){let dx=q[0]-p[0],dy=q[1]-p[1];const d=Math.hypot(dx,dy),min=ra+rb;if(d>=min||d===0)continue;
     dx/=d;dy/=d;const ov=min-d;const ma=a.tram?0:1,mb=b.tram?0:1;if(ma+mb===0)continue;
     const ta=ma/(ma+mb),tb=mb/(ma+mb);
@@ -1635,7 +1679,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto'],LMT={};
-const BUILD='Build 28';
+const BUILD='Build 29';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -1749,7 +1793,7 @@ const PICK_ICON={cash:['$','#3fae4a','#fff'],health:['+','#ffffff','#d32'],armor
 function castAll(g){g.traverse(o=>{if(o.isMesh&&o.material!==G3.shadowMat)o.castShadow=true})}
 function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
   for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver+(c.type==='bike'?(c.driver?'d':'n')+(c===player.car?'p':''):'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key;castAll(c.m3)}
-    c.m3.position.set(c.x,c.ug?c.tunY:groundY(c.x,c.y),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
+    c.m3.position.set(c.x,c.ug?c.tunY:c.fl?groundYF(c.x,c.y):groundY(c.x,c.y),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
   for(const p of peds){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
@@ -1781,7 +1825,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     const free=!pc&&!isTouch&&mouse.used&&!mouse.aim,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
     G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6));const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
     const ak=G3.aimK,dd=lerp(d,40,ak),h2=lerp(hh,24,ak),sx=-Math.sin(yw)*11*ak,sz=Math.cos(yw)*11*ak,la=lerp(70,320,ak);
-    const gy=pc&&pc.ug?pc.tunY:groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(yw)*dd+sh+sx,h2+sh+gy,pp.y-Math.sin(yw)*dd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
+    const gy=pc&&pc.ug?pc.tunY:pc&&pc.fl?groundYF(pp.x,pp.y):groundY(pp.x,pp.y);c3.position.set(pp.x-Math.cos(yw)*dd+sh+sx,h2+sh+gy,pp.y-Math.sin(yw)*dd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
     G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250]}
   else{const hh=(pc?380+Math.min(300,spd*.5):300)*(asp<1?1.3:1),sh=cam.shake?rr(-cam.shake,cam.shake):0;
     c3.fov=clamp(2*Math.atan(Math.tan(24*PI/180)/asp)*180/PI,50,85);
@@ -1888,6 +1932,16 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
       // headwall over each tunnel mouth
       for(const[p0,q0]of tunOpen(E)){const sm=p0?p0:q0,m=edgeAt(E,sm),y=tunY(E,sm),top=terrainH(m.x,m.y)+6,L=(o,yy)=>[m.x-m.dy*o,yy,m.y+m.dx*o];
         tube.quad(L(-wh-14,Math.min(y+52,top-14)),L(wh+14,Math.min(y+52,top-14)),L(wh+14,top),L(-wh-14,top),[m.dx*(p0?-1:1),0,m.dy*(p0?-1:1)],trench)}}
+    // overpasses: decks carrying streets over the freeways, with barriers and piers either side of the freeway
+    const deckc=new T.Color('#3a3c41'),sidec=new T.Color('#b4b8be'),pierc=new T.Color('#9a9da2'),linec=new T.Color('#e9e5d6');
+    for(const o of OVP){const E=o.E,s0=Math.max(0,o.s-o.half-170),s1=Math.min(E.len,o.s+o.half+170),hw=E.hw+6;
+      for(let s=s0;s<s1;s+=12){const a=edgeAt(E,s),b=edgeAt(E,Math.min(s1,s+12)),ya=groundY(a.x,a.y)+.5,yb=groundY(b.x,b.y)+.5,L=(p,q,y)=>[p.x-p.dy*q,y,p.y+p.dx*q];
+        tube.quad(L(a,-hw,ya),L(b,-hw,yb),L(b,hw,yb),L(a,hw,ya),[0,1,0],deckc);
+        if((s/12|0)%3===0)tube.quad(L(a,-1,ya+.2),L(b,-1,yb+.2),L(b,1,yb+.2),L(a,1,ya+.2),[0,1,0],linec);
+        for(const sd of[-1,1]){const n=[-a.dy*sd,0,a.dx*sd];tube.quad(L(a,sd*hw,ya-8),L(b,sd*hw,yb-8),L(b,sd*hw,ya+8),L(a,sd*hw,ya+8),n,sidec)}
+        tube.quad(L(a,-hw,ya-8),L(b,-hw,yb-8),L(b,hw,yb-8),L(a,hw,ya-8),[0,-1,0],pierc)}
+      for(const sg of[-1,1]){const p=edgeAt(E,clamp(o.s+sg*(o.half+6),0,E.len)),y=groundY(p.x,p.y)-8,g0=terrainH(p.x,p.y),L=(q,yy)=>[p.x-p.dy*q,yy,p.y+p.dx*q];
+        for(const q of[-E.hw*.6,E.hw*.6]){const P0=L(q-5,g0),P1=L(q+5,g0);tube.quad(P0,P1,[P1[0],y,P1[2]],[P0[0],y,P0[2]],[p.dx*sg,0,p.dy*sg],pierc);tube.quad(P0,P1,[P1[0],y,P1[2]],[P0[0],y,P0[2]],[-p.dx*sg,0,-p.dy*sg],pierc)}}}
     const tm=new T.Mesh(tube.geo(),new T.MeshLambertMaterial({vertexColors:true,side:T.DoubleSide}));tm.receiveShadow=true;root.add(tm);
     const lm=new T.Mesh(lit.geo(),new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide}));root.add(lm)}
   // Albert Park: grandstand and pit building on the start straight
@@ -1939,7 +1993,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK}},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
