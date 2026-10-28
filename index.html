@@ -1493,6 +1493,10 @@ function init3D(){
     const sc=new T.Scene();{const c=document.createElement('canvas');c.width=2;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
       gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.55,'#9cc5e6');gr.addColorStop(1,'#d9e8f1');g.fillStyle=gr;g.fillRect(0,0,2,256);sc.background=new T.CanvasTexture(c)}
     sc.fog=new T.Fog('#cfe1ec',900,2400);
+    {const es=new T.Scene(),c=document.createElement('canvas');c.width=2;c.height=128;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,128);   // sky reflections for car paint and glass
+      gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.47,'#e6f0fa');gr.addColorStop(.53,'#77736a');gr.addColorStop(1,'#3b3a36');g.fillStyle=gr;g.fillRect(0,0,2,128);
+      es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));
+      const pm=new T.PMREMGenerator(r);sc.environment=pm.fromScene(es).texture;pm.dispose()}
     sc.add(new T.HemisphereLight(0xdcecff,0x5a6450,.62));const sun=new T.DirectionalLight(0xfff0d8,.9);sc.add(sun);sc.add(sun.target);
     r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=isTouch||cw<800?1024:2048;sun.shadow.mapSize.set(sm,sm);
     Object.assign(sun.shadow.camera,{left:-700,right:700,top:700,bottom:-700,near:10,far:3200});sun.shadow.bias=-.0006;sun.shadow.normalBias=.6;
@@ -1607,14 +1611,14 @@ const BIKE_MODEL='models/kenney/vehicle-motorcycle.json';
 const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.json');
 // Kenney Car Kit (CC0), converted to glTF JSON sharing models/car-kit/colormap.png
 // models built for this game in Blender (tools/make_models.py), preferred where they exist
-const CUSTOM={sedan:'comodo',unmarked:'comodo',police:'police',highway:'police',taxi:'taxi',hatch:'barrina',micra:'barrina',ranger:'strainger',tram:'tram'};
+const CUSTOM={sedan:'comodo',unmarked:'comodo',sports:'clubbie',hsv:'clubbie',suv:'territorial',wagon:'territorial',police:'police',highway:'police',taxi:'taxi',hatch:'barrina',micra:'barrina',ranger:'strainger',tram:'tram'};
 const cuUrl=n=>'models/custom/'+n+'.json';
 const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sports'],sports:['sedan-sports'],hsv:['race'],wagon:['suv'],suv:['suv','suv-luxury'],
   van:['van','delivery'],taxi:['taxi'],police:['police'],highway:['police'],unmarked:['sedan'],federal:['suv-luxury'],ute:['truck'],
   ambulance:['ambulance'],firetruck:['firetruck'],garbage:['garbage-truck'],delivery:['delivery'],tractor:['tractor']};
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
-const BUILD='Build 21';
+const BUILD='Build 22';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
