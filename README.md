@@ -57,3 +57,12 @@ On desktop the 3D view adds screen-space ambient occlusion (three.js's own `SSAO
 ### Essendon Airport
 
 An airliner and a light plane fly circuits out of Essendon Airport: they taxi out, take off, loop over the city and the bay, come back on approach, land and taxi in again (and they'll stop for you if you park on the runway). A police helicopter takes off from its pad on the apron to visit the landmarks, and once you have three wanted stars it comes and circles over you. The aircraft are modelled in Blender by `tools/make_aircraft.py`.
+
+### Around town
+
+- **Talk to people**: walk up to someone and press <kbd>T</kbd> (or TALK on touch). Locals have plenty to say; gangs and cops less so, and nobody's chatty if you've just been shooting.
+- **Cutscenes**: missions open with a short scene where the job giver steps up and briefs you, spoken aloud with your device's own speech voice (an Australian one where available). <kbd>Space</kbd> or a tap moves on, <kbd>Esc</kbd> skips.
+- **Tobacco Wars**: a new mission against the Westside Nomads. Kaz hands you a **rocket launcher** (weapon 5, or buy one at the Gun Shop).
+- **Cash Van Heist**: a side job (the gold **H** in the CBD) you can do any time you're not on a mission: stop the Armourcorp van, deal with the guards, grab the cash and get it to Collingwood.
+- **Footy at the G**: two teams kick the ball around the MCG while you're nearby.
+- **Crown's fire towers** on the Southbank promenade light up every so often.
