@@ -248,6 +248,11 @@ const SITE_LL=[['flinders',144.9671,-37.8182,210,64],['stpauls',144.9675,-37.817
   ['arts',144.9686,-37.8221,70,70],['crown',144.9595,-37.8235,170,70],['rialto',144.9580,-37.8188,70,60],['star',144.9373,-37.8115,70,50],
   ['reb',144.9717,-37.8047,150,90],['shrine',144.9735,-37.8305,100,100],['luna',144.9745,-37.8676,90,60],['parliament',144.9737,-37.8110,130,80]];
 const SITES={};
+// Essendon Airport: one east-west runway (west end A, east end B), a parallel taxiway and an apron on the north side
+// with the terminal, the control tower and the police helipad. P(s,o): s metres-in-pixels along the runway from A, o to the side.
+const AP=(()=>{const[ax,ay]=proj(144.89599,-37.72106),[bx,by]=proj(144.91617,-37.72207),L=Math.hypot(bx-ax,by-ay),dx=(bx-ax)/L,dy=(by-ay)/L,nx=dy,ny=-dx;
+  const P=(s,o)=>({x:ax+dx*s+nx*o,y:ay+dy*s+ny*o});
+  return{ax,ay,L,dx,dy,nx,ny,P,a:Math.atan2(dy,dx),rw:60,taxi:180,ap0:L*.34,ap1:L*.76,apO:[220,380],pad:P(L*.72,300),spot:P(L*.45,300)}})();
 let LAP=null,TAN_LOOP=null,CIRCUIT_LOOP=null,MCG=null,PIER_PTS=[],PORT_POLY=[];
 const BUILDINGS=[];          // {x,y,a,w,d,h,k: tower|bld|shop|house|ware|model, c (colour idx), m (model)}
 const ZONE_NAMES=[],MAP_LABELS=[];         // [name,x,y] suburbs and neighbourhoods for the heading
@@ -311,6 +316,12 @@ function generate(){
     for(let r=0;r<420&&!site;r+=12)for(let k=0;k<(r?Math.ceil(r/6):1)&&!site;k++){const q=k/Math.max(1,Math.ceil(r/6))*TAU,b={x:x0+Math.cos(q)*r,y:y0+Math.sin(q)*r,a,w,d};if(rectFree(b,4))site=b}
     if(!site)site={x:x0,y:y0,a,w,d,none:true};SITES[id]=site;{const ne2=nearestEdge(site.x,site.y,500);site.face=ne2&&(-(ne2.px-site.x)*Math.sin(a)+(ne2.py-site.y)*Math.cos(a))<0?-1:1}
     if(!site.none){rectCells(site,6,FS,FW,FH,(x,y)=>{OCC[y*FW+x]=1});rectCells(site,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});rectCells(site,0,TS,W,H,(x,y)=>{tiles[y*W+x]=LMK;shade[y*W+x]=0})}}
+  // the airport: runway, taxiway, links and apron are kept clear of houses and trees; terminal and control tower
+  {const A=AP,rect=(s0,s1,o0,o1)=>[A.P(s0,o0),A.P(s1,o0),A.P(s1,o1),A.P(s0,o1)].flatMap(q=>[q.x,q.y]);
+    for(const f of[rect(-80,A.L+80,-A.rw-40,A.rw+40),rect(-20,A.L+20,A.taxi-50,A.taxi+50),rect(20,110,0,A.taxi),rect(A.L-110,A.L-20,0,A.taxi),rect(A.L*.5-45,A.L*.5+45,0,A.taxi),rect(A.ap0,A.ap1,A.taxi,A.apO[1]+130)]){
+      fillPoly(f,TS,W,H,tile(i=>{if(tiles[i]!==WATER&&tiles[i]!==RIVER){tiles[i]=RUNWAY;flags[i]&=~PARK}}));fillPoly(f,FS,FW,FH,fine(i=>{OCC[i]=1;SOL[i]=0}))}
+    for(const[s,o,w,d,h,k]of[[A.L*.52,A.apO[1]+60,A.L*.2,56,30,'bld'],[A.L*.66,A.apO[1]+64,22,22,96,'tower']]){const q=A.P(s,o),b={x:q.x,y:q.y,a:A.a,w,d,h,k,c:k==='tower'?2:5,airport:true};
+      const id=BUILDINGS.length;BUILDINGS.push(b);rectCells(b,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});rectCells(b,0,TS,W,H,(x,y)=>{bldAt[y*W+x]=id})}}
   placeLots();
   // container stacks in the empty port land
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(!(flags[i]&PORT)||tiles[i]!==GRASS)continue;const f=(y*SUB+1)*FW+x*SUB+1;if(OCC[f])continue;
@@ -515,6 +526,21 @@ function edgePath(g,E,o,s0=0,s1=E.len){g.beginPath();let first=true;const put=(x
     let nx=dx1/l1+dx2/l2,ny=dy1/l1+dy2/l2;const nl=Math.hypot(nx,ny)||1;nx/=nl;ny/=nl;const k=1/Math.max(.5,(nx*dx2+ny*dy2)/l2);put(E.P[2*i],E.P[2*i+1],nx*k,ny*k)}
   const b=edgeAt(E,s1);put(b.x,b.y,b.dx,b.dy)}
 function hasBox(f,X0,Y0,X1,Y1){for(let i=0;i<f.length;i+=2)if(f[i]>X0&&f[i]<X1&&f[i+1]>Y0&&f[i+1]<Y1)return true;return false}
+// runway, taxiway and apron, drawn in the runway's own frame (s along it from the west end, o to the north)
+function drawAirport(g){const A=AP;g.save();g.translate(A.ax,A.ay);g.rotate(A.a);g.scale(1,-1);g.lineCap='butt';
+  g.fillStyle='#a9aba6';g.fillRect(A.ap0,A.taxi,A.ap1-A.ap0,A.apO[1]-A.taxi+60);
+  g.fillStyle='#5b5e63';for(const[s0,s1]of[[20,110],[A.L-110,A.L-20],[A.L*.5-45,A.L*.5+45]])g.fillRect(s0,0,s1-s0,A.taxi);
+  g.fillRect(-20,A.taxi-24,A.L+40,48);g.strokeStyle='#f2c230';g.lineWidth=2;g.beginPath();g.moveTo(-10,A.taxi);g.lineTo(A.L+10,A.taxi);
+  for(const sc of[65,A.L-65,A.L*.5]){g.moveTo(sc,A.rw);g.lineTo(sc,A.taxi)}g.stroke();
+  g.fillStyle='#38393d';g.fillRect(-60,-A.rw,A.L+120,A.rw*2);g.fillStyle='#eceae2';g.fillRect(-60,-A.rw,A.L+120,2.5);g.fillRect(-60,A.rw-2.5,A.L+120,2.5);
+  for(let s=90;s<A.L-90;s+=60)g.fillRect(s,-1.5,32,3);                               // centreline
+  for(const[s,d]of[[0,1],[A.L,-1]]){for(let k=-5;k<=5;k++)if(k)g.fillRect(s+d*8-(d<0?40:0),k*10-3,40,6);  // threshold piano keys
+    for(const o of[-30,22])g.fillRect(s+d*130-(d<0?70:0),o,70,8)}                      // touchdown zone
+  g.save();g.fillStyle='#eceae2';g.font='bold 34px sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.translate(78,0);g.rotate(-PI/2);g.scale(-1,1);g.fillText('08',0,0);g.restore();g.save();g.fillStyle='#eceae2';g.font='bold 34px sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.translate(A.L-78,0);g.rotate(PI/2);g.scale(-1,1);g.fillText('26',0,0);g.restore();
+  const pd=A.L*.72;g.strokeStyle='#f2c230';g.lineWidth=4;g.beginPath();g.arc(pd,300,34,0,TAU);g.stroke();g.save();g.translate(pd,300);g.scale(1,-1);g.fillStyle='#f2c230';g.font='bold 40px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('H',0,2);g.restore();
+  g.restore()}
 function renderChunk(g,cx,cy,for3d){
   const X0=cx*CPX,Y0=cy*CPX,X1=X0+CPX,Y1=Y0+CPX,K=CHK[cy*NCX+cx]||{e:[],p:[],w:[],r:[],b:[]};
   g.save();g.translate(-X0,-Y0);g.lineCap='round';g.lineJoin='round';
@@ -522,6 +548,8 @@ function renderChunk(g,cx,cy,for3d){
   for(let k=0;k<46;k++){const h=hash(cx,cy,k);g.fillStyle=h<.5?'rgba(0,0,0,.05)':'rgba(255,255,190,.045)';g.beginPath();g.ellipse(X0+hash(cx,cy,k+100)*CPX,Y0+hash(cx,cy,k+200)*CPX,14+h*46,10+h*30,h*3,0,TAU);g.fill()}
   for(const[t,n,f]of K.p){g.fillStyle=t==='wood'||t==='forest'||t==='nature_reserve'?COL.wood:t==='golf_course'?COL.golf:COL.park;polyPath(g,f);g.fill()}
   if(PORT_POLY.length&&hasBox(PORT_POLY,X0-900,Y0-900,X1+900,Y1+900)){g.fillStyle=COL.port;polyPath(g,PORT_POLY);g.fill()}
+  // Essendon Airport
+  {const A=AP,mx=A.ax+A.dx*A.L/2,my=A.ay+A.dy*A.L/2;if(Math.abs(mx-X0-CPX/2)<A.L/2+CPX&&Math.abs(my-Y0-CPX/2)<A.L/2+CPX)drawAirport(g)}
   // MCG pitch with mowing stripes
   if(MCG&&Math.abs(MCG.x-X0-CPX/2)<CPX&&Math.abs(MCG.y-Y0-CPX/2)<CPX){g.save();g.beginPath();g.ellipse(MCG.x,MCG.y,MCG.rx*.74,MCG.ry*.74,0,0,TAU);g.clip();
     for(let k=-6;k<6;k++){g.fillStyle=k%2?'#4f9a3a':'#58a541';g.fillRect(MCG.x+k*26,MCG.y-MCG.ry,26,MCG.ry*2)}g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=2;g.beginPath();g.ellipse(MCG.x,MCG.y,MCG.rx*.68,MCG.ry*.68,0,0,TAU);g.stroke();g.restore()}
@@ -1319,7 +1347,7 @@ function sub(t,d=3){subs.push({t,d});if(subs.length>3)subs.shift()}
 function showBig(t,col,d,sub2){big={t,col,d,max:d,sub:sub2||''}}
 
 // ================================================================ street names (real ones, from the map)
-function streetAt(x,y){if(player&&player.car&&player.car.ug&&player.car.tunE)return tunName(player.car.tunE);const dk=deckAt(x,y);if(dk)return dk.name;const t=tileAtPx(x,y);if(t===CIRCUIT)return'Albert Park Circuit';if(t===TAN)return'The Tan';if(flags[Math.floor(y/TS)*W+Math.floor(x/TS)]&PIER)return'St Kilda Pier';
+function streetAt(x,y){if(player&&player.car&&player.car.ug&&player.car.tunE)return tunName(player.car.tunE);const dk=deckAt(x,y);if(dk)return dk.name;const t=tileAtPx(x,y);if(t===RUNWAY)return'Essendon Airport';if(t===CIRCUIT)return'Albert Park Circuit';if(t===TAN)return'The Tan';if(flags[Math.floor(y/TS)*W+Math.floor(x/TS)]&PIER)return'St Kilda Pier';
   const r=nearestEdge(x,y,90);if(!r)return'';const E=EDGES[r.e],nm=E.name||(E.fw?'Freeway':'');
   for(const[n,d]of[[E.a,r.s],[E.b,E.len-r.s]]){if(d>E.hw+26)continue;const o=NODES[n].e.map(i=>EDGES[i].name).find(s=>s&&s!==nm);if(o&&nm)return nm+' & '+o}
   return nm||'Laneway'}
@@ -1348,6 +1376,78 @@ function smoothRoute(P){if(P.length<3)return P;const onRoad=(a,b)=>{const n=Math
 function routeColor(){return mission?'#ffcc33':'#ff3d9a'}
 
 // ================================================================ update
+// ================================================================ aircraft: an airliner and a light plane fly circuits out of Essendon, a police helicopter patrols
+// Planes: park -> taxi out -> hold short -> take-off roll -> climb -> fly a loop over the city -> approach -> land -> taxi in.
+// The helicopter: pad -> spin up -> lift -> visit landmarks (or circle you once you have three stars) -> home -> land.
+const AIR=[];
+const AIRSPEC={jet:{scale:2,len:180,vr:230,cruise:330,land:210,acc:58,climb:44,alt:440,turn:.3},light:{scale:1.25,len:38,vr:120,cruise:190,land:120,acc:65,climb:30,alt:240,turn:.6}};
+function initAir(){AIR.length=0;const A=AP,ll=(lo,la)=>{const[x,y]=proj(lo,la);return{x,y}};
+  const jet={kind:'jet',...AIRSPEC.jet,st:'hold',t:5,...A.P(40,0),a:A.a,z:0,v:0,pitch:0,bank:0,
+    route:[ll(144.985,-37.79),ll(144.97,-37.86),ll(144.86,-37.86),ll(144.80,-37.76)]};
+  const sp=A.P(A.L*.4,300),light={kind:'light',...AIRSPEC.light,st:'park',t:25,x:sp.x,y:sp.y,a:A.a+PI/2,z:0,v:0,pitch:0,bank:0,spotS:A.L*.4,
+    route:[ll(144.99,-37.735),ll(145.02,-37.78),ll(144.95,-37.79),ll(144.84,-37.75)]};
+  jet.spotS=A.L*.6;
+  AIR.push(jet,light,{kind:'heli',scale:1.25,st:'pad',t:12,x:A.pad.x,y:A.pad.y,a:A.a,z:0,v:0,pitch:0,bank:0,rot:0,rotW:0,
+    sights:[ll(144.9631,-37.8136),ll(144.9834,-37.8200),ll(144.9735,-37.8305),ll(144.9373,-37.8115),ll(144.9323,-37.8180),ll(144.9745,-37.8676)]})}
+// steer towards a point, banking into the turn; returns the distance left
+function airSteer(p,tx,ty,dt){const want=Math.atan2(ty-p.y,tx-p.x),d=angDiff(want,p.a),turn=clamp(d,-p.turn*dt,p.turn*dt);p.a+=turn;
+  p.bank=lerp(p.bank,clamp(turn/Math.max(dt,1e-3)/p.turn,-1,1)*(p.kind==='heli'?.25:.5),Math.min(1,dt*2));
+  p.x+=Math.cos(p.a)*p.v*dt;p.y+=Math.sin(p.a)*p.v*dt;return Math.hypot(tx-p.x,ty-p.y)}
+const runwayBusy=me=>AIR.some(o=>o!==me&&(o.st==='roll'||o.st==='final'||o.st==='rollout'||o.st==='approach'&&Math.hypot(o.x-AP.ax,o.y-AP.ay)<2200));
+function updateAir(dt){if(!AIR.length)initAir();const A=AP;
+  for(const p of AIR){if(p.kind==='heli'){updateHeli(p,dt);continue}
+    const goto=(q,v)=>{p.v=lerp(p.v,v,Math.min(1,dt*1.5));return airSteer(p,q.x,q.y,dt)};
+    switch(p.st){
+      case'park':p.v=0;if((p.t-=dt)<=0){p.st='taxiOut';p.wp=[A.P(p.spotS,A.taxi),A.P(40,A.taxi),A.P(40,0)]}break;
+      case'taxiOut':case'taxiIn':{const q=p.wp[0];p.turn=1.6;if(goto(q,p.wp.length>1?40:22)<14){p.wp.shift();if(!p.wp.length){p.turn=AIRSPEC[p.kind].turn;
+        if(p.st==='taxiOut'){p.st='hold';p.t=3}else{p.st='park';p.t=rr(25,45);p.v=0}}}break}
+      case'hold':p.v=0;p.a+=angDiff(A.a,p.a)*Math.min(1,dt*3);p.bank=0;if((p.t-=dt)<=0&&!runwayBusy(p)){p.st='roll';p.v=0}break;
+      case'roll':{const pl=player.car||player,ax=pl.x-p.x,ay=pl.y-p.y,ah=ax*A.dx+ay*A.dy,lat=Math.abs(-ax*A.dy+ay*A.dx);
+        if(ah>0&&ah<260&&lat<A.rw+20&&p.v<p.vr*.8)p.v=Math.max(0,p.v-90*dt);else p.v+=p.acc*dt;   // brakes for you if you're sitting on the runway
+        p.a=A.a;p.x+=A.dx*p.v*dt;p.y+=A.dy*p.v*dt;if(p.v>=p.vr){p.st='climb'}break}
+      case'climb':p.v=Math.min(p.cruise,p.v+p.acc*.4*dt);p.z+=p.climb*dt;p.pitch=lerp(p.pitch,.16,dt*2);p.x+=Math.cos(p.a)*p.v*dt;p.y+=Math.sin(p.a)*p.v*dt;
+        if(p.z>=p.alt*.6){p.st='route';p.leg=0}break;
+      case'route':{p.z=Math.min(p.alt,p.z+p.climb*dt);p.pitch=lerp(p.pitch,p.z<p.alt?.1:0,dt);const q=p.route[p.leg];if(goto(q,p.cruise)<400)p.leg++;
+        if(p.leg>=p.route.length){p.st='approach'}break}
+      case'approach':{const q=A.P(-2800,0);p.z=lerp(p.z,p.alt*.75,dt*.3);p.pitch=lerp(p.pitch,0,dt);if(goto(q,p.land*1.3)<300){p.st='final'}break}
+      case'final':{const q=A.P(140,0),d=goto(q,p.land);p.turn=AIRSPEC[p.kind].turn*2;p.z=Math.min(p.z,p.alt*.75*clamp((d-20)/2800,0,1));p.pitch=lerp(p.pitch,-.04,dt);
+        if(d<40||p.z<=.5){p.z=0;p.st='rollout';p.turn=AIRSPEC[p.kind].turn;p.pitch=0}break}
+      case'rollout':{p.v=Math.max(30,p.v-70*dt);p.a+=angDiff(A.a,p.a)*Math.min(1,dt*3);p.bank=0;p.x+=Math.cos(p.a)*p.v*dt;p.y+=Math.sin(p.a)*p.v*dt;
+        const s=(p.x-A.ax)*A.dx+(p.y-A.ay)*A.dy;if(p.v<=31||s>A.L-130){const ex=s>A.L*.5-60&&s<A.L*.5?A.L*.5:A.L-65;p.st='taxiIn';p.wp=[A.P(Math.max(s,Math.min(ex,A.L-65)),0),A.P(Math.max(s,Math.min(ex,A.L-65)),A.taxi),A.P(p.spotS,A.taxi),A.P(p.spotS,300)]}break}}
+    // engine roar near the runway
+    if((p.st==='roll'||p.st==='climb')&&started){const d=Math.hypot(p.x-(player.car||player).x,p.y-(player.car||player).y);p.sndT=(p.sndT||0)-dt;if(d<1600&&p.sndT<=0){p.sndT=.22;SFX.noise(.3,p.kind==='jet'?260:520,.05*(1-d/1600),'lowpass')}}}}
+function updateHeli(p,dt){const A=AP,pl=player.car||player,chase=stars>=3&&Math.hypot(pl.x-A.pad.x,pl.y-A.pad.y)<9000;p.turn=1.1;
+  p.rotW=lerp(p.rotW,p.st==='pad'?0:1,Math.min(1,dt*(p.st==='pad'?.4:1.2)));p.rot+=p.rotW*28*dt;
+  const fly=(q,alt,v)=>{p.v=lerp(p.v,v,Math.min(1,dt));p.z=lerp(p.z,alt,Math.min(1,dt*.8));p.pitch=lerp(p.pitch,-.18*p.v/170,dt*2);return airSteer(p,q.x,q.y,dt)};
+  switch(p.st){
+    case'pad':p.v=0;p.z=Math.max(0,p.z-30*dt);p.pitch=0;p.bank=0;if((p.t-=dt)<=0||chase&&p.t<9){p.st='spin';p.t=3}break;
+    case'spin':if((p.t-=dt)<=0)p.st='lift';break;
+    case'lift':p.z+=40*dt;if(p.z>=140){p.st='go';p.legs=chase?[]:[pick(p.sights),pick(p.sights)];p.tgt=p.legs.shift()}break;
+    case'go':{if(chase){p.st='orbit';p.t=1e9;break}const d=fly(p.tgt,260,170);if(d<320){p.st='orbit';p.t=14;p.oa=Math.atan2(p.y-p.tgt.y,p.x-p.tgt.x)}break}
+    case'orbit':{const c=chase?pl:p.tgt,r=chase?220:300;p.oa=(p.oa||0)+dt*(chase?.7:.45);fly({x:c.x+Math.cos(p.oa)*r,y:c.y+Math.sin(p.oa)*r},chase?200:250,chase?190:120);
+      p.a+=angDiff(Math.atan2(c.y-p.y,c.x-p.x),p.a)*Math.min(1,dt*1.5);   // nose towards what it's watching
+      if(chase&&stars<3){p.t=0}if(!chase&&(p.t-=dt)<=0){p.tgt=p.legs.length?p.legs.shift():null;p.st=p.tgt?'go':'home'}if(chase&&stars<3)p.st='home';break}
+    case'home':{const d=fly(A.pad,200,170);if(chase){p.st='orbit';break}if(d<40){p.st='land';p.v=0}break}
+    case'land':p.v=0;p.x=lerp(p.x,A.pad.x,dt*2);p.y=lerp(p.y,A.pad.y,dt*2);p.pitch=lerp(p.pitch,0,dt*2);p.bank=0;p.z-=28*dt;if(p.z<=0){p.z=0;p.st='pad';p.t=rr(20,40)}break}}
+// 2D: top-down silhouettes with a shadow that drifts away the higher they fly
+function drawAircraft(p){const k=p.scale*(1+p.z/900),sh=(1+p.z/900);
+  const shape=(fill,dark)=>{ctx.fillStyle=fill;
+    if(p.kind==='jet'){ctx.fillRect(-45,-5.5,90,11);ctx.beginPath();ctx.moveTo(45,-5.5);ctx.quadraticCurveTo(56,0,45,5.5);ctx.fill();
+      ctx.beginPath();ctx.moveTo(8,-4);ctx.lineTo(-12,-43);ctx.lineTo(-17,-43);ctx.lineTo(-8,-4);ctx.moveTo(8,4);ctx.lineTo(-12,43);ctx.lineTo(-17,43);ctx.lineTo(-8,4);ctx.fill();
+      ctx.beginPath();ctx.moveTo(-34,-3);ctx.lineTo(-43,-17);ctx.lineTo(-46,-17);ctx.lineTo(-44,-3);ctx.moveTo(-34,3);ctx.lineTo(-43,17);ctx.lineTo(-46,17);ctx.lineTo(-44,3);ctx.fill();
+      if(!dark){ctx.fillStyle='#c8102e';ctx.fillRect(-48,-1.2,12,2.4);ctx.fillStyle='#9aa0a8';ctx.fillRect(-4,-17,9,5);ctx.fillRect(-4,12,9,5)}}
+    else if(p.kind==='light'){ctx.fillRect(-14,-2.8,29,5.6);ctx.fillRect(-2,-20,6,40);ctx.fillRect(-15,-7,4,14);if(!dark){ctx.fillStyle='#1f4fa3';ctx.fillRect(-2,-20,6,2);ctx.fillRect(-2,18,6,2)}}
+    else{ctx.beginPath();ctx.ellipse(-2,0,10,6,0,0,TAU);ctx.fill();ctx.fillRect(-30,-1.5,22,3);ctx.fillRect(-30,-5,3,10);
+      if(!dark){ctx.fillStyle='#0f2a5c';ctx.fillRect(-6,-6.2,8,12.4);ctx.strokeStyle='rgba(30,30,30,.75)';ctx.lineWidth=2.4;ctx.beginPath();for(const o of[0,PI/2]){const a=p.rot+o;ctx.moveTo(-Math.cos(a)*23,-Math.sin(a)*23);ctx.lineTo(Math.cos(a)*23,Math.sin(a)*23)}ctx.stroke()}}};
+  ctx.save();ctx.translate(p.x+p.z*.35,p.y+p.z*.5);ctx.rotate(p.a);ctx.scale(p.scale*sh,p.scale*sh);ctx.globalAlpha=.28;shape('#000',true);ctx.restore();ctx.globalAlpha=1;
+  ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.scale(k,k);shape(p.kind==='heli'?'#f3f4f6':'#f3f4f6',false);ctx.restore()}
+// 3D: yaw > pitch > bank groups around the Blender model (nose along +x)
+const AIRT={};
+function airMesh(p){const T=G3.T,yaw=new T.Group(),pit=new T.Group(),roll=new T.Group();yaw.add(pit);pit.add(roll);
+  const tpl=AIRT[p.kind];if(tpl){const m=tpl.clone(),inner=new T.Group();inner.add(m);inner.rotation.y=PI/2;inner.scale.setScalar(p.scale);roll.add(inner);
+    m.traverse(o=>{if(o.name==='rotor-main')yaw.userData.rm=o;if(o.name==='rotor-tail')yaw.userData.rt=o;if(o.isMesh)o.castShadow=true})}
+  else{const L=p.kind==='jet'?180:p.kind==='light'?38:46;part(roll,OM('#f3f4f6'),L,L*.09,L*.09,0,L*.06,0);if(p.kind!=='heli')part(roll,OM('#b9bec6'),L*.14,L*.015,L*.95,0,L*.05,0)}
+  const sh=new T.Mesh(G3.disc,G3.shadowMat);sh.scale.set(p.kind==='jet'?70:p.kind==='light'?16:18,1,p.kind==='jet'?60:p.kind==='light'?16:12);yaw.userData.sh=sh;yaw.userData.ok=!!tpl;return yaw}
 function update(dt){
   gameT+=dt;frameNo++;
   const c=deadT>0?{mx:0,my:0,thr:0,steer:0,hb:true,fire:false,enter:false,swap:0,sel:-1}:readControls();
@@ -1373,7 +1473,7 @@ function update(dt){
   // car-car collisions
   for(let i=0;i<cars.length;i++){const a=cars[i];for(let j=i+1;j<cars.length;j++){const b=cars[j];
     const lim=(a.L+b.L)/2+4;if(Math.abs(a.x-b.x)>lim||Math.abs(a.y-b.y)>lim)continue;collideCars(a,b)}}
-  updatePeds(dt);updateBullets(dt);
+  updatePeds(dt);updateBullets(dt);updateAir(dt);
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.life-=dt;if(p.life<=0){parts.splice(i,1);continue}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;if(p.grow)p.size+=p.grow*dt*10}
   if(parts.length>500)parts.splice(0,parts.length-500);
   // wanted decay
@@ -1446,6 +1546,7 @@ function render(){
   if(!player.car&&deadT<=0)drawPed(player,true);else if(!player.car&&deadT>0)drawPed({...player,dead:true},true);
   for(const c of cars)if(vis(c.x,c.y,80))drawCarShadow(c);
   for(const c of cars)if(vis(c.x,c.y,80)){if(c.ug)ctx.globalAlpha=.35;drawCar(c);ctx.globalAlpha=1}
+  for(const p of AIR)if(vis(p.x,p.y,260))drawAircraft(p);
   ctx.fillStyle='#ffe9a0';for(const b of bullets){ctx.fillRect(b.x-1.5,b.y-1.5,3,3)}
   for(const p of parts){if(!vis(p.x,p.y))continue;ctx.globalAlpha=clamp(p.life/p.max,0,1)*.9;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,TAU);ctx.fill()}
   ctx.globalAlpha=1;
@@ -1761,10 +1862,11 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 38';
+const BUILD='Build 39';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
+  for(const k of['jet','light','heli'])ld.load('models/aircraft/'+k+'.json',g=>{AIRT[k]=g.scene},undefined,()=>{});   // aircraft (tools/make_aircraft.py)
   // Melbourne landmarks built in Blender (tools/make_landmarks.py); the box versions stand in until they arrive
   Promise.all(LM_IDS.map(id=>{MODELS.want++;return new Promise(res=>ld.load('models/landmarks/'+id+'.json',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.material=occlude(o.material);o.castShadow=o.receiveShadow=true}});LMT[id]=sc;MODELS.got++;modelStatus();res()},undefined,()=>{MODELS.failed++;modelStatus();res()}))}))
     .then(()=>{if(G3.lm){G3.sc.remove(G3.lm)}buildLandmarks3D()});
@@ -1881,6 +1983,9 @@ function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(
   for(const p of peds){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
   if(!player.car&&started){if(!G3.pl){G3.pl=pedMesh('#ff4fa3','#e8b896','#ff4fa3','pl',false);castAll(G3.pl)}syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
   for(const p of pickups){if(p.t>0||p.dead)continue;if(!p.m3){const ic=PICK_ICON[p.kind];p.m3=sprite(iconMat(ic[0],ic[1],ic[2]),14)}p.m3.position.set(p.x,groundY(p.x,p.y)+12+Math.sin(gameT*5+p.x)*2,p.y);touch(p.m3)}
+  for(const p of AIR){if(!p.m3||p.m3.userData.ok!==!!AIRT[p.kind])p.m3=airMesh(p);const m=p.m3,u=m.userData,g0=terrainH(p.x,p.y);
+    m.position.set(p.x,p.z>2?Math.max(g0,AP.h0??(AP.h0=terrainH(AP.ax,AP.ay)))+p.z:g0,p.y);m.rotation.y=-p.a;m.children[0].rotation.z=p.pitch;m.children[0].children[0].rotation.x=p.bank;
+    if(u.rm)u.rm.rotation.y=p.rot||0;if(u.rt)u.rt.rotation.x=(p.rot||0)*2.3;touch(m);u.sh.position.set(p.x,g0+.6,p.y);u.sh.rotation.y=-p.a;const k=1/(1+p.z/300);u.sh.scale.multiplyScalar(1);u.sh.visible=p.z<900;touch(u.sh)}
   for(const o of G3.live)if(o.userData.f!==fr){G3.sc.remove(o);G3.live.delete(o)}
   // markers
   if(G3.mm){const show=started&&!mission&&progress<MISSIONS.length;G3.mm.visible=show;if(show){const m=missionStart(progress);G3.mm.position.set(m.x,groundY(m.x,m.y),m.y)}
@@ -2087,7 +2192,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},AIR,AP,get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
