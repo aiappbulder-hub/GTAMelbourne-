@@ -1155,7 +1155,9 @@ while True:
         d[e[0]] += 1
         d[e[1]] += 1
     at_edge = lambda n: NODES[n][0] < 2000 or NODES[n][1] < 2000 or NODES[n][0] > WPX - 2000 or NODES[n][1] > HPX - 2000
-    stubs = [f for f in EDGES if f[2][2] and not f[2][3] and any(d[n] == 1 and not at_edge(n) for n in f[:2]) and shadow_frac(f) > .5]
+    tun_nodes = {n for e in EDGES if e[2][3] for n in e[:2]}     # never cut the road leading into a tunnel portal
+    stubs = [f for f in EDGES if f[2][2] and not f[2][3] and not (set(f[:2]) & tun_nodes)
+             and any(d[n] == 1 and not at_edge(n) for n in f[:2]) and shadow_frac(f) > .5]
     if not stubs:
         break
     for f in stubs:
