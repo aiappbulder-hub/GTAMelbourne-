@@ -367,7 +367,7 @@ function placeLots(){
         const q=edgeAt(E,s+F/2),nx=-q.dy*side,ny=q.dx*side,a=Math.atan2(q.dy,q.dx);let placed=false,o=E.hw+22+(Z.k==='house'||Z.k==='model'?10:3);
         // front row facing the street, then rows behind it (back lots) while the block has room
         for(let row=0;row<Z.rows+(Z.back?2:0);row++){const B=row>=Z.rows&&Z.back?{...Z,...Z.back}:Z,h2=hash(E.id,hk,42+row*7);let got=false;
-          for(const dk of row?[1]:[1,.7,.5]){const D=lerp(B.D[0],B.D[1],h2)*dk;if(D<28)break;const b={x:q.x+nx*(o+D/2),y:q.y+ny*(o+D/2),a,w:F-B.gap,d:D,k:B.k,side};
+          for(const dk of row?[1]:[1,.7,.5]){const D=lerp(B.D[0],B.D[1],h2)*dk;if(D<28)break;const b={x:q.x+nx*(o+D/2),y:q.y+ny*(o+D/2),a,w:F-B.gap,d:D,k:B.k,side,row};
             if(!rectFree(b,1))continue;put(b,B,E,hk*5+row);got=true;o+=D+B.gap+4;break}
           if(!got)break;placed=true}
         s+=placed?F:F*.5}}}}
@@ -1956,6 +1956,7 @@ function init3D(){
       occ:{uCam:{value:new T.Vector3()},uTarget:{value:new T.Vector3()},uRad:{value:70}}});
     G3.wallMat=occlude(new T.MeshLambertMaterial({vertexColors:true,map:windowTex()}));
     G3.roofMat=occlude(new T.MeshLambertMaterial({vertexColors:true}));
+    G3.fac={};for(const k in FACADES){const F=FACADES[k],o={vertexColors:true,map:facadeTex(F)};G3.fac[k]=occlude(F.glass?new T.MeshPhongMaterial({...o,specular:'#9fb4c8',shininess:70}):new T.MeshLambertMaterial(o))}
     G3.treeMat=new T.MeshLambertMaterial({vertexColors:true});
     G3.shadowMat=new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.32,depthWrite:false});
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
@@ -2012,6 +2013,40 @@ function waterNormals(){const N=128,c=document.createElement('canvas');c.width=c
 function windowTex(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,64,64);
   g.fillStyle='#6b7889';for(let y=0;y<2;y++)for(let x=0;x<2;x++)g.fillRect(6+x*32,9+y*32,20,15);g.fillStyle='rgba(255,255,255,.35)';for(let y=0;y<2;y++)for(let x=0;x<2;x++)g.fillRect(6+x*32,9+y*32,20,3);
   const t=new G3.T.CanvasTexture(c);t.wrapS=t.wrapT=G3.T.RepeatWrapping;t.anisotropy=G3.aniso||1;return t}
+// facade styles: a 128px canvas tile covering su x sv px of wall; the texture carries the detail and the vertex colour tints it
+const FACADES={
+  glass:{su:32,sv:40,glass:true,draw(g,R){g.fillStyle='#e9eef2';g.fillRect(0,0,128,128);
+    for(let f=0;f<2;f++)for(let b=0;b<4;b++){const x=b*32+2,y=f*64+6,gr=g.createLinearGradient(0,y,0,y+54),k=R()*.18;gr.addColorStop(0,`rgb(${120+k*200|0},${142+k*200|0},${165+k*180|0})`);gr.addColorStop(1,'#d3dee7');g.fillStyle=gr;g.fillRect(x,y,29,54);
+      if(R()<.18){g.fillStyle='rgba(230,226,214,.75)';g.fillRect(x,y,29,12+R()*30)}g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.moveTo(x+4,y+54);g.lineTo(x+12,y);g.lineTo(x+17,y);g.lineTo(x+9,y+54);g.fill()}}},
+  office:{su:32,sv:40,draw(g,R){g.fillStyle='#ece8e0';g.fillRect(0,0,128,128);g.fillStyle='#d9d4ca';for(let f=0;f<2;f++)g.fillRect(0,f*64+56,128,8);
+    for(let f=0;f<2;f++){const y=f*64+16;g.fillStyle='#55657a';g.fillRect(0,y,128,30);g.fillStyle='rgba(255,255,255,.22)';g.fillRect(0,y,128,6);g.fillStyle='#e6e2da';for(let x=0;x<128;x+=16)g.fillRect(x,y,3,30);
+      for(let x=0;x<128;x+=16)if(R()<.2){g.fillStyle='rgba(235,230,215,.6)';g.fillRect(x+3,y,13,10+R()*16)}}}},
+  brick:{su:24,sv:40,draw(g,R){g.fillStyle='#cdbba6';g.fillRect(0,0,128,128);
+    for(let y=0;y<128;y+=6)for(let x=-(y/6%2)*8;x<128;x+=16){const k=R()*28-14;g.fillStyle=`rgb(${168+k|0},${84+k*.6|0},${62+k*.5|0})`;g.fillRect(x+1,y+1,14,4)}
+    for(let f=0;f<2;f++)for(const x of[22,78]){const y=f*64+12;g.fillStyle='#f1ece2';g.fillRect(x-3,y-3,34,44);g.fillStyle='#2e3946';g.fillRect(x,y,28,38);g.fillStyle='#f1ece2';g.fillRect(x,y+18,28,3);g.fillRect(x+12.5,y,3,38);
+      g.fillStyle='rgba(255,255,255,.18)';g.fillRect(x,y,28,5);g.fillStyle='#e5dccb';g.fillRect(x-5,y+40,38,5)}}},
+  stone:{su:28,sv:40,draw(g,R){g.fillStyle='#e2d3b2';g.fillRect(0,0,128,128);g.strokeStyle='rgba(120,100,70,.25)';g.lineWidth=1;
+    for(let y=0;y<128;y+=16){g.beginPath();g.moveTo(0,y+.5);g.lineTo(128,y+.5);g.stroke();for(let x=(y/16%2)*20;x<128;x+=40){g.beginPath();g.moveTo(x+.5,y);g.lineTo(x+.5,y+16);g.stroke()}}
+    for(let f=0;f<2;f++){g.fillStyle='#f0e6cf';g.fillRect(0,f*64+56,128,6);g.fillStyle='rgba(90,70,40,.25)';g.fillRect(0,f*64+62,128,2);
+      for(const x of[20,76]){const y=f*64+12;g.fillStyle='#2b333d';g.beginPath();g.moveTo(x,y+40);g.lineTo(x,y+12);g.arc(x+16,y+12,16,PI,0);g.lineTo(x+32,y+40);g.fill();
+        g.strokeStyle='#f3ead6';g.lineWidth=3;g.stroke();g.fillStyle='rgba(255,255,255,.15)';g.fillRect(x+2,y+8,28,6);g.fillStyle='#f3ead6';g.fillRect(x+14.5,y,3,40)}}}},
+  ware:{su:40,sv:40,draw(g){for(let x=0;x<128;x+=8){const gr=g.createLinearGradient(x,0,x+8,0);gr.addColorStop(0,'#c9cdd1');gr.addColorStop(.5,'#f2f4f6');gr.addColorStop(1,'#a9aeb3');g.fillStyle=gr;g.fillRect(x,0,8,128)}
+    g.fillStyle='rgba(60,70,80,.55)';g.fillRect(0,4,128,10);g.fillStyle='rgba(0,0,0,.12)';g.fillRect(0,124,128,4)}},
+  house:{su:30,sv:30,draw(g,R){g.fillStyle='#f4f1ea';g.fillRect(0,0,128,128);g.fillStyle='rgba(0,0,0,.13)';for(let y=0;y<128;y+=8)g.fillRect(0,y+6,128,2);
+    g.fillStyle='#fbfaf6';g.fillRect(36,28,56,62);g.fillStyle='#34404c';g.fillRect(42,34,44,50);g.fillStyle='#fbfaf6';g.fillRect(62,34,4,50);g.fillRect(42,56,44,3);g.fillStyle='rgba(255,255,255,.2)';g.fillRect(42,34,44,8)}},
+  front:{su:26,sv:18,draw(g,R){g.fillStyle='#e8e4dc';g.fillRect(0,0,128,128);g.fillStyle='#3a3f46';g.fillRect(0,96,128,32);
+    const gr=g.createLinearGradient(0,10,0,94);gr.addColorStop(0,'#3a4a5c');gr.addColorStop(1,'#7f93a6');g.fillStyle=gr;g.fillRect(6,8,116,86);
+    g.fillStyle='rgba(255,255,255,.3)';g.beginPath();g.moveTo(16,94);g.lineTo(40,8);g.lineTo(52,8);g.lineTo(28,94);g.fill();g.fillStyle='#d9d4ca';g.fillRect(60,8,5,86);
+    g.fillStyle='rgba(250,230,170,.5)';g.fillRect(10,60,46,30);g.fillRect(70,60,48,30)}},
+  rooftile:{su:24,sv:24,draw(g){g.fillStyle='#b8b2aa';g.fillRect(0,0,128,128);for(let y=0;y<128;y+=16){const gr=g.createLinearGradient(0,y,0,y+16);gr.addColorStop(0,'#ffffff');gr.addColorStop(.75,'#d8d2ca');gr.addColorStop(1,'#8f8880');g.fillStyle=gr;g.fillRect(0,y,128,16);
+    g.fillStyle='rgba(0,0,0,.18)';for(let x=(y/16%2)*16;x<128;x+=32)g.fillRect(x,y,2,16)}}},
+  flat:{su:48,sv:48,draw(g,R){g.fillStyle='#ffffff';g.fillRect(0,0,128,128);for(let i=0;i<900;i++){const k=R();g.fillStyle=`rgba(${k<.5?0:255},${k<.5?0:255},${k<.5?0:255},${.04+R()*.08})`;g.fillRect(R()*128|0,R()*128|0,2,2)}
+    g.fillStyle='rgba(0,0,0,.1)';g.fillRect(0,0,128,2);g.fillRect(0,0,2,128)}}};
+function facadeTex(F){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');let sd=7;const R=()=>(sd=(sd*16807)%2147483647)/2147483647;F.draw(g,R);
+  const t=new G3.T.CanvasTexture(c);t.wrapS=t.wrapT=G3.T.RepeatWrapping;t.anisotropy=G3.aniso||1;return t}
+// which facade a building wears
+function facadeOf(b){const k=hash(b.x|0,b.y|0,31);if(b.k==='tower')return k<.68?'glass':'office';if(b.k==='house'||b.k==='model')return'house';if(b.k==='ware')return'ware';
+  if(b.airport)return'office';if(b.k==='shop')return k<.6?'brick':'stone';return b.h>100?(k<.5?'glass':'office'):k<.4?'brick':k<.65?'stone':'office'}
 const CITY={ready:false,tpl:{},names:['building-small-a','building-small-b','building-small-c','building-small-d','building-garage']};
 function mkBuf(){const b={p:[],n:[],c:[],uv:[]};
   // sh: optional shade by height, for the darkening where a wall meets the ground
@@ -2030,31 +2065,56 @@ function addTree(b,tx,ty){const T=G3.T,x=(tx+.5)*TS,z=(ty+.5)*TS,y0=terrainH(x,z
   for(let i=0;i<P.length;i+=3){b.p.push(x+P[i]*r,cy+P[i+1]*r*1.1,z+P[i+2]*r);b.n.push(N[i],N[i+1],N[i+2]);const k=.9+((i/9)%3)*.06;b.c.push(col.r*k,col.g*k,col.b*k);b.uv.push(0,0)}}
 // ambient occlusion baked into the walls: darker at the foot, fading out over the first AO_H px
 const AO_H=18,aoShade=gy=>y=>.58+.42*clamp((y-gy)/AO_H,0,1);
-// a building: walls with windows and a flat roof (towers step back as they rise), or a pitched roof for houses; it sits into the slope
-function addBuilding(wall,roof,b){const T=G3.T,ca=Math.cos(b.a),sa=Math.sin(b.a),P=(u,v,y)=>[b.x+ca*u-sa*v,y,b.y+sa*u+ca*v];
-  const wc=new T.Color(bldWall(b)),rc=new T.Color(bldRoof(b)),gy=terrainH(b.x,b.y),base=gy-10;
-  const block=(hw,hd,y0,y1,top)=>{for(const[u0,v0,u1,v1]of[[-hw,-hd,hw,-hd],[hw,-hd,hw,hd],[hw,hd,-hw,hd],[-hw,hd,-hw,-hd]]){const len=Math.hypot(u1-u0,v1-v0),mu=(u0+u1)/2,mv=(v0+v1)/2,l=Math.hypot(mu,mv)||1,n=[(ca*mu-sa*mv)/l,0,(sa*mu+ca*mv)/l];
-      const uv=(a,c)=>[0,(a-gy)/40,len/32,(c-gy)/40],ya=gy+AO_H;
-      if(y0<=gy&&y1>ya){wall.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,ya),P(u0,v0,ya),n,wc,uv(y0,ya),aoShade(gy));wall.quad(P(u0,v0,ya),P(u1,v1,ya),P(u1,v1,y1),P(u0,v0,y1),n,wc,uv(ya,y1))}
-      else wall.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,y1),P(u0,v0,y1),n,wc,uv(y0,y1),y0<=gy?aoShade(gy):null)}
-    if(top)roof.quad(P(-hw,-hd,y1),P(hw,-hd,y1),P(hw,hd,y1),P(-hw,hd,y1),[0,1,0],top)};
+// a building: textured facade walls and a flat roof with plant on it (towers step back as they rise), or a tiled pitched roof for houses; it sits into the slope.
+// W(style) gives the buffer for that facade; shops get a glazed shopfront and an awning on the street side
+const SHEDS=['#c4c7ca','#5b6770','#3f5f4a','#8a3b2e','#d8d2c2','#2f4a6b'],AWN=['#2e6b4f','#8c2f2f','#23436e','#c58a1d','#4a4a4a','#7a2e5c'];
+function addBuilding(W,roof,b){const T=G3.T,ca=Math.cos(b.a),sa=Math.sin(b.a),P=(u,v,y)=>[b.x+ca*u-sa*v,y,b.y+sa*u+ca*v];
+  const st=facadeOf(b),F=FACADES[st],hk=hash(b.x|0,b.y|0,33),gy=terrainH(b.x,b.y),base=gy-10,wall=W(st),flat=W('flat');
+  const wc=new T.Color(st==='ware'?SHEDS[b.c%6]:bldWall(b)).lerp(new T.Color('#ffffff'),st==='glass'?.25:st==='house'?.15:st==='ware'?.2:st==='office'?.55:.8).multiplyScalar(.9+hk*.12);
+  const rc=new T.Color(bldRoof(b)).lerp(new T.Color('#ffffff'),.2);
+  const ftop=(hw,hd,y,col)=>flat.quad(P(-hw,-hd,y),P(hw,-hd,y),P(hw,hd,y),P(-hw,hd,y),[0,1,0],col,[0,0,2*hw/FACADES.flat.su,2*hd/FACADES.flat.sv]);
+  // walls of a box from y0 to y1 in facade buf B (style S), starting the texture at vy
+  const sides=(B,S,hw,hd,y0,y1,col,vy,skip)=>{for(const[u0,v0,u1,v1,f]of[[-hw,-hd,hw,-hd,0],[hw,-hd,hw,hd,1],[hw,hd,-hw,hd,2],[-hw,hd,-hw,-hd,3]]){if(skip&&skip(f))continue;
+      const len=Math.hypot(u1-u0,v1-v0),mu=(u0+u1)/2,mv=(v0+v1)/2,l=Math.hypot(mu,mv)||1,n=[(ca*mu-sa*mv)/l,0,(sa*mu+ca*mv)/l],G=FACADES[S];
+      const uv=(a,c)=>[0,(a-vy)/G.sv,Math.max(1,Math.round(len/G.su)),(c-vy)/G.sv],ya=gy+AO_H;
+      if(y0<=gy&&y1>ya){B.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,ya),P(u0,v0,ya),n,col,uv(y0,ya),aoShade(gy));B.quad(P(u0,v0,ya),P(u1,v1,ya),P(u1,v1,y1),P(u0,v0,y1),n,col,uv(ya,y1))}
+      else B.quad(P(u0,v0,y0),P(u1,v1,y0),P(u1,v1,y1),P(u0,v0,y1),n,col,uv(y0,y1),y0<=gy?aoShade(gy):null)}};
+  const plain=(hw,hd,y0,y1,col)=>{sides(roof,'flat',hw,hd,y0,y1,col,y0);roof.quad(P(-hw,-hd,y1),P(hw,-hd,y1),P(hw,hd,y1),P(-hw,hd,y1),[0,1,0],col)};
+  const block=(hw,hd,y0,y1,top,vy)=>{sides(wall,st,hw,hd,y0,y1,wc,vy??gy);if(top)ftop(hw,hd,y1,top)};
   const hw=b.w/2,hd=b.d/2,h=gy+b.h;
-  if(b.k==='house'||b.k==='model'){block(hw,hd,base,h,null);const rh=b.d*.38;
-    for(const s of[-1,1]){const nn=[-sa*s*.6,.8,ca*s*.6];roof.quad(P(-hw-3,s*(hd+3),h-1),P(hw+3,s*(hd+3),h-1),P(hw+3,0,h+rh),P(-hw-3,0,h+rh),nn,rc)}
-    for(const s of[-1,1]){const n=[ca*s,0,sa*s];wall.tri(P(s*hw,-hd,h),P(s*hw,hd,h),P(s*hw,0,h+rh),n,wc)}return}
+  if(b.k==='house'||b.k==='model'){block(hw,hd,base,h,null);const rh=b.d*.38,tile=W('rooftile'),R=FACADES.rooftile,sl=Math.hypot(hd+3,rh);
+    for(const s of[-1,1]){const nn=[-sa*s*.6,.8,ca*s*.6];tile.quad(P(-hw-3,s*(hd+3),h-1),P(hw+3,s*(hd+3),h-1),P(hw+3,0,h+rh),P(-hw-3,0,h+rh),nn,rc,[0,0,(b.w+6)/R.su,sl/R.sv])}
+    for(const s of[-1,1]){const n=[ca*s,0,sa*s];roof.tri(P(s*hw,-hd,h),P(s*hw,hd,h),P(s*hw,0,h+rh),n,wc)}
+    if(hk<.45){const c=new T.Color('#8d8378');plain(3,3,h+rh*.3,h+rh+6,c);}return}   // chimney
   if(b.k==='tower'&&b.h>220&&b.w>50&&b.d>50){   // podium, shaft and a stepped crown
     const t1=gy+b.h*.62,t2=gy+b.h*.86,k=hash(b.x|0,b.y|0,9);block(hw,hd,base,t1,rc);block(hw*.86,hd*.86,t1,t2,rc);block(hw*(k<.5?.62:.7),hd*(k<.5?.62:.7),t2,h,rc);
-    const c=new T.Color(shadeHex(bldRoof(b),.2));block(hw*.3,hd*.3,h,h+14,c);if(k>.6){wall.quad(P(-1.5,0,h+14),P(1.5,0,h+14),P(1.5,0,h+70),P(-1.5,0,h+70),[ca,0,sa],c)}return}
-  block(hw,hd,base,h,rc);
-  if(b.k==='tower'||b.k==='bld'&&b.h>90){const k=new T.Color(shadeHex(bldRoof(b),.15));block(hw*.35,hd*.35,h,h+10,k)}   // plant room on the roof
-  else if(b.k==='shop'){const k=new T.Color(shadeHex(bldWall(b),-.25));block(hw+2,hd+2,h,h+5,k)}}                        // parapet
+    const c=new T.Color(shadeHex(bldRoof(b),.2));plain(hw*.3,hd*.3,h,h+14,c);if(k>.6){roof.quad(P(-1.5,0,h+14),P(1.5,0,h+14),P(1.5,0,h+70),P(-1.5,0,h+70),[ca,0,sa],c)}
+    else if(k<.25&&hw>34){const y=h+.6,hc=new T.Color('#3c4248');roof.quad(P(-hw*.55,-hd*.55,y),P(hw*.55,-hd*.55,y),P(hw*.55,hd*.55,y),P(-hw*.55,hd*.55,y),[0,1,0],hc)}return}
+  const front=b.k==='shop'&&b.row===0,sf=-b.side,shopH=gy+18;   // the street face is local v = -side
+  if(front){const fr=W('front'),fc=new T.Color('#ffffff').multiplyScalar(.92+hk*.08);
+    sides(fr,'front',hw,hd,base,shopH,fc,gy,f=>f!==(sf<0?0:2));sides(wall,st,hw,hd,base,shopH,wc,gy,f=>f===(sf<0?0:2));block(hw,hd,shopH,h,rc,shopH);
+    // awning over the footpath
+    const ac=new T.Color(AWN[(hk*AWN.length)|0]),v0=sf*hd,v1=sf*(hd+12),y0=shopH+1;roof.quad(P(-hw+2,v0,y0+5),P(hw-2,v0,y0+5),P(hw-2,v1,y0),P(-hw+2,v1,y0),[0,.9,-sf*.4],ac);
+    roof.quad(P(-hw+2,v1,y0),P(hw-2,v1,y0),P(hw-2,v1,y0-3),P(-hw+2,v1,y0-3),[-sa*sf,0,ca*sf],ac);
+    // painted sign above the awning
+    const sc=new T.Color(AWN[((hk*7)%1*AWN.length)|0]).lerp(new T.Color('#ffffff'),.25),vs=sf*(hd+.6);roof.quad(P(-hw*.7,vs,y0+7),P(hw*.7,vs,y0+7),P(hw*.7,vs,y0+13),P(-hw*.7,vs,y0+13),[-sa*sf,0,ca*sf],sc)}
+  else block(hw,hd,base,h,rc);
+  if(st==='brick'||st==='stone'){const k=new T.Color(st==='brick'?'#e9e0cf':'#efe5cc');plain(hw+1.6,hd+1.6,h-4,h+1,k);if(b.h<80)plain(hw+.8,hd+.8,h+1,h+5,k)}   // cornice and parapet
+  else if(b.k==='shop'||b.k==='ware'){const k=new T.Color(shadeHex(bldWall(b),-.25));plain(hw+.8,hd+.8,h,h+3,k)}
+  if(b.k==='ware'&&hw>30){const k=new T.Color('#e8ecef');for(const u of[-hw*.5,0,hw*.5])plainAt(u,0,3,hd*.85,h,h+2.5,k)}   // roof lights
+  if(b.k==='tower'||b.k==='bld'&&b.h>90){const k=new T.Color(shadeHex(bldRoof(b),.15));plain(hw*.35,hd*.35,h,h+10,k)}   // plant room on the roof
+  if(b.k!=='ware'&&hw>14&&hd>14){const ac=new T.Color('#b9bdc2'),n=1+((hk*3)|0);for(let i=0;i<n;i++){const u=(hash(b.x|0,i,61)-.5)*hw*1.2,v=(hash(b.y|0,i,62)-.5)*hd*1.2;   // air-con units and a water tank
+      plainAt(u,v,4,3,h,h+4,ac)}if(b.k==='bld'&&hk>.7){plainAt(-hw*.5,hd*.4,5,5,h,h+12,new T.Color('#6c645a'))}}
+  function plainAt(u,v,a,c,y0,y1,col){const cu=b.x+ca*u-sa*v,cv=b.y+sa*u+ca*v,Q=(du,dv,y)=>[cu+ca*du-sa*dv,y,cv+sa*du+ca*dv];
+    for(const[u0,v0,u1,v1]of[[-a,-c,a,-c],[a,-c,a,c],[a,c,-a,c],[-a,c,-a,-c]]){const mu=(u0+u1)/2,mv=(v0+v1)/2,l=Math.hypot(mu,mv);roof.quad(Q(u0,v0,y0),Q(u1,v1,y0),Q(u1,v1,y1),Q(u0,v0,y1),[(ca*mu-sa*mv)/l,0,(sa*mu+ca*mv)/l],col)}
+    roof.quad(Q(-a,-c,y1),Q(a,-c,y1),Q(a,c,y1),Q(-a,c,y1),[0,1,0],col)}}
 function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const cvs=document.createElement('canvas');cvs.width=cvs.height=CPX;renderChunk(cvs.getContext('2d'),cx,cy,true);
   const tex=new T.CanvasTexture(cvs);tex.anisotropy=G3.aniso;
   const pg=new T.PlaneGeometry(CPX,CPX,16,16).rotateX(-PI/2),pa=pg.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,terrainH(cx*CPX+CPX/2+pa.getX(i),cy*CPX+CPX/2+pa.getZ(i)));pg.computeVertexNormals();
   const ground=new T.Mesh(pg,new T.MeshLambertMaterial({map:tex,alphaTest:.5}));ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
-  const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[];
-  for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}addBuilding(wall,roof,b)}
+  const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[],fac={},W=k=>fac[k]||(fac[k]=mkBuf());
+  for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}addBuilding(W,roof,b)}
   for(let ty=cy*CH;ty<Math.min(H,cy*CH+CH);ty++)for(let tx=cx*CH;tx<Math.min(W,cx*CH+CH);tx++){const i=ty*W+tx,t=tiles[i];
     if(t===TREE){addTree(tree,tx,ty);continue}
     if(t===CONT){const h=13+(shade[i]%2)*12,x0=tx*TS+1,x1=x0+TS-2,z0=ty*TS+1,z1=z0+TS-2;col.set(PAL.cont[shade[i]%6]);roof.quad([x0,h,z0],[x1,h,z0],[x1,h,z1],[x0,h,z1],[0,1,0],col);
@@ -2063,7 +2123,7 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const rc=new T.Color('#b4b8be');for(const E of K.e)for(const[a,b]of E.br||[])for(let s=a;s<b;s+=16){const p=edgeAt(E,s),q=edgeAt(E,Math.min(b,s+16));if(Math.floor(p.x/CPX)!==cx||Math.floor(p.y/CPX)!==cy)continue;
     const y0=groundY(p.x,p.y);if(y0>5)continue;for(const o of[E.hw+(E.fw?22:18),-E.hw-(E.fw?22:18)]){const A=[p.x-p.dy*o,0,p.y+p.dx*o],B=[q.x-q.dy*o,0,q.y+q.dx*o],n=[-p.dy*Math.sign(o),0,p.dx*Math.sign(o)];
       roof.quad(A,B,[B[0],9,B[2]],[A[0],9,A[2]],n,rc);roof.quad(A,B,[B[0],9,B[2]],[A[0],9,A[2]],[-n[0],0,-n[2]],rc)}}
-  for(const[b,m]of[[wall,G3.wallMat],[roof,G3.roofMat],[tree,G3.treeMat]])if(b.p.length){const me=new T.Mesh(b.geo(),m);me.castShadow=me.receiveShadow=true;grp.add(me)}
+  for(const[b,m]of[[wall,G3.wallMat],[roof,G3.roofMat],[tree,G3.treeMat],...Object.keys(fac).map(k=>[fac[k],G3.fac[k]])])if(b.p.length){const me=new T.Mesh(b.geo(),m);me.castShadow=me.receiveShadow=true;grp.add(me)}
   // Kenney city-builder houses on inner-suburb lots, one InstancedMesh per model, facing the street
   if(lots.length){const by={},m4=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0);
     for(const l of lots){const k=CITY.names[(hash(l.x|0,l.y|0,77)*CITY.names.length)|0];(by[k]=by[k]||[]).push(l)}
@@ -2071,7 +2131,7 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
       arr.forEach((l,i)=>{const sc=Math.min(l.w,l.d)*1.15/tp.w,dx=Math.cos(l.a),dy=Math.sin(l.a);q.setFromAxisAngle(up,Math.atan2(dy*l.side,-dx*l.side));m4.compose(new T.Vector3(l.x,terrainH(l.x,l.y)-2,l.y),q,new T.Vector3(sc,sc*(1.2+hash(l.x|0,l.y|0,78)*.3),sc));im.setMatrixAt(i,m4)});
       im.castShadow=im.receiveShadow=true;grp.add(im)}}
   return grp}
-function disposeGroup(g){g.traverse(o=>{if(!o.isMesh)return;if(o.isInstancedMesh){o.dispose&&o.dispose();return}o.geometry.dispose();if(o.material.map&&o.material!==G3.wallMat&&o.material!==G3.waterMat){o.material.map.dispose();o.material.dispose()}})}
+function disposeGroup(g){g.traverse(o=>{if(!o.isMesh)return;if(o.isInstancedMesh){o.dispose&&o.dispose();return}o.geometry.dispose();if(o.material.map&&o.material!==G3.wallMat&&o.material!==G3.waterMat&&!Object.values(G3.fac).includes(o.material)){o.material.map.dispose();o.material.dispose()}})}
 function chunks3D(){const[fx,fy,R]=G3.focus,need=[];
   for(let cy=0;cy<Math.ceil(H/CH);cy++)for(let cx=0;cx<Math.ceil(W/CH);cx++){const d=Math.hypot(cx*CPX+CPX/2-fx,cy*CPX+CPX/2-fy);if(d<R+CPX*.75)need.push([d,cx,cy])}
   need.sort((a,b)=>a[0]-b[0]);let budget=started&&!paused?2:8;
@@ -2095,7 +2155,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 43';
+const BUILD='Build 44';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
