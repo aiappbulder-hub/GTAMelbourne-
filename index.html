@@ -152,6 +152,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 <script src="map/melbourne.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -2094,10 +2095,11 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 42';
+const BUILD='Build 43';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
+  loadPeople(ld);
   for(const k of['jet','light','heli'])ld.load('models/aircraft/'+k+'.json',g=>{AIRT[k]=g.scene},undefined,()=>{});   // aircraft (tools/make_aircraft.py)
   // Melbourne landmarks built in Blender (tools/make_landmarks.py); the box versions stand in until they arrive
   Promise.all(LM_IDS.map(id=>{MODELS.want++;return new Promise(res=>ld.load('models/landmarks/'+id+'.json',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.material=occlude(o.material);o.castShadow=o.receiveShadow=true}});LMT[id]=sc;MODELS.got++;modelStatus();res()},undefined,()=>{MODELS.failed++;modelStatus();res()}))}))
@@ -2188,7 +2190,50 @@ function pedMesh(shirt,skin,hair,kind,stripes){const T=G3.T,g=new T.Group(),b=ne
   const head=new T.Mesh(G3.sph,M(skin));head.scale.set(3.3,3.5,3.3);head.position.y=21;b.add(head);
   const hr=new T.Mesh(G3.sph,M(kind==='cop'?'#0d1530':hair));hr.scale.set(3.5,kind==='cop'?2.4:1.9,3.5);hr.position.y=kind==='cop'?24:23.2;b.add(hr);
   const gun=part(arms[1],M('#111111'),2.5,2.5,8,0,-8.2,3);gun.visible=false;g.userData={b,legs,gun,arms};return g}
+// ================================================================ animated people (Quaternius, CC0): skinned models with walk, run, shoot and die
+// worker: everyday people, recoloured per person; woman: more everyday people; adventurer: you, cops, gangs and guards (it has the gun animations).
+const PEOPLE={ver:0,tpl:{}};
+const PCLIP={worker:{idle:'Man_Idle',walk:'Man_Walk',run:'Man_Run',die:'Man_Death',punch:'Man_Punch',jump:'Man_Jump'},
+  woman:{idle:'Idle',walk:'Walk',run:'Run',die:'Death',punch:'Punch_Right'},
+  adventurer:{idle:'Idle',walk:'Walk',run:'Run',die:'Death',punch:'Punch_Right',aim:'Idle_Gun_Pointing',shoot:'Idle_Gun_Pointing',runShoot:'Run_Shoot',jump:'Roll'}};
+// which materials are the clothes (top, bottoms), hair and skin in each model
+const PMATS={worker:{top:['Shirt'],bottom:['Pants'],hair:['Hair'],skin:['Skin']},woman:{top:['LightBrown'],bottom:['Black'],hair:['Brown'],skin:['Skin']},
+  adventurer:{top:['Green','LightGreen'],bottom:['Brown','Brown2'],hair:['Hair'],skin:['Skin']}};
+function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['worker','woman','adventurer'])ld.load('models/people/'+k+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);
+    // measure the posed vertices: skinned meshes ignore their own node scale, so the mesh bounding box is misleading
+    let y0=1e9,y1=-1e9;const v=new G3.T.Vector3();sc.traverse(o=>{if(!o.isSkinnedMesh)return;const P=o.geometry.attributes.position;
+      for(let i=0;i<P.count;i+=3){v.fromBufferAttribute(P,i);o.boneTransform(i,v);v.applyMatrix4(o.matrixWorld);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y)}});
+    PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});}
+const pmatCache={};
+function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
+  const key=armed?'adventurer':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
+  const m=THREE.SkeletonUtils.clone(tp.scene),k=25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
+  const top=isPl?'#ff4fa3':kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
+    bottom=isPl?'#2b3550':kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?'#ff4fa3':p.hair||'#2a1b10',skin:p.skin||'#e0b090'},M=PMATS[key];
+  m.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];
+    o.material=mats.map(mt=>{for(const part in M)if(M[part].includes(mt.name)){const ck=key+mt.name+cols[part];if(!pmatCache[ck]){const c=mt.clone();c.color.set(cols[part]);pmatCache[ck]=c}return pmatCache[ck]}return mt});
+    if(o.material.length===1)o.material=o.material[0]});
+  const inner=new T.Group();inner.rotation.y=PI/2;inner.add(m);const g=new T.Group();g.add(inner);shadowDisc(g,7,7);
+  const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
+  if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
+  if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
+  let hand=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o});let gun=null;
+  if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
+    gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
+  g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
+const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
+function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?'#ff4fa3':p.shirt,isPl?'#e8b896':p.skin,isPl?'#ff4fa3':p.hair,isPl?'pl':p.kind,!isPl&&p.stripes)}
+// pick the animation from what the person is doing, cross-fading between them
+function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.px,p.y-u.py);u.px=p.x;u.py=p.y;u.spd=lerp(u.spd,dt>0?d/dt:0,Math.min(1,dt*8));
+  const shooting=isPl?gameT-(player.shotT??-99)<.35:p.weapon&&p.alert&&(p.cool||0)>.8*(p.kind==='cop'?1.6:1.1)-.35;
+  const aiming=isPl?player.wi>0&&(!!player.aimT||mouse.aim):p.weapon&&(p.alert||p.kind==='cop'&&stars>0);
+  let want=p.dead?A.die:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
+  want=want||A.idle;if(want!==u.cur){want.reset().fadeIn(.18).play();if(u.cur)u.cur.fadeOut(.18);u.cur=want}
+  if(want===A.walk)want.timeScale=clamp(u.spd/55,.6,1.6);else if(want===A.run)want.timeScale=clamp(u.spd/150,.7,1.4);
+  if(u.gun)u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));
+  u.mixer.update(dt)}
 function syncPed(g,p,isPl){g.position.set(p.x,pedY(p)+(isPl?p.z||0:0),p.y);g.rotation.y=-p.a;const u=g.userData;
+  if(u.model){const near=Math.abs(p.x-G3.cam.position.x)<1100&&Math.abs(p.y-G3.cam.position.z)<1100;if(near)animPerson(g,p,isPl,G3.sdt||.016);return}
   if(p.dead){u.b.rotation.z=-PI/2;u.b.position.y=3;u.legs[0].rotation.z=u.legs[1].rotation.z=0}
   else{u.b.rotation.z=0;u.b.position.y=0;const s=Math.sin(p.anim||0)*.55;u.legs[0].rotation.z=s;u.legs[1].rotation.z=-s;
     const armed=isPl?player.wi>0:(p.weapon&&(p.alert||p.kind==='cop'));u.arms[0].rotation.z=-s*.8;u.arms[1].rotation.z=armed?1.45:s*.8;
@@ -2207,15 +2252,15 @@ function buildMarkers3D(){if(!G3.ok)return;const T=G3.T;while(G3.mk.children.len
   G3.mm=add({x:0,y:0},'#ff3d9a','M',24,40,22);G3.sm=add({x:0,y:0},'#ffcc33','H',22,40,20);G3.blips=[];for(let i=0;i<8;i++){const g=add({x:0,y:0},'#ffcc33','!',22,38,18);G3.blips.push(g)}}
 const PICK_ICON={cash:['$','#3fae4a','#fff'],health:['+','#ffffff','#d32'],armor:['A','#3a7bd5','#fff'],pistol:['P','#c9a227','#111'],uzi:['U','#c9a227','#111'],shotgun:['S','#c9a227','#111']};
 function castAll(g){g.traverse(o=>{if(o.isMesh&&o.material!==G3.shadowMat)o.castShadow=true})}
-function sync3D(){const T=G3.T,fr=++G3.frame;const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
+function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt=Math.min(.1,(now-(G3.slast||now))/1000);G3.slast=now}const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
   for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver+(c.type==='bike'?(c.driver?'d':'n')+(c===player.car?'p':''):'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key;castAll(c.m3)}
     c.m3.position.set(c.x,carY(c),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
-  for(const p of peds){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,p.kind,p.stripes);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
-  if(!player.car&&!player.ride&&started){if(!G3.pl){G3.pl=pedMesh('#ff4fa3','#e8b896','#ff4fa3','pl',false);castAll(G3.pl)}syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
+  for(const p of peds){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
+  if(!player.car&&!player.ride&&started){if(!G3.pl||G3.pl.userData.ver!==PEOPLE.ver&&PEOPLE.ver){G3.pl=personMesh(player,true);castAll(G3.pl);G3.pl.userData.ver=PEOPLE.ver}syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
   for(const p of pickups){if(p.t>0||p.dead)continue;if(!p.m3){const ic=PICK_ICON[p.kind];p.m3=sprite(iconMat(ic[0],ic[1],ic[2]),14)}p.m3.position.set(p.x,groundY(p.x,p.y)+12+Math.sin(gameT*5+p.x)*2,p.y);touch(p.m3)}
-  if(FOOTY.near){for(const p of FOOTY.pl){if(!p.m3){p.m3=pedMesh(p.shirt,p.skin,p.hair,'civ',true);castAll(p.m3)}syncPed(p.m3,p,false);touch(p.m3)}
+  if(FOOTY.near){for(const p of FOOTY.pl){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
     if(!G3.ball){G3.ball=new T.Mesh(G3.sph,new T.MeshLambertMaterial({color:'#8a3d17'}));G3.ball.scale.set(3.4,2.2,2.2);G3.ball.castShadow=true}const B=FOOTY.ball;
     G3.ball.position.set(B.x,groundY(B.x,B.y)+B.z,B.y);G3.ball.rotation.y=-gameT*3;G3.ball.rotation.z=gameT*9;touch(G3.ball)}
   for(const t of flameTowers()){if(!t.m3){const g=new T.Group(),pole=new T.Mesh(G3.box,OM('#2b2d31'));pole.scale.set(8,34,8);pole.position.y=17;g.add(pole);

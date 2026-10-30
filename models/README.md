@@ -8,6 +8,7 @@ All vehicle models are by **Kenney (www.kenney.nl)** and licensed [CC0](https://
 | `kenney/` | Kenney **Starter Kit Racing** | 4x4 utes in red, yellow, green and purple, and the motorbike |
 | `custom/` | Made for this game in Blender by `tools/make_models.py` (CC0, do what you like) | Comodo sedan, Barrina hatch, HSB Clubbie muscle car, Fjord Territorial SUV, Fjord Strainger ute, Victoria Police car, taxi, Melbourne tram |
 | `landmarks/` | Made for this game in Blender by `tools/make_landmarks.py` (CC0) | Flinders Street Station, Arts Centre spire, MCG, West Gate and Bolte bridge pylons, Eureka Tower, Shrine of Remembrance, Federation Square, Melbourne Star, St Paul's Cathedral, Royal Exhibition Building, Luna Park, Crown, Rialto, Parliament House |
+| `people/` | **Quaternius** (CC0), from the per-model GLBs Quaternius uploaded to Poly Pizza | Animated people: `worker` (everyday men), `woman` (the hooded adventurer, sword removed) and `adventurer` (you, cops, gangs and guards; backpack removed). Unpacked from meshopt compression and trimmed to the animations the game uses |
 | `aircraft/` | Made for this game in Blender by `tools/make_aircraft.py` (CC0) | The airliner, the light plane and the police helicopter (its rotors are separate parts named `rotor-main` and `rotor-tail` so they spin) |
 | `city/` | Kenney **Starter Kit City Builder** | Shops and flats on inner-suburb lots (Fitzroy, Carlton, Richmond and so on) |
 
