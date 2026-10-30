@@ -66,3 +66,6 @@ An airliner and a light plane fly circuits out of Essendon Airport: they taxi ou
 - **Cash Van Heist**: a side job (the gold **H** in the CBD) you can do any time you're not on a mission: stop the Armourcorp van, deal with the guards, grab the cash and get it to Collingwood.
 - **Footy at the G**: two teams kick the ball around the MCG while you're nearby.
 - **Crown's fire towers** on the Southbank promenade light up every so often.
+- **Ride the trams and trains**: stand beside a stopped tram or train and press <kbd>E</kbd> (CAR on touch) to touch on ($5 on your myki) and ride; press it again at a stop to get off. Six-carriage Metro trains run on the real rail lines, stopping at stations (and honking at anyone on the tracks).
+- **On the water**: a ferry runs up and down the Yarra, yachts sail off St Kilda and Brighton, and a container ship works the shipping channel. Lakes and Victoria Harbour now show real water in 3D, with surf along the beaches.
+- **Jump** with <kbd>Space</kbd> (JUMP on touch); you can hop over a car bonnet if you time it.

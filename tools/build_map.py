@@ -1443,6 +1443,66 @@ for L in RAIL_LINES:
     if plen(pts) > 30:
         RAILS.append(pts)
 
+# train lines: chain the rail fragments end to end into long runs (going straight on at junctions), drop the
+# second track of each pair, and keep the long ones for trains to run along
+def chain_rails(frags):
+    ends = Grid(60)
+    for i, f in enumerate(frags):
+        ends.add(f[0][0], f[0][1], (i, 0))
+        ends.add(f[-1][0], f[-1][1], (i, 1))
+    used = set()
+
+    def extend(line):
+        while True:
+            q, prev = line[-1], line[-2]
+            dx, dy = q[0] - prev[0], q[1] - prev[1]
+            dl = math.hypot(dx, dy) or 1
+            best = None
+            for j, e in ends.near(q[0], q[1], 30):
+                if j in used:
+                    continue
+                f = frags[j]
+                a, b2 = (f[0], f[1]) if e == 0 else (f[-1], f[-2])
+                if math.hypot(a[0] - q[0], a[1] - q[1]) > 25:
+                    continue
+                ex, ey = b2[0] - a[0], b2[1] - a[1]
+                el = math.hypot(ex, ey) or 1
+                c = (dx * ex + dy * ey) / (dl * el)
+                if c > .8 and (best is None or c > best[0]):
+                    best = (c, j, e)
+            if not best:
+                return line
+            _, j, e = best
+            used.add(j)
+            f = frags[j] if best[2] == 0 else frags[j][::-1]
+            line.extend(f[1:])
+
+    out = []
+    for i in sorted(range(len(frags)), key=lambda i: -plen(frags[i])):
+        if i in used:
+            continue
+        used.add(i)
+        line = extend(list(frags[i]))
+        line = extend(line[::-1])
+        out.append(line)
+    out.sort(key=lambda l: -plen(l))
+    keep, g = [], Grid(80)
+    for line in out:
+        if plen(line) < 3500:
+            break
+        samples = [line[k] for k in range(0, len(line), 2)]
+        near = sum(1 for q in samples if any(math.hypot(q[0] - x, q[1] - y) < 45 for x, y in g.near(q[0], q[1], 45)))
+        if near > .5 * len(samples):
+            continue      # the other track of a line already kept
+        keep.append(rdp(line, 2.5))
+        for q in line:
+            g.add(q[0], q[1], (q[0], q[1]))
+    return keep
+
+
+TRAINS = chain_rails(RAILS)
+print("train lines", len(TRAINS), [round(plen(t)) for t in TRAINS])
+
 LABELS = {}
 for pg in PAGES:
     for l in pg["labels"]:
@@ -1484,6 +1544,7 @@ out = {
     "trams": ROUTES,
     "ends": ENDS,
     "rails": [flat(r) for r in RAILS],
+    "trains": [flat(t) for t in TRAINS],
     "sea": flat(SEA),
     "water": [flat(w) for w in WATER],
     "rivers": [flat(r) for r in RIVERS],
