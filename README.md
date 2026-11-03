@@ -56,6 +56,8 @@ On desktop the 3D view adds screen-space ambient occlusion (three.js's own `SSAO
 
 Buildings wear facade textures drawn in code: glass curtain walls and banded offices in the CBD, red brick and sandstone with arched windows in the inner suburbs, weatherboard houses with tiled roofs and chimneys, and corrugated sheds at the port. Shops on the main roads have glazed shopfronts, a coloured awning over the footpath and a sign above; roofs carry cornices, plant rooms, air-con units and water tanks. Streets have traffic signals at the main intersections, lamps reaching over the road, bus shelters, and bins, benches, payphones and bollards along the shopping strips (all built in Blender by `tools/make_props.py`). Cars roll in corners, dip their noses under brakes and squat when you floor it.
 
+Plumbright, a made-up trade plumbing supplier, has stores in Port Melbourne, North Melbourne, South Melbourne, Fairfield and Heidelberg West. They sit near the addresses of real plumbing-supply branches and show on the map as teal icons. Their teal utes, carrying white PVC pipe on roof racks, wait in the car parks and drive around town.
+
 You carry every weapon with unlimited ammo (you still reload the magazine): pistol, Uzi, shotgun, rocket launcher and the M4 rifle on `6`.
 
 ### Essendon Airport

@@ -7,7 +7,7 @@ restyled or multiplied without hand work.
 
 | Stage | What | State |
 |---|---|---|
-| 1 | Male and female base characters | **Done:** Aussie Bloke and Aussie Girl (below) |
+| 1 | Male and female base characters | **Done:** Aussie Bloke and Aussie Girl, plus Bearded Gaz (below) |
 | 2 | Shared humanoid rig, animation test | Next. Joint centres are already measured from the base mesh (`Base.joints()`) |
 | 3 | Interchangeable clothing | Started. Garments are cut from the body surface by rules in `garment()`, so they fit any body shape |
 | 4 | Remaining 10 characters | Not started |
@@ -20,6 +20,7 @@ restyled or multiplied without hand work.
 | Character | Look | Exports | Triangles (game) |
 |---|---|---|---|
 | **Aussie Bloke** (`aussie_bloke`) | 1.82 m, athletic. Short back and sides, stubble, green eyes. Black tee with a *Southerly Surf Co.* print, charcoal cargo shorts with patch pockets, white sneakers, black shades | `aussie_bloke.glb`, `aussie_bloke_base.glb` | 15.4k dressed, 14.0k base |
+| **Bearded Gaz** (`bearded_gaz`) | 1.92 m, big and solid, about 40. Bald, full trimmed beard, brown eyes. Navy tee with a *Yarra Rats Athletic* print, khaki cargo shorts, charcoal sneakers with gold trim | `bearded_gaz.glb`, `bearded_gaz_base.glb` | 14.6k dressed, 14.2k base |
 | **Aussie Girl** (`aussie_girl`) | 1.62 m, slim. Blonde, pulled back in a high ponytail, blue eyes. Black bandeau crop top with spaghetti straps, light-wash denim cut-offs, white sneakers, black shades | `aussie_girl.glb`, `aussie_girl_base.glb` | 16.3k dressed, 15.1k base |
 
 `<name>.glb` is the character in their signature outfit, with the body hidden under clothes removed. `<name>_base.glb` is the
@@ -27,7 +28,7 @@ body in underwear, the starting point for the modular wardrobe. Both are about 0
 
 Previews (Cycles studio renders, front, back, three-quarter and face) are in `previews/` as JPEGs. `<name>_sheet.jpg` puts all four on one sheet, and `<name>_base_*` show the underwear base.
 
-*Southerly Surf Co.* and the other labels are fictional brands made for the game. No real logos are used.
+*Southerly Surf Co.*, *Yarra Rats* and the other labels are fictional brands made for the game. No real logos are used.
 
 ## How they're made
 
@@ -45,7 +46,8 @@ python tools/characters/preview.py characters/base_models/<name>.blend [collecti
 3. **Eyes, lashes, hair:** eyeballs are fitted to the mesh's eye sockets, with an iris we paint ourselves.
    - Hair is a shell grown from the scalp. It is fuller on top, faded into the hairline, and tufted with 3D noise, with
      strand shading baked to a 1K map.
-   - Ponytails are swept tubes with a hair tie.
+   - Ponytails are swept tubes with a hair tie. Beards use the same shell grown from the jaw, cheeks and moustache line,
+     clear of the lips and in front of the ears, combed downwards. A bald head simply has no shell.
 4. **Clothing:** each garment is a region of the body surface, chosen by rules: arm and leg position, hem and neckline
    heights. The region is lifted off the skin, given thickness and textured with a generated fabric (cotton jersey, rib
    knit, canvas or denim twill). Because garments are rules, not fixed meshes, the same tee fits every body.

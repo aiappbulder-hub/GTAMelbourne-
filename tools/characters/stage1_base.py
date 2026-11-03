@@ -37,6 +37,17 @@ CHARACTERS = {
         outfit=[("tee", dict(col="#18191b", print="southerly")), ("cargo_shorts", dict(col="#3a3c3f")),
                 ("sneakers", dict(col="#f2f2f2", sole="#e8e8e8", trim="#1c1c1c")), ("sunglasses", {})],
         underwear=[("briefs", dict(col="#2b3550"))]),
+    "bearded_gaz": dict(
+        sex="male", seed=37,
+        targets={"universal-male-young-averagemuscle-averageweight": .35, "universal-male-old-averagemuscle-averageweight": .15,
+                 "universal-male-young-maxmuscle-maxweight": .3, "universal-male-young-averagemuscle-maxweight": .2,
+                 "male-young-averagemuscle-averageweight-maxheight": .25, "caucasian-male-young": .8, "caucasian-male-old": .2,
+                 "male-young-averagemuscle-averageweight-idealproportions": .6},
+        skin="#c48662", lips="#9c5f52", brows="#3a2a1e", hair_col="#3a2a1e", beard_col="#4a3426", eye="#6b5a3a", stubble=.3, blush=.18,
+        hair="bald", beard=1.0,
+        outfit=[("tee", dict(col="#1d2b45", print="yarra_rats")), ("cargo_shorts", dict(col="#8b7d5a")),
+                ("sneakers", dict(col="#2b2d30", sole="#d8d8d8", trim="#c9a227"))],
+        underwear=[("briefs", dict(col="#3b3f45"))]),
     "aussie_girl": dict(
         sex="female", seed=23,
         targets={"universal-female-young-averagemuscle-averageweight": .75, "universal-female-young-averagemuscle-minweight": .25,
@@ -159,7 +170,7 @@ def hair_depth(p, F, style, J):
     """How far inside the hair-covered scalp a point is, in metres (negative outside): crown and back of the
     head, the sides above the ears, down to the nape. The hairline follows smooth curves so edges can fade."""
     E = F.E
-    if p.z < E.z - .1:
+    if style == "bald" or p.z < E.z - .1:
         return -1.
     ry = p.y - E.y
     if style == "crop":
@@ -359,55 +370,96 @@ def eyes(B, C, F):
     return objs + [lash]
 
 
-def hair(body, F, C, J):
-    """Hair grown out of the scalp: a shell lifted off the head, fuller on top; a ponytail for long hair."""
-    h = dup(body, "hair")
+def grow_shell(body, name, depth, lift, tuft_amp, C, col, flow, key, tuft_scale=(70, 30, 70)):
+    """Grow a hair shell out of the skin wherever depth(p) > 0: lifted by lift(p), tufted with 3D noise, faded and
+    tucked under the skin at its edge, thickened, shaded root-to-tip, and baked to a texture for the game."""
+    h = dup(body, name)
     h.data.materials.clear()
     for a in list(h.data.color_attributes):
         h.data.color_attributes.remove(a)
-    delete_verts(h, lambda p: hair_depth(p, F, C["hair"], J) < -.004)
-    sub = h.modifiers.new("sub", "SUBSURF")   # finer shell so the hairline is a smooth curve
+    delete_verts(h, lambda p: depth(p) < -.004)
+    sub = h.modifiers.new("sub", "SUBSURF")   # finer shell so the edge is a smooth curve
     sub.subdivision_type = "SIMPLE"
     sub.levels = 2
     apply_mods(h)
-    E = F.E
-    rnd = random.Random(C["seed"])
+    rnd = random.Random(C["seed"] + len(name))
     normals = [v.normal.copy() for v in h.data.vertices]   # snapshot: moving a vertex re-derives its neighbours' normals
+    ts = Vector(tuft_scale)
     for v in h.data.vertices:
         p = v.co.copy()
-        d = hair_depth(p, F, C["hair"], J)
-        top = smooth01(E.z + .02, F.head_top - .01, p.z)
-        front = 1 - smooth01(.0, .05, p.y - E.y)        # a little extra at the front: a textured quiff
-        if C["hair"] == "crop":     # short back and sides, longer on top with a bit of lift at the front
-            lift = .0015 + .009 * top + .004 * top * front
-        else:                       # pulled back: sleek, with a little volume on the crown
-            lift = .0045 + .011 * top + .003 * front
-        k = smooth01(-.003, .014, d)
-        # tufts: clumps of hair from 3D noise, stronger on top, combed back (stretched along Y)
-        q = Vector((p.x * 70, p.y * 30, p.z * 70))
-        tuft = (mnoise.noise(q) * .7 + mnoise.noise(q * 2.1) * .3) * (.003 if C["hair"] == "crop" else .0012) * top
-        v.co = p + normals[v.index] * ((lift + tuft) * smooth01(-.003, .022, d) - .0025 * (1 - smooth01(-.003, .004, d)))
+        d = depth(p)
+        q = Vector((p.x * ts.x, p.y * ts.y, p.z * ts.z))
+        tuft = (mnoise.noise(q) * .7 + mnoise.noise(q * 2.1) * .3) * tuft_amp(p)
+        v.co = p + normals[v.index] * ((lift(p) + tuft) * smooth01(-.003, .022, d) - .0025 * (1 - smooth01(-.003, .004, d)))
     sol = h.modifiers.new("thick", "SOLIDIFY")
     sol.thickness = .003
     sol.offset = -1
     apply_mods(h)
-    # colour variation in the vertex colours: lighter tips on top, darker at the roots
     ca = h.data.color_attributes.new("Col", "BYTE_COLOR", "POINT")
-    base = srgb(C["hair_col"])
+    base = srgb(col)
     for v in h.data.vertices:
-        k = .82 + .3 * smooth01(E.z, F.head_top, v.co.z) + rnd.uniform(-.06, .06)
+        k = col_k(v.co) if (col_k := getattr(lift, "shade", None)) else 1.
+        k *= 1 + rnd.uniform(-.06, .06)
         ca.data[v.index].color = (base[0] * k, base[1] * k, base[2] * k, 1)
-    hm = hair_mat(C)
-    h.data.materials.append(hm)
-    bake_hair(h, C)
-    hm = h.data.materials[0]
-    parts = [h]
+    h.data.materials.append(hair_mat(C, flow))
+    bake_hair(h, C, key, col)
+    return h
+
+
+def hair(body, F, C, J):
+    """Hair grown out of the scalp: fuller on top, a quiff for the crop; a ponytail for long hair; nothing if bald."""
+    parts = []
+    E = F.E
+    top = lambda p: smooth01(E.z + .02, F.head_top - .01, p.z)
+    front = lambda p: 1 - smooth01(.0, .05, p.y - E.y)
+    if C["hair"] != "bald":
+        if C["hair"] == "crop":     # short back and sides, longer on top with a bit of lift at the front
+            lift = lambda p: .0015 + .009 * top(p) + .004 * top(p) * front(p)
+        else:                       # pulled back: sleek, with a little volume on the crown
+            lift = lambda p: .0045 + .011 * top(p) + .003 * front(p)
+        lift.shade = lambda c: .82 + .3 * smooth01(E.z, F.head_top, c.z)   # lighter tips on top, darker at the roots
+        amp = lambda p: (.003 if C["hair"] == "crop" else .0012) * top(p)
+        parts.append(grow_shell(body, "hair", lambda p: hair_depth(p, F, C["hair"], J), lift, amp, C, C["hair_col"], "y", C["hair"]))
+    if C.get("beard"):
+        parts.append(beard(body, F, C))
     if C["hair"] == "ponytail":   # the tail has its own UVs, so a plain hair-coloured material rather than the baked map
         parts += ponytail(F, C, mat("Ponytail_" + C["hair_col"].lstrip("#"), textures.shade(C["hair_col"], -.05), rough=.6))
     return parts
 
 
-def bake_hair(h, C):
+def beard_depth(p, F):
+    """Inside a full beard: jaw, chin, cheeks below the cheekbones, a moustache, down under the jaw to the neck;
+    in front of the ears; clear of the lips. Metres inside (negative outside)."""
+    E, M = F.E, F.mouth
+    ry, ax = p.y - E.y, abs(p.x)
+    if ry > .085:
+        return -1.
+    # upper edge: moustache line in the middle, rising to the cheekbones, up to the ear at the side
+    top = M.z + .024 + (E.z - .035 - (M.z + .024)) * smooth01(.02, .05, ax)
+    top = top + (E.z - .012 - top) * smooth01(.05, .075, ry)
+    # lower edge: under the chin, back along the jaw and down the neck to the Adam's apple
+    bot = F.chin - .05 + .02 * smooth01(.0, .07, ry)
+    ear = math.hypot(ax - (F.earx - .01), (p.z - (E.z - .006)) * .8, (p.y - (E.y + .086)) * .9) - .034
+    d = min(top - p.z, p.z - bot, .078 - ry, ear)
+    # keep the lips and the nostrils clear
+    lip = math.hypot(p.x / .03, (p.z - M.z) / .011) - 1
+    d = min(d, lip * .012)
+    nose = math.hypot(p.x / .02, (p.z - (M.z + .03)) / .01) - 1
+    return min(d, nose * .01 + .002)
+
+
+def beard(body, F, C):
+    """A full, trimmed beard: thickest at the chin, combed down."""
+    M = F.mouth
+    full = C["beard"]
+    chin = lambda p: (1 - smooth01(.0, .05, abs(p.x))) * (1 - smooth01(F.chin - .03, M.z, p.z))   # 1 at the point of the chin
+    lift = lambda p: (.006 + .007 * chin(p)) * full
+    lift.shade = lambda c: .85 + .25 * smooth01(F.chin - .05, M.z, c.z)
+    amp = lambda p: .0035 * full
+    return grow_shell(body, "beard", lambda p: beard_depth(p, F), lift, amp, C, C.get("beard_col", C["hair_col"]), "z", "beard", (90, 90, 40))
+
+
+def bake_hair(h, C, key, col):
     """Bake the hair shading (vertex-colour root-to-tip variation times combed-back strands) into a 1K map on the
     head's UVs, and switch the hair to a plain image material that survives glTF export."""
     m = h.data.materials[0]
@@ -418,7 +470,7 @@ def bake_hair(h, C):
     src = b.inputs["Base Color"].links[0].from_socket
     nt.links.new(src, em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    img = bpy.data.images.new("hair_" + C["hair_col"].lstrip("#"), 1024, 1024)
+    img = bpy.data.images.new("%s_%s" % (key, col.lstrip("#")), 1024, 1024)
     t = nt.nodes.new("ShaderNodeTexImage")
     t.image = img
     nt.nodes.active = t
@@ -431,17 +483,17 @@ def bake_hair(h, C):
     h.select_set(True)
     bpy.context.view_layer.objects.active = h
     bpy.ops.object.bake(type="EMIT")
-    path = os.path.join(OUT["textures"], "hair_%s_%s.png" % (C["hair"], C["hair_col"].lstrip("#")))
+    path = os.path.join(OUT["textures"], "hair_%s_%s.png" % (key, col.lstrip("#")))
     img.filepath_raw = path
     img.file_format = "PNG"
     img.save()
     h.data.materials.clear()
-    hm = mat("HairBaked_%s_%s" % (C["hair"], C["hair_col"].lstrip("#")), "#ffffff", rough=.6, image=img)
+    hm = mat("HairBaked_%s_%s" % (key, col.lstrip("#")), "#ffffff", rough=.6, image=img)
     h.data.materials.append(hm)
     return hm
 
 
-def hair_mat(C):
+def hair_mat(C, flow="y"):
     m = bpy.data.materials.new("Hair_" + C["hair_col"].lstrip("#"))
     m.use_nodes = True
     nt = m.node_tree
@@ -455,7 +507,7 @@ def hair_mat(C):
     w.inputs["Detail"].default_value = 3
     tc = nt.nodes.new("ShaderNodeTexCoord")
     mp = nt.nodes.new("ShaderNodeMapping")
-    mp.inputs["Scale"].default_value = (1, .08, 1)
+    mp.inputs["Scale"].default_value = (1, .08, 1) if flow == "y" else (1, 1, .08)
     nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
     nt.links.new(mp.outputs[0], w.inputs["Vector"])
     ramp = nt.nodes.new("ShaderNodeValToRGB")
@@ -917,7 +969,7 @@ def build(name):
     decimate(body_lo, .4)
     report = {}
 
-    budget = {"hair": 1800, "sneaker_l": 700, "sneaker_r": 700, "ponytail": 400, "tee": 2200, "cargo_shorts": 1300,
+    budget = {"hair": 1800, "beard": 1500, "sneaker_l": 700, "sneaker_r": 700, "ponytail": 400, "tee": 2200, "cargo_shorts": 1300,
               "pockets": 160, "denim_shorts": 900, "crop_top": 900, "briefs": 700, "bra": 700}
 
     def export(objs, path):
