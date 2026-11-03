@@ -52,7 +52,14 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 ### Graphics
 
-On desktop the 3D view adds screen-space ambient occlusion (three.js's own `SSAOPass`, loaded on demand) and a light colour grade; it switches itself off if the frame rate can't keep up. Everywhere, walls darken towards their base and buildings and trees leave soft contact shadows on the ground.
+The 3D view runs on **three.js r170**, loaded as ES modules from jsdelivr. A small loader publishes it as `window.THREE` and then starts the game, which is kept in a `text/plain` script block. If three.js can't load, the game still runs in 2D.
+
+- **Colour and light:** physically based lighting with colour management and a filmic (ACES) tone curve.
+- **Sky:** a physical Preetham sky with Melbourne haze, which also feeds image-based reflections into car paint, glass and metal.
+- **Post-processing (desktop):** ground-truth ambient occlusion (`GTAOPass`) and a soft bloom. It switches itself off if the frame rate can't keep up.
+- **Day and night:** a summer day, with sunrise at 6am and sunset at 8pm, running at one game hour per real minute. Press `Y` to skip two hours, and the clock sits under the wanted stars.
+  - The sun crosses the northern sky, warm at either end of the day; moonlight takes over at night.
+  - After dusk, office and house windows light up, street lamps throw pools of sodium light on the road, and lamps and car lights glow. Everywhere, walls darken towards their base and buildings and trees leave soft contact shadows on the ground.
 
 Buildings wear facade textures drawn in code: glass curtain walls and banded offices in the CBD, red brick and sandstone with arched windows in the inner suburbs, weatherboard houses with tiled roofs and chimneys, and corrugated sheds at the port. Shops on the main roads have glazed shopfronts, a coloured awning over the footpath and a sign above; roofs carry cornices, plant rooms, air-con units and water tanks. Streets have traffic signals at the main intersections, lamps reaching over the road, bus shelters, and bins, benches, payphones and bollards along the shopping strips (all built in Blender by `tools/make_props.py`). Cars roll in corners, dip their noses under brakes and squat when you floor it.
 
