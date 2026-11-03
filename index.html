@@ -2183,7 +2183,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 45';
+const BUILD='Build 46';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2291,7 +2291,15 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
     // measure the posed vertices: skinned meshes ignore their own node scale, so the mesh bounding box is misleading
     let y0=1e9,y1=-1e9;const v=new G3.T.Vector3();sc.traverse(o=>{if(!o.isSkinnedMesh)return;const P=o.geometry.attributes.position;
       for(let i=0;i<P.count;i+=3){v.fromBufferAttribute(P,i);o.boneTransform(i,v);v.applyMatrix4(o.matrixWorld);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y)}});
-    PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});}
+    PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});
+  // gun models (Quaternius, CC0): each one is turned so its barrel runs along the hand bone (+y) with the top of the gun towards +z,
+  // and scaled to its length in game px; people get rebuilt once they're all in
+  let ng=0;const ids=Object.keys(GUN_LEN);for(const id of ids)ld.load('models/guns/'+id+'.json',g=>{const T=G3.T,sc=g.scene,turn=new T.Group(),w=new T.Group();
+    turn.add(sc);turn.updateMatrixWorld(true);const b=new T.Box3().setFromObject(turn),len=Math.max(b.max.x-b.min.x,b.max.z-b.min.z)||1;
+    if(id==='rpg'){turn.position.x=-(b.min.x+b.max.x)/2;turn.position.y=-(b.min.y+b.max.y)/2}
+    turn.scale.setScalar(GUN_LEN[id]/len);w.add(turn);w.matrixAutoUpdate=false;w.matrix.makeBasis(new T.Vector3(0,1,0),new T.Vector3(0,0,1),new T.Vector3(1,0,0));
+    w.traverse(o=>{if(o.isMesh)o.castShadow=true});const o=new T.Group();o.add(w);GUNM[id]=o;if(++ng===ids.length)PEOPLE.ver++},undefined,()=>{});}
+const GUN_LEN={pistol:4.6,uzi:7,shotgun:12.5,rifle:12.5,rpg:15},GUNM={};
 const pmatCache={};
 function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
   const key=armed?'adventurer':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
@@ -2306,7 +2314,9 @@ function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
   if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
   let hand=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o});let gun=null;
-  if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
+  if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
+    for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
+  else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
   g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
 const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
@@ -2318,7 +2328,8 @@ function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.
   let want=p.dead?A.die:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
   want=want||A.idle;if(want!==u.cur){want.reset().fadeIn(.18).play();if(u.cur)u.cur.fadeOut(.18);u.cur=want}
   if(want===A.walk)want.timeScale=clamp(u.spd/55,.6,1.6);else if(want===A.run)want.timeScale=clamp(u.spd/150,.7,1.4);
-  if(u.gun)u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));
+  if(u.gun){u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));const wid=isPl?WEAPONS[player.wi].id:(WEAPONS[p.weapon]||WEAPONS[1]).id;
+    if(u.gunId!==wid){u.gunId=wid;for(const c of u.gun.children)if(c.name&&GUN_LEN[c.name])c.visible=c.name===wid}}
   u.mixer.update(dt)}
 function syncPed(g,p,isPl){g.position.set(p.x,pedY(p)+(isPl?p.z||0:0),p.y);g.rotation.y=-p.a;const u=g.userData;
   if(u.model){const near=Math.abs(p.x-G3.cam.position.x)<1100&&Math.abs(p.y-G3.cam.position.z)<1100;if(near)animPerson(g,p,isPl,G3.sdt||.016);return}
@@ -2403,7 +2414,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     // on foot with a mouse, the pointer nudges the camera a little around your back (about 30 degrees each way) and up or down
     G3.aimK=lerp(G3.aimK||0,mouse.aim&&!pc?1:0,Math.min(1,dt*8));if(mouse.aim&&!pc){G3.yaw=player.a;G3.manualT=0}
     const free=!pc&&!isTouch&&mouse.used&&!mouse.aim,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
-    G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.kick=Math.max(0,(G3.kick||0)-dt*G3.kick*9-dt*.2);G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6))-Math.min(1.2,G3.kick)*.35;const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
+    G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));{const k=G3.kick||0;G3.kick=Math.max(0,k-dt*k*9-dt*.2)}G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6))-Math.min(1.2,G3.kick)*.35;const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
     const ak=G3.aimK,dd=lerp(d,40,ak),h2=lerp(hh,24,ak),sx=-Math.sin(yw)*11*ak,sz=Math.cos(yw)*11*ak,la=lerp(70,320,ak);
     // keep the camera out of buildings: if a wall stands between you and where it wants to be, it slides in front of the wall
     const wall=(x,y)=>{const t=tileAtPx(x,y);return(t===BLD||t===HOUSE||t===TOWER||t===LMK)&&solidPx(x,y)};let cd=dd;
