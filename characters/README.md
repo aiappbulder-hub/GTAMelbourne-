@@ -21,6 +21,7 @@ restyled or multiplied without hand work.
 |---|---|---|---|
 | **Aussie Bloke** (`aussie_bloke`) | 1.82 m, athletic. Short back and sides, stubble, green eyes. Black tee with a *Southerly Surf Co.* print, charcoal cargo shorts with patch pockets, white sneakers, black shades | `aussie_bloke.glb`, `aussie_bloke_base.glb` | 15.4k dressed, 14.0k base |
 | **Bearded Gaz** (`bearded_gaz`) | 1.92 m, big and solid, about 40. Bald, full trimmed beard, brown eyes. Navy tee with a *Yarra Rats Athletic* print, khaki cargo shorts, charcoal sneakers with gold trim | `bearded_gaz.glb`, `bearded_gaz_base.glb` | 14.6k dressed, 14.2k base |
+| **Trent** (`trent`), the player | 1.83 m, 45, lean runner's build. Bald, dark beard going grey. Black tee with a red *Melbourne Run Club* print, black running shorts, white runners with orange trim. Made from Trent's own reference sheet | `trent.glb`, `trent_base.glb` | 14.7k dressed |
 | **Aussie Girl** (`aussie_girl`) | 1.62 m, slim. Blonde, pulled back in a high ponytail, blue eyes. Black bandeau crop top with spaghetti straps, light-wash denim cut-offs, white sneakers, black shades | `aussie_girl.glb`, `aussie_girl_base.glb` | 16.3k dressed, 15.1k base |
 
 `<name>.glb` is the character in their signature outfit, with the body hidden under clothes removed. `<name>_base.glb` is the

@@ -48,6 +48,17 @@ CHARACTERS = {
         outfit=[("tee", dict(col="#1d2b45", print="yarra_rats")), ("cargo_shorts", dict(col="#8b7d5a")),
                 ("sneakers", dict(col="#2b2d30", sole="#d8d8d8", trim="#c9a227"))],
         underwear=[("briefs", dict(col="#3b3f45"))]),
+    # the player character, from Trent's reference sheet: 45, 183 cm, 69 kg, lean runner's build
+    "trent": dict(
+        sex="male", seed=45,
+        targets={"universal-male-young-averagemuscle-minweight": .55, "universal-male-old-averagemuscle-minweight": .25,
+                 "universal-male-young-maxmuscle-minweight": .2, "male-young-averagemuscle-averageweight-maxheight": .15,
+                 "caucasian-male-young": .75, "caucasian-male-old": .25, "male-young-averagemuscle-averageweight-idealproportions": 1},
+        skin="#c68a62", lips="#a0614f", brows="#2e2620", hair_col="#2e2620", beard_col="#34291f", eye="#5a4630", stubble=.2, blush=.15,
+        hair="bald", beard=.8,
+        outfit=[("tee", dict(col="#141416", print="melb_run")), ("run_shorts", dict(col="#111113")),
+                ("sneakers", dict(col="#f2f2f2", sole="#f4f4f4", trim="#ff6a2a"))],
+        underwear=[("briefs", dict(col="#1c1c1e"))]),
     "aussie_girl": dict(
         sex="female", seed=23,
         targets={"universal-female-young-averagemuscle-averageweight": .75, "universal-female-young-averagemuscle-minweight": .25,
@@ -685,10 +696,13 @@ def garment(kind, body, fit, C, o):
             return ax < abs(fit.sh[1].x) * .92
         top = cut(body, o.get("name", "crop_top"), inc, lambda p: .0035, .002, m, smooth=1, decimate=.5, uv_scale=8)
         return [top] + [strap(body, fit, s, m) for s in (1, -1)]
-    if kind in ("cargo_shorts", "denim_shorts", "briefs"):
+    if kind in ("cargo_shorts", "denim_shorts", "run_shorts", "briefs"):
         if kind == "cargo_shorts":
             cloth = textures.fabric("canvas", o["col"], os.path.join(OUT["textures"], "canvas_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .07, .82, .016
+        elif kind == "run_shorts":   # light running shorts: loose, mid-thigh, split hem
+            cloth = textures.fabric("cotton", o["col"], os.path.join(OUT["textures"], "cotton_%s.png" % o["col"].lstrip("#")))
+            top, hem, loose = fit.pel + .05, .42, .012
         elif kind == "denim_shorts":
             cloth = textures.fabric("denim", o["col"], os.path.join(OUT["textures"], "denim_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .045, .38, .008
@@ -970,7 +984,7 @@ def build(name):
     report = {}
 
     budget = {"hair": 1800, "beard": 1500, "sneaker_l": 700, "sneaker_r": 700, "ponytail": 400, "tee": 2200, "cargo_shorts": 1300,
-              "pockets": 160, "denim_shorts": 900, "crop_top": 900, "briefs": 700, "bra": 700}
+              "pockets": 160, "denim_shorts": 900, "run_shorts": 900, "crop_top": 900, "briefs": 700, "bra": 700}
 
     def export(objs, path):
         # game budget: heavy parts are decimated on copies for the export; the .blend keeps full detail

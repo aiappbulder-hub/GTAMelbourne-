@@ -595,7 +595,8 @@ function shadeHex(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=(n>>8)&
 // texture slots: drop a photo-real image at textures/<slot>.jpg and the game uses it instead of the colour it paints with
 // (ground as repeating patterns, facades drawn into the facade textures). Missing files just keep the painted look.
 // The prompts for making them are in docs/art/texture-prompts.md.
-const TEXSLOT={road_asphalt:200,footpath_concrete:120,grass_lawn:260,gravel_tan:140,sand_beach:220,dirt_park:220,
+const TEXSLOT={road_asphalt:48,footpath_concrete:36,grass_lawn:60,gravel_tan:30,sand_beach:40,dirt_park:50,   // px per image (about 10 px a metre)
+  
   facade_glass_tower:0,facade_office_concrete:0,facade_red_brick:0,facade_sandstone:0,facade_weatherboard:0,facade_shopfront:0,facade_warehouse:0,roof_terracotta:0,roof_flat_gravel:0};
 const TEXIMG={};let TEXVER=0;
 function loadTexSlots(){if(location.protocol==='file:')return;for(const k in TEXSLOT){const try1=ext=>{const im=new Image();im.onload=()=>{TEXIMG[k]=im;TEXVER++;texChanged()};im.onerror=()=>{if(ext==='jpg')try1('png')};im.src='textures/'+k+'.'+ext};try1('jpg')}}
@@ -1682,6 +1683,8 @@ function airMesh(p){const T=G3.T,yaw=new T.Group(),pit=new T.Group(),roll=new T.
 const FOOTY={on:false,pl:[],ball:null,score:[0,0]};
 // runners: a crowd going round the Tan (anticlockwise, as the Tan is run) and training on the Collingwood track
 const RUN={loops:[],pl:[],near:false};
+// the main character is Trent: bald, dark beard going grey, tanned, lean; black runner's tee and shorts, white sneakers
+const ME={top:'#141416',bottom:'#101012',skin:'#c68a62',beard:'#2e2620',shoe:'#f2f2f2'};
 const RUN_TOPS=['#ff5a36','#2f7de1','#f4f4f4','#1b1b1b','#e8d83a','#ff4fa3','#36c28a','#8a5cf0','#0b7a7a','#c0392b'];
 function runLoop(flat){const pts=[],cum=[0];for(let i=0;i<flat.length;i+=2)pts.push([flat[i],flat[i+1]]);for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,len:cum[cum.length-1]}}
 function loopAt(L,s){s=((s%L.len)+L.len)%L.len;let lo=0,hi=L.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(L.cum[m]<=s)lo=m;else hi=m}const a=L.pts[lo],b=L.pts[hi],t=(s-L.cum[lo])/Math.max(1e-6,L.cum[hi]-L.cum[lo]);
@@ -1930,15 +1933,15 @@ function drawPedJump(){const z=player.z||0;if(z<=0)return drawPed(player,true);
   ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(player.x,player.y,7,5,0,0,TAU);ctx.fill();
   const k=1+z/80;ctx.save();ctx.translate(player.x,player.y-z*.35);ctx.scale(k,k);ctx.translate(-player.x,-player.y);drawPed(player,true);ctx.restore()}
 function drawPed(p,isPl){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);
-  if(p.dead){ctx.fillStyle=isPl?'#ff4fa3':p.shirt;ctx.fillRect(-8,-6,14,12);ctx.fillStyle=p.skin||'#e0b090';ctx.beginPath();ctx.arc(8,0,4.5,0,TAU);ctx.fill();ctx.restore();return}
+  if(p.dead){ctx.fillStyle=isPl?ME.top:p.shirt;ctx.fillRect(-8,-6,14,12);ctx.fillStyle=p.skin||'#e0b090';ctx.beginPath();ctx.arc(8,0,4.5,0,TAU);ctx.fill();ctx.restore();return}
   ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(2,3,8,6,0,0,TAU);ctx.fill();
-  const sw=Math.sin(p.anim||0)*4;ctx.fillStyle='#2b3550';ctx.fillRect(-2+sw,-5,5,3.5);ctx.fillRect(-2-sw,1.5,5,3.5);
-  const shirt=isPl?'#ff4fa3':p.shirt;ctx.fillStyle=shirt;ctx.beginPath();ctx.ellipse(0,0,5,8,0,0,TAU);ctx.fill();
+  const sw=Math.sin(p.anim||0)*4;ctx.fillStyle=isPl?ME.bottom:'#2b3550';ctx.fillRect(-2+sw,-5,5,3.5);ctx.fillRect(-2-sw,1.5,5,3.5);
+  const shirt=isPl?ME.top:p.shirt;ctx.fillStyle=shirt;ctx.beginPath();ctx.ellipse(0,0,5,8,0,0,TAU);ctx.fill();
   if(p.stripes){ctx.fillStyle='#f4f4f4';ctx.fillRect(-3,-7,1.6,14);ctx.fillRect(1,-7,1.6,14)}
   const wid=isPl?WEAPONS[player.wi].id:p.weapon?WEAPONS[p.weapon].id:'fist';
   if(wid!=='fist'&&(isPl||p.alert||p.kind==='cop')){ctx.fillStyle=p.skin||'#e8b896';ctx.fillRect(2,-5,7,3);ctx.fillStyle='#111';ctx.fillRect(7,-3,wid==='shotgun'?12:wid==='uzi'?9:7,3)}
   else{ctx.fillStyle=shirt;const pn=isPl&&player.punchT>0?Math.sin(PI*(1-player.punchT/.28))*8:0;ctx.fillRect(-1,-9,4,3);ctx.fillRect(-1+pn,6,4,3);if(pn){ctx.fillStyle=p.skin||'#e8b896';ctx.fillRect(2+pn,5.5,3,4)}}
-  ctx.fillStyle=isPl?'#3a2414':p.hair;ctx.beginPath();ctx.arc(0,0,4.6,0,TAU);ctx.fill();
+  ctx.fillStyle=isPl?ME.skin:p.bald?(p.skin||'#e0b090'):p.hair;ctx.beginPath();ctx.arc(0,0,4.6,0,TAU);ctx.fill();
   if(p.kind==='cop'){ctx.fillStyle='#0d1530';ctx.beginPath();ctx.arc(0,0,4.8,0,TAU);ctx.fill();ctx.fillStyle='#e6e6e6';ctx.fillRect(-1.5,-4.8,3,9.6)}
   ctx.restore();
   if(p.kind==='target'||p.kind==='gang'||p.kind==='guard'){if(mission&&p.mission){ctx.fillStyle='#ff3d3d';ctx.beginPath();ctx.moveTo(p.x,p.y-14);ctx.lineTo(p.x-5,p.y-22);ctx.lineTo(p.x+5,p.y-22);ctx.fill()}}}
@@ -2356,7 +2359,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 54';
+const BUILD='Build 55';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2417,7 +2420,7 @@ function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*(
   const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;g.userData.body=m;
   if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
   const top=tpl.userData.top*k;
-  if(c.type==='bike'&&c.driver){const r=pedMesh(c===player.car?'#ff4fa3':'#151515','#d9a47c','#2a1b10','rider',false);r.position.set(-3,4,0);r.userData.legs.forEach(l=>l.rotation.z=1.25);g.add(r)}
+  if(c.type==='bike'&&c.driver){const r=pedMesh(c===player.car?ME.top:'#151515',c===player.car?ME.skin:'#d9a47c','#2a1b10','rider',false);r.position.set(-3,4,0);r.userData.legs.forEach(l=>l.rotation.z=1.25);g.add(r)}
   if(c.livery==='plumb'&&!c.wreck)plumbDress(g,c,top);
   if(c.cop&&c.type!=='unmarked'&&!c.wreck){g.userData.lr=part(g,M('#161616'),4,2.5,c.Wd*.38,-c.L*.05,top+1.2,-c.Wd*.2);g.userData.lb=part(g,M('#161616'),4,2.5,c.Wd*.38,-c.L*.05,top+1.2,c.Wd*.2)}
   return g}
@@ -2473,7 +2476,7 @@ function pedMesh(shirt,skin,hair,kind,stripes){const T=G3.T,g=new T.Group(),b=ne
   part(b,M(shirt),5,9,9,0,13.5,0);if(stripes){part(b,M('#f4f4f4'),5.2,9.2,1.4,0,13.5,-1.8);part(b,M('#f4f4f4'),5.2,9.2,1.4,0,13.5,1.8)}
   const arms=[];for(const z of[-5.6,5.6]){const sh=new T.Group();sh.position.set(0,16.4,z);part(sh,M(shirt),2.8,3,2.8,0,-1.4,0);part(sh,M(skin),2.5,4.6,2.5,0,-5,0);part(sh,M(skin),3,2.6,3,0,-7.6,0);b.add(sh);arms.push(sh)}
   for(const z of[-1.3,1.3])part(b,M('#141414'),.9,1.1,.9,3,21.8,z);part(b,M(skin),1.4,1.3,1.2,3.4,20.6,0);   // eyes + nose
-  if(kind==='pl'){part(b,M('#ff4fa3'),3.6,.7,5.6,3.6,23.8,0)}                                                 // cap brim
+  
   const head=new T.Mesh(G3.sph,M(skin));head.scale.set(3.3,3.5,3.3);head.position.y=21;b.add(head);
   const hr=new T.Mesh(G3.sph,M(kind==='cop'?'#0d1530':hair));hr.scale.set(3.5,kind==='cop'?2.4:1.9,3.5);hr.position.y=kind==='cop'?24:23.2;b.add(hr);
   const gun=part(arms[1],M('#111111'),2.5,2.5,8,0,-8.2,3);gun.visible=false;g.userData={b,legs,gun,arms};return g}
@@ -2503,26 +2506,27 @@ const pmatCache={};
 function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
   const key=armed?'adventurer':p.bald||p.male?'worker':p.male===false?'woman':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
   const m=THREE.SkeletonUtils.clone(tp.scene),k=25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
-  const top=isPl?'#ff4fa3':kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
-    bottom=isPl?'#2b3550':kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?'#ff4fa3':p.bald?(p.skin||'#e0b090'):p.hair||'#2a1b10',skin:p.skin||'#e0b090'},M=PMATS[key];
+  const top=isPl?ME.top:kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
+    bottom=isPl?ME.bottom:kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?ME.skin:p.bald?(p.skin||'#e0b090'):p.hair||'#2a1b10',skin:isPl?ME.skin:p.skin||'#e0b090'},M=PMATS[key];
   m.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];
-    o.material=mats.map(mt=>{for(const part in M)if(M[part].includes(mt.name)){const ck=key+mt.name+cols[part];if(!pmatCache[ck]){const c=mt.clone();c.color.set(cols[part]);pmatCache[ck]=c}return pmatCache[ck]}return mt});
+    o.material=mats.map(mt=>{if((p.bald||isPl)&&mt.name==='Hair')return HIDDEN||(HIDDEN=new T.MeshBasicMaterial({visible:false}));for(const part in M)if(M[part].includes(mt.name)){const ck=key+mt.name+cols[part];if(!pmatCache[ck]){const c=mt.clone();c.color.set(cols[part]);pmatCache[ck]=c}return pmatCache[ck]}return mt});
     if(o.material.length===1)o.material=o.material[0]});
   const inner=new T.Group();inner.rotation.y=PI/2;inner.add(m);const g=new T.Group();g.add(inner);shadowDisc(g,7,7);
   const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
   if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
   let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
-  if(p.bald&&head){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
+  if((p.bald||isPl)&&head){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
     b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
   if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
     for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
   else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
   g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
+let HIDDEN=null;
 const BEARD=['#3a2a1e','#5a4030','#7a6a5a','#2a1b10','#9a8a7a'];
 const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
-function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?'#ff4fa3':p.shirt,isPl?'#e8b896':p.skin,isPl?'#ff4fa3':p.hair,isPl?'pl':p.kind,!isPl&&p.stripes)}
+function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?ME.top:p.shirt,isPl?ME.skin:p.skin,isPl?ME.skin:p.hair,isPl?'pl':p.kind,!isPl&&p.stripes)}
 // pick the animation from what the person is doing, cross-fading between them
 function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.px,p.y-u.py);u.px=p.x;u.py=p.y;u.spd=lerp(u.spd,dt>0?d/dt:0,Math.min(1,dt*8));
   const shooting=isPl?gameT-(player.shotT??-99)<.35:p.weapon&&p.alert&&(p.cool||0)>.8*(p.kind==='cop'?1.6:1.1)-.35;

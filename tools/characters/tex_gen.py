@@ -96,6 +96,7 @@ def iris(out, col):
 BRANDS = {
     # original, fictional labels for the GTA Melbourne world
     "southerly": dict(word="SOUTHERLY", sub="SURF CO. - EST. 1987", mark="wave", col=(244, 244, 240)),
+    "melb_run": dict(word="MELBOURNE", sub="RUN CLUB", mark="none", col=(226, 44, 40)),
     "yarra_rats": dict(word="YARRA RATS", sub="ATHLETIC", mark="bar", col=(244, 244, 240)),
 }
 
@@ -118,7 +119,7 @@ def logo(out, brand):
             pts.append((x, y))
         d.line(pts, fill=col, width=18, joint="curve")
         d.ellipse([cx + 10, cy - 50, cx + 70, cy + 10], outline=col, width=14)
-    else:
+    elif B["mark"] == "bar":
         d.rectangle([90, 120, N - 90, 150], fill=col)
     f = font(78)
     w = d.textlength(B["word"], font=f)

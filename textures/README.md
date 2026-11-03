@@ -6,12 +6,12 @@ keeps the painted look, so they can be added one at a time. The prompts for gene
 
 | Slot | Used for | Tiles every |
 |---|---|---|
-| `road_asphalt` | street and freeway surface | 200 px |
-| `footpath_concrete` | footpaths, and CBD ground | 120 px |
-| `grass_lawn` | parks and open ground | 260 px |
-| `gravel_tan` | the Tan running track | 140 px |
-| `sand_beach` | beaches round the bay | 220 px |
-| `dirt_park` | ground in the inner suburbs | 220 px |
+| `road_asphalt` | street and freeway surface | 48 px |
+| `footpath_concrete` | footpaths, and CBD ground | 36 px |
+| `grass_lawn` | parks and open ground | 60 px |
+| `gravel_tan` | the Tan running track | 30 px |
+| `sand_beach` | beaches round the bay | 40 px |
+| `dirt_park` | ground in the inner suburbs | 50 px |
 | `facade_glass_tower` | glass CBD towers | 2 storeys per image |
 | `facade_office_concrete` | concrete offices | 2 storeys per image |
 | `facade_red_brick` | Victorian brick buildings and shops | 2 storeys per image |
