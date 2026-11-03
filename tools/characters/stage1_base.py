@@ -642,7 +642,7 @@ def garment(kind, body, fit, C, o):
             top, hem, loose = fit.pel + .045, .38, .008
         else:
             cloth = textures.fabric("cotton", o["col"], os.path.join(OUT["textures"], "cotton_%s.png" % o["col"].lstrip("#")))
-            top, hem, loose = fit.pel + .03, -.02, 0
+            top, hem, loose = fit.pel + .06, -.02, 0
         m = mat(kind + "_" + o["col"].lstrip("#"), "#ffffff", rough=.8, image=cloth)
 
         def inc(p):
@@ -650,7 +650,7 @@ def garment(kind, body, fit, C, o):
                 return False
             lt = fit.leg_t(p)
             if kind == "briefs":   # hip line to just under the buttocks, through the crotch
-                return lt < .1 or (abs(p.x) < .055 and p.z > fit.hip[1].z - .11)
+                return lt < .2 or (abs(p.x) < .06 and p.z > fit.hip[1].z - .13)
             return lt < hem
         off = lambda p: (.004 if kind == "briefs" else .007) + loose * smooth01(0, .8, fit.leg_t(p))
         parts = [cut(body, kind, inc, off, .003, m, smooth=2, decimate=.32, uv_scale=6)]
@@ -922,7 +922,7 @@ def build(name):
     report = {}
 
     budget = {"hair": 1800, "sneaker_l": 700, "sneaker_r": 700, "ponytail": 400, "tee": 2200, "cargo_shorts": 1300,
-              "pockets": 160, "denim_shorts": 900, "crop_top": 900, "briefs": 300, "bra": 500}
+              "pockets": 160, "denim_shorts": 900, "crop_top": 900, "briefs": 700, "bra": 700}
 
     def export(objs, path):
         # game budget: heavy parts are decimated on copies for the export; the .blend keeps full detail

@@ -25,8 +25,7 @@ restyled or multiplied without hand work.
 `<name>.glb` is the character in their signature outfit, with the body hidden under clothes removed. `<name>_base.glb` is the
 body in underwear, the starting point for the modular wardrobe. Both are about 0.5 to 0.75 MB, with JPEG textures embedded.
 
-Previews (Cycles studio renders, front, back, three-quarter and face) are in `previews/`: `<name>_sheet.png` is all four
-on one sheet.
+Previews (Cycles studio renders, front, back, three-quarter and face) are in `previews/` as JPEGs. `<name>_sheet.jpg` puts all four on one sheet, and `<name>_base_*` show the underwear base.
 
 *Southerly Surf Co.* and the other labels are fictional brands made for the game. No real logos are used.
 
