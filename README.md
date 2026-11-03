@@ -54,7 +54,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 The 3D view runs on **three.js r170**, loaded as ES modules from jsdelivr. A small loader publishes it as `window.THREE` and then starts the game, which is kept in a `text/plain` script block. If three.js can't load, the game still runs in 2D.
 
-- **Colour and light:** physically based lighting with colour management and a filmic (ACES) tone curve.
+- **Colour and light:** physically based lighting with colour management and the AgX filmic tone curve, then a GTA-style grade. The grade mutes the colour, adds S-curve contrast, warms the highlights over cooler shadows and adds a vignette. It is a shader pass on desktop and the nearest CSS filter elsewhere.
 - **Sky:** a physical Preetham sky with Melbourne haze, which also feeds image-based reflections into car paint, glass and metal.
 - **Post-processing (desktop):** ground-truth ambient occlusion (`GTAOPass`) and a soft bloom. It switches itself off if the frame rate can't keep up.
 - **Day and night:** a summer day, with sunrise at 6am and sunset at 8pm, running at one game hour per real minute. Press `Y` to skip two hours, and the clock sits under the wanted stars.

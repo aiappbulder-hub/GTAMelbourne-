@@ -2029,10 +2029,10 @@ function init3D(){
       es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));
       const pm=new T.PMREMGenerator(r);sc.environment=pm.fromScene(es).texture;pm.dispose()}
     sc.add(new T.HemisphereLight(0xd6e8ff,0x66594a,.6*PI));const sun=new T.DirectionalLight(0xffecd0,PI);   // physical light units since r155: intensities x pi keep the old balance
-    r.toneMapping=T.ACESFilmicToneMapping;r.toneMappingExposure=1.0;sc.add(sun);sc.add(sun.target);
+    r.toneMapping=T.AgXToneMapping;r.toneMappingExposure=1.0;   // AgX: filmic, holds back saturation in bright lightsc.add(sun);sc.add(sun.target);
     const hemi=sc.children.find(o=>o.isHemisphereLight);G3.hemi=hemi;
     // a physical sky (Preetham) with Melbourne haze; a twin in a small scene feeds the reflections (PMREM) as the sun moves
-    if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=4.2;u.rayleigh.value=1.3;u.mieCoefficient.value=.0045;u.mieDirectionalG.value=.83;return s};
+    if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=3.2;u.rayleigh.value=1.1;u.mieCoefficient.value=.003;u.mieDirectionalG.value=.83;return s};
       G3.sky=mk(7000);sc.add(G3.sky);G3.skyEnv=new T.Scene();G3.skyEnvSky=mk(100);G3.skyEnv.add(G3.skyEnvSky);G3.pmrem=new T.PMREMGenerator(r);G3.nightBg=new T.Color('#0b1222');G3.dayBg=sc.background}
     r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=isTouch||cw<800?1024:2048;sun.shadow.mapSize.set(sm,sm);
     Object.assign(sun.shadow.camera,{left:-700,right:700,top:700,bottom:-700,near:10,far:3200});sun.shadow.bias=-.0006;sun.shadow.normalBias=.6;
@@ -2068,7 +2068,7 @@ function init3D(){
     G3.mk=new T.Group();sc.add(G3.mk);
     buildLandmarks3D();
     loadModels();
-    G3.ok=true;initAO();if(!isTouch)glEl.style.filter='saturate(1.12) contrast(1.03)';   // a light colour grade (left off phones, where it costs frames)
+    G3.ok=true;initAO();glEl.style.filter=GRADE_CSS;   // the grade, until (or unless) the post-processing grade pass takes over
   }catch(e){console.error(e);G3.ok=false}
   return G3.ok}
 addEventListener('resize',()=>{if(G3.ok){G3.r.setSize(cw,chh,false);if(G3.comp)G3.comp.setSize(cw,chh)}});
@@ -2079,10 +2079,22 @@ async function initAO(){if(isTouch||cw<900||G3.aoTried)return;G3.aoTried=true;
   try{const A='three/addons/postprocessing/',[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(n=>import(A+n+'.js')));
     const T=THREE,comp=new EffectComposer(G3.r);comp.addPass(new RenderPass(G3.sc,G3.cam));
     const ao=new GTAOPass(G3.sc,G3.cam,cw,chh);ao.updateGtaoMaterial({radius:AO.radius,distanceExponent:1.4,thickness:AO.thick,scale:1,samples:12});ao.blendIntensity=AO.blend;comp.addPass(ao);
-    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.32,.55,.88);comp.addPass(bloom);comp.addPass(new OutputPass());comp.setSize(cw,chh);
+    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.28,.5,.9);comp.addPass(bloom);comp.addPass(new OutputPass());
+    const{ShaderPass}=await import(A+'ShaderPass.js');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);glEl.style.filter='';
     Object.assign(G3,{comp,ao,bloom,aoSlow:0})}
   catch(e){console.warn('post-processing unavailable',e)}}
 const AO={radius:26,thick:14,blend:.85};
+// the look: a GTA-style grade. Muted colour, an S-curve for contrast and deep shadows, warm highlights over cool shadows,
+// and a soft vignette. As a shader pass on desktop; phones and the no-post path get the nearest CSS filter.
+const GRADE_CSS='contrast(1.25) saturate(.8) sepia(.1) brightness(.92)';
+const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
+  void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));
+    c=mix(vec3(l),c,.78);                                            // desaturate
+    c=clamp((c-.46)*1.32+.46,0.,1.);c=c*c*(3.-2.*c)*.45+c*.55;            // contrast and an S-curve
+    vec3 warm=vec3(1.06,1.0,.88),cool=vec3(.9,.97,1.08);c*=mix(cool,warm,smoothstep(.15,.75,l));   // split tone
+    vec2 d=vUv-.5;c*=1.-dot(d,d)*.8;                                  // vignette
+    gl_FragColor=vec4(c,1.);}`};
 function present3D(dt){if(G3.comp){const t0=performance.now();G3.comp.render(dt);
     // a slow machine: drop the effect rather than the frame rate
     if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
@@ -2276,7 +2288,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 49';
+const BUILD='Build 50';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2554,8 +2566,8 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
   const sun=G3.sun;sun.position.set(fx+dir.x*1200,dir.y*1200,fz+dir.z*1200);sun.target.position.set(fx,0,fz);sun.target.updateMatrixWorld();
   if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=PI*(.2+.9*day)}else{sun.color.set('#8ea6ff');sun.intensity=PI*.16}
   if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=PI*(.34+.26*day)}   // at night: sky glow above, sodium bounce below
-  const fog=TC.b.set('#1a2236').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#b6c6d4'),smooth(.12,.5,se)),day);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=.95-.05*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
+  const fog=TC.b.set('#1a2236').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);G3.sc.fog.color.copy(fog);
+  G3.r.toneMappingExposure=.95-.17*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
   if(G3.sky){G3.sky.visible=day>.01;G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=day>.01?null:G3.nightBg;
     if(Math.abs(TOD.h-TOD.envH)>.25){TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
       G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:null;if(old&&old!==G3.sc.environment&&old.dispose)old.dispose()}}
