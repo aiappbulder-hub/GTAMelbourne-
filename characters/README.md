@@ -57,7 +57,7 @@ python tools/characters/preview.py characters/base_models/<name>.blend [collecti
 
 | Folder | Contents |
 |---|---|
-| `base_models/` | One `.blend` per character, with collections `base` (body, head, underwear) and `outfit` |
+| `base_models/` | One `.blend` per character, with collections `base` (body and head), `underwear` and `outfit` |
 | `exports/` | Game-ready `.glb` files |
 | `textures/` | Baked skin and hair maps, generated fabrics, iris maps and prints |
 | `previews/` | Studio renders |

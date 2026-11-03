@@ -896,18 +896,14 @@ def build(name):
     under = dress(C["underwear"])
     outfit = dress(C["outfit"])
     # collections: base (body + head + underwear) and outfit
-    col_base = bpy.data.collections.new("base")
-    col_out = bpy.data.collections.new("outfit")
-    bpy.context.scene.collection.children.link(col_base)
-    bpy.context.scene.collection.children.link(col_out)
-    for o in [body] + head + under:
-        for c in o.users_collection:
-            c.objects.unlink(o)
-        col_base.objects.link(o)
-    for o in outfit:
-        for c in o.users_collection:
-            c.objects.unlink(o)
-        col_out.objects.link(o)
+    # collections: base (body + head), underwear, outfit. Preview "base underwear" or "base outfit".
+    for cname, objs in (("base", [body] + head), ("underwear", under), ("outfit", outfit)):
+        col = bpy.data.collections.new(cname)
+        bpy.context.scene.collection.children.link(col)
+        for o in objs:
+            for c in o.users_collection:
+                c.objects.unlink(o)
+            col.objects.link(o)
     # everyone stands on their soles
     for o in bpy.context.scene.objects:
         if o.type == "MESH":
