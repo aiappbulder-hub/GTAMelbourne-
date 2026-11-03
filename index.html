@@ -164,6 +164,11 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
   let modern;try{modern=Promise.all([import(CDN+'/+esm'),THREE_ADDON('loaders/GLTFLoader'),THREE_ADDON('utils/SkeletonUtils'),THREE_ADDON('objects/Sky')])}catch(e){modern=Promise.reject(e)}
   modern.then(([T,{GLTFLoader},SkeletonUtils,{Sky}])=>{if(started)return;
       class CanvasTexture extends T.CanvasTexture{constructor(...a){super(...a);this.colorSpace=T.SRGBColorSpace}}   // canvas textures are colour unless they say otherwise
+      // newer three.js fetch()es data: and blob: image URLs, which a strict content-security policy blocks; decode them through an <img> instead
+      const ibl=T.ImageBitmapLoader.prototype.load;T.ImageBitmapLoader.prototype.load=function(url,onLoad,onProgress,onError){
+        if(!/^(data|blob):/.test(url))return ibl.call(this,url,onLoad,onProgress,onError);const img=new Image(),o=this.options;
+        img.onload=()=>createImageBitmap(img,Object.assign({colorSpaceConversion:'none'},o)).then(b=>{onLoad&&onLoad(b);this.manager.itemEnd(url)},e=>{onError&&onError(e);this.manager.itemError(url)});
+        img.onerror=e=>{onError&&onError(e);this.manager.itemError(url);this.manager.itemEnd(url)};this.manager.itemStart(url);img.src=url}
       window.THREE={...T,CanvasTexture,GLTFLoader,SkeletonUtils,Sky}})
     .catch(e=>{console.warn('three.js r170 unavailable, using r128',e);if(!started)return legacy().catch(e2=>console.warn('3D unavailable',e2))})
     .then(start);
@@ -2298,9 +2303,21 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 52';
+const BUILD='Build 53';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
-function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
+// The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
+// content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
+// buffer and repack the model as GLB in memory, which three.js parses with no further requests.
+function gltfToGlb(j){const dec=u=>{const b=atob(u.slice(u.indexOf(',')+1)),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a};
+  const bin=dec(j.buffers[0].uri),bl=Math.ceil(bin.length/4)*4;j.buffers=[{byteLength:bin.length}];
+  const js=new TextEncoder().encode(JSON.stringify(j)),jl=Math.ceil(js.length/4)*4,out=new Uint8Array(28+jl+bl),dv=new DataView(out.buffer);
+  dv.setUint32(0,0x46546C67,true);dv.setUint32(4,2,true);dv.setUint32(8,out.length,true);dv.setUint32(12,jl,true);dv.setUint32(16,0x4E4F534A,true);
+  out.set(js,20);out.fill(0x20,20+js.length,20+jl);dv.setUint32(20+jl,bl,true);dv.setUint32(24+jl,0x004E4942,true);out.set(bin,28+jl);return out.buffer}
+function modelLoader(){const raw=new THREE.GLTFLoader();if(+THREE.REVISION<150)return raw;   // r128 decodes data: URIs itself
+  return{load(url,ok,prog,err){fetch(url).then(r=>{if(!r.ok)throw new Error(url+' '+r.status);return r.json()}).then(j=>{
+      if((j.buffers||[]).length!==1||!/^data:/.test(j.buffers[0].uri||''))return raw.load(url,ok,prog,err);
+      raw.parse(gltfToGlb(j),url.slice(0,url.lastIndexOf('/')+1),ok,e=>{console.warn('model failed',url,e);err&&err(e)})}).catch(e=>{console.warn('model failed',url,e);err&&err(e)})}}}
+function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=modelLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
   loadPeople(ld);
   for(const k of['jet','light','heli'])ld.load('models/aircraft/'+k+'.json',g=>{AIRT[k]=g.scene},undefined,()=>{});   // aircraft (tools/make_aircraft.py)
