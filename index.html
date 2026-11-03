@@ -374,7 +374,7 @@ function placeLots(){
 
 // spatial index of what each map chunk has to draw
 const CH=16,CPX=CH*TS,NCX=Math.ceil(W/CH),NCY=Math.ceil(H/CH);const CHK=[];
-function indexChunks(){for(let i=0;i<NCX*NCY;i++)CHK.push({e:[],p:[],w:[],r:[],b:[]});
+function indexChunks(){for(let i=0;i<NCX*NCY;i++)CHK.push({e:[],p:[],w:[],r:[],b:[],s:[]});
   const add=(key,v,x0,y0,x1,y1)=>{for(let cy=Math.max(0,Math.floor(y0/CPX));cy<=Math.min(NCY-1,Math.floor(y1/CPX));cy++)for(let cx=Math.max(0,Math.floor(x0/CPX));cx<=Math.min(NCX-1,Math.floor(x1/CPX));cx++)CHK[cy*NCX+cx][key].push(v)};
   const bb=(f,m)=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let i=0;i<f.length;i+=2){x0=Math.min(x0,f[i]);x1=Math.max(x1,f[i]);y0=Math.min(y0,f[i+1]);y1=Math.max(y1,f[i+1])}return[x0-m,y0-m,x1+m,y1+m]};
   for(const E of EDGES)add('e',E,...bb(E.P,E.hw+60));
@@ -382,7 +382,25 @@ function indexChunks(){for(let i=0;i<NCX*NCY;i++)CHK.push({e:[],p:[],w:[],r:[],b
   for(const f of MAP.water)add('w',f,...bb(f,2));
   for(const f of MAP.rivers)add('w',{river:f},...bb(f,30));
   for(const f of MAP.rails)add('r',f,...bb(f,16));
-  BUILDINGS.forEach(b=>{const m=Math.max(b.w,b.d)/2+24;add('b',b,b.x-m,b.y-m,b.x+m,b.y+m)})}
+  BUILDINGS.forEach(b=>{const m=Math.max(b.w,b.d)/2+24;add('b',b,b.x-m,b.y-m,b.x+m,b.y+m)});
+  for(const q of placeProps()){const cx=Math.floor(q.x/CPX),cy=Math.floor(q.y/CPX);if(cx>=0&&cy>=0&&cx<NCX&&cy<NCY)CHK[cy*NCX+cx].s.push(q)}}
+// street furniture (tools/make_props.py): signals at the big intersections, lamps along the roads, shelters, bins, benches
+// and phone boxes on the shopping strips. Each is {k, x, y, a} with a = the way its front faces; none of them block you.
+function placeProps(){const out=[],ok=(x,y)=>{const t=tileAtPx(x,y);return t!==ROAD&&t!==FWY&&t!==BRIDGE&&t!==WATER&&t!==RIVER&&!solidPx(x,y)&&!solidPx(x+4,y)&&!solidPx(x-4,y)&&!solidPx(x,y+4)&&!solidPx(x,y-4)};
+  const put=(k,x,y,a)=>{if(!ok(x,y))return false;for(let i=out.length-1;i>=Math.max(0,out.length-12);i--)if(Math.hypot(out[i].x-x,out[i].y-y)<16)return false;out.push({k,x,y,a});return true};
+  const city=E=>!E.fw&&!E.tun&&!E.ramp&&!(E.br&&E.br.length);
+  // traffic signals: where three or more city streets meet and one of them is a main road, one on each approach's kerb
+  NODES.forEach((N,ni)=>{const es=N.e.map(i=>EDGES[i]).filter(city);if(es.length<3||!es.some(E=>E.cls<=2))return;
+    for(const E of es.slice(0,4)){const atA=E.a===ni,s=atA?Math.min(E.len,E.hw+16):Math.max(0,E.len-E.hw-16),q=edgeAt(E,s),ox=atA?q.dx:-q.dx,oy=atA?q.dy:-q.dy;   // (ox,oy) leads away from the corner
+      const side=1,o=E.hw+9,x=q.x-oy*o*side,y=q.y+ox*o*side;put('traffic-light',x,y,Math.atan2(oy,ox))}});
+  for(const E of EDGES){if(!city(E)||E.len<120)continue;const r=realR(E.P[0],E.P[1]);
+    // lamps on alternate sides along everything but the back streets
+    if(E.cls<=3){const step=E.cls<=1?140:170;let k=0;for(let s=60;s<E.len-60;s+=step,k++){const q=edgeAt(E,s),sd=k%2?1:-1,o=E.hw+7,x=q.x-q.dy*o*sd,y=q.y+q.dx*o*sd;put('street-lamp',x,y,Math.atan2(-q.dx*sd,q.dy*sd))}}
+    // shelters on the main roads, kerbside clutter on the shopping strips and in town
+    if(E.cls<=2&&E.len>500){for(let s=E.len*.35;s<E.len-150;s+=1200){const sd=hash(E.id,s|0,5)<.5?1:-1,q=edgeAt(E,s),o=E.hw+16,x=q.x-q.dy*o*sd,y=q.y+q.dx*o*sd;put('bus-shelter',x,y,Math.atan2(-q.dx*sd,q.dy*sd))}}
+    if(E.cls<=1||r<3800&&E.cls<=3){const KS=['street-bin','bench','street-bin','phone-box','bollard','bollard'];for(let s=90,k=0;s<E.len-90;s+=110,k++){const h=hash(E.id,k,7);if(h<.35)continue;
+      const sd=hash(E.id,k,8)<.5?1:-1,q=edgeAt(E,s+h*40),o=E.hw+5,x=q.x-q.dy*o*sd,y=q.y+q.dx*o*sd;put(KS[(h*KS.length*1.5|0)%KS.length],x,y,Math.atan2(-q.dx*sd,q.dy*sd))}}}
+  return out}
 
 // ---------------------------------------------------------------- raised bridge decks: the West Gate and the Bolte
 let DECKS=[];
@@ -1211,12 +1229,14 @@ function exitCar(){const c=player.car;if(c.ug){sub('No getting out in a tunnel. 
     if(!circSolid(x,y,6)){player.x=x;player.y=y;break}}
   c.driver=null;c.mode='parked';player.car=null}
 const magOf=w=>{const m=player.mag||(player.mag={});if(m[w.id]==null)m[w.id]=Math.min(w.mag||1,player.ammo[w.id]||0);return m[w.id]=Math.min(m[w.id],player.ammo[w.id]||0)};
+// every gun, never runs dry: the reserve stays topped up (you still reload the magazine)
+const INF_AMMO=true;const fullKit=()=>{if(INF_AMMO)for(const w of WEAPONS)if(!w.melee)player.ammo[w.id]=9999};
 function startReload(w){if(w.melee||player.reloadT>0||magOf(w)>=Math.min(w.mag,player.ammo[w.id]))return;player.reloadT=w.rl;player.reloadW=w.id;SFX.noise(.08,900,.25)}
 function cycleWeapon(dir){const N=WEAPONS.length;for(let n=1;n<=N;n++){const i=((player.wi+dir*n)%N+N)%N;if(i===0||player.ammo[WEAPONS[i].id]>0){player.wi=i;return}}}
 function updatePlayer(dt,c){
   player.cool-=dt;player.hitCool-=dt;if(player.punchT>0)player.punchT-=dt;
   if(player.hp<100&&gameT-(player.lastHurt||0)>3.5)player.hp=Math.min(100,player.hp+28*dt);
-  player.bloom=Math.max(0,(player.bloom||0)-dt*2.2);if(player.reloadT>0){player.reloadT-=dt;const rw=WEAPONS.find(w=>w.id===player.reloadW);if(WEAPONS[player.wi].id!==player.reloadW)player.reloadT=0;else if(player.reloadT<=0){player.mag[rw.id]=Math.min(rw.mag,player.ammo[rw.id]);SFX.noise(.05,1500,.3)}}
+  fullKit();player.bloom=Math.max(0,(player.bloom||0)-dt*2.2);if(player.reloadT>0){player.reloadT-=dt;const rw=WEAPONS.find(w=>w.id===player.reloadW);if(WEAPONS[player.wi].id!==player.reloadW)player.reloadT=0;else if(player.reloadT<=0){player.mag[rw.id]=Math.min(rw.mag,player.ammo[rw.id]);SFX.noise(.05,1500,.3)}}
   if(player.car&&player.car.burning>0&&!player.fireWarned){player.fireWarned=true;sub(isTouch?'Your car is on fire! Tap CAR to get out!':'Your car is on fire! Press E to get out!',3)}else if(!player.car||!player.car.burning)player.fireWarned=false;
   if(c.swap)cycleWeapon(c.swap);if(c.sel>=0&&WEAPONS[c.sel]&&(c.sel===0||player.ammo[WEAPONS[c.sel].id]>0))player.wi=c.sel;
   if(c.talk){const t=talkTarget();if(t)talkTo(t)}
@@ -1281,7 +1301,7 @@ function respawn(){const list=deadKind==='WASTED'?LOC.hosp:LOC.police;let best=l
   if(player.car){player.car.driver=null;player.car=null}
   const fee=deadKind==='WASTED'?Math.min(player.money,100):Math.min(player.money,Math.max(100,(player.money*.1)|0));player.money-=fee;
   player.x=best.x;player.y=best.y+30;const[nx,ny]=nearestWalkable(player.x,player.y);player.x=nx;player.y=ny;
-  player.ride=null;player.hp=100;player.armor=50;player.safeUntil=gameT+6;player.ammo={pistol:24,uzi:0,shotgun:0,rpg:0,rifle:0};player.mag={};player.reloadT=0;player.wi=1;player.bustT=0;heat=0;stars=0;deadT=0;
+  player.ride=null;player.hp=100;player.armor=50;player.safeUntil=gameT+6;player.ammo={pistol:24,uzi:0,shotgun:0,rpg:0,rifle:0};player.mag={};player.reloadT=0;fullKit();player.wi=INF_AMMO?5:1;player.bustT=0;heat=0;stars=0;deadT=0;
   for(const p of peds)if((p.kind==='gang'||p.kind==='guard')&&!p.mission&&Math.hypot(p.x-player.x,p.y-player.y)<900)p.alert=false;  // fresh start, nobody waiting to finish you off
   for(let i=cars.length-1;i>=0;i--)if(cars[i].mode==='chase')cars.splice(i,1);
   for(let i=peds.length-1;i>=0;i--)if(peds[i].kind==='cop')peds.splice(i,1);
@@ -1874,7 +1894,7 @@ function drawHUD(){
   if(player.armor>0){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-bw,by+12,bw,7);ctx.fillStyle='#4a90e2';ctx.fillRect(R0-bw+1,by+13,(bw-2)*player.armor/100,5)}
   // weapon
   const w=WEAPONS[player.wi],wy=by+(player.armor>0?42:34);if(w.melee)outlined(w.name,R0,wy,sm?17:20,'#fff','right',4);
-  else{const m=magOf(w);outlined(w.name+'  '+m+' / '+Math.max(0,player.ammo[w.id]-m),R0,wy,sm?17:20,m===0?'#ff7070':'#fff','right',4);
+  else{const m=magOf(w);outlined(w.name+'  '+m+' / '+(INF_AMMO?'∞':Math.max(0,player.ammo[w.id]-m)),R0,wy,sm?17:20,m===0?'#ff7070':'#fff','right',4);
     if(player.reloadT>0){const rw=sm?110:150;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-rw,wy+8,rw,6);ctx.fillStyle='#ffcc33';ctx.fillRect(R0-rw+1,wy+9,(rw-2)*(1-player.reloadT/w.rl),4);outlined('RELOADING',R0,wy+30,sm?13:15,'#ffcc33','right',3)}
     else if(m===0&&player.ammo[w.id]>0)outlined(isTouch?'Reloading…':'Press R to reload',R0,wy+24,sm?13:15,'#ff7070','right',3)}
   drawCombat()
@@ -2075,6 +2095,7 @@ function facadeTex(F){const c=document.createElement('canvas');c.width=c.height=
 // which facade a building wears
 function facadeOf(b){const k=hash(b.x|0,b.y|0,31);if(b.k==='tower')return k<.68?'glass':'office';if(b.k==='house'||b.k==='model')return'house';if(b.k==='ware')return'ware';
   if(b.airport)return'office';if(b.k==='shop')return k<.6?'brick':'stone';return b.h>100?(k<.5?'glass':'office'):k<.4?'brick':k<.65?'stone':'office'}
+const PROPS={ready:false,tpl:{},names:['traffic-light','street-lamp','bus-shelter','street-bin','bench','phone-box','bollard']};
 const CITY={ready:false,tpl:{},names:['building-small-a','building-small-b','building-small-c','building-small-d','building-garage']};
 function mkBuf(){const b={p:[],n:[],c:[],uv:[]};
   // sh: optional shade by height, for the darkening where a wall meets the ground
@@ -2152,6 +2173,10 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
     const y0=groundY(p.x,p.y);if(y0>5)continue;for(const o of[E.hw+(E.fw?22:18),-E.hw-(E.fw?22:18)]){const A=[p.x-p.dy*o,0,p.y+p.dx*o],B=[q.x-q.dy*o,0,q.y+q.dx*o],n=[-p.dy*Math.sign(o),0,p.dx*Math.sign(o)];
       roof.quad(A,B,[B[0],9,B[2]],[A[0],9,A[2]],n,rc);roof.quad(A,B,[B[0],9,B[2]],[A[0],9,A[2]],[-n[0],0,-n[2]],rc)}}
   for(const[b,m]of[[wall,G3.wallMat],[roof,G3.roofMat],[tree,G3.treeMat],...Object.keys(fac).map(k=>[fac[k],G3.fac[k]])])if(b.p.length){const me=new T.Mesh(b.geo(),m);me.castShadow=me.receiveShadow=true;grp.add(me)}
+  if(PROPS.ready&&K.s.length){const by={},m4=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0),one=new T.Vector3(1,1,1);for(const p of K.s)(by[p.k]=by[p.k]||[]).push(p);
+    for(const k in by){const parts=PROPS.tpl[k],arr=by[k];if(!parts)continue;
+      for(const pt of parts){const im=new T.InstancedMesh(pt.geo,pt.mat,arr.length);arr.forEach((p,i)=>{q.setFromAxisAngle(up,Math.atan2(Math.cos(p.a),Math.sin(p.a)));m4.compose(new T.Vector3(p.x,terrainH(p.x,p.y)-.5,p.y),q,one);im.setMatrixAt(i,m4)});
+        im.castShadow=k!=='bollard';im.receiveShadow=true;grp.add(im)}}}
   // Kenney city-builder houses on inner-suburb lots, one InstancedMesh per model, facing the street
   if(lots.length){const by={},m4=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0);
     for(const l of lots){const k=CITY.names[(hash(l.x|0,l.y|0,77)*CITY.names.length)|0];(by[k]=by[k]||[]).push(l)}
@@ -2183,7 +2208,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 46';
+const BUILD='Build 47';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2193,6 +2218,10 @@ function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')r
   Promise.all(LM_IDS.map(id=>{MODELS.want++;return new Promise(res=>ld.load('models/landmarks/'+id+'.json',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.material=occlude(o.material);o.castShadow=o.receiveShadow=true}});LMT[id]=sc;MODELS.got++;modelStatus();res()},undefined,()=>{MODELS.failed++;modelStatus();res()}))}))
     .then(()=>{if(G3.lm){G3.sc.remove(G3.lm)}buildLandmarks3D()});
   UTE_MODELS.forEach(load);load(BIKE_MODEL);new Set(Object.values(CUSTOM)).forEach(n=>load(cuUrl(n)));new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)));
+  // street furniture: each prop baked to a list of (geometry, material) parts, then the city chunks are rebuilt to show them
+  Promise.all(PROPS.names.map(n=>new Promise(res=>ld.load('models/props/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);const parts=[];
+    sc.traverse(o=>{if(o.isMesh)parts.push({geo:o.geometry.clone().applyMatrix4(o.matrixWorld),mat:o.material})});PROPS.tpl[n]=parts;res(true)},undefined,()=>res(false)))))
+   .then(r=>{if(r.some(Boolean)){PROPS.ready=true;for(const[k,e]of G3.chunks){G3.sc.remove(e.g);disposeGroup(e.g)}G3.chunks.clear()}});
   // suburban buildings: bake each model to one geometry sitting on the ground, then rebuild the city chunks to use them
   Promise.all(CITY.names.map(n=>new Promise(res=>ld.load('models/city/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);let mesh=null;sc.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
     if(!mesh)return res(false);const geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geo.computeBoundingBox();const b=geo.boundingBox;
@@ -2217,7 +2246,7 @@ function paintedMat(mat,col){if(!mat.map||!mat.map.image)return mat;const k=mat.
   g.putImageData(d,0,0);const t=mat.map.clone();t.image=cv2;t.needsUpdate=true;const m2=mat.clone();m2.map=t;return paintCache[k]=m2}
 function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*(c.tram?1:1.12)/tpl.userData.len;m.scale.setScalar(k);g.add(m);shadowDisc(g,c.L*.62,c.Wd*.78);
   if((REPAINT.has(c.type)||c.type==='ranger')&&!c.wreck)m.traverse(o=>{if(!o.isMesh)return;o.material=o.material.name==='Body'?bodyMat(o.material,c.color):paintedMat(o.material,c.color)});
-  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;
+  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;g.userData.body=m;
   if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
   const top=tpl.userData.top*k;
   if(c.type==='bike'&&c.driver){const r=pedMesh(c===player.car?'#ff4fa3':'#151515','#d9a47c','#2a1b10','rider',false);r.position.set(-3,4,0);r.userData.legs.forEach(l=>l.rotation.z=1.25);g.add(r)}
@@ -2354,6 +2383,10 @@ function castAll(g){g.traverse(o=>{if(o.isMesh&&o.material!==G3.shadowMat)o.cast
 function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt=Math.min(.1,(now-(G3.slast||now))/1000);G3.slast=now}const touch=o=>{o.userData.f=fr;if(!o.parent)G3.sc.add(o);G3.live.add(o)};
   for(const c of cars){const key=c.type+c.color+(c.wreck?'w':'')+MODELS.ver+(c.type==='bike'?(c.driver?'d':'n')+(c===player.car?'p':''):'');if(!c.m3||c.m3k!==key){if(c.m3){G3.sc.remove(c.m3);G3.live.delete(c.m3)}c.m3=carMesh(c);c.m3k=key;castAll(c.m3)}
     c.m3.position.set(c.x,carY(c),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
+    // suspension: the body rolls out of a corner, dips its nose under brakes and squats when you floor it, on a damped spring
+    if(u.body&&!c.tram){const dt=Math.max(.001,G3.sdt||.016),vf=fwdSpeed(c),w=angDiff(c.a,c.pa??c.a)/dt,ac=(vf-(c.pv??vf))/dt;c.pa=c.a;c.pv=vf;
+      const tr=clamp(-vf*w*.00009,-.075,.075),tp=clamp(ac*.00006,-.045,.035),k=Math.min(1,dt*9);c.roll=(c.roll||0)+(tr-(c.roll||0))*k;c.pitch=(c.pitch||0)+(tp-(c.pitch||0))*k;
+      u.body.rotation.x=c.roll;u.body.rotation.z=c.pitch}
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
   for(const p of peds){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
@@ -2562,7 +2595,7 @@ function setPaused(p){paused=p;pauseEl.hidden=!p||!started;if(p)mapOpen=false;fo
 function newGame(save){
   cars=[];peds=[];bullets=[];parts=[];decals=[];pickups=[];inside={};mission=null;objective='';subs=[];big=null;heat=0;stars=0;
   buildLocations();spawnTrams();
-  player=makePlayer(LOC.start.x,LOC.start.y);player.money=200;progress=0;player.ammo.pistol=48;player.wi=1;
+  player=makePlayer(LOC.start.x,LOC.start.y);player.money=200;progress=0;player.ammo.pistol=48;player.wi=1;fullKit();if(INF_AMMO)player.wi=5;
   if(save){player.money=save.money;progress=clamp(save.progress|0,0,MISSIONS.length);Object.assign(player.ammo,save.ammo||{});player.armor=save.armor||0;
     const s=LOC.safe[0];player.x=s.x;player.y=s.y+30;const[nx,ny]=nearestWalkable(player.x,player.y);player.x=nx;player.y=ny}
   cam.x=player.x;cam.y=player.y;cam.z=clamp(Math.min(cw,chh)/720,.55,1.05);spawnR=Math.max(520,viewHalfDiag()+120);
