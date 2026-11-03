@@ -118,7 +118,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
       <button id="btnCont" class="big alt" type="button" hidden>Continue</button>
     </div>
     <div class="help">
-      <div><h3>On foot</h3><p><kbd>WASD</kbd> move, and you always turn to face the way you walk (in the chase camera, <kbd>S</kbd> walks back towards the camera). Hold the right mouse button to aim over the shoulder, <kbd>Shift</kbd> run, mouse aims, <kbd>Click</kbd> or <kbd>J</kbd> shoots, <kbd>Space</kbd> jumps, <kbd>T</kbd> talks to someone, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>5</kbd> swaps weapon. Press <kbd>E</kbd> beside a stopped tram or train to hop on, and again at a stop to get off.</p></div>
+      <div><h3>On foot</h3><p><kbd>WASD</kbd> move, and you always turn to face the way you walk while the camera swings round behind you (<kbd>S</kbd> turns you round). Hold the right mouse button to aim down the sights: the mouse turns you, <kbd>WASD</kbd> strafes and your shots tighten up. <kbd>Shift</kbd> run, <kbd>Click</kbd> or <kbd>J</kbd> shoots, <kbd>R</kbd> reloads, <kbd>Space</kbd> jumps, <kbd>T</kbd> talks to someone, <kbd>Q</kbd> or <kbd>1</kbd>–<kbd>6</kbd> swaps weapon (<kbd>6</kbd> is the M4 rifle from the gun shop). Health comes back a few seconds after you stop taking hits. Press <kbd>E</kbd> beside a stopped tram or train to hop on, and again at a stop to get off.</p></div>
       <div><h3>Driving</h3><p><kbd>W</kbd> gas, <kbd>S</kbd> brake and reverse, <kbd>A</kbd>/<kbd>D</kbd> steer, <kbd>Space</kbd> handbrake (HB on touch, next to FIRE), <kbd>E</kbd> get in or out, <kbd>H</kbd> horn. Keep left, this is Melbourne.</p></div>
       <div><h3>Touch</h3><p>Drag the left side to walk and the right side to look around. Tap a baddie to lock on (tap empty ground to let go); holding FIRE with nothing locked locks on to the nearest one after you. In a car, use the ◀ ▶ arrows to steer, REV underneath them to reverse, GAS to go and BRAKE to stop. FIRE, CAR, BRAKE and GUN sit on the right.</p></div>
       <div><h3>The city</h3><p>Turn the camera with <kbd>Z</kbd>/<kbd>C</kbd> or by right-dragging. Pink <b>M</b> markers start jobs. <kbd>M</kbd> opens the map, <kbd>V</kbd> switches between the 3D, chase and 2D cameras. Ammu-Nation sells guns, the Mod Shop clears your stars, safe houses save.</p></div>
@@ -678,7 +678,7 @@ const SFX={ac:null,muted:false,
     s.connect(f);f.connect(g);g.connect(this.mg);s.start(t,R()*.5);s.stop(t+dur+.05)},
   tone(fr,dur,vol,type,delay){if(!this.ac||this.muted)return;const ac=this.ac,t=ac.currentTime+(delay||0),o=ac.createOscillator(),g=ac.createGain();
     o.type=type||'sine';o.frequency.value=fr;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+dur+.05)},
-  shot(k){if(k==='shotgun')this.noise(.35,1200,.7);else this.noise(.13,k==='uzi'?3000:2200,.45,'bandpass')},
+  shot(k){if(k==='rifle'){this.noise(.16,1800,.55,'bandpass');this.noise(.05,400,.4);return}if(k==='shotgun')this.noise(.35,1200,.7);else this.noise(.13,k==='uzi'?3000:2200,.45,'bandpass')},
   boom(){this.noise(1.3,420,1)},crash(v){this.noise(.3,700,Math.min(.7,v))},punch(){this.noise(.07,500,.35)},
   bell(){this.tone(1318,.45,.18,'sine');this.tone(1318,.45,.15,'sine',.2)},
   horn(){this.tone(392,.3,.12,'square');this.tone(494,.3,.1,'square')},
@@ -711,10 +711,11 @@ const SKIN=['#f1c7a3','#d9a47c','#a86e4a','#6d432a','#e8b896'];
 const HAIR=['#2a1b10','#5a3b1e','#c9a24a','#111','#7d2f1a','#888'];
 const WEAPONS=[
   {id:'fist',name:'FISTS',rate:.35,dmg:16,melee:true},
-  {id:'pistol',name:'PISTOL',rate:.28,dmg:30,spread:.03,speed:950,pellets:1},
-  {id:'uzi',name:'UZI',rate:.08,dmg:15,spread:.08,speed:1000,pellets:1},
-  {id:'shotgun',name:'SHOTGUN',rate:.85,dmg:17,spread:.22,speed:850,pellets:7},
-  {id:'rpg',name:'ROCKETS',rate:1.3,dmg:0,spread:.01,speed:560,pellets:1,rocket:true}];
+  {id:'pistol',name:'PISTOL',rate:.28,dmg:30,spread:.03,speed:950,pellets:1,mag:12,rl:1.1,kick:.12},
+  {id:'uzi',name:'UZI',rate:.08,dmg:15,spread:.08,speed:1000,pellets:1,mag:32,rl:1.5,kick:.07},
+  {id:'shotgun',name:'SHOTGUN',rate:.85,dmg:17,spread:.22,speed:850,pellets:7,mag:6,rl:2.2,kick:.45},
+  {id:'rpg',name:'ROCKETS',rate:1.3,dmg:0,spread:.01,speed:560,pellets:1,rocket:true,mag:1,rl:2,kick:.6},
+  {id:'rifle',name:'M4 RIFLE',rate:.1,dmg:26,spread:.022,speed:1500,pellets:1,mag:30,rl:1.8,kick:.06}];
 
 let player,cars=[],peds=[],bullets=[],parts=[],decals=[],pickups=[];
 let heat=0,stars=0,unseen=0,gameT=0,paused=true,mapOpen=false,shopOpen=false,started=false;
@@ -722,7 +723,7 @@ let mission=null,progress=0,deadT=0,deadKind='',cam={x:0,y:0,z:1,shake:0},spawnR
 let driveMode='gta';try{driveMode=localStorage.getItem('gta-melbourne-drive2')||'gta'}catch(e){}
 let objective='',subs=[],big=null,zone='',zoneT=0,carNameT=0,lastGunHeat=0,flowT=0;
 
-function makePlayer(x,y){return{x,y,a:0,hp:100,armor:0,car:null,wi:0,ammo:{pistol:0,uzi:0,shotgun:0,rpg:0},cool:0,anim:0,bustT:0,kx:0,ky:0,hitCool:0,isPlayer:true}}
+function makePlayer(x,y){return{x,y,a:0,hp:100,armor:0,car:null,wi:0,ammo:{pistol:0,uzi:0,shotgun:0,rpg:0,rifle:0},mag:{},reloadT:0,bloom:0,cool:0,anim:0,bustT:0,kx:0,ky:0,hitCool:0,isPlayer:true}}
 function makeCar(type,x,y,a,o={}){const T=CARS[type];
   let color=o.color||pick(CAR_COLORS);if(type==='taxi')color='#f2c81f';if(type==='police'||type==='highway'||type==='federal')color='#f4f6f8';if(type==='unmarked')color=pick(['#2b2f36','#4a4f57','#1d2a3a']);if(type==='tram')color='#f0f0ea';
   const c={type,x,y,a,vx:0,vy:0,L:T.L,Wd:T.Wd,color,hp:type==='tram'?1e9:100,driver:o.driver||null,e:null,
@@ -770,7 +771,7 @@ function mkPickup(x,y,kind,o={}){const[px,py]=nearestWalkable(x,y);return{x:px,y
 
 // ================================================================ input
 const keys={},pressed={};let mouse={x:0,y:0,down:false,used:false};
-const GAMEKEYS=['KeyT','Enter','Digit5','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','KeyZ','KeyC','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','ControlLeft'];
+const GAMEKEYS=['KeyT','Enter','Digit5','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','KeyZ','KeyC','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','Digit6','KeyR','ControlLeft'];
 addEventListener('keydown',e=>{if(GAMEKEYS.includes(e.code)&&started)e.preventDefault();if(!keys[e.code])pressed[e.code]=true;keys[e.code]=true;
   if(!started)return;
   if(e.code==='KeyM'&&!shopOpen&&!paused){mapOpen=!mapOpen}
@@ -824,7 +825,7 @@ function readControls(){
   const inCar=!!player.car;
   c.hb=!!keys.Space&&inCar;c.fire=mouse.down||!!keys.ControlLeft||!!keys.KeyJ||tbtn.fire;c.jump=!inCar&&!!(pressed.Space||pressed.TouchJump);
   c.enter=!!(pressed.KeyE||pressed.KeyF||pressed.TouchCar);c.swap=(pressed.KeyQ||pressed.Tab||pressed.TouchWpn)?1:(pressed.Wheel||0);
-  for(let i=1;i<=5;i++)if(pressed['Digit'+i])c.sel=i-1;
+  for(let i=1;i<=6;i++)if(pressed['Digit'+i])c.sel=i-1;c.reload=!!(pressed.KeyR||pressed.TouchReload);
   c.talk=!!(pressed.KeyT||pressed.TouchTalk);
   c.sprint=!!(keys.ShiftLeft||keys.ShiftRight);c.horn=!!keys.KeyH;
   if(stick.mag>.15){c.mx=stick.dx;c.my=stick.dy;const mm=Math.hypot(c.mx,c.my);if(mm>1){c.mx/=mm;c.my/=mm}if(!inCar)c.sprint=stick.mag>.85;
@@ -833,7 +834,8 @@ function readControls(){
   // chase camera on a keyboard: WASD walk relative to the camera and you turn to face where you walk;
   // only while aiming (right mouse) do A/D turn you on the spot and W/S step forward and back
   if(G3.active&&view==='chase'&&!inCar&&!isTouch&&stick.mag<=.15&&mouse.aim){c.tank=true;c.turn=(rt?1:0)-(lf?1:0);c.fwd=(up?1:0)-(dn?1:0);c.mx=c.my=0}
-  if(G3.active&&view==='chase'&&!inCar&&(c.mx||c.my)){const r=G3.yaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
+  if(G3.active&&view==='chase'&&!inCar&&(c.mx||c.my)){const ra=Math.atan2(c.my,c.mx);if(G3.mvRaw==null||Math.abs(angDiff(ra,G3.mvRaw))>.35){G3.mvRaw=ra;G3.mvYaw=G3.yaw}if(G3.manualT<.2)G3.mvYaw=G3.yaw;const r=G3.mvYaw+PI/2,cs=Math.cos(r),sn=Math.sin(r),x=c.mx,y=c.my;c.mx=x*cs-y*sn;c.my=x*sn+y*cs}
+  if(!(c.mx||c.my))G3.mvRaw=null;
   c.point=inCar&&driveMode==='point'&&view!=='chase';
   if(c.point){c.thr=0;c.steer=0}
   c.brake=!!keys.Space||tbtn.brake;
@@ -956,11 +958,15 @@ function aiTraffic(c,dt){
   const base=E.fw?360:E.cls===0?285:E.cls<=2?245:200;let want=(c.panicT>0?1.4:1)*base*c.cruise/240;
   // ease off for bends and turns: compare the way the car points with the road a little further on
   const far=ahead(Math.max(70,Math.abs(v)*.75)),bend=Math.abs(angDiff(Math.atan2(far.fy,far.fx),c.a));if(bend>.3)want=Math.min(want,Math.max(68,base*(1.25-bend*.85)));
-  {const wd=wallAhead(c,Math.min(220,v*v/900+c.L/2+24));if(wd<1e9)want=Math.min(want,Math.max(0,(wd-c.L/2-6)*2.2))}
+  let nearWall=false;{const wd=wallAhead(c,Math.min(220,v*v/900+c.L/2+24));if(wd<1e9){want=Math.min(want,Math.max(0,(wd-c.L/2-6)*2.2));nearWall=wd<c.L/2+30}}
   const ob=c.pushT>0?1e9:obstacleAhead(c);if(ob<1e8)want=Math.min(want,Math.max(0,(ob-46)*2.6));
   if(c.pushT>0)c.pushT-=dt;else if(want<15){c.waitT=(c.waitT||0)+dt;if(c.waitT>2.2){c.waitT=0;c.pushT=1.6}}else c.waitT=0;
   if(Math.abs(v)<5)c.jamT=(c.jamT||0)+dt;else c.jamT=0;
   if(ob<70&&!player.car&&dist(c,player)<90&&R()<.01){c.horn=.4;SFX.horn()}
+  // nosed into a wall (cut a corner onto the footpath, or turned at the river): back out towards the lane;
+  // still stuck where you can't see it, it is simply put back on its lane
+  if(nearWall&&Math.abs(v)<8&&!(c.revT>0)){c.wallT=(c.wallT||0)+dt;if(c.wallT>1.2){c.wallT=0;c.revT=1.1;c.revN=(c.revN||0)+1}}else if(Math.abs(v)>40){c.wallT=0;c.revN=0}
+  if((c.revN>2||c.jamT>12)&&dist(c,player.car||player)>420&&(Math.hypot(me.x-c.x,me.y-c.y)>4||Math.abs(angDiff(Math.atan2(me.fy,me.fx),c.a))>.3)){c.x=me.x;c.y=me.y;c.a=Math.atan2(me.fy,me.fx);c.vx=c.vy=0;c.revN=0;c.revT=0;c.jamT=0;c.wallT=0}
   if(c.revT>0){c.revT-=dt;c.thr=-.8;c.steer=-c.steer;c.hb=false;return}
   c.thr=v<want-10?1:v>want+25?-1:0;c.hb=false;
   if(want>40&&Math.abs(v)<8){c.stuckT+=dt;if(c.stuckT>2.2){c.stuckT=0;c.revT=.8}}else c.stuckT=0}
@@ -1035,9 +1041,10 @@ function addHeat(v,why){heat=Math.min(40,heat+v);let s=0;for(let i=1;i<=5;i++)if
 function setStars(n){heat=Math.max(heat,STAR_T[n]+.01);addHeat(0)}
 function isPlayerSrc(s){return s===player||(s&&s===player.car)}
 function panicAround(x,y,r){for(const p of peds)if(p.kind==='civ'&&!p.dead&&Math.hypot(p.x-x,p.y-y)<r){p.panic=rr(4,7);p.fx=x;p.fy=y}}
-function damagePlayer(d,src){if(deadT>0||gameT<(player.safeUntil||0))return;player.lastHurt=gameT;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
+const HITM={t:0,kill:false,feed:[],dirs:[]};
+function damagePlayer(d,src){if(deadT>0||gameT<(player.safeUntil||0))return;if(src&&src.x!=null&&src!==player)HITM.dirs.push({a:Math.atan2(src.y-player.y,src.x-player.x),t:1.2});player.lastHurt=gameT;if(player.armor>0){const a=Math.min(player.armor,d*.7);player.armor-=a;d-=a}player.hp-=d;
   if(player.hp<=0){player.hp=0;killPlayer('WASTED')}}
-function damagePed(p,d,src,kx=0,ky=0){if(p.dead)return;p.hp-=d;blood(p.x,p.y,4);p.kx+=kx;p.ky+=ky;
+function damagePed(p,d,src,kx=0,ky=0){if(p.dead)return;p.hp-=d;if(isPlayerSrc(src)&&src===player){HITM.t=.22;HITM.kill=p.hp<=0;if(p.hp<=0){HITM.feed.unshift({t:3,txt:(p.kind==='cop'?'Cop':p.kind==='civ'?'Civilian':p.kind==='guard'?'Guard':p.kind==='target'?'TARGET':'Gang member')+' down'});HITM.feed.length=Math.min(HITM.feed.length,4)}SFX.noise(.03,p.hp<=0?2600:4200,.25,'bandpass')}blood(p.x,p.y,4);p.kx+=kx;p.ky+=ky;
   if(p.kind==='civ'){p.panic=rr(5,8);const s=src||player;p.fx=s.x;p.fy=s.y}
   if((p.kind==='gang'||p.kind==='guard')&&(p.mission||isPlayerSrc(src))){p.alert=true;alertCrew(p)}if(p.kind==='target')p.alert=true;   // crews only come after you if you're the one who hurt them
   if(p.hp<=0)killPed(p,src)}
@@ -1063,7 +1070,7 @@ function fire(sh,x,y,a,w,ownerCar){
   if(w.melee){SFX.punch();if(sh===player){player.punchT=.28;player.punchN=(player.punchN||0)+1}const tgts=sh===player?peds:[];
     for(const p of tgts)if(!p.dead){const d=Math.hypot(p.x-x,p.y-y);if(d<30&&Math.abs(angDiff(Math.atan2(p.y-y,p.x-x),a))<1.1)damagePed(p,w.dmg,sh,Math.cos(a)*120,Math.sin(a)*120)}
     if(sh!==player&&!player.car&&Math.hypot(player.x-x,player.y-y)<30)damagePlayer(w.dmg*.3,sh);return}
-  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?1:sh.kind==='cop'?5:4.5),sp=w.speed*rr(.92,1.05);
+  for(let i=0;i<w.pellets;i++){const aa=a+rr(-w.spread,w.spread)*(sh.isPlayer?(mouse.aim?.45:1):sh.kind==='cop'?5:4.5),sp=w.speed*rr(.92,1.05)*(sh.isPlayer&&!w.rocket?2.4:1);
     bullets.push({x,y,vx:Math.cos(aa)*sp,vy:Math.sin(aa)*sp,life:w.rocket?2.2:.75,dmg:w.dmg,owner:sh,ownerCar:ownerCar||null,rocket:!!w.rocket,arm:w.rocket?.08:0})}
   if(w.rocket){SFX.noise(.5,700,.18,'bandpass');SFX.shot('shotgun')}else SFX.shot(w.id);parts.push({x:x+Math.cos(a)*6,y:y+Math.sin(a)*6,vx:0,vy:0,life:.06,max:.06,size:6,col:'#fff2a8'});
   panicAround(x,y,300);
@@ -1203,15 +1210,18 @@ function exitCar(){const c=player.car;if(c.ug){sub('No getting out in a tunnel. 
   for(const s of[c.a-PI/2,c.a+PI/2,c.a+PI,c.a]){const r=s===c.a||s===c.a+PI?c.L/2+10:c.Wd/2+12,x=c.x+Math.cos(s)*r,y=c.y+Math.sin(s)*r;
     if(!circSolid(x,y,6)){player.x=x;player.y=y;break}}
   c.driver=null;c.mode='parked';player.car=null}
+const magOf=w=>{const m=player.mag||(player.mag={});if(m[w.id]==null)m[w.id]=Math.min(w.mag||1,player.ammo[w.id]||0);return m[w.id]=Math.min(m[w.id],player.ammo[w.id]||0)};
+function startReload(w){if(w.melee||player.reloadT>0||magOf(w)>=Math.min(w.mag,player.ammo[w.id]))return;player.reloadT=w.rl;player.reloadW=w.id;SFX.noise(.08,900,.25)}
 function cycleWeapon(dir){const N=WEAPONS.length;for(let n=1;n<=N;n++){const i=((player.wi+dir*n)%N+N)%N;if(i===0||player.ammo[WEAPONS[i].id]>0){player.wi=i;return}}}
 function updatePlayer(dt,c){
   player.cool-=dt;player.hitCool-=dt;if(player.punchT>0)player.punchT-=dt;
-  if(player.hp<100&&gameT-(player.lastHurt||0)>4)player.hp=Math.min(100,player.hp+8*dt);
+  if(player.hp<100&&gameT-(player.lastHurt||0)>3.5)player.hp=Math.min(100,player.hp+28*dt);
+  player.bloom=Math.max(0,(player.bloom||0)-dt*2.2);if(player.reloadT>0){player.reloadT-=dt;const rw=WEAPONS.find(w=>w.id===player.reloadW);if(WEAPONS[player.wi].id!==player.reloadW)player.reloadT=0;else if(player.reloadT<=0){player.mag[rw.id]=Math.min(rw.mag,player.ammo[rw.id]);SFX.noise(.05,1500,.3)}}
   if(player.car&&player.car.burning>0&&!player.fireWarned){player.fireWarned=true;sub(isTouch?'Your car is on fire! Tap CAR to get out!':'Your car is on fire! Press E to get out!',3)}else if(!player.car||!player.car.burning)player.fireWarned=false;
   if(c.swap)cycleWeapon(c.swap);if(c.sel>=0&&WEAPONS[c.sel]&&(c.sel===0||player.ammo[WEAPONS[c.sel].id]>0))player.wi=c.sel;
   if(c.talk){const t=talkTarget();if(t)talkTo(t)}
   if(player.wi>0&&player.ammo[WEAPONS[player.wi].id]<=0)player.wi=0;
-  const w=WEAPONS[player.wi];
+  const w=WEAPONS[player.wi];if(c.reload)startReload(w);
   if(player.ride){updateRide(c);return}
   if(player.car){const car=player.car;
     if(c.enter&&Math.abs(fwdSpeed(car))<200){exitCar();return}
@@ -1229,12 +1239,12 @@ function updatePlayer(dt,c){
   if(c.jump&&!(player.z>0)){player.vz=200;SFX.noise(.06,700,.12)}
   if(player.z>0||player.vz>0){player.vz-=600*dt;player.z=Math.max(0,(player.z||0)+player.vz*dt);if(player.z===0){player.vz=0;player.anim+=2}}
   const sp=c.sprint?185:125;
-  if(c.tank){if(mouse.aim){player.a+=c.turn*2.4*dt;if(c.fwd){const k=c.fwd>0?.75:-.5;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}   // aiming: A/D still turn you
+  if(c.tank){if(mouse.aim){const f=c.fwd*(c.fwd>0?.7:.55),r=c.turn*.62,ca=Math.cos(player.a),sa=Math.sin(player.a);c.mx=ca*f-sa*r;c.my=sa*f+ca*r}   // aiming down sights: WASD strafes, the mouse turns you
     else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
-  const moving=!!(c.mx||c.my)&&!c.tank,chase=G3.active&&view==='chase';
+  const moving=!!(c.mx||c.my)&&!c.tank,ads=mouse.aim&&!isTouch,chase=G3.active&&view==='chase';
   // walking: always turn round to face the way you're going (never walk backwards)
-  if(c.mx||c.my){moveCircle(player,c.mx*sp*dt,c.my*sp*dt,6);player.anim+=dt*(c.sprint?14:10);if(moving)player.a+=angDiff(Math.atan2(c.my,c.mx),player.a)*Math.min(1,dt*14)}
+  if(c.mx||c.my){const ms=ads?.75:1;moveCircle(player,c.mx*sp*ms*dt,c.my*sp*ms*dt,6);player.anim+=dt*(c.sprint?14:10);if(moving)player.a+=angDiff(Math.atan2(c.my,c.mx),player.a)*Math.min(1,dt*14)}
   if(player.kx||player.ky){moveCircle(player,player.kx*dt,player.ky*dt,6);player.kx*=Math.max(0,1-5*dt);player.ky*=Math.max(0,1-5*dt)}
   if(chase){if(c.fire&&!mouse.aim&&!moving&&!isTouch&&!player.lock)player.a=G3.yaw+(G3.look||0)}   // standing and shooting without aiming fires where the camera looks
   else if(mouse.used&&!isTouch&&(!moving||c.fire)){const[wx,wy]=screenToWorld(mouse.x,mouse.y);player.a=Math.atan2(wy-player.y,wx-player.x)}   // the mouse points you when you stop or shoot
@@ -1245,11 +1255,13 @@ function updatePlayer(dt,c){
   if(c.fire&&!player.lock&&!w.melee)player.lock=nearestThreat();
   if(player.lock&&!w.melee&&!moving)player.a=Math.atan2(player.lock.y-player.y,player.lock.x-player.x);   // stand still and you face your target; walk and you face where you're going (shots still find the target)
   player.aimT=w.melee?null:player.lock||(c.tank||chase?aimTarget(player.a):null);
+  if(c.fire&&player.cool<=0&&!w.melee&&(player.reloadT>0||magOf(w)<=0)){if(player.reloadT<=0)startReload(w);c.fire=false}
   if(c.fire&&player.cool<=0){player.cool=w.rate;let a=player.a;if(player.aimT){a=Math.atan2(player.aimT.y-player.y,player.aimT.x-player.x)}
     if(isTouch&&!player.lock){let best=null,bs=1.0;for(const p of peds){if(p.dead)continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d>300)continue;
       const ad=Math.abs(angDiff(Math.atan2(p.y-player.y,p.x-player.x),a));const hostile=p.kind!=='civ'?.4:0;const sc=ad/1-hostile+d/900;if(ad<.9&&sc<bs){bs=sc;best=p}}
       if(best){a=Math.atan2(best.y-player.y,best.x-player.x);player.a=a}}
-    if(!w.melee){player.ammo[w.id]--;player.shotT=gameT}fire(player,player.x+Math.cos(a)*12,player.y+Math.sin(a)*12,a,w,null)}}
+    if(!w.melee){player.ammo[w.id]--;player.mag[w.id]=magOf(w)-1;player.shotT=gameT;a+=rr(-1,1)*w.spread*player.bloom*(ads?.6:1.6);player.bloom=Math.min(1.4,player.bloom+w.kick*1.4);G3.kick=(G3.kick||0)+w.kick*6;
+      if(magOf(w)<=0&&player.ammo[w.id]>0)startReload(w)}fire(player,player.x+Math.cos(a)*12,player.y+Math.sin(a)*12,a,w,null)}}
 // anyone who is after you: cops once you're wanted, alerted gang members and guards, mission targets
 const isThreat=p=>!p.dead&&(p.kind==='cop'&&stars>0||(p.kind==='gang'||p.kind==='guard')&&(p.alert||p.mission&&mission)||p.kind==='target'&&p.alert);
 function nearestThreat(){let best=null,bd=440;for(const p of peds){if(!isThreat(p))continue;const d=Math.hypot(p.x-player.x,p.y-player.y);if(d<bd&&los(player.x,player.y,p.x,p.y)){bd=d;best=p}}return best}
@@ -1269,7 +1281,7 @@ function respawn(){const list=deadKind==='WASTED'?LOC.hosp:LOC.police;let best=l
   if(player.car){player.car.driver=null;player.car=null}
   const fee=deadKind==='WASTED'?Math.min(player.money,100):Math.min(player.money,Math.max(100,(player.money*.1)|0));player.money-=fee;
   player.x=best.x;player.y=best.y+30;const[nx,ny]=nearestWalkable(player.x,player.y);player.x=nx;player.y=ny;
-  player.ride=null;player.hp=100;player.armor=50;player.safeUntil=gameT+6;player.ammo={pistol:24,uzi:0,shotgun:0,rpg:0};player.wi=1;player.bustT=0;heat=0;stars=0;deadT=0;
+  player.ride=null;player.hp=100;player.armor=50;player.safeUntil=gameT+6;player.ammo={pistol:24,uzi:0,shotgun:0,rpg:0,rifle:0};player.mag={};player.reloadT=0;player.wi=1;player.bustT=0;heat=0;stars=0;deadT=0;
   for(const p of peds)if((p.kind==='gang'||p.kind==='guard')&&!p.mission&&Math.hypot(p.x-player.x,p.y-player.y)<900)p.alert=false;  // fresh start, nobody waiting to finish you off
   for(let i=cars.length-1;i>=0;i--)if(cars[i].mode==='chase')cars.splice(i,1);
   for(let i=peds.length-1;i>=0;i--)if(peds[i].kind==='cop')peds.splice(i,1);
@@ -1418,6 +1430,7 @@ const SHOP_ITEMS=[
   {id:'pistol',name:'Pistol',desc:'48 rounds',price:250,give:()=>{player.ammo.pistol+=48}},
   {id:'uzi',name:'Uzi',desc:'120 rounds',price:900,give:()=>{player.ammo.uzi+=120}},
   {id:'shotgun',name:'Shotgun',desc:'24 shells',price:1400,give:()=>{player.ammo.shotgun+=24}},
+  {id:'rifle',name:'M4 assault rifle',desc:'90 rounds',price:2200,give:()=>{player.ammo.rifle=(player.ammo.rifle||0)+90}},
   {id:'rpg',name:'Rocket launcher',desc:'6 rockets',price:4500,give:()=>{player.ammo.rpg=(player.ammo.rpg||0)+6}},
   {id:'armor',name:'Body armour',desc:'Full vest',price:300,give:()=>{player.armor=100}},
   {id:'pie',name:'Four\'N Twenty pie',desc:'Restores health',price:20,give:()=>{player.hp=100}}];
@@ -1428,7 +1441,7 @@ function renderShop(){shopCash.textContent='$'+player.money.toLocaleString('en-A
     row.innerHTML=`<div><b>${it.name}</b><span>${it.desc}</span></div><div class="pr">$${it.price}</div>`;
     const b=document.createElement('button');b.type='button';b.textContent='Buy';b.disabled=player.money<it.price;
     b.addEventListener('click',()=>{if(player.money<it.price)return;player.money-=it.price;it.give();SFX.cash();
-      if(['pistol','uzi','shotgun','rpg'].includes(it.id))player.wi=WEAPONS.findIndex(w=>w.id===it.id);renderShop()});
+      if(['pistol','uzi','shotgun','rpg','rifle'].includes(it.id))player.wi=WEAPONS.findIndex(w=>w.id===it.id);renderShop()});
     row.appendChild(b);shopList.appendChild(row)}}
 document.getElementById('btnLeave').addEventListener('click',()=>{shopOpen=false;shopEl.hidden=true});
 let inside={};
@@ -1860,7 +1873,11 @@ function drawHUD(){
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-bw,by,bw,9);ctx.fillStyle=player.hp<30&&Math.floor(gameT*3)%2?'#ff9090':'#e84040';ctx.fillRect(R0-bw+1,by+1,(bw-2)*player.hp/100,7);
   if(player.armor>0){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-bw,by+12,bw,7);ctx.fillStyle='#4a90e2';ctx.fillRect(R0-bw+1,by+13,(bw-2)*player.armor/100,5)}
   // weapon
-  const w=WEAPONS[player.wi];outlined(w.name+(w.melee?'':'  '+player.ammo[w.id]),R0,by+(player.armor>0?42:34),sm?17:20,'#fff','right',4);
+  const w=WEAPONS[player.wi],wy=by+(player.armor>0?42:34);if(w.melee)outlined(w.name,R0,wy,sm?17:20,'#fff','right',4);
+  else{const m=magOf(w);outlined(w.name+'  '+m+' / '+Math.max(0,player.ammo[w.id]-m),R0,wy,sm?17:20,m===0?'#ff7070':'#fff','right',4);
+    if(player.reloadT>0){const rw=sm?110:150;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-rw,wy+8,rw,6);ctx.fillStyle='#ffcc33';ctx.fillRect(R0-rw+1,wy+9,(rw-2)*(1-player.reloadT/w.rl),4);outlined('RELOADING',R0,wy+30,sm?13:15,'#ffcc33','right',3)}
+    else if(m===0&&player.ammo[w.id]>0)outlined(isTouch?'Reloading…':'Press R to reload',R0,wy+24,sm?13:15,'#ff7070','right',3)}
+  drawCombat()
   // zone / car name
   {const sub=zone.split(' · ')[0],turf=zone.split(' · ')[1]||'';
     if(isTouch&&sm){const yb=by+(player.armor>0?70:60);outlined(sub,R0,yb,Math.min(20,(cw*.5)/Math.max(6,sub.length)*1.9),'#7cc6ff','right',4);outlined(street,R0,yb+18,13,'#fff','right',3)}
@@ -1889,12 +1906,23 @@ function drawHUD(){
       for(let k=0;k<4;k++){const a=k*PI/2+gameT*1.5;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*(r-6),y+Math.sin(a)*(r-6));ctx.lineTo(x+Math.cos(a)*(r+7),y+Math.sin(a)*(r+7));ctx.stroke()}}}
   if(G3.active&&view==='chase'&&!player.car&&!isTouch&&player.wi>0&&deadT<=0){const t=player.aimT,v=new G3.T.Vector3();
     if(t)v.set(t.x,14,t.y);else v.set(player.x+Math.cos(player.a)*320,14,player.y+Math.sin(player.a)*320);v.project(G3.cam);
-    if(v.z<1){const x=(v.x+1)/2*cw,y=(1-v.y)/2*chh,r=t?11:8,col=t?'#ff3b3b':'#ffffff';ctx.lineWidth=2.5;ctx.strokeStyle='#000';
+    if(v.z<1){const x=(v.x+1)/2*cw,y=(1-v.y)/2*chh,r=(t?11:8)+(player.bloom||0)*14*(mouse.aim?.5:1),col=t?'#ff3b3b':'#ffffff';HITM.x=x;HITM.y=y;ctx.lineWidth=2.5;ctx.strokeStyle='#000';
       for(const lw of[4.5,2]){ctx.lineWidth=lw;ctx.strokeStyle=lw>3?'rgba(0,0,0,.6)':col;ctx.beginPath();ctx.arc(x,y,r,0,TAU);
         ctx.moveTo(x-r-6,y);ctx.lineTo(x-r+3,y);ctx.moveTo(x+r-3,y);ctx.lineTo(x+r+6,y);ctx.moveTo(x,y-r-6);ctx.lineTo(x,y-r+3);ctx.moveTo(x,y+r-3);ctx.lineTo(x,y+r+6);ctx.stroke()}
       if(!mouse.aim&&!t&&gameT<200)outlined('Hold right mouse to aim',x,y+34,13,'#fff','center',3)}}
   if(ROUTE.path.length>1&&started&&!mapOpen){const km=ROUTE.tiles*.125,txt=(km<1?Math.max(10,Math.round(km*100)*10)+' m':km.toFixed(1)+' km')+(mission?' to objective':' to next job');
     const x=12+safe.l,y=(isTouch?12+safe.t+(sm?112:156)+64:12+safe.t+(sm?112:156)+24);outlined(txt,x,y,sm?15:18,routeColor(),'left',4)}}
+// shooter feedback: hit markers, a kill feed, red arrows towards whoever is hitting you, and a red edge when you're hurt
+function drawCombat(){const dt=1/60;
+  if(player.hp<55&&deadT<=0){const k=(55-player.hp)/55,g=ctx.createRadialGradient(cw/2,chh/2,Math.min(cw,chh)*.3,cw/2,chh/2,Math.max(cw,chh)*.7);g.addColorStop(0,'rgba(160,0,0,0)');g.addColorStop(1,`rgba(160,0,0,${.65*k})`);ctx.fillStyle=g;ctx.fillRect(0,0,cw,chh)}
+  if(HITM.t>0){HITM.t-=dt;const x=HITM.x??cw/2,y=HITM.y??chh/2,a=Math.min(1,HITM.t*6),r1=9,r2=17;ctx.globalAlpha=a;ctx.lineCap='round';
+    for(const[lw,col]of[[5,'rgba(0,0,0,.6)'],[2.5,HITM.kill?'#ff3030':'#ffffff']]){ctx.lineWidth=lw;ctx.strokeStyle=col;ctx.beginPath();for(const[dx,dy]of[[1,1],[1,-1],[-1,1],[-1,-1]]){ctx.moveTo(x+dx*r1,y+dy*r1);ctx.lineTo(x+dx*r2,y+dy*r2)}ctx.stroke()}ctx.globalAlpha=1;ctx.lineCap='butt'}
+  const fx=cw-12-safe.r;let fy=chh*.42;for(let i=HITM.feed.length-1;i>=0;i--){const f=HITM.feed[i];f.t-=dt;if(f.t<=0)HITM.feed.splice(i,1)}
+  for(const f of HITM.feed){ctx.globalAlpha=Math.min(1,f.t);outlined('✕ '+f.txt,fx,fy,cw<620?13:16,'#ffffff','right',3);fy+=cw<620?18:22}ctx.globalAlpha=1;
+  const up=G3.active&&view==='chase'?G3.yaw:-PI/2;
+  for(let i=HITM.dirs.length-1;i>=0;i--){const d=HITM.dirs[i];d.t-=dt;if(d.t<=0){HITM.dirs.splice(i,1);continue}const sa=d.a-up-PI/2,R=Math.min(cw,chh)*.22;
+    ctx.globalAlpha=Math.min(1,d.t);ctx.fillStyle='#ff2a2a';ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=2;ctx.beginPath();const cx=cw/2+Math.cos(sa)*R,cy=chh/2+Math.sin(sa)*R;
+    ctx.moveTo(cx+Math.cos(sa)*16,cy+Math.sin(sa)*16);ctx.lineTo(cx+Math.cos(sa+2.3)*12,cy+Math.sin(sa+2.3)*12);ctx.lineTo(cx+Math.cos(sa-2.3)*12,cy+Math.sin(sa-2.3)*12);ctx.closePath();ctx.fill();ctx.stroke()}ctx.globalAlpha=1}
 function lapFmt(t){return`${(t/60)|0}:${(t%60).toFixed(1).padStart(4,'0')}`}
 function wrap(t,max){const ws=t.split(' '),out=[];let l='';for(const w of ws){const tl=l?l+' '+w:w;if(ctx.measureText(tl).width>max&&l){out.push(l);l=w}else l=tl}if(l)out.push(l);return out}
 function drawMinimap(sm){const S=sm?112:156,x0=12+safe.l,y0=12+safe.t,sc=sm?1.25:1.4;const pp=player.car||player;
@@ -2155,7 +2183,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 44';
+const BUILD='Build 45';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2370,12 +2398,12 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     if(G3.manualT>1.6){if(pc){if(Math.abs(fwdSpeed(pc))>25)G3.yaw+=angDiff(pc.a,G3.yaw)*Math.min(1,dt*2.2)}
       else if(player.ride){if(player.ride.v.spd>20)G3.yaw+=angDiff(player.a,G3.yaw)*Math.min(1,dt*1.5)}
       else if(G3.tank)G3.yaw+=angDiff(player.a,G3.yaw)*Math.min(1,dt*4.5);
-      else if(G3.footMove){const d=angDiff(player.a,G3.yaw);if(Math.abs(d)<1.4)G3.yaw+=d*Math.min(1,dt*1.7)}}   // walking towards the camera doesn't swing it round
+      else if(G3.footMove)G3.yaw+=angDiff(player.a,G3.yaw)*Math.min(1,dt*3.2)}   // on foot the camera always swings round behind you
     const d=pc?(pc.ug?78:95+spd*.07):player.ride?(player.ride.kind==='train'?190:130):62,h=pc?(pc.ug?30:40+spd*.02):player.ride?56:32,sh=cam.shake?rr(-cam.shake,cam.shake)*.5:0;c3.fov=asp<1?72:60;
     // on foot with a mouse, the pointer nudges the camera a little around your back (about 30 degrees each way) and up or down
     G3.aimK=lerp(G3.aimK||0,mouse.aim&&!pc?1:0,Math.min(1,dt*8));if(mouse.aim&&!pc){G3.yaw=player.a;G3.manualT=0}
     const free=!pc&&!isTouch&&mouse.used&&!mouse.aim,tl=free?clamp((mouse.x-cw/2)/(cw/2),-1,1)*.55:0,tp=free?clamp((mouse.y-chh/2)/(chh/2),-1,1):0;
-    G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6));const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
+    G3.look=lerp(G3.look||0,tl,Math.min(1,dt*6));G3.kick=Math.max(0,(G3.kick||0)-dt*G3.kick*9-dt*.2);G3.pitch=lerp(G3.pitch||0,tp,Math.min(1,dt*6))-Math.min(1.2,G3.kick)*.35;const yw=G3.yaw+G3.look,hh=h+G3.pitch*14;
     const ak=G3.aimK,dd=lerp(d,40,ak),h2=lerp(hh,24,ak),sx=-Math.sin(yw)*11*ak,sz=Math.cos(yw)*11*ak,la=lerp(70,320,ak);
     // keep the camera out of buildings: if a wall stands between you and where it wants to be, it slides in front of the wall
     const wall=(x,y)=>{const t=tileAtPx(x,y);return(t===BLD||t===HOUSE||t===TOWER||t===LMK)&&solidPx(x,y)};let cd=dd;
@@ -2561,7 +2589,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

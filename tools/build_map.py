@@ -1517,6 +1517,56 @@ for n, lo, la in [("Glen Waverley", 145.164, -37.878), ("Mount Waverley", 145.12
                   ("Huntingdale", 145.105, -37.91), ("Notting Hill", 145.14, -37.905), ("Ferntree Gully", 145.29, -37.885)]:
     LABELS.setdefault(n, P(lo, la))
 
+# clip every road to the playable world: past the border everything is solid, so a road running out there
+# was an invisible wall. Each road is cut where it first leaves the box and gets a barricade there.
+BOX = 90
+inside = lambda q: BOX <= q[0] <= WPX - BOX and BOX <= q[1] <= HPX - BOX
+CUT_ENDS = []
+
+
+def cut_at_border(pts):
+    """Keep the part of pts from its start up to where it first leaves the box (with the exit point added)."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        if inside(b):
+            out.append(b)
+            continue
+        lo, hi = 0.0, 1.0   # bisect for the crossing
+        for _ in range(20):
+            m = (lo + hi) / 2
+            if inside((a[0] + (b[0] - a[0]) * m, a[1] + (b[1] - a[1]) * m)):
+                lo = m
+            else:
+                hi = m
+        out.append((a[0] + (b[0] - a[0]) * lo, a[1] + (b[1] - a[1]) * lo))
+        return out, True
+    return out, False
+
+
+clipped = []
+for e in EDGES:
+    pts = e[5]
+    i0, i1 = inside(pts[0]), inside(pts[-1])
+    if all(inside(q) for q in pts):
+        clipped.append(e)
+        continue
+    if not i0 and not i1:
+        continue          # wholly or mostly outside: gone
+    if not i0:
+        e = [e[1], e[0], e[2], e[3], e[4], pts[::-1]]
+        pts = e[5]
+    keep, _ = cut_at_border(pts)
+    if plen(keep) < 40:
+        continue
+    NODES.append([keep[-1][0], keep[-1][1]])
+    e = [e[0], len(NODES) - 1, e[2], e[3], e[4], keep]
+    clipped.append(e)
+    a2, b2 = keep[-2], keep[-1]
+    L = math.hypot(b2[0] - a2[0], b2[1] - a2[1]) or 1
+    CUT_ENDS.append([round(b2[0]), round(b2[1]), round((b2[0] - a2[0]) / L, 3), round((b2[1] - a2[1]) / L, 3), e[3]])
+print("clipped at the border:", len(EDGES) - len(clipped), "dropped,", len(CUT_ENDS), "cut")
+EDGES = clipped
+
 # freeway ends left over (the map edge, or nowhere to go) get a barricade across them
 deg = collections.Counter()
 for e in EDGES:
@@ -1530,6 +1580,7 @@ for e in EDGES:
             a, b = pts[-2], pts[-1]
             L = math.hypot(b[0] - a[0], b[1] - a[1]) or 1
             ENDS.append([round(b[0]), round(b[1]), round((b[0] - a[0]) / L, 3), round((b[1] - a[1]) / L, 3), e[3]])
+ENDS += CUT_ENDS
 print("barricaded ends", len(ENDS))
 
 # ------------------------------------------------------------------ write
