@@ -52,7 +52,7 @@ Prefer pointing the stick where you want to go? Switch **Driving: point** in the
 
 ### Graphics
 
-The 3D view runs on **three.js r170**, loaded as ES modules from jsdelivr. A small loader publishes it as `window.THREE` and then starts the game, which is kept in a `text/plain` script block. If three.js can't load, the game still runs in 2D.
+The 3D view runs on **three.js r170**. A small classic-script loader brings it in from jsdelivr's `+esm` module builds, which need no import map, and publishes it as `window.THREE`. It then starts the game, which is kept in a `text/plain` script block. If the modules can't load (an old browser or a blocked CDN), the loader falls back to the r128 build the game used before, so the 3D models always show. If nothing loads within 20 seconds, the game runs in 2D.
 
 - **Colour and light:** physically based lighting with colour management and the AgX filmic tone curve, then a GTA-style grade. The grade mutes the colour, adds S-curve contrast, warms the highlights over cooler shadows and adds a vignette. It is a shader pass on desktop and the nearest CSS filter elsewhere.
 - **Sky:** a physical Preetham sky with Melbourne haze, which also feeds image-based reflections into car paint, glass and metal.

@@ -150,16 +150,24 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 </div>
 
 <script src="map/melbourne.js"></script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
-<script type="module">
-// three.js r170 comes as modules: load it with the addons the game uses, publish it on window.THREE, then start the game
-// (a classic script, kept in the text/plain block below). If the CDN fails the game still runs in 2D.
-try{const T=await import('three');const[{GLTFLoader},SkeletonUtils,{Sky}]=await Promise.all([import('three/addons/loaders/GLTFLoader.js'),import('three/addons/utils/SkeletonUtils.js'),import('three/addons/objects/Sky.js')]);
-  // canvas textures in the game are colour unless they say otherwise
-  class CanvasTexture extends T.CanvasTexture{constructor(...a){super(...a);this.colorSpace=T.SRGBColorSpace}}
-  window.THREE={...T,CanvasTexture,GLTFLoader,SkeletonUtils,Sky}}
-catch(e){console.warn('3D unavailable',e)}
-const game=document.createElement('script');game.textContent=document.getElementById('game').textContent;document.body.appendChild(game);
+<script>
+// Loads three.js, then starts the game (a classic script kept in the text/plain block below).
+// 1. three.js r170 as ES modules from jsdelivr's +esm builds: they import each other by full URL, so no import map is needed
+//    (an import map breaks if the host page has already loaded a module).
+// 2. If that fails (old browser, blocked CDN), the classic r128 build the game used before, so the 3D models still show.
+// 3. If nothing loads within 20 seconds, the game starts anyway and runs in 2D.
+(function(){const CDN='https://cdn.jsdelivr.net/npm/three@0.170.0';let started=false;
+  const start=()=>{if(started)return;started=true;const g=document.createElement('script');g.textContent=document.getElementById('game').textContent;document.body.appendChild(g)};
+  const classic=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+  const legacy=()=>classic('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js').then(()=>Promise.all([classic('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'),classic('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js')]));
+  window.THREE_ADDON=n=>import(CDN+'/examples/jsm/'+n+'.js/+esm');
+  let modern;try{modern=Promise.all([import(CDN+'/+esm'),THREE_ADDON('loaders/GLTFLoader'),THREE_ADDON('utils/SkeletonUtils'),THREE_ADDON('objects/Sky')])}catch(e){modern=Promise.reject(e)}
+  modern.then(([T,{GLTFLoader},SkeletonUtils,{Sky}])=>{if(started)return;
+      class CanvasTexture extends T.CanvasTexture{constructor(...a){super(...a);this.colorSpace=T.SRGBColorSpace}}   // canvas textures are colour unless they say otherwise
+      window.THREE={...T,CanvasTexture,GLTFLoader,SkeletonUtils,Sky}})
+    .catch(e=>{console.warn('three.js r170 unavailable, using r128',e);if(!started)return legacy().catch(e2=>console.warn('3D unavailable',e2))})
+    .then(start);
+  setTimeout(()=>{if(!started){console.warn('three.js is slow to load: starting in 2D');start()}},20000)})();
 </script>
 <script type="text/plain" id="game">
 (()=>{
@@ -2029,8 +2037,8 @@ function init3D(){
       gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.47,'#e6f0fa');gr.addColorStop(.53,'#77736a');gr.addColorStop(1,'#3b3a36');g.fillStyle=gr;g.fillRect(0,0,2,128);
       es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));
       const pm=new T.PMREMGenerator(r);sc.environment=pm.fromScene(es).texture;pm.dispose()}
-    sc.add(new T.HemisphereLight(0xd6e8ff,0x66594a,.6*PI));const sun=new T.DirectionalLight(0xffecd0,PI);   // physical light units since r155: intensities x pi keep the old balance
-    r.toneMapping=T.AgXToneMapping;r.toneMappingExposure=1.0;   // AgX: filmic, holds back saturation in bright lightsc.add(sun);sc.add(sun.target);
+    G3.LU=+T.REVISION>=155?PI:1;sc.add(new T.HemisphereLight(0xd6e8ff,0x66594a,.6*G3.LU));const sun=new T.DirectionalLight(0xffecd0,G3.LU);   // physical light units since r155: intensities x pi keep the old balance
+    r.toneMapping=T.AgXToneMapping||T.ACESFilmicToneMapping;r.toneMappingExposure=1.0;   // AgX: filmic, holds back saturation in bright lightsc.add(sun);sc.add(sun.target);
     const hemi=sc.children.find(o=>o.isHemisphereLight);G3.hemi=hemi;
     // a physical sky (Preetham) with Melbourne haze; a twin in a small scene feeds the reflections (PMREM) as the sun moves
     if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=3.2;u.rayleigh.value=1.1;u.mieCoefficient.value=.003;u.mieDirectionalG.value=.83;return s};
@@ -2075,13 +2083,13 @@ function init3D(){
 addEventListener('resize',()=>{if(G3.ok){G3.r.setSize(cw,chh,false);if(G3.comp)G3.comp.setSize(cw,chh)}});
 // screen-space ambient occlusion (three.js's SSAOPass): soft shading in corners, under eaves and where walls meet the road.
 // Desktop only; it switches itself off if the frame rate can't keep up.
-async function initAO(){if(isTouch||cw<900||G3.aoTried)return;G3.aoTried=true;
+async function initAO(){if(isTouch||cw<900||G3.aoTried||+THREE.REVISION<150||!window.THREE_ADDON)return;G3.aoTried=true;
   // post-processing on desktop: the scene, ground-truth ambient occlusion, a soft bloom on bright lights and sky, then tone mapping
-  try{const A='three/addons/postprocessing/',[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(n=>import(A+n+'.js')));
+  try{const A=n=>THREE_ADDON('postprocessing/'+n),[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(A));
     const T=THREE,comp=new EffectComposer(G3.r);comp.addPass(new RenderPass(G3.sc,G3.cam));
     const ao=new GTAOPass(G3.sc,G3.cam,cw,chh);ao.updateGtaoMaterial({radius:AO.radius,distanceExponent:1.4,thickness:AO.thick,scale:1,samples:12});ao.blendIntensity=AO.blend;comp.addPass(ao);
     const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.28,.5,.9);comp.addPass(bloom);comp.addPass(new OutputPass());
-    const{ShaderPass}=await import(A+'ShaderPass.js');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);glEl.style.filter='';
+    const{ShaderPass}=await A('ShaderPass');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);glEl.style.filter='';
     Object.assign(G3,{comp,ao,bloom,aoSlow:0})}
   catch(e){console.warn('post-processing unavailable',e)}}
 const AO={radius:26,thick:14,blend:.85};
@@ -2290,7 +2298,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 51';
+const BUILD='Build 52';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2567,8 +2575,8 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
   const sd=new T.Vector3(Math.cos(a),Math.max(.02,se*.95),-.5).normalize(),md=new T.Vector3(-Math.cos(a)*.6,.75,-.35).normalize(),dir=day>.02?sd:md;
   updateWeather(dt);const cl=WX.cloud;
   const sun=G3.sun;sun.position.set(fx+dir.x*1200,dir.y*1200,fz+dir.z*1200);sun.target.position.set(fx,0,fz);sun.target.updateMatrixWorld();
-  if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=PI*(.2+.9*day)}else{sun.color.set('#9fb4ff');sun.intensity=PI*.38}
-  if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=PI*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
+  if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=G3.LU*(.2+.9*day)}else{sun.color.set('#9fb4ff');sun.intensity=G3.LU*.38}
+  if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=G3.LU*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
   const fog=TC.b.set('#28324a').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
   G3.r.toneMappingExposure=1.2-.42*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
