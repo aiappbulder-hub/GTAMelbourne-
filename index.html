@@ -815,7 +815,7 @@ function mkPickup(x,y,kind,o={}){const[px,py]=nearestWalkable(x,y);return{x:px,y
 
 // ================================================================ input
 const keys={},pressed={};let mouse={x:0,y:0,down:false,used:false};
-const GAMEKEYS=['KeyT','Enter','Digit5','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','KeyY','KeyZ','KeyC','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','Digit6','KeyR','ControlLeft'];
+const GAMEKEYS=['KeyT','Enter','Digit5','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab','KeyQ','KeyE','KeyF','KeyM','KeyH','KeyJ','KeyP','KeyV','KeyY','KeyU','KeyZ','KeyC','Escape','ShiftLeft','ShiftRight','Digit1','Digit2','Digit3','Digit4','Digit6','KeyR','ControlLeft'];
 addEventListener('keydown',e=>{if(GAMEKEYS.includes(e.code)&&started)e.preventDefault();if(!keys[e.code])pressed[e.code]=true;keys[e.code]=true;
   if(!started)return;
   if(e.code==='KeyM'&&!shopOpen&&!paused){mapOpen=!mapOpen}
@@ -944,7 +944,7 @@ function drive(c,thr,steer,hb,dt){
   if(c===player.car&&!hb&&Math.abs(steer)>.45)maxS=Math.min(maxS,lerp(T.max,210,clamp((Math.abs(steer)-.45)*2.2,0,1)));
   if(vf>maxS)vf=lerp(vf,maxS,Math.min(1,3*dt));vf=Math.max(vf,-170);
   vf-=vf*.18*dt;
-  const grip=hb?.8:7.5;vr-=vr*Math.min(1,grip*dt);
+  const grip=(hb?.8:7.5)*(1-.38*WX.wet);vr-=vr*Math.min(1,grip*dt);
   const sp=Math.abs(vf);
   const pl=c===player.car,turn=steer*(hb?(pl?4.2:3.4):2.6)*(pl?.9:1)*Math.min(1,sp/(pl?35:130))*(vf<0?-1:1)*dt/(1+sp/(pl?1300:1100));
   let na=c.a+turn;if(turn!==0&&carHits(c,c.x,c.y,na)&&!carHits(c,c.x,c.y,c.a)){let ok=false;for(const[ox,oy]of NUDGE)if(!carHits(c,c.x+ox,c.y+oy,na)){c.x+=ox;c.y+=oy;ok=true;break}if(!ok)na=c.a}c.a=na;
@@ -1739,6 +1739,7 @@ function update(dt){
   else updatePlayer(dt,c);
   updateBubbles(dt);
   if(pressed.KeyY){TOD.h=(TOD.h+2)%24;TOD.envH=-9;sub('Time: '+todClock(),1.5)}
+  if(pressed.KeyU){const L=Object.keys(WXK);setWeather(L[(L.indexOf(WX.kind)+1)%L.length]);sub('Weather: '+WXK[WX.kind].label,1.5)}
   for(const k in pressed)delete pressed[k];
   for(const car of cars){
     if(car.tram){updateTram(car,dt);continue}
@@ -1920,7 +1921,7 @@ function drawHUD(){
   // stars
   const ssz=sm?10:13;for(let i=0;i<5;i++){const on=i<stars,blink=on&&unseen>3&&Math.floor(gameT*4)%2;
     drawStar(ctx,R0-ssz-i*(ssz*2.3),T0+(sm?44:56),ssz,on&&!blink?'#ffcc33':'rgba(255,255,255,.12)','#000')}
-  if(G3.active)outlined(todClock(),R0-(sm?122:166),T0+(sm?50:62),sm?14:17,'#fff','right',3);
+  if(G3.active)outlined(todClock()+'  '+WXK[WX.kind].label,R0-(sm?122:166),T0+(sm?50:62),sm?13:16,'#fff','right',3);
   // health + armour
   const by=T0+(sm?62:78),bw=sm?110:150;
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(R0-bw,by,bw,9);ctx.fillStyle=player.hp<30&&Math.floor(gameT*3)%2?'#ff9090':'#e84040';ctx.fillRect(R0-bw+1,by+1,(bw-2)*player.hp/100,7);
@@ -2091,6 +2092,7 @@ const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;voi
   fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
   void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));
     c=mix(vec3(l),c,.78);                                            // desaturate
+    c=c*.9+.045;                                                     // lift the blacks so night stays readable
     c=clamp((c-.46)*1.32+.46,0.,1.);c=c*c*(3.-2.*c)*.45+c*.55;            // contrast and an S-curve
     vec3 warm=vec3(1.06,1.0,.88),cool=vec3(.9,.97,1.08);c*=mix(cool,warm,smoothstep(.15,.75,l));   // split tone
     vec2 d=vUv-.5;c*=1.-dot(d,d)*.8;                                  // vignette
@@ -2235,7 +2237,7 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const cvs=document.createElement('canvas');cvs.width=cvs.height=CPX;renderChunk(cvs.getContext('2d'),cx,cy,true);
   const tex=new T.CanvasTexture(cvs);tex.anisotropy=G3.aniso;
   const pg=new T.PlaneGeometry(CPX,CPX,16,16).rotateX(-PI/2),pa=pg.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,terrainH(cx*CPX+CPX/2+pa.getX(i),cy*CPX+CPX/2+pa.getZ(i)));pg.computeVertexNormals();
-  const ground=new T.Mesh(pg,new T.MeshLambertMaterial({map:tex,alphaTest:.5}));ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
+  const ground=new T.Mesh(pg,new T.MeshStandardMaterial({map:tex,alphaTest:.5,roughness:.95,metalness:0}));ground.userData.ground=true;wetGround(ground.material);ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
   const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[],fac={},W=k=>fac[k]||(fac[k]=mkBuf());
   for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}addBuilding(W,roof,b)}
   for(let ty=cy*CH;ty<Math.min(H,cy*CH+CH);ty++)for(let tx=cx*CH;tx<Math.min(W,cx*CH+CH);tx++){const i=ty*W+tx,t=tiles[i];
@@ -2288,7 +2290,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 50';
+const BUILD='Build 51';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')return;const ld=new THREE.GLTFLoader();
   const load=url=>{MODELS.want++;modelStatus();return new Promise(res=>ld.load(url,g=>{MODELS.tpl[url]=prepModel(g.scene);MODELS.ver++;MODELS.got++;modelStatus();res(true)},undefined,e=>{MODELS.failed++;console.warn('model failed',url,e);modelStatus();res(false)}))};
@@ -2544,7 +2546,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     if(!(pc&&pc.ug))for(let k=8;k<=dd+8;k+=4)if(wall(pp.x-Math.cos(yw)*k+sx,pp.y-Math.sin(yw)*k+sz)){cd=Math.max(10,k-10);break}
     G3.camD=G3.camD==null||cd<G3.camD?cd:lerp(G3.camD,cd,Math.min(1,dt*2.5));const cdd=G3.camD,up=(dd-cdd)*.25;   // snap in, ease back out
     const gy=pc?carY(pc):pedY(pp);c3.position.set(pp.x-Math.cos(yw)*cdd+sh+sx,h2+up+sh+gy,pp.y-Math.sin(yw)*cdd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
-    G3.sc.fog.near=900;G3.sc.fog.far=2600;G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];
+    G3.sc.fog.near=900*WX.fog**1.6;G3.sc.fog.far=2600*(.13+.87*WX.fog);G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];
     // driving under an overpass: hide it while the camera passes through, so it never blocks the view
     for(const v of G3.ovp||[]){const o=v.o,r=o.half+230,dc=Math.hypot(c3.position.x-o.x,c3.position.z-o.y),dp=Math.hypot(pp.x-o.x,pp.y-o.y);
       v.m.visible=!((dc<r||dp<r)&&gy<o.top-12)}}
@@ -2556,27 +2558,56 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
   const fx=G3.focus[0],fz=G3.focus[1];if(!TC.a){TC.a=new G3.T.Color();TC.b=new G3.T.Color();TC.c=new G3.T.Color()}updateTOD(dt,fx,fz);
   if(G3.waterTex){const t=gameT;G3.waterTex.offset.set(t*.018,t*.011);G3.seaTex.offset.set(t*.4,t*.25)}
   G3.occ.uCam.value.copy(c3.position);G3.occ.uTarget.value.set(pp.x,12,pp.y);G3.occ.uRad.value=view==='chase'?38:70}
-// time of day: one game hour per real minute (Y skips ahead two hours); a Melbourne summer day, sunrise 6am, sunset 8pm. The sun crosses the northern sky (southern
+// time of day: two real minutes per game hour (Y skips ahead two hours); a Melbourne summer day, sunrise 6am, sunset 8pm. The sun crosses the northern sky (southern
 // hemisphere), the sky, haze, light colours and exposure follow it, and after dusk windows, lamps and car lights come on.
-const TOD={h:16.5,rate:1/60,envH:-9};
+const TOD={h:14,rate:1/120,envH:-9};   // 2 real minutes per game hour: a 48-minute day
 const todClock=()=>{const m=Math.floor(TOD.h*60)%1440;return String((m/60)|0).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
 function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
   const a=(TOD.h-6)/14*PI,se=Math.sin(a),day=smooth(-.08,.22,se),low=1-smooth(.02,.45,se),night=1-smooth(-.06,.12,se);
   const sd=new T.Vector3(Math.cos(a),Math.max(.02,se*.95),-.5).normalize(),md=new T.Vector3(-Math.cos(a)*.6,.75,-.35).normalize(),dir=day>.02?sd:md;
+  updateWeather(dt);const cl=WX.cloud;
   const sun=G3.sun;sun.position.set(fx+dir.x*1200,dir.y*1200,fz+dir.z*1200);sun.target.position.set(fx,0,fz);sun.target.updateMatrixWorld();
-  if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=PI*(.2+.9*day)}else{sun.color.set('#8ea6ff');sun.intensity=PI*.16}
-  if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=PI*(.34+.26*day)}   // at night: sky glow above, sodium bounce below
-  const fog=TC.b.set('#1a2236').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=.95-.17*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
-  if(G3.sky){G3.sky.visible=day>.01;G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=day>.01?null:G3.nightBg;
-    if(Math.abs(TOD.h-TOD.envH)>.25){TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
-      G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:null;if(old&&old!==G3.sc.environment&&old.dispose)old.dispose()}}
+  if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=PI*(.2+.9*day)}else{sun.color.set('#9fb4ff');sun.intensity=PI*.38}
+  if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=PI*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
+  sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
+  const fog=TC.b.set('#28324a').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
+  G3.r.toneMappingExposure=1.2-.42*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
+  if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
+    if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=3.2+16*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
+      G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:null;TOD.envCl=cl;if(old&&old!==G3.sc.environment&&old.dispose)old.dispose()}}
+  // wet roads, and the rain itself
+  for(const[,e]of G3.chunks){const gm=e.g.children[0];if(gm&&gm.userData.ground)wetGround(gm.material)}
+  rain3D(dt);
   // night lights: lit windows, street lamps, car head and tail lights
   for(const k in G3.fac){const m=G3.fac[k];if(m.emissiveMap)m.emissiveIntensity=night*(k==='front'?1.4:1)}
   if(!G3.glows||G3.glowsV!==PROPS.ready+MODELS.ver){G3.glowsV=PROPS.ready+MODELS.ver;G3.glows=[];const seen=new Set(),add=m=>{if(m&&!seen.has(m)&&/LampGlow|HeadLight|TailLight|DRL|Light$|Glow/.test(m.name||'')&&m.emissive){seen.add(m);G3.glows.push([m,m.emissiveIntensity||1])}};
     for(const k in PROPS.tpl)for(const pt of PROPS.tpl[k])add(pt.mat);for(const k in MODELS.tpl)MODELS.tpl[k].traverse&&MODELS.tpl[k].traverse(o=>{if(o.isMesh)(Array.isArray(o.material)?o.material:[o.material]).forEach(add)})}
   for(const[m,b]of G3.glows)m.emissiveIntensity=b*(.25+1.6*night)}
 const TC={a:null,b:null,c:null};
+// weather: Melbourne's four seasons in a day. Each kind sets cloud, rain, fog and wetness; the current values ease towards the
+// target over about half a minute, and the weather moves on by itself every couple of game hours (U changes it now).
+const WXK={clear:{cloud:0,rain:0,fog:1,wet:0,storm:0,label:'Clear'},cloudy:{cloud:.75,rain:0,fog:.85,wet:0,storm:0,label:'Overcast'},
+  rain:{cloud:.92,rain:.65,fog:.6,wet:1,storm:0,label:'Rain'},storm:{cloud:1,rain:1,fog:.45,wet:1,storm:1,label:'Storm'},fog:{cloud:.6,rain:0,fog:.22,wet:.35,storm:0,label:'Fog'}};
+const WX={kind:'clear',cloud:0,rain:0,fog:1,wet:0,storm:0,nextH:16+Math.random()*3,flash:0,thunder:0};
+function setWeather(k){WX.kind=k;WX.nextH=(TOD.h+1.5+Math.random()*2.5)%24}
+function pickWeather(){const r=Math.random(),k=WX.kind;return r<.34?'clear':r<.56?(k==='rain'?'storm':'cloudy'):r<.82?'rain':r<.92?'storm':'fog'}
+function wetGround(m){m.roughness=lerp(.95,.16,WX.wet);m.color.setScalar(1-.3*WX.wet);m.envMapIntensity=.4+1.1*WX.wet}
+function updateWeather(dt){if(Math.abs(TOD.h-WX.nextH)<.05)setWeather(pickWeather());
+  const T=WXK[WX.kind],k=Math.min(1,dt*.04);for(const f of['cloud','rain','fog','storm'])WX[f]+=(T[f]-WX[f])*k;
+  WX.wet+=((T.wet>WX.wet?T.wet:T.wet)-WX.wet)*(T.wet>WX.wet?dt*.05:dt*.008);   // roads soak quickly and dry slowly
+  if(WX.storm>.5&&Math.random()<dt*.07){WX.flash=.18;WX.thunder=.6+Math.random()*2.2}
+  if(WX.flash>0)WX.flash-=dt;if(WX.thunder>0&&(WX.thunder-=dt)<=0){SFX.noise(1.6,90,.5);SFX.noise(.6,220,.25)}}
+// rain: streaks in a box that follows the camera, falling and blowing in the vertex shader, so it costs one draw call
+function rain3D(dt){const T=G3.T;if(!G3.rain){const N=4000,pos=new Float32Array(N*6),end=new Float32Array(N*2);
+    for(let i=0;i<N;i++){const x=Math.random(),y=Math.random(),z=Math.random();pos.set([x,y,z,x,y,z],i*6);end[i*2]=0;end[i*2+1]=1}
+    const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('aEnd',new T.BufferAttribute(end,1));
+    const m=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uT:{value:0},uC:{value:new T.Vector3()},uA:{value:0},uBox:{value:new T.Vector3(900,520,900)}},
+      vertexShader:`attribute float aEnd;uniform float uT;uniform vec3 uC,uBox;varying float vA;
+        void main(){vec3 p=position*uBox;p.y=mod(p.y-uT*900.,uBox.y);p.x=mod(p.x+uT*60.-uC.x,uBox.x)-uBox.x*.5+uC.x;p.z=mod(p.z-uC.z,uBox.z)-uBox.z*.5+uC.z;p.y+=uC.y-uBox.y*.55;
+          p+=aEnd*vec3(4.,-34.,0.);vA=aEnd;gl_Position=projectionMatrix*viewMatrix*vec4(p,1.);}`,
+      fragmentShader:`uniform float uA;varying float vA;void main(){gl_FragColor=vec4(.72,.78,.86,uA*(.25+.5*vA));}`});
+    G3.rain=new T.LineSegments(g,m);G3.rain.frustumCulled=false;G3.sc.add(G3.rain)}
+  const u=G3.rain.material.uniforms;u.uT.value+=dt;u.uC.value.copy(G3.cam.position);u.uA.value=WX.rain*.85;G3.rain.visible=WX.rain>.02}
 const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
 function route3D(){if(ROUTE.mver===ROUTE.ver)return;ROUTE.mver=ROUTE.ver;const T=G3.T;
   if(G3.route){G3.sc.remove(G3.route);G3.route.geometry.dispose()}G3.route=null;if(ROUTE.path.length<2)return;
@@ -2745,7 +2776,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

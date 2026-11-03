@@ -57,9 +57,13 @@ The 3D view runs on **three.js r170**, loaded as ES modules from jsdelivr. A sma
 - **Colour and light:** physically based lighting with colour management and the AgX filmic tone curve, then a GTA-style grade. The grade mutes the colour, adds S-curve contrast, warms the highlights over cooler shadows and adds a vignette. It is a shader pass on desktop and the nearest CSS filter elsewhere.
 - **Sky:** a physical Preetham sky with Melbourne haze, which also feeds image-based reflections into car paint, glass and metal.
 - **Post-processing (desktop):** ground-truth ambient occlusion (`GTAOPass`) and a soft bloom. It switches itself off if the frame rate can't keep up.
-- **Day and night:** a summer day, with sunrise at 6am and sunset at 8pm, running at one game hour per real minute. Press `Y` to skip two hours, and the clock sits under the wanted stars.
+- **Day and night:** a summer day, with sunrise at 6am and sunset at 8pm, running at two real minutes per game hour (a 48-minute day). Press `Y` to skip two hours, and the clock sits under the wanted stars.
   - The sun crosses the northern sky, warm at either end of the day; moonlight takes over at night.
-  - After dusk, office and house windows light up, street lamps throw pools of sodium light on the road, and lamps and car lights glow. Everywhere, walls darken towards their base and buildings and trees leave soft contact shadows on the ground.
+  - After dusk, office and house windows light up, street lamps throw pools of sodium light on the road, and lamps and car lights glow.
+- **Weather:** Melbourne's four seasons in a day. It moves on by itself every couple of game hours; press `U` to change it, and the HUD shows it beside the clock.
+  - **The kinds:** clear, overcast, rain, storm (with lightning and thunder) and fog.
+  - **What changes:** cloud dims the sun and greys the sky and haze, and fog pulls the view in.
+  - **Rain:** streaks fall around the camera. The roads soak through, go dark and glossy and reflect the sky, then dry slowly afterwards. Cars lose grip in the wet. Everywhere, walls darken towards their base and buildings and trees leave soft contact shadows on the ground.
 
 Buildings wear facade textures drawn in code: glass curtain walls and banded offices in the CBD, red brick and sandstone with arched windows in the inner suburbs, weatherboard houses with tiled roofs and chimneys, and corrugated sheds at the port. Shops on the main roads have glazed shopfronts, a coloured awning over the footpath and a sign above; roofs carry cornices, plant rooms, air-con units and water tanks. Streets have traffic signals at the main intersections, lamps reaching over the road, bus shelters, and bins, benches, payphones and bollards along the shopping strips (all built in Blender by `tools/make_props.py`). Cars roll in corners, dip their noses under brakes and squat when you floor it.
 
