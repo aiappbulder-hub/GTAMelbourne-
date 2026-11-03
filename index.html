@@ -198,6 +198,8 @@ function realR(x,y){const rw=Math.hypot(x-PJ.ox,y-PJ.oy);return PJ.r0*((rw/(2*PJ
 
 const GRASS=0,ROAD=1,WALK=2,BLD=3,WATER=4,SAND=5,IND=6,TREE=7,HOUSE=8,RUNWAY=9,BRIDGE=10,TOWER=11,FWY=12,YARD=13,RIVER=14,CONT=15;
 const LMK=16,TAN=17,CIRCUIT=18,RAIL=19;
+const SHAL=new Uint8Array(W*H);   // shallow water: creeks, ponds and the edges of lakes and the Yarra, which you can wade and drive through
+const isShallow=(x,y)=>{const tx=Math.floor(x/TS),ty=Math.floor(y/TS);return tx>=0&&ty>=0&&tx<W&&ty<H&&SHAL[ty*W+tx]===1};
 const SOLID=new Uint8Array(32);[BLD,WATER,TREE,HOUSE,TOWER,RIVER,CONT,LMK].forEach(t=>SOLID[t]=1);
 const SLOW=new Uint8Array(32);[GRASS,YARD,SAND,RAIL].forEach(t=>SLOW[t]=1);
 const PARK=1,BAY=2,PORT=16,PIER=64,PITCH=128;
@@ -279,7 +281,7 @@ const SITES={};
 const AP=(()=>{const[ax,ay]=proj(144.89599,-37.72106),[bx,by]=proj(144.91617,-37.72207),L=Math.hypot(bx-ax,by-ay),dx=(bx-ax)/L,dy=(by-ay)/L,nx=dy,ny=-dx;
   const P=(s,o)=>({x:ax+dx*s+nx*o,y:ay+dy*s+ny*o});
   return{ax,ay,L,dx,dy,nx,ny,P,a:Math.atan2(dy,dx),rw:60,taxi:180,ap0:L*.34,ap1:L*.76,apO:[220,380],pad:P(L*.72,300),spot:P(L*.45,300)}})();
-let LAP=null,TAN_LOOP=null,CIRCUIT_LOOP=null,MCG=null,PIER_PTS=[],PORT_POLY=[];
+let TRACK=null,LAP=null,TAN_LOOP=null,CIRCUIT_LOOP=null,MCG=null,PIER_PTS=[],PORT_POLY=[];
 const BUILDINGS=[];          // {x,y,a,w,d,h,k: tower|bld|shop|house|ware|model, c (colour idx), m (model)}
 const ZONE_NAMES=[],MAP_LABELS=[];         // [name,x,y] suburbs and neighbourhoods for the heading
 let tramRoutes=[];
@@ -295,6 +297,11 @@ function generate(){
   fillPoly(MAP.sea,TS,W,H,tile(i=>wet(i,1)));fillPoly(MAP.sea,FS,FW,FH,fine(i=>{SOL[i]=1;OCC[i]=1}));
   for(const f of MAP.water){fillPoly(f,TS,W,H,tile(i=>{if(tiles[i]!==WATER)wet(i,0)}));fillPoly(f,FS,FW,FH,fine(i=>{SOL[i]=1;OCC[i]=1}))}
   for(const f of MAP.rivers){strokePoly(f,26,TS,W,H,tile(i=>{if(tiles[i]!==WATER)wet(i,0)}));strokePoly(f,26,FS,FW,FH,fine(i=>{SOL[i]=1;OCC[i]=1}))}
+  // shallow water: any lake or river tile (not the bay) next to dry land. Creeks are shallow all the way across; the middle
+  // of the Yarra and the big lakes stays deep. Shallow tiles lose their collision.
+  SHAL.fill(0);{const SUB=TS/FS,dry=(x,y)=>{if(x<0||y<0||x>=W||y>=H)return false;const t=tiles[y*W+x];return t!==WATER&&t!==RIVER};
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(tiles[i]!==RIVER||flags[i]&BAY)continue;let d=false;for(let dy=-1;dy<=1&&!d;dy++)for(let dx=-1;dx<=1;dx++)if(dry(x+dx,y+dy)){d=true;break}
+      if(!d)continue;SHAL[i]=1;for(let fy=y*SUB;fy<y*SUB+SUB;fy++)for(let fx=x*SUB;fx<x*SUB+SUB;fx++)SOL[fy*FW+fx]=0}}
   // St Kilda Pier
   PIER_PTS=ll(PIER_LL);strokePoly(PIER_PTS,14,TS,W,H,tile(i=>{if(tiles[i]===WATER){tiles[i]=WALK;flags[i]|=PIER}}));strokePoly(PIER_PTS,11,FS,FW,FH,fine(i=>SOL[i]=0));
   // railways
@@ -336,7 +343,19 @@ function generate(){
   {const[gx,gy]=proj(144.9795,-37.8302);let best=null,ba=0;for(const[t,n,f]of MAP.parks){if(!pipF(f,gx,gy))continue;let a=0;for(let i=0,k=f.length/2,j=k-1;i<k;j=i++)a+=f[2*j]*f[2*i+1]-f[2*i]*f[2*j+1];a=Math.abs(a)/2;if(a>ba){ba=a;best=f}}
     if(best){let cx=0,cy=0;for(let i=0;i<best.length;i+=2){cx+=best[i];cy+=best[i+1]}cx/=best.length/2;cy/=best.length/2;const loop=[];
       for(let i=0;i<best.length;i+=2){const dx=best[i]-cx,dy=best[i+1]-cy,d=Math.hypot(dx,dy)||1,k=Math.max(.5,(d-28)/d);loop.push(cx+dx*k,cy+dy*k)}loop.push(loop[0],loop[1]);TAN_LOOP=loop;
-      strokePoly(loop,13,TS,W,H,tile(i=>{if(tiles[i]===GRASS)tiles[i]=TAN}))}}
+      strokePoly(loop,13,TS,W,H,tile(i=>{if(tiles[i]===GRASS)tiles[i]=TAN}));
+      // the Gardens: dense old trees across the lawns
+      let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let i=0;i<best.length;i+=2){x0=Math.min(x0,best[i]);x1=Math.max(x1,best[i]);y0=Math.min(y0,best[i+1]);y1=Math.max(y1,best[i+1])}
+      for(let ty=Math.floor(y0/TS);ty<=y1/TS;ty++)for(let tx=Math.floor(x0/TS);tx<=x1/TS;tx++){const i=ty*W+tx,px=(tx+.5)*TS,py=(ty+.5)*TS;if(tiles[i]!==GRASS||!pipF(best,px,py)||hash(tx,ty,61)>.22)continue;
+        let nearTan=false;for(let k=0;k<loop.length-2&&!nearTan;k+=2)if(Math.hypot(loop[k]-px,loop[k+1]-py)<46)nearTan=true;if(!nearTan)tiles[i]=TREE}}}
+  // George Knott Reserve, Clifton Hill: the Collingwood Harriers' six-lane athletics track, an infield, and the clubrooms
+  {const[x0,y0]=proj(145.0010,-37.7873),ne=nearestEdge(x0,y0,500),a=ne?Math.atan2(ne.dy,ne.dx):0,L=260,r=110,lw=9;
+    // set it back from Heidelberg Road
+    const off=ne?(ne.px-x0)*-Math.sin(a)+(ne.py-y0)*Math.cos(a)>0?-1:1:1,cx=x0+(-Math.sin(a))*off*90,cy=y0+Math.cos(a)*off*90;
+    TRACK={x:cx,y:cy,a,L,r,lw,lanes:[...Array(7)].map((_,k)=>stadium(cx,cy,a,L,r+k*lw))};
+    const out=TRACK.lanes[6];fillPoly(out,TS,W,H,tile(i=>{if(tiles[i]!==WATER&&tiles[i]!==RIVER){tiles[i]=GRASS;flags[i]|=PARK}}));fillPoly(out,FS,FW,FH,fine(i=>{OCC[i]=1;SOL[i]=0}));
+    const ca=Math.cos(a),sa=Math.sin(a),bx=cx+ca*(L/2+r+70),by=cy+sa*(L/2+r+70),b={x:bx,y:by,a:a+PI/2,w:90,d:40,h:26,k:'bld',c:3};
+    if(rectFree(b,2)){const id=BUILDINGS.length;BUILDINGS.push(b);rectCells(b,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});rectCells(b,0,TS,W,H,(x,y)=>{bldAt[y*W+x]=id})}}
   // landmark sites, squared up with the nearest street
   for(const[id,lo,la,w,d]of SITE_LL){const[x0,y0]=proj(lo,la),ne=nearestEdge(x0,y0,300),a=ne?Math.atan2(ne.dy,ne.dx):0;let site=null;
     for(let r=0;r<420&&!site;r+=12)for(let k=0;k<(r?Math.ceil(r/6):1)&&!site;k++){const q=k/Math.max(1,Math.ceil(r/6))*TAU,b={x:x0+Math.cos(q)*r,y:y0+Math.sin(q)*r,a,w,d};if(rectFree(b,4))site=b}
@@ -387,6 +406,9 @@ function placeStores(){for(const[name,lo,la]of PLUMB_LL){const[x0,y0]=proj(lo,la
     const back=-toRoad*30,st={name,x:b.x+vx*back,y:b.y+vy*back,a,w,d,h:46,k:'store',c:0,side:-toRoad,brand:'plumb',lot:{x:b.x+vx*toRoad*42,y:b.y+vy*toRoad*42}};
     rectCells(b,6,FS,FW,FH,(x,y)=>{OCC[y*FW+x]=1});rectCells(st,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});
     const id=BUILDINGS.length;BUILDINGS.push(st);rectCells(st,0,TS,W,H,(x,y)=>{bldAt[y*W+x]=id});PLUMB.push(st)}}
+// a running-track shape: two straights of length L joined by half circles of radius r, as a closed flat polyline
+function stadium(cx,cy,a,L,r){const out=[],ca=Math.cos(a),sa=Math.sin(a),P=(u,v)=>out.push(cx+ca*u-sa*v,cy+sa*u+ca*v);
+  for(let i=0;i<=16;i++){const t=-PI/2+i/16*PI;P(L/2+Math.cos(t)*r,Math.sin(t)*r)}for(let i=0;i<=16;i++){const t=PI/2+i/16*PI;P(-L/2+Math.cos(t)*r,Math.sin(t)*r)}out.push(out[0],out[1]);return out}
 function placeLots(){
   const zone=(x,y,E)=>{const r=realR(x,y),port=PORT_POLY.length&&pipF(PORT_POLY,x,y);
     if(port)return{k:'ware',F:[110,210],D:[90,150],gap:24,h:[34,58],rows:2};
@@ -634,6 +656,9 @@ function renderChunk(g,cx,cy,for3d){
   for(const f of K.r){linePath(g,f);g.strokeStyle='#b9bcc0';g.lineWidth=9;g.stroke();g.strokeStyle='#6f6457';g.lineWidth=6;g.stroke()}
   // the Tan and the Albert Park circuit
   if(TAN_LOOP&&hasBox(TAN_LOOP,X0-60,Y0-60,X1+60,Y1+60)){linePath(g,TAN_LOOP);g.strokeStyle='#c9a873';g.lineWidth=24;g.stroke()}
+  if(TRACK&&hasBox(TRACK.lanes[6],X0-20,Y0-20,X1+20,Y1+20)){const T=TRACK;g.fillStyle='#b3432e';linePath(g,T.lanes[6]);g.fill();g.fillStyle='#4f8f3c';linePath(g,T.lanes[0]);g.fill();
+    g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=1.2;for(const l of T.lanes){linePath(g,l);g.stroke()}
+    const ca=Math.cos(T.a),sa=Math.sin(T.a);g.lineWidth=2.5;g.beginPath();for(const sd of[1,-1]){const u=T.L/2*sd*0;g.moveTo(T.x+ca*u-sa*sd*T.r,T.y+sa*u+ca*sd*T.r);g.lineTo(T.x+ca*u-sa*sd*(T.r+6*T.lw),T.y+sa*u+ca*sd*(T.r+6*T.lw))}g.stroke()}
   if(CIRCUIT_LOOP&&hasBox(CIRCUIT_LOOP,X0-120,Y0-120,X1+120,Y1+120)){const L=CIRCUIT_LOOP;linePath(g,L);g.lineWidth=80;g.strokeStyle='#d8221d';g.setLineDash([10,10]);g.stroke();
     g.setLineDash([]);g.strokeStyle='#f4f4f4';g.lineWidth=80;g.globalAlpha=.5;g.stroke();g.globalAlpha=1;linePath(g,L);g.strokeStyle='#3a3c40';g.lineWidth=70;g.stroke();
     if(LAP){g.save();g.translate(LAP.x,LAP.y);for(let a=0;a<2;a++)for(let b=-4;b<4;b++){g.fillStyle=(a+b)%2?'#111':'#f4f4f4';g.fillRect(-8+a*8,b*9,8,9)}g.restore()}}
@@ -787,7 +812,7 @@ function makeCar(type,x,y,a,o={}){const T=CARS[type];
     cop:!!T.cop,thr:0,steer:0,hb:false,wreck:false,burning:0,stuckT:0,revT:0,turn:null,nextI:undefined,cruise:rr(200,280),mode:o.mode||'traffic',
     exited:false,siren:false,mission:!!o.mission,lastHit:null,horn:0,id:Math.random()};
   cars.push(c);return c}
-function makePed(x,y,kind='civ',o={}){const p={kind,x,y,a:R()*TAU,hp:kind==='civ'?40:kind==='cop'?80:70,speed:kind==='civ'?rr(45,65):150,
+function makePed(x,y,kind='civ',o={}){const bald=kind==='civ'&&R()<.12;const p={bald,male:bald||undefined,kind,x,y,a:R()*TAU,hp:kind==='civ'?40:kind==='cop'?80:70,speed:kind==='civ'?rr(45,65):150,
   tx:x,ty:y,dir:(R()*4)|0,panic:0,fx:0,fy:0,anim:R()*10,shirt:o.shirt||pick(SHIRTS),skin:pick(SKIN),hair:pick(HAIR),
   stripes:kind==='civ'&&R()<.14,weapon:o.weapon||0,cool:rr(.3,1),alert:false,dead:false,deadT:0,kx:0,ky:0,hitCool:0,
   mission:!!o.mission,car:o.car||null};
@@ -951,8 +976,9 @@ function drive(c,thr,steer,hb,dt){
   else if(thr<0)vf+=(vf>5?-720:-T.acc*.6)*(-thr)*dt;
   else{const r=Math.min(Math.abs(vf),110*dt);vf-=Math.sign(vf)*r}
   if(hb){const r=Math.min(Math.abs(vf),400*dt);vf-=Math.sign(vf)*r}
-  const off=!c.ug&&!c.fl&&SLOW[tileAtPx(c.x,c.y)];
-  let maxS=T.max*(c.hp<30?.72:1)*(off?.68:1);
+  const off=!c.ug&&!c.fl&&SLOW[tileAtPx(c.x,c.y)],wade=!c.ug&&!c.fl&&isShallow(c.x,c.y);
+  let maxS=T.max*(c.hp<30?.72:1)*(off?.68:1)*(wade?.45:1);
+  if(wade&&Math.abs(vf)>30){vf-=vf*1.1*dt;if(R()<Math.min(1,Math.abs(vf)/200))for(const sd of[-1,1])parts.push({x:c.x-Math.sin(c.a)*sd*c.Wd*.5,y:c.y+Math.cos(c.a)*sd*c.Wd*.5,vx:-Math.sin(c.a)*sd*rr(40,90),vy:Math.cos(c.a)*sd*rr(40,90),life:.5,max:.5,size:rr(4,8),col:pick(['#e8f4ff','#cfe6f7','#ffffff']),grow:1})}
   // cornering assist: hard lock without the handbrake scrubs speed so the car actually makes the turn
   if(c===player.car&&!hb&&Math.abs(steer)>.45)maxS=Math.min(maxS,lerp(T.max,210,clamp((Math.abs(steer)-.45)*2.2,0,1)));
   if(vf>maxS)vf=lerp(vf,maxS,Math.min(1,3*dt));vf=Math.max(vf,-170);
@@ -1302,7 +1328,7 @@ function updatePlayer(dt,c){
   // jumping: up and over low walls of people, and over a car bonnet if you time it
   if(c.jump&&!(player.z>0)){player.vz=200;SFX.noise(.06,700,.12)}
   if(player.z>0||player.vz>0){player.vz-=600*dt;player.z=Math.max(0,(player.z||0)+player.vz*dt);if(player.z===0){player.vz=0;player.anim+=2}}
-  const sp=c.sprint?185:125;
+  const sp=(c.sprint?185:125)*(isShallow(player.x,player.y)?.6:1);
   if(c.tank){if(mouse.aim){const f=c.fwd*(c.fwd>0?.7:.55),r=c.turn*.62,ca=Math.cos(player.a),sa=Math.sin(player.a);c.mx=ca*f-sa*r;c.my=sa*f+ca*r}   // aiming down sights: WASD strafes, the mouse turns you
     else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
@@ -1643,6 +1669,19 @@ function airMesh(p){const T=G3.T,yaw=new T.Group(),pit=new T.Group(),roll=new T.
 // Two teams kick the ball around the G while you're nearby: the ball carrier runs at goal, then kicks to a team-mate
 // (or has a shot when close enough); whoever is nearest where it lands marks it. A goal is six points.
 const FOOTY={on:false,pl:[],ball:null,score:[0,0]};
+// runners: a crowd going round the Tan (anticlockwise, as the Tan is run) and training on the Collingwood track
+const RUN={loops:[],pl:[],near:false};
+const RUN_TOPS=['#ff5a36','#2f7de1','#f4f4f4','#1b1b1b','#e8d83a','#ff4fa3','#36c28a','#8a5cf0','#0b7a7a','#c0392b'];
+function runLoop(flat){const pts=[],cum=[0];for(let i=0;i<flat.length;i+=2)pts.push([flat[i],flat[i+1]]);for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));return{pts,cum,len:cum[cum.length-1]}}
+function loopAt(L,s){s=((s%L.len)+L.len)%L.len;let lo=0,hi=L.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(L.cum[m]<=s)lo=m;else hi=m}const a=L.pts[lo],b=L.pts[hi],t=(s-L.cum[lo])/Math.max(1e-6,L.cum[hi]-L.cum[lo]);
+  const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;return{x:a[0]+dx*t,y:a[1]+dy*t,dx:dx/l,dy:dy/l}}
+function initRunners(){RUN.loops=[];RUN.pl=[];if(TAN_LOOP)RUN.loops.push({L:runLoop(TAN_LOOP),n:46,w:10});if(TRACK)RUN.loops.push({L:runLoop(TRACK.lanes[3]),n:14,w:TRACK.lw*2.5});
+  RUN.loops.forEach((lp,k)=>{for(let i=0;i<lp.n;i++){const male=R()<.55;RUN.pl.push({loop:k,s:R()*lp.L.len,v:rr(115,175)*(k?1.15:1),off:rr(-lp.w,lp.w),x:0,y:0,a:0,anim:R()*9,kind:'civ',runner:true,dead:false,
+    shirt:pick(RUN_TOPS),skin:pick(SKIN),hair:pick(HAIR),male,bald:male&&R()<.3})}})}
+function updateRunners(dt){if(!player)return;if(!RUN.pl.length)initRunners();RUN.near=false;
+  for(const p of RUN.pl){const lp=RUN.loops[p.loop],c=loopAt(lp.L,0);const d=Math.hypot(player.x-lp.L.pts[0][0],player.y-lp.L.pts[0][1]);if(d>2600)continue;RUN.near=true;
+    p.s+=p.v*dt;const q=loopAt(lp.L,p.s);p.x=q.x-q.dy*p.off;p.y=q.y+q.dx*p.off;p.a=Math.atan2(q.dy,q.dx);p.anim+=dt*14}}
+function drawRunners(vis){if(!RUN.near)return;for(const p of RUN.pl)if(p.x&&vis(p.x,p.y))drawPed(p)}
 function initFooty(){const M=MCG;FOOTY.pl=[];
   for(let t=0;t<2;t++)for(let i=0;i<8;i++){const ox=(i%4-1.5)*.42,oy=(Math.floor(i/4)-.5)*.75;
     FOOTY.pl.push({team:t,x:M.x+ox*M.rx*.55,y:M.y+oy*M.ry*.55,ox,oy,a:t?PI:0,anim:R()*9,shirt:t?'#1b2f6b':'#8a1222',stripes:true,skin:pick(SKIN),hair:pick(HAIR),kind:'footy',dead:false})}
@@ -1773,7 +1812,7 @@ function update(dt){
   // car-car collisions
   for(let i=0;i<cars.length;i++){const a=cars[i];for(let j=i+1;j<cars.length;j++){const b=cars[j];
     const lim=(a.L+b.L)/2+4;if(Math.abs(a.x-b.x)>lim||Math.abs(a.y-b.y)>lim)continue;collideCars(a,b)}}
-  updatePeds(dt);updateBullets(dt);updateAir(dt);updateFooty(dt);updateFlames(dt);updateTrains(dt);updateBoats(dt);
+  updatePeds(dt);updateBullets(dt);updateAir(dt);updateFooty(dt);updateRunners(dt);updateFlames(dt);updateTrains(dt);updateBoats(dt);
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.life-=dt;if(p.life<=0){parts.splice(i,1);continue}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;if(p.grow)p.size+=p.grow*dt*10}
   if(parts.length>500)parts.splice(0,parts.length-500);
   // wanted decay
@@ -1846,7 +1885,7 @@ function render(){
   if(!player.car&&!player.ride&&deadT<=0)drawPedJump();else if(!player.car&&deadT>0)drawPed({...player,dead:true},true);
   for(const c of cars)if(vis(c.x,c.y,80))drawCarShadow(c);
   for(const c of cars)if(vis(c.x,c.y,80)){if(c.ug)ctx.globalAlpha=.35;drawCar(c);ctx.globalAlpha=1}
-  drawBoats(vis);drawTrains(vis);drawFooty(vis);drawFlames(vis);
+  drawBoats(vis);drawTrains(vis);drawFooty(vis);drawRunners(vis);drawFlames(vis);
   for(const p of AIR)if(vis(p.x,p.y,260))drawAircraft(p);
   ctx.fillStyle='#ffe9a0';for(const b of bullets){if(b.rocket){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(Math.atan2(b.vy,b.vx));ctx.fillStyle='#4a5a3a';ctx.fillRect(-7,-2.5,14,5);ctx.fillStyle='#ff9a1f';ctx.fillRect(-11,-2,4,4);ctx.restore();ctx.fillStyle='#ffe9a0'}else ctx.fillRect(b.x-1.5,b.y-1.5,3,3)}
   for(const p of parts){if(!vis(p.x,p.y))continue;ctx.globalAlpha=clamp(p.life/p.max,0,1)*.9;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,TAU);ctx.fill()}
@@ -2062,7 +2101,7 @@ function init3D(){
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
     const mt=new T.CanvasTexture(buildMini(true));
     const base=new T.Mesh(new T.PlaneGeometry(W*TS,H*TS).rotateX(-PI/2),new T.MeshLambertMaterial({map:mt,alphaTest:.5}));base.position.set(W*TS/2,-170,H*TS/2);sc.add(base);   // far backdrop, sunk below the tunnels
-    G3.waterTex=waterNormals();G3.waterMat=new T.MeshPhongMaterial({color:'#1f5c88',specular:'#6f9ab5',shininess:55,normalMap:G3.waterTex,normalScale:new T.Vector2(.35,.35),transparent:true,opacity:.95});
+    G3.waterTex=waterNormals();G3.waterTex.repeat.set(7,7);G3.waterMat=new T.MeshStandardMaterial({color:'#18506f',roughness:.16,metalness:.05,normalMap:G3.waterTex,normalScale:new T.Vector2(.3,.3),envMapIntensity:.75,transparent:true,opacity:.94});   // glossy: mirrors the sky, sun glints on the ripples
     const seaTex=G3.waterTex.clone();seaTex.needsUpdate=true;seaTex.repeat.set(140,140);G3.seaTex=seaTex;
     // water surfaces only where there is water (the bay, lakes, rivers, and open sea past the map), so tunnel trenches can dip below water level elsewhere
     {const pos=[],uv=[],Y=-3,tri=(ax,ay,bx,by,cx,cy)=>{if((by-ay)*(cx-ax)-(bx-ax)*(cy-ay)<0){[bx,by,cx,cy]=[cx,cy,bx,by]}pos.push(ax,Y,ay,bx,Y,by,cx,Y,cy);uv.push(ax/420,ay/420,bx/420,by/420,cx/420,cy/420)};
@@ -2074,7 +2113,7 @@ function init3D(){
         for(let i=0;i<f.length;i+=2)for(let k=0;k<10;k++){const a0=k/10*TAU,a1=(k+1)/10*TAU;tri(f[i],f[i+1],f[i]+Math.cos(a0)*30,f[i+1]+Math.sin(a0)*30,f[i]+Math.cos(a1)*30,f[i+1]+Math.sin(a1)*30)}}
       const M=60000;poly([new T.Vector2(-M,-M),new T.Vector2(M,-M),new T.Vector2(M,M),new T.Vector2(-M,M)],[[new T.Vector2(0,0),new T.Vector2(0,MAP.h),new T.Vector2(MAP.w,MAP.h),new T.Vector2(MAP.w,0)]]);
       const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('normal',new T.Float32BufferAttribute(new Float32Array(pos.length).map((v,i)=>i%3===1?1:0),3));
-      const sea=new T.Mesh(g,new T.MeshPhongMaterial({color:'#1b5784',specular:'#6f9ab5',shininess:60,normalMap:G3.waterTex,normalScale:new T.Vector2(.38,.38)}));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
+      const sea=new T.Mesh(g,new T.MeshStandardMaterial({color:'#164f74',roughness:.14,metalness:.05,normalMap:G3.seaTex,normalScale:new T.Vector2(.4,.4),envMapIntensity:.8}));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
     G3.pm=new T.InstancedMesh(G3.ico,new T.MeshBasicMaterial({color:0xffffff}),900);G3.pm.frustumCulled=false;
     G3.dm=new T.InstancedMesh(G3.disc,new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),200);G3.dm.frustumCulled=false;
     const wc=new T.Color(1,1,1);for(let i=0;i<900;i++)G3.pm.setColorAt(i,wc);for(let i=0;i<200;i++)G3.dm.setColorAt(i,wc);
@@ -2093,22 +2132,22 @@ async function initAO(){if(isTouch||cw<900||G3.aoTried||+THREE.REVISION<150||!wi
   try{const A=n=>THREE_ADDON('postprocessing/'+n),[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(A));
     const T=THREE,comp=new EffectComposer(G3.r);comp.addPass(new RenderPass(G3.sc,G3.cam));
     const ao=new GTAOPass(G3.sc,G3.cam,cw,chh);ao.updateGtaoMaterial({radius:AO.radius,distanceExponent:1.4,thickness:AO.thick,scale:1,samples:12});ao.blendIntensity=AO.blend;comp.addPass(ao);
-    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.28,.5,.9);comp.addPass(bloom);comp.addPass(new OutputPass());
+    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.12,.4,.95);comp.addPass(bloom);comp.addPass(new OutputPass());
     const{ShaderPass}=await A('ShaderPass');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);glEl.style.filter='';
     Object.assign(G3,{comp,ao,bloom,aoSlow:0})}
   catch(e){console.warn('post-processing unavailable',e)}}
 const AO={radius:26,thick:14,blend:.85};
 // the look: a GTA-style grade. Muted colour, an S-curve for contrast and deep shadows, warm highlights over cool shadows,
 // and a soft vignette. As a shader pass on desktop; phones and the no-post path get the nearest CSS filter.
-const GRADE_CSS='contrast(1.25) saturate(.8) sepia(.1) brightness(.92)';
+const GRADE_CSS='contrast(1.08) saturate(1.02) sepia(.04)';
 const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
   void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));
-    c=mix(vec3(l),c,.78);                                            // desaturate
-    c=c*.9+.045;                                                     // lift the blacks so night stays readable
-    c=clamp((c-.46)*1.32+.46,0.,1.);c=c*c*(3.-2.*c)*.45+c*.55;            // contrast and an S-curve
-    vec3 warm=vec3(1.06,1.0,.88),cool=vec3(.9,.97,1.08);c*=mix(cool,warm,smoothstep(.15,.75,l));   // split tone
-    vec2 d=vUv-.5;c*=1.-dot(d,d)*.8;                                  // vignette
+    c=mix(vec3(l),c,1.1);                                            // a little extra colour
+    c=c*.96+.02;                                                     // lift the blacks a little so night stays readable
+    c=clamp((c-.45)*1.18+.45,0.,1.);c=c*c*(3.-2.*c)*.3+c*.7;            // contrast and an S-curve
+    vec3 warm=vec3(1.05,1.01,.93),cool=vec3(.95,.99,1.05);c*=mix(cool,warm,smoothstep(.15,.75,l));   // split tone
+    vec2 d=vUv-.5;c*=1.-dot(d,d)*.4;                                  // vignette
     gl_FragColor=vec4(c,1.);}`};
 function present3D(dt){if(G3.comp){const t0=performance.now();G3.comp.render(dt);
     // a slow machine: drop the effect rather than the frame rate
@@ -2303,7 +2342,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 53';
+const BUILD='Build 54';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2448,10 +2487,10 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
 const GUN_LEN={pistol:4.6,uzi:7,shotgun:12.5,rifle:12.5,rpg:15},GUNM={};
 const pmatCache={};
 function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
-  const key=armed?'adventurer':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
+  const key=armed?'adventurer':p.bald||p.male?'worker':p.male===false?'woman':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
   const m=THREE.SkeletonUtils.clone(tp.scene),k=25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
   const top=isPl?'#ff4fa3':kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
-    bottom=isPl?'#2b3550':kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?'#ff4fa3':p.hair||'#2a1b10',skin:p.skin||'#e0b090'},M=PMATS[key];
+    bottom=isPl?'#2b3550':kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?'#ff4fa3':p.bald?(p.skin||'#e0b090'):p.hair||'#2a1b10',skin:p.skin||'#e0b090'},M=PMATS[key];
   m.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];
     o.material=mats.map(mt=>{for(const part in M)if(M[part].includes(mt.name)){const ck=key+mt.name+cols[part];if(!pmatCache[ck]){const c=mt.clone();c.color.set(cols[part]);pmatCache[ck]=c}return pmatCache[ck]}return mt});
     if(o.material.length===1)o.material=o.material[0]});
@@ -2459,12 +2498,15 @@ function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==
   const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
   if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
-  let hand=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o});let gun=null;
+  let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
+  if(p.bald&&head){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
+    b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
   if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
     for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
   else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
   g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
+const BEARD=['#3a2a1e','#5a4030','#7a6a5a','#2a1b10','#9a8a7a'];
 const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
 function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?'#ff4fa3':p.shirt,isPl?'#e8b896':p.skin,isPl?'#ff4fa3':p.hair,isPl?'pl':p.kind,!isPl&&p.stripes)}
 // pick the animation from what the person is doing, cross-fading between them
@@ -2509,6 +2551,7 @@ function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt
   for(const p of peds){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
   if(!player.car&&!player.ride&&started){if(!G3.pl||G3.pl.userData.ver!==PEOPLE.ver&&PEOPLE.ver){G3.pl=personMesh(player,true);castAll(G3.pl);G3.pl.userData.ver=PEOPLE.ver}syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
   for(const p of pickups){if(p.t>0||p.dead)continue;if(!p.m3){const ic=PICK_ICON[p.kind];p.m3=sprite(iconMat(ic[0],ic[1],ic[2]),14)}p.m3.position.set(p.x,groundY(p.x,p.y)+12+Math.sin(gameT*5+p.x)*2,p.y);touch(p.m3)}
+  if(RUN.near)for(const p of RUN.pl){if(!p.x||Math.abs(p.x-G3.cam.position.x)>1400||Math.abs(p.y-G3.cam.position.z)>1400)continue;if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
   if(FOOTY.near){for(const p of FOOTY.pl){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
     if(!G3.ball){G3.ball=new T.Mesh(G3.sph,new T.MeshLambertMaterial({color:'#8a3d17'}));G3.ball.scale.set(3.4,2.2,2.2);G3.ball.castShadow=true}const B=FOOTY.ball;
     G3.ball.position.set(B.x,groundY(B.x,B.y)+B.z,B.y);G3.ball.rotation.y=-gameT*3;G3.ball.rotation.z=gameT*9;touch(G3.ball)}
@@ -2571,7 +2614,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     if(!(pc&&pc.ug))for(let k=8;k<=dd+8;k+=4)if(wall(pp.x-Math.cos(yw)*k+sx,pp.y-Math.sin(yw)*k+sz)){cd=Math.max(10,k-10);break}
     G3.camD=G3.camD==null||cd<G3.camD?cd:lerp(G3.camD,cd,Math.min(1,dt*2.5));const cdd=G3.camD,up=(dd-cdd)*.25;   // snap in, ease back out
     const gy=pc?carY(pc):pedY(pp);c3.position.set(pp.x-Math.cos(yw)*cdd+sh+sx,h2+up+sh+gy,pp.y-Math.sin(yw)*cdd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
-    G3.sc.fog.near=900*WX.fog**1.6;G3.sc.fog.far=2600*(.13+.87*WX.fog);G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];
+    G3.sc.fog.near=1500*WX.fog**1.6;G3.sc.fog.far=4400*(.1+.9*WX.fog);G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];
     // driving under an overpass: hide it while the camera passes through, so it never blocks the view
     for(const v of G3.ovp||[]){const o=v.o,r=o.half+230,dc=Math.hypot(c3.position.x-o.x,c3.position.z-o.y),dp=Math.hypot(pp.x-o.x,pp.y-o.y);
       v.m.visible=!((dc<r||dp<r)&&gy<o.top-12)}}
@@ -2581,7 +2624,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     G3.sc.fog.near=hh*2.4;G3.sc.fog.far=hh*5;G3.focus=[cam.x,cam.y-hh*.2,hh*1.5+250]}
   c3.aspect=asp;c3.updateProjectionMatrix();
   const fx=G3.focus[0],fz=G3.focus[1];if(!TC.a){TC.a=new G3.T.Color();TC.b=new G3.T.Color();TC.c=new G3.T.Color()}updateTOD(dt,fx,fz);
-  if(G3.waterTex){const t=gameT;G3.waterTex.offset.set(t*.018,t*.011);G3.seaTex.offset.set(t*.4,t*.25)}
+  if(G3.waterTex){const t=gameT;G3.waterTex.offset.set(t*.018+Math.sin(t*.3)*.01,t*.011);G3.waterTex.rotation=Math.sin(t*.05)*.2;G3.seaTex.offset.set(t*.4,t*.25);G3.seaTex.rotation=-Math.sin(t*.04)*.15;const k=.28+.2*WX.rain+.06*Math.sin(t*.7);G3.waterMat.normalScale.set(k,k)}
   G3.occ.uCam.value.copy(c3.position);G3.occ.uTarget.value.set(pp.x,12,pp.y);G3.occ.uRad.value=view==='chase'?38:70}
 // time of day: two real minutes per game hour (Y skips ahead two hours); a Melbourne summer day, sunrise 6am, sunset 8pm. The sun crosses the northern sky (southern
 // hemisphere), the sky, haze, light colours and exposure follow it, and after dusk windows, lamps and car lights come on.
@@ -2596,7 +2639,7 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
   if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=G3.LU*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
   const fog=TC.b.set('#28324a').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=1.2-.42*day;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
+  G3.r.toneMappingExposure=1.2-.25*day;if(G3.bloom)G3.bloom.strength=.12+.3*night;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
   if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
     if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=3.2+16*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
       G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:null;TOD.envCl=cl;if(old&&old!==G3.sc.environment&&old.dispose)old.dispose()}}
@@ -2801,7 +2844,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
