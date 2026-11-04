@@ -59,6 +59,84 @@ CHARACTERS = {
         outfit=[("tee", dict(col="#141416", print="melb_run")), ("run_shorts", dict(col="#111113")),
                 ("sneakers", dict(col="#f2f2f2", sole="#f4f4f4", trim="#ff6a2a"))],
         underwear=[("briefs", dict(col="#1c1c1e"))]),
+    # ---- STAGE 4: the rest of Melbourne
+    "tradie_dazza": dict(   # tradie in his 30s: Victorian hi-vis, cargo work shorts, steel caps, tool belt, cap and sunnies
+        sex="male", seed=51,
+        targets={"universal-male-young-maxmuscle-averageweight": .5, "universal-male-young-averagemuscle-maxweight": .3,
+                 "universal-male-young-averagemuscle-averageweight": .2, "caucasian-male-young": 1, "male-young-averagemuscle-averageweight-idealproportions": .7},
+        skin="#b97a52", lips="#9a5e4c", brows="#4a3220", hair_col="#5a3b22", eye="#4f6f8f", stubble=.85, blush=.25, hair="crop", tattoo=["forearm_r"],
+        outfit=[("hivis", dict(col="#ff6a13")), ("cargo_shorts", dict(col="#1f2a44")), ("work_boots", dict(col="#6b4a2e")),
+                ("toolbelt", dict(col="#5a3a22")), ("cap", dict(col="#1f2a44")), ("sunglasses", {})],
+        underwear=[("briefs", dict(col="#2b3550"))]),
+    "student_minh": dict(   # uni student, about 20: hoodie, jeans, backpack
+        sex="male", seed=61,
+        targets={"universal-male-young-averagemuscle-minweight": .6, "universal-male-young-minmuscle-averageweight": .4, "asian-male-young": 1},
+        skin="#d9b08c", lips="#b07a66", brows="#151210", hair_col="#151210", eye="#3a2a1e", stubble=0, blush=.12, hair="crop",
+        outfit=[("hoodie", dict(col="#3a3d42")), ("jeans", dict(col="#7b9cc4")), ("sneakers", dict(col="#f2f2f2", sole="#e8e8e8", trim="#f2f2f2")),
+                ("backpack", dict(col="#2a2f3a"))],
+        underwear=[("briefs", dict(col="#2b2b2e"))]),
+    "student_amara": dict(  # uni student, about 20: graphic tee, jeans, bun, backpack
+        sex="female", seed=67,
+        targets={"universal-female-young-averagemuscle-averageweight": .7, "universal-female-young-averagemuscle-minweight": .3,
+                 "african-female-young": .85, "caucasian-female-young": .15, "female-young-averagemuscle-averageweight-idealproportions": .6},
+        skin="#7a4a30", lips="#6a3a2c", brows="#1a1210", hair_col="#1a1210", eye="#2a1a12", stubble=0, blush=.1, hair="bun",
+        outfit=[("tee", dict(col="#f2efe8", print="southerly")), ("jeans", dict(col="#2e3b55")), ("sneakers", dict(col="#f4f4f4", sole="#ececec", trim="#c46a3a")),
+                ("backpack", dict(col="#c46a3a"))],
+        underwear=[("briefs", dict(col="#1c1c1e")), ("bra", dict(col="#1c1c1e"))]),
+    "gym_jono": dict(       # fitness bloke: training singlet, shorts, watch
+        sex="male", seed=71,
+        targets={"universal-male-young-maxmuscle-minweight": .6, "universal-male-young-maxmuscle-averageweight": .4,
+                 "caucasian-male-young": .5, "african-male-young": .5, "male-young-averagemuscle-averageweight-idealproportions": 1},
+        skin="#9a6444", lips="#7a4a3a", brows="#1a120c", hair_col="#1a120c", eye="#3a2a1e", stubble=.45, blush=.1, hair="crop",
+        outfit=[("singlet", dict(col="#d23b2a")), ("run_shorts", dict(col="#141416")), ("sneakers", dict(col="#1a1a1a", sole="#f2f2f2", trim="#ff6a2a")),
+                ("watch", {})],
+        underwear=[("briefs", dict(col="#141416"))]),
+    "gym_kayla": dict(      # fitness: sports crop, leggings, ponytail
+        sex="female", seed=73,
+        targets={"universal-female-young-averagemuscle-minweight": .6, "universal-female-young-maxmuscle-minweight": .4, "caucasian-female-young": 1,
+                 "female-young-averagemuscle-averageweight-idealproportions": 1},
+        skin="#e0b48f", lips="#c07a6a", brows="#3a2416", hair_col="#3a2416", eye="#4f6f5a", stubble=0, blush=.28, hair="ponytail",
+        outfit=[("bra", dict(col="#2f6bd8")), ("leggings", dict(col="#141416")), ("sneakers", dict(col="#f2f2f2", sole="#f4f4f4", trim="#ff4fa3")),
+                ("watch", {})],
+        underwear=[("briefs", dict(col="#141416"))]),
+    "street_kai": dict(     # Melbourne streetwear: black graphic tee, cargo pants, cap backwards, chain
+        sex="male", seed=79,
+        targets={"universal-male-young-averagemuscle-minweight": .7, "universal-male-young-averagemuscle-averageweight": .3,
+                 "asian-male-young": .5, "caucasian-male-young": .5},
+        skin="#c99a72", lips="#a06a58", brows="#0f0d0c", hair_col="#0f0d0c", eye="#2a1e14", stubble=.2, blush=.1, hair="crop", tattoo=["calf_l"],
+        outfit=[("tee", dict(col="#141416", print="yarra_rats")), ("cargo_pants", dict(col="#4b5240")),
+                ("sneakers", dict(col="#f4f4f4", sole="#e0e0e0", trim="#141416")), ("cap", dict(col="#141416", back=True)), ("chain", {})],
+        underwear=[("briefs", dict(col="#141416"))]),
+    "old_bruce": dict(      # older suburban bloke at the footy: jumper over a long-sleeve, slacks, scarf and beanie
+        sex="male", seed=83,
+        targets={"universal-male-old-averagemuscle-averageweight": .5, "universal-male-old-averagemuscle-maxweight": .5, "caucasian-male-old": 1},
+        skin="#d6a184", lips="#a8705e", brows="#b9b4ae", hair_col="#b9b4ae", eye="#5a7a9a", stubble=.35, blush=.35, hair="crop",
+        outfit=[("longsleeve", dict(col="#f2f2f2")), ("footy_jumper", dict(col="#1d2b5c", col2="#f2f2f2")), ("work_pants", dict(col="#c2b38f")),
+                ("work_boots", dict(col="#3a2a1e")), ("scarf", dict(col="#1d2b5c", col2="#f2f2f2")), ("beanie", dict(col="#1d2b5c"))],
+        underwear=[("briefs", dict(col="#3b3f45"))]),
+    "old_marg": dict(       # older suburban woman in a Melbourne rain jacket
+        sex="female", seed=89,
+        targets={"universal-female-old-averagemuscle-averageweight": .6, "universal-female-old-minmuscle-maxweight": .4, "caucasian-female-old": 1},
+        skin="#e6c0a4", lips="#b07a70", brows="#c8c2bc", hair_col="#d8d2cc", eye="#5a6a7a", stubble=0, blush=.3, hair="short",
+        outfit=[("jacket", dict(col="#e8b500", weave="nylon")), ("work_pants", dict(col="#2b3550")),
+                ("sneakers", dict(col="#f2f2f2", sole="#f2f2f2", trim="#9aa0a8"))],
+        underwear=[("briefs", dict(col="#5a5a60")), ("bra", dict(col="#5a5a60"))]),
+    "night_jess": dict(     # night out on Chapel Street: black satin slip dress, ankle boots, long hair
+        sex="female", seed=97,
+        targets={"universal-female-young-averagemuscle-minweight": .7, "universal-female-young-averagemuscle-averageweight": .3,
+                 "caucasian-female-young": .6, "asian-female-young": .4, "female-young-averagemuscle-averageweight-idealproportions": 1},
+        skin="#e8c0a0", lips="#b2333a", brows="#2a1a12", hair_col="#2a1a12", eye="#3a2a1e", stubble=0, blush=.32, hair="long",
+        outfit=[("dress", dict(col="#0d0d10", hem=.5)), ("work_boots", dict(col="#141416")), ("chain", {})],
+        underwear=[("briefs", dict(col="#0d0d10")), ("bra", dict(col="#0d0d10"))]),
+    "gang_tama": dict(      # street gang: black hoodie, striped trackies, beanie, chain, tattoos
+        sex="male", seed=101,
+        targets={"universal-male-young-maxmuscle-averageweight": .6, "universal-male-young-averagemuscle-maxweight": .4,
+                 "african-male-young": .35, "caucasian-male-young": .65},
+        skin="#8a5a3c", lips="#6a4030", brows="#0f0c0a", hair_col="#0f0c0a", eye="#2a1a12", stubble=.9, blush=.1, hair="crop",
+        tattoo=["sleeve_r", "sleeve_l", "neck"],
+        outfit=[("hoodie", dict(col="#121214")), ("trackpants", dict(col="#141416", stripe="#f2f2f2")),
+                ("sneakers", dict(col="#f4f4f4", sole="#f4f4f4", trim="#141416")), ("beanie", dict(col="#141416")), ("chain", {})],
+        underwear=[("briefs", dict(col="#141416"))]),
     "aussie_girl": dict(
         sex="female", seed=23,
         targets={"universal-female-young-averagemuscle-averageweight": .75, "universal-female-young-averagemuscle-minweight": .25,
@@ -74,7 +152,7 @@ SOLE = .022   # sneaker sole height: the whole character stands this much higher
 
 
 # ------------------------------------------------------------------ small helpers
-def mat(name, col, rough=.6, metal=0., image=None, alpha=None, normal_strength=None, sss=0.):
+def mat(name, col, rough=.6, metal=0., image=None, alpha=None, normal_strength=None, sss=0., tint=None):
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
@@ -89,11 +167,25 @@ def mat(name, col, rough=.6, metal=0., image=None, alpha=None, normal_strength=N
     if image:
         t = nt.nodes.new("ShaderNodeTexImage")
         t.image = image if isinstance(image, bpy.types.Image) else bpy.data.images.load(image)
-        nt.links.new(t.outputs["Color"], b.inputs["Base Color"])
+        if tint:   # image x colour: glTF exports the colour as baseColorFactor, so the game can recolour the garment
+            mx = nt.nodes.new("ShaderNodeMix")
+            mx.data_type, mx.blend_type = "RGBA", "MULTIPLY"
+            mx.inputs["Factor"].default_value = 1.
+            mx.inputs["B"].default_value = (*srgb(tint), 1)
+            nt.links.new(t.outputs["Color"], mx.inputs["A"])
+            nt.links.new(mx.outputs["Result"], b.inputs["Base Color"])
+        else:
+            nt.links.new(t.outputs["Color"], b.inputs["Base Color"])
         if alpha:
             nt.links.new(t.outputs["Alpha"], b.inputs["Alpha"])
             m.blend_method = "CLIP" if hasattr(m, "blend_method") else None
     return m
+
+
+def cloth(name, weave, col, rough=.82, metal=0.):
+    """A garment material: a neutral fabric weave texture tinted to col. Named Cloth_* so the game can recolour it."""
+    img = textures.fabric(weave, "#e4e4e4", os.path.join(OUT["textures"], "fabric_%s.png" % weave))
+    return mat("Cloth_%s_%s" % (name, col.lstrip("#")), "#ffffff", rough=rough, metal=metal, image=img, tint=col)
 
 
 def smooth01(a, b, x):
@@ -184,7 +276,7 @@ def hair_depth(p, F, style, J):
     if style == "bald" or p.z < E.z - .1:
         return -1.
     ry = p.y - E.y
-    if style == "crop":
+    if style in ("crop", "short"):
         front = E.z + .05 - .012 * smooth01(.025, .06, abs(p.x))                 # hairline, receding a touch at the temples
         side = E.z + .012 + .012 * (1 - smooth01(.035, .07, ry))                  # above the ear, down to sideburns
         back = E.z - .075 + .06 * (1 - smooth01(.06, .1, ry))                    # nape
@@ -219,6 +311,24 @@ def paint_skin(body, F, C, J):
     me = hi.data
     m1 = me.color_attributes.new("mask1", "FLOAT_COLOR", "POINT")   # R lips, G brows, B stubble
     m2 = me.color_attributes.new("mask2", "FLOAT_COLOR", "POINT")   # R scalp, G blush, B eye shadow / socket
+    m3 = me.color_attributes.new("mask3", "FLOAT_COLOR", "POINT")   # R tattoo regions
+    fitT = Fit(J, F)
+    tat = set(C.get("tattoo", ()))
+
+    def tattoo(p):
+        t, s_ = fitT.arm_t(p), (1 if p.x > 0 else -1)
+        v = 0.
+        if ("sleeve_r" in tat and s_ < 0 or "sleeve_l" in tat and s_ > 0) and .15 < t < 1.9:
+            v = 1.
+        if ("forearm_r" in tat and s_ < 0) and 1.1 < t < 1.85:
+            v = 1.
+        if "neck" in tat and t < 0 and fitT.neck - .02 < p.z < F.chin - .01 and abs(p.x) < .06:
+            v = 1.
+        if "chest" in tat and t < 0 and fitT.neck - .2 < p.z < fitT.neck - .07 and p.y < J["neck"].y and .03 < abs(p.x) < .14:
+            v = 1.
+        if ("calf_l" in tat and s_ > 0 or "calf_r" in tat and s_ < 0) and t < 0 and 1.15 < fitT.leg_t(p) < 1.7:
+            v = 1.
+        return v
     E, M = F.E, F.mouth
     for v in me.vertices:
         p = v.co
@@ -253,6 +363,7 @@ def paint_skin(body, F, C, J):
             shadow = max(shadow, math.exp(-(d / .02) ** 2) * front)
         m1.data[v.index].color = (lips, brows, stub, 1)
         m2.data[v.index].color = (scalp, blush * C["blush"] / .2, shadow, 1)
+        m3.data[v.index].color = (tattoo(p) if tat else 0., 0, 0, 1)
 
     # bake material: emission = the colour we want, built from the masks and object-space noise
     bm = bpy.data.materials.new("bake_" + body.name)
@@ -328,6 +439,20 @@ def paint_skin(body, F, C, J):
     col = mix(col, rgb(textures.blend(C["hair_col"], "#20160f", .5)), mathn("MINIMUM", st, None, .85))
     # scalp under the hair takes the hair colour so no skin shows through gaps
     col = mix(col, rgb(textures.shade(C["hair_col"], -.2)), mathn("MULTIPLY", s2.outputs["Red"], v=.95))
+    if C.get("tattoo"):   # ink: bold swirling linework from wave and noise patterns inside the tattoo regions
+        a3 = N("ShaderNodeAttribute"); a3.attribute_name = "mask3"
+        s3 = N("ShaderNodeSeparateColor"); nt.links.new(a3.outputs["Color"], s3.inputs[0])
+        wv = N("ShaderNodeTexWave")
+        wv.wave_type = "RINGS"
+        wv.inputs["Scale"].default_value = 28
+        wv.inputs["Distortion"].default_value = 9
+        wv.inputs["Detail"].default_value = 3
+        nt.links.new(tc.outputs["Object"], wv.inputs["Vector"])
+        ramp = N("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].position, ramp.color_ramp.elements[1].position = .62, .72
+        nt.links.new(wv.outputs["Fac"], ramp.inputs[0])
+        ink = mathn("MULTIPLY", s3.outputs["Red"], ramp.outputs["Color"])
+        col = mix(col, rgb("#1d2430"), mathn("MULTIPLY", ink, v=.85))
     nt.links.new(col, em.inputs["Color"])
 
     img = bpy.data.images.new("skin_" + body.name, 2048, 2048)
@@ -426,6 +551,8 @@ def hair(body, F, C, J):
     if C["hair"] != "bald":
         if C["hair"] == "crop":     # short back and sides, longer on top with a bit of lift at the front
             lift = lambda p: .0015 + .009 * top(p) + .004 * top(p) * front(p)
+        elif C["hair"] == "short":  # a full short cut: volume all over, curled (older women)
+            lift = lambda p: .008 + .012 * top(p) + .004 * front(p)
         else:                       # pulled back: sleek, with a little volume on the crown
             lift = lambda p: .0045 + .011 * top(p) + .003 * front(p)
         lift.shade = lambda c: .82 + .3 * smooth01(E.z, F.head_top, c.z)   # lighter tips on top, darker at the roots
@@ -433,8 +560,8 @@ def hair(body, F, C, J):
         parts.append(grow_shell(body, "hair", lambda p: hair_depth(p, F, C["hair"], J), lift, amp, C, C["hair_col"], "y", C["hair"]))
     if C.get("beard"):
         parts.append(beard(body, F, C))
-    if C["hair"] == "ponytail":   # the tail has its own UVs, so a plain hair-coloured material rather than the baked map
-        parts += ponytail(F, C, mat("Ponytail_" + C["hair_col"].lstrip("#"), textures.shade(C["hair_col"], -.05), rough=.6))
+    if C["hair"] in ("ponytail", "long", "bun"):   # the tail has its own UVs, so a plain hair-coloured material rather than the baked map
+        parts += ponytail(F, C, mat("Ponytail_" + C["hair_col"].lstrip("#"), textures.shade(C["hair_col"], -.05), rough=.6), C["hair"])
     return parts
 
 
@@ -537,30 +664,43 @@ def hair_mat(C, flow="y"):
     return m
 
 
-def ponytail(F, C, hm):
-    """A high ponytail: a tapered tube swept back and down from the crown, with a hair tie."""
+def ponytail(F, C, hm, style="ponytail"):
+    """Hair beyond the scalp: a high ponytail (a tapered tube swept back and down, with a hair tie), long loose hair
+    (a wide flat fall down the back to the shoulder blades), or a bun (a knot at the back of the crown)."""
     E = F.E
     root = Vector((0, F.head_back - .018, E.z + .062))
     pts = [root, root + Vector((0, .045, -.005)), root + Vector((0, .07, -.07)), root + Vector((0, .06, -.15)), root + Vector((0, .045, -.23))]
+    if style == "bun":
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=10, radius=.042, location=root + Vector((0, .03, .005)))
+        o = bpy.context.view_layer.objects.active
+        o.name = "longhair"
+        o.scale = (1.15, .9, .85)
+        bpy.ops.object.transform_apply(scale=True)
+        o.data.materials.append(hm)
+        bpy.ops.object.shade_smooth()
+        return [o]
+    if style == "long":
+        root = Vector((0, F.head_back - .03, E.z + .03))
+        pts = [root, root + Vector((0, .02, -.08)), root + Vector((0, .03, -.17)), root + Vector((0, .02, -.27)), root + Vector((0, .005, -.33))]
     cu = bpy.data.curves.new("ponytail", "CURVE")
     cu.dimensions = "3D"
     sp = cu.splines.new("BEZIER")
     sp.bezier_points.add(len(pts) - 1)
-    for bp, p, r in zip(sp.bezier_points, pts, (1., 1.15, 1.05, .8, .25)):
+    for bp, p, r in zip(sp.bezier_points, pts, (1., 1.15, 1.05, .8, .25) if style != "long" else (1., 1., 1., .95, .7)):
         bp.co = p
         bp.handle_left_type = bp.handle_right_type = "AUTO"
         bp.radius = r
-    cu.bevel_depth = .026
+    cu.bevel_depth = .026 if style != "long" else .045
     cu.bevel_resolution = 3
     cu.resolution_u = 6
     cu.use_fill_caps = True
-    o = bpy.data.objects.new("ponytail", cu)
+    o = bpy.data.objects.new("ponytail" if style != "long" else "longhair", cu)
     bpy.context.collection.objects.link(o)
     bpy.context.view_layer.objects.active = o
     o.select_set(True)
     bpy.ops.object.convert(target="MESH")
     o = bpy.context.view_layer.objects.active
-    o.scale.x = .8
+    o.scale = (.8, 1, 1) if style != "long" else (2.6, .45, 1)
     bpy.ops.object.transform_apply(scale=True)
     ca = o.data.color_attributes.new("Col", "BYTE_COLOR", "POINT")
     base = srgb(C["hair_col"])
@@ -569,6 +709,8 @@ def ponytail(F, C, hm):
         ca.data[v.index].color = (base[0] * k, base[1] * k, base[2] * k, 1)
     o.data.materials.append(hm)
     bpy.ops.object.shade_smooth()
+    if style == "long":
+        return [o]
     bpy.ops.mesh.primitive_torus_add(major_segments=16, minor_segments=6, major_radius=.021, minor_radius=.006, location=pts[1] + Vector((0, -.005, .002)), rotation=(math.radians(80), 0, 0))
     tie = bpy.context.view_layer.objects.active
     tie.name = "hair_tie"
@@ -585,25 +727,34 @@ class Fit:
         self.pel, self.neck = J["pelvis"].z, J["neck"].z
         self.sh = {1: J["l-shoulder"], -1: J["r-shoulder"]}
         self.el = {1: J["l-elbow"], -1: J["r-elbow"]}
+        self.wr = {1: J["l-hand"], -1: J["r-hand"]}
+        self.cover = []   # what the garments made so far cover, for hide_under
         self.hip = {1: J["l-upper-leg"], -1: J["r-upper-leg"]}
         self.knee = {1: J["l-knee"], -1: J["r-knee"]}
         self.ank = {1: J["l-ankle"], -1: J["r-ankle"]}
 
     def arm_t(self, p):
-        """How far along the upper arm a point is (0 shoulder, 1 elbow, >1 forearm); -1 if not on the arm."""
+        """How far along the arm a point is: 0 shoulder, 1 elbow, 2 wrist, more for the hand; -1 if not on the arm."""
         s = 1 if p.x > 0 else -1
-        S, El = self.sh[s], self.el[s]
-        ax = El - S
+        S, El, Wr = self.sh[s], self.el[s], self.wr[s]
+        ax, fa = El - S, Wr - El
         t = (p - S).dot(ax) / ax.length_squared
+        u = (p - El).dot(fa) / fa.length_squared
+        if p.z < self.pel - .12:   # hands never hang below the hips in the rest pose; this is a leg
+            return -1
+        if t > .85 and u > 0:   # past the elbow: along the forearm
+            q = El + fa * min(u, 1.6)
+            if (p - q).length < .075 or abs(p.x) > abs(S.x) * 1.08:
+                return 1 + u
         if abs(p.x) > abs(S.x) * 1.08 and p.z < S.z + .05:
-            return max(t, 0.)
+            return max(min(t, 1.), 0.)
         if t < -.05:
             return -1
-        q = S + ax * min(max(t, 0), 3)
+        q = S + ax * min(max(t, 0), 1.2)
         r = (p - q).length
         if abs(p.x) < abs(S.x) * .8 or r > .09 * (1.2 if t < .2 else 1):
             return -1
-        return t
+        return min(t, 1.)
 
     def leg_t(self, p):
         """0 at the hip joint, 1 at the knee, 2 at the ankle."""
@@ -659,8 +810,7 @@ def garment(kind, body, fit, C, o):
     F, J = fit.F, fit.J
     rnd = random.Random(C["seed"] + len(kind))
     if kind == "tee":
-        cloth = textures.fabric("cotton", o["col"], os.path.join(OUT["textures"], "cotton_%s.png" % o["col"].lstrip("#")))
-        m = mat("Tee_" + o["col"].lstrip("#"), "#ffffff", rough=.85, image=cloth)
+        m = cloth("tee", "cotton", o["col"], .85)
 
         def inc(p):
             t = fit.arm_t(p)
@@ -673,6 +823,7 @@ def garment(kind, body, fit, C, o):
             t = fit.arm_t(p)
             base = .006 + .01 * smooth01(fit.pel + .12, fit.pel - .06, p.z)
             return base + (.008 * smooth01(.1, .4, t) if t >= 0 else 0)
+        fit.cover += [("torso", fit.pel - .085, fit.neck - .03), ("arm", .42)]
         parts = [cut(body, "tee", inc, off, .003, m, smooth=2, decimate=.3, uv_scale=6)]
         if o.get("print"):
             parts.append(chest_print(parts[0], fit, o["print"]))
@@ -680,8 +831,7 @@ def garment(kind, body, fit, C, o):
     if kind == "bra":
         return garment("crop_top", body, fit, C, dict(o, lo=.6, name="bra"))
     if kind == "crop_top":
-        cloth = textures.fabric("rib", o["col"], os.path.join(OUT["textures"], "rib_%s.png" % o["col"].lstrip("#")))
-        m = mat("Crop_" + o["col"].lstrip("#"), "#ffffff", rough=.8, image=cloth)
+        m = cloth("crop", "rib", o["col"], .8)
         lo = fit.pel + o.get("lo", .52) * (fit.neck - fit.pel)
 
         def inc(p):
@@ -698,18 +848,14 @@ def garment(kind, body, fit, C, o):
         return [top] + [strap(body, fit, s, m) for s in (1, -1)]
     if kind in ("cargo_shorts", "denim_shorts", "run_shorts", "briefs"):
         if kind == "cargo_shorts":
-            cloth = textures.fabric("canvas", o["col"], os.path.join(OUT["textures"], "canvas_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .07, .82, .016
         elif kind == "run_shorts":   # light running shorts: loose, mid-thigh, split hem
-            cloth = textures.fabric("cotton", o["col"], os.path.join(OUT["textures"], "cotton_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .05, .42, .012
         elif kind == "denim_shorts":
-            cloth = textures.fabric("denim", o["col"], os.path.join(OUT["textures"], "denim_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .045, .38, .008
         else:
-            cloth = textures.fabric("cotton", o["col"], os.path.join(OUT["textures"], "cotton_%s.png" % o["col"].lstrip("#")))
             top, hem, loose = fit.pel + .06, -.02, 0
-        m = mat(kind + "_" + o["col"].lstrip("#"), "#ffffff", rough=.8, image=cloth)
+        m = cloth(kind, {"cargo_shorts": "canvas", "denim_shorts": "denim"}.get(kind, "cotton"), o["col"], .8)
 
         def inc(p):
             if fit.arm_t(p) >= 0 or p.z > top:
@@ -719,24 +865,253 @@ def garment(kind, body, fit, C, o):
                 return lt < .2 or (abs(p.x) < .06 and p.z > fit.hip[1].z - .13)
             return lt < hem
         off = lambda p: (.004 if kind == "briefs" else .007) + loose * smooth01(0, .8, fit.leg_t(p))
+        if kind != "briefs":
+            fit.cover.append(("leg", -.3, hem))
         parts = [cut(body, kind, inc, off, .003, m, smooth=2, decimate=.32, uv_scale=6)]
         if kind == "cargo_shorts":   # patch pockets on the outer thighs, sewn on a few mm proud of the shorts
             def pocket(p):
                 lt = fit.leg_t(p)
                 s = 1 if p.x > 0 else -1
                 return .33 < lt < .68 and abs(p.y - fit.knee[s].y) < .05 and abs(p.x) > abs(fit.hip[s].x) + .03
-            dark = mat(kind + "_pocket_" + o["col"].lstrip("#"), "#ffffff", rough=.85, image=cloth)
-            dark.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = .9
+            dark = m
             parts.append(cut(body, "pockets", pocket, lambda p: off(p) + .006, .003, dark, smooth=1, decimate=.6, uv_scale=6))
         return parts
     if kind == "sneakers":
         up = mat("SneakerUpper_" + o["col"].lstrip("#"), o["col"], rough=.55)
         so = mat("SneakerSole_" + o["sole"].lstrip("#"), o["sole"], rough=.7)
         tr = mat("SneakerTrim_" + o["trim"].lstrip("#"), o["trim"], rough=.5)
+        fit.cover.append(("foot", fit.ank[1].z + .02))
         return [sneaker(body, fit, s, up, so, tr) for s in (1, -1)]
     if kind == "sunglasses":
         return sunglasses(F)
+    return wardrobe(kind, body, fit, C, o)
+
+
+# ------------------------------------------------------------------ STAGE 3: the wardrobe
+# Every garment is a rule over the body (which part of the surface, how far off the skin, how thick, which fabric),
+# so the same garment fits any character. Colours are material tints (recolourable in the game).
+def top_garment(body, fit, name, sleeve, hem, loose, weave, col, rough=.82, vneck=0., armhole=False, neck_drop=0., dec=.3):
+    """A top: torso from hem (relative to the pelvis) to the neckline, sleeves to arm_t = sleeve (2 = wrist)."""
+    J = fit.J
+
+    def inc(p):
+        t = fit.arm_t(p)
+        if t >= 0:
+            return (not armhole) and t < sleeve
+        if armhole and abs(p.x) > abs(fit.sh[1].x) * .78 and p.z > fit.neck - .2:
+            return False
+        front = p.y < J["neck"].y
+        neckline = fit.neck - neck_drop - (.03 if front else .01) - .012 * (1 - smooth01(.03, .07, abs(p.x)))
+        if front and vneck:
+            neckline -= vneck * (1 - smooth01(0., .06, abs(p.x)))
+        return fit.pel + hem < p.z < neckline
+
+    def off(p):
+        t = fit.arm_t(p)
+        base = .006 + loose + .008 * smooth01(fit.pel + .12, fit.pel - .06, p.z)
+        return base + (loose * .6 * smooth01(.1, .6, t) if t >= 0 else 0)
+    fit.cover += [("torso", fit.pel + hem, fit.neck - neck_drop - .03)] + ([] if armhole else [("arm", sleeve)])
+    return cut(body, name, inc, off, .003, cloth(name, weave, col, rough), smooth=2, decimate=dec, uv_scale=6)
+
+
+def pants_garment(body, fit, name, hem, loose, weave, col, top=.06, rough=.82):
+    """Trousers or leggings: waist (pelvis + top) down to leg_t = hem (1 knee, 2 ankle)."""
+    def inc(p):
+        return fit.arm_t(p) < 0 and p.z < fit.pel + top and fit.leg_t(p) < hem
+    off = lambda p: .007 + loose * smooth01(0, 1.6, fit.leg_t(p))
+    fit.cover.append(("leg", -.3, hem))
+    return cut(body, name, inc, off, .003, cloth(name, weave, col, rough), smooth=2, decimate=.3, uv_scale=6)
+
+
+def band(body, fit, name, inc, off, m, dec=.6):
+    return cut(body, name, inc, off, .002, m, smooth=1, decimate=dec, uv_scale=6)
+
+
+def by_z_stripes(o, period, z0=0.):
+    """Alternate faces between the object's two materials in horizontal bands (footy hoops)."""
+    for poly in o.data.polygons:
+        poly.material_index = int((poly.center.z - z0) / period) % 2
+
+
+def ring(name, center, radius, minor, m, rot=(0, 0, 0), seg=24):
+    bpy.ops.mesh.primitive_torus_add(major_segments=seg, minor_segments=8, major_radius=radius, minor_radius=minor, location=center, rotation=rot)
+    o = bpy.context.view_layer.objects.active
+    o.name = name
+    o.data.materials.append(m)
+    bpy.ops.object.shade_smooth()
+    return o
+
+
+def box_obj(name, size, loc, m, bev=.01):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
+    o = bpy.context.view_layer.objects.active
+    o.name = name
+    o.scale = size
+    bpy.ops.object.transform_apply(scale=True)
+    b = o.modifiers.new("bev", "BEVEL")
+    b.width, b.segments = bev, 2
+    apply_mods(o)
+    o.data.materials.append(m)
+    bpy.ops.object.shade_smooth()
+    return o
+
+
+def neck_ring(body, fit, dz=0.):
+    """Centre and radius of the neck at its base."""
+    z = fit.neck - .02 + dz
+    pts = [v.co for v in body.data.vertices if abs(v.co.z - z) < .012 and abs(v.co.x) < .09 and fit.arm_t(v.co) < 0]
+    c = sum(pts, Vector()) / max(1, len(pts))
+    r = sum(Vector((p.x - c.x, p.y - c.y, 0)).length for p in pts) / max(1, len(pts))
+    return Vector((c.x, c.y, z)), r
+
+
+def wardrobe(kind, body, fit, C, o):
+    F, J, E = fit.F, fit.J, fit.F.E
+    col = o.get("col", "#444444")
+    if kind == "longsleeve":     # plain long-sleeve tee or work shirt
+        return [top_garment(body, fit, "longsleeve", o.get("sleeve", 1.92), -.085, .002, "cotton", col)]
+    if kind == "singlet":
+        return [top_garment(body, fit, "singlet", 0, -.09, .001, o.get("weave", "mesh"), col, armhole=True, neck_drop=.03, vneck=.03)]
+    if kind == "shirt":          # button-up shirt, sleeves rolled to the forearm
+        return [top_garment(body, fit, "shirt", o.get("sleeve", 1.55), -.1, .004, "cotton", col, .7, vneck=.05)]
+    if kind == "hoodie":
+        h = top_garment(body, fit, "hoodie", 1.9, -.11, .016, "fleece", col, .95, dec=.28)
+        c, r = neck_ring(body, fit, .01)
+        hood = ring("hood", c + Vector((0, .035, -.005)), r + .035, .03, cloth("hoodie", "fleece", col, .95), rot=(math.radians(14), 0, 0))
+        hood.scale = (1.05, 1.25, 1.)
+        bpy.ops.object.transform_apply(scale=True)
+        return [h, hood]
+    if kind == "jacket":         # zip jacket: denim, leather, or a nylon rain jacket
+        weave = o.get("weave", "nylon")
+        j = top_garment(body, fit, "jacket", 1.95, -.13, .022, weave, col, {"leather": .45, "nylon": .5}.get(weave, .85), dec=.28)
+        c, r = neck_ring(body, fit, .015)
+        collar = ring("collar", c, r + .03, .018, cloth("jacket", weave, col, .6))
+        zip_ = band(body, fit, "zip", lambda p: abs(p.x) < .006 and p.y < J["neck"].y and fit.pel - .12 < p.z < fit.neck - .04 and fit.arm_t(p) < 0,
+                    lambda p: .033, mat("Zip", "#2a2a2c", rough=.3, metal=.8))
+        return [j, collar, zip_]
+    if kind == "hivis":          # Victorian hi-vis work shirt: fluoro with silver reflective tape round the chest and arms
+        sleeve = o.get("sleeve", 1.92)
+        h = top_garment(body, fit, "hivis", sleeve, -.1, .008, "hivis", col, .7)
+        tape = mat("HiVisTape", "#c9ccd0", rough=.25, metal=.6)
+        zc = fit.pel + .32
+        chest = band(body, fit, "hivis_tape", lambda p: fit.arm_t(p) < 0 and zc - .02 < p.z < zc + .02, lambda p: .02, tape)
+        parts = [h, chest]
+        if sleeve > 1.3:
+            parts.append(band(body, fit, "hivis_tape", lambda p: 1.25 < fit.arm_t(p) < 1.38, lambda p: .02, tape))
+        return parts
+    if kind == "footy_jumper":   # sleeveless guernsey in hoops; generic colours, no club emblem
+        g = top_garment(body, fit, "jumper", 0, -.1, .006, "knit", o.get("col", "#1d2b5c"), .9, armhole=True, vneck=.05)
+        g.data.materials.append(cloth("jumper", "knit", o.get("col2", "#f2f2f2"), .9))
+        by_z_stripes(g, .075, fit.pel)
+        return [g]
+    if kind == "cardigan":
+        return [top_garment(body, fit, "cardigan", 1.9, -.16, .014, "knit", col, .95, vneck=.12)]
+    if kind == "dress":          # a slip dress: bodice from the bust plus a skirt from the base mesh's skirt helper
+        top = top_garment(body, fit, "dress", 0, -.06, .002, "satin", col, .35, armhole=True, neck_drop=.09)
+        sk = skirt(fit, "dress", col, "satin", o.get("hem", .55), .35)
+        return [top, sk] + [strap(body, fit, s_, cloth("dress", "satin", col, .35)) for s_ in (1, -1)]
+    if kind == "skirt":
+        return [skirt(fit, "skirt", col, o.get("weave", "denim"), o.get("hem", .6), .8)]
+    if kind in ("jeans", "cargo_pants", "work_pants", "trackpants", "leggings"):
+        spec = {"jeans": (1.92, .006, "denim", .8), "cargo_pants": (1.9, .016, "canvas", .85), "work_pants": (1.92, .012, "canvas", .85),
+                "trackpants": (1.95, .02, "fleece", .9), "leggings": (1.88, -.003, "lycra", .5)}[kind]
+        p_ = pants_garment(body, fit, kind, spec[0], spec[1], spec[2], col, rough=spec[3])
+        parts = [p_]
+        if kind == "trackpants":   # side stripes
+            p_.data.materials.append(cloth(kind, "fleece", o.get("stripe", "#f2f2f2"), .8))
+            for poly in p_.data.polygons:   # faces facing straight out from the leg's axis
+                c = poly.center
+                s_ = 1 if c.x > 0 else -1
+                lt = fit.leg_t(c)
+                a_, b_, k_ = (fit.hip[s_], fit.knee[s_], max(0., lt)) if lt < 1 else (fit.knee[s_], fit.ank[s_], lt - 1)
+                ax_ = a_.lerp(b_, min(1., k_))
+                if abs(math.atan2(c.y - ax_.y, (c.x - ax_.x) * s_)) < .2:
+                    poly.material_index = 1
+        if kind == "cargo_pants":
+            parts.append(cut(body, "pockets", lambda p: .45 < fit.leg_t(p) < .8 and abs(p.y - fit.knee[1 if p.x > 0 else -1].y) < .05
+                             and abs(p.x) > abs(fit.hip[1].x) + .03, lambda p: .025, .003, p_.data.materials[0], smooth=1, decimate=.6, uv_scale=6))
+        return parts
+    if kind == "work_boots":
+        up = mat("Boot_" + col.lstrip("#"), col, rough=.6)
+        so = mat("BootSole", "#1c1a18", rough=.9)
+        fit.cover.append(("foot", fit.ank[1].z + .06))
+        return [sneaker(body, fit, s_, up, so, so, height=.11, name="boot", grow=.011) for s_ in (1, -1)]
+    if kind == "cap":            # baseball cap, peak forward (or back to front)
+        m = cloth("cap", "canvas", col, .8)
+        crown = cut(body, "cap", lambda p: p.z > E.z + .035 and abs(abs(p.x) - (F.earx - .012)) > .02 - 1 and not is_ear(p, F) and fit.arm_t(p) < 0,
+                    lambda p: .02, .003, m, smooth=2, decimate=.4)
+        back = o.get("back", False)
+        sg = 1 if back else -1
+        bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=.085, depth=.006, location=(0, E.y + sg * .02 + (F.head_back - E.y) * (1 if back else 0), E.z + .045))
+        peak = bpy.context.view_layer.objects.active
+        peak.name = "cap_peak"
+        bm = bmesh.new()
+        bm.from_mesh(peak.data)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y * sg < 0], context="VERTS")
+        bm.to_mesh(peak.data)
+        bm.free()
+        peak.scale = (.95, 1.1, 1)
+        peak.rotation_euler.x = math.radians(-12 * sg)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        peak.data.materials.append(m)
+        return [crown, peak]
+    if kind == "beanie":
+        m = cloth("beanie", "knit", col, .95)
+        b = cut(body, "beanie", lambda p: p.z > E.z + .02 and not is_ear(p, F) and fit.arm_t(p) < 0, lambda p: .02 + .006 * smooth01(E.z + .05, F.head_top, p.z), .004, m, smooth=2, decimate=.4)
+        cuff = cut(body, "beanie", lambda p: E.z + .02 < p.z < E.z + .05 and not is_ear(p, F) and fit.arm_t(p) < 0, lambda p: .028, .004, m, smooth=1, decimate=.5)
+        return [b, cuff]
+    if kind == "backpack":
+        m = cloth("backpack", "nylon", col, .6)
+        back_y = max(v.co.y for v in body.data.vertices if abs(v.co.x) < .05 and abs(v.co.z - (fit.neck - .2)) < .02)
+        bag = box_obj("backpack", (.3, .14, .4), (0, back_y + .075, fit.neck - .24), m, .035)
+        straps = band(body, fit, "backpack_strap", lambda p: abs(abs(p.x) - .085) < .018 and fit.neck - .32 < p.z < fit.neck - .01 and fit.arm_t(p) < 0, lambda p: .016, m)
+        return [bag, straps]
+    if kind == "scarf":          # footy scarf in two-colour bars
+        c, r = neck_ring(body, fit, .0)
+        sc = ring("scarf", c, r + .028, .026, cloth("scarf", "knit", col, .95), seg=28)
+        sc.data.materials.append(cloth("scarf", "knit", o.get("col2", "#f2f2f2"), .95))
+        for poly in sc.data.polygons:
+            a = math.atan2(poly.center.y - c.y, poly.center.x - c.x)
+            poly.material_index = int((a + math.pi) / (2 * math.pi) * 10) % 2
+        tail = box_obj("scarf", (.07, .02, .3), (.06, J["neck"].y - r - .03, fit.neck - .17), sc.data.materials[0], .01)
+        return [sc, tail]
+    if kind == "toolbelt":       # leather tool belt with pouches on both hips
+        m = mat("Leather_" + col.lstrip("#"), col, rough=.55)
+        belt = band(body, fit, "toolbelt", lambda p: fit.arm_t(p) < 0 and fit.pel - .01 < p.z < fit.pel + .035, lambda p: .03, m)
+        side = max(abs(v.co.x) for v in body.data.vertices if abs(v.co.z - fit.pel) < .02 and fit.arm_t(v.co) < 0)
+        pouches = [box_obj("toolbelt", (.05, .11, .12), (s_ * (side + .04), fit.J["pelvis"].y, fit.pel - .05), m, .012) for s_ in (1, -1)]
+        return [belt] + pouches
+    if kind == "chain":
+        c, r = neck_ring(body, fit, -.035)
+        ch = ring("chain", c + Vector((0, -.012, 0)), r + .018, .0035, mat("Gold", "#d4a83a", rough=.25, metal=1.), seg=32)
+        ch.scale = (1., 1.15, 1.)
+        ch.rotation_euler.x = math.radians(-14)
+        bpy.ops.object.transform_apply(scale=True, rotation=True)
+        return [ch]
+    if kind == "watch":
+        W = fit.wr[1]
+        d = (fit.wr[1] - fit.el[1]).normalized()
+        w = ring("watch", W - d * .04, .03, .008, mat("Watch", "#151515", rough=.4), seg=16)
+        w.rotation_mode = "QUATERNION"
+        w.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d)
+        bpy.ops.object.transform_apply(rotation=True)
+        return [w]
     raise ValueError(kind)
+
+
+def skirt(fit, name, col, weave, hem, rough):
+    """A skirt from the MakeHuman skirt helper: waist down to leg_t = hem (0.5 mid-thigh, 1 the knee)."""
+    hz = fit.hip[1].z - (fit.hip[1].z - fit.knee[1].z) * hem
+    o = fit.B.build(name + "_skirt", {"helper-skirt"}, keep=lambda pts: min(p.z - fit.B.ground for p in pts) > hz)
+    o.name = name + "_skirt"
+    for p_ in o.data.polygons:
+        p_.use_smooth = True
+    s_ = o.modifiers.new("thick", "SOLIDIFY")
+    s_.thickness = .003
+    apply_mods(o)
+    o.data.materials.append(cloth(name, weave, col, rough))
+    fit.cover.append(("leg", -.3, hem - .1))
+    return o
 
 
 def strap(body, fit, s, m):
@@ -779,10 +1154,10 @@ def strap(body, fit, s, m):
     return o
 
 
-def sneaker(body, fit, s, up, so, tr):
+def sneaker(body, fit, s, up, so, tr, height=.05, name="sneaker", grow=.007):
     """One shoe: the convex hull of the foot (so no toes), pushed out, smoothed, with a flat sole under it."""
-    top = fit.ank[s].z + .05
-    pts = [v.co + v.normal * .007 for v in body.data.vertices if v.co.z < top and v.co.x * s > 0 and abs(v.co.x) > .03]
+    top = fit.ank[s].z + height
+    pts = [v.co + v.normal * grow for v in body.data.vertices if v.co.z < top and v.co.x * s > 0 and abs(v.co.x) > .03]
     pts += [Vector((p.x, p.y, -SOLE + .006)) for p in pts if p.z < .012]        # extend down into the sole
     me = bpy.data.meshes.new("sneaker")
     bm = bmesh.new()
@@ -793,7 +1168,7 @@ def sneaker(body, fit, s, up, so, tr):
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().z > top - .012 and f.normal.z > .5], context="FACES")
     bm.to_mesh(me)
     bm.free()
-    o = bpy.data.objects.new("sneaker_" + ("l" if s > 0 else "r"), me)
+    o = bpy.data.objects.new(name + "_" + ("l" if s > 0 else "r"), me)
     bpy.context.collection.objects.link(o)
     bpy.context.view_layer.objects.active = o
     r = o.modifiers.new("remesh", "REMESH")
@@ -814,8 +1189,7 @@ def sneaker(body, fit, s, up, so, tr):
         c = poly.center
         if c.z < lo + .02:
             poly.material_index = 1                      # sole
-        elif lo + .026 < c.z < lo + .042 and abs(poly.normal.x) > .6:
-            poly.material_index = 2                      # side stripe
+
     bpy.ops.object.shade_smooth()
     return o
 
@@ -899,29 +1273,20 @@ def join(objs, name):
 
 
 def hide_under(body, garments, fit):
-    """Remove body faces that clothing covers completely, to save triangles and stop skin poking through."""
-    covered = set()
-    for kind, _ in garments:
-        if kind in ("tee",):
-            covered |= {"torso"}
-        if kind in ("cargo_shorts",):
-            covered |= {"thigh"}
-        if kind in ("sneakers",):
-            covered |= {"foot"}
-        if kind in ("denim_shorts", "briefs"):
-            covered |= {"pelvis"}
-    J = fit.J
+    """Remove body faces well inside what the outfit covers (fit.cover), to save triangles and stop skin poking through."""
+    C = fit.cover
 
     def hidden(p):
         t = fit.arm_t(p)
-        if "torso" in covered and t < 0 and fit.pel - .05 < p.z < fit.neck - .06:
-            return True
-        if "thigh" in covered and t < 0 and p.z < fit.pel and .1 < fit.leg_t(p) < .75:
-            return True
-        if "pelvis" in covered and t < 0 and fit.hip[1].z - .05 < p.z < fit.pel and fit.leg_t(p) < .05:
-            return True
-        if "foot" in covered and p.z < fit.ank[1].z + .02:
-            return True
+        for c in C:
+            if c[0] == "torso" and t < 0 and c[1] + .05 < p.z < c[2] - .05:
+                return True
+            if c[0] == "arm" and 0 <= t < c[1] - .18:
+                return True
+            if c[0] == "leg" and t < 0 and p.z < fit.pel and c[1] + .1 < fit.leg_t(p) < c[2] - .12:
+                return True
+            if c[0] == "foot" and p.z < c[1]:
+                return True
         return False
     delete_verts(body, hidden)
 
@@ -950,6 +1315,7 @@ def build(name):
     body = B.build(name + "_body", {"body"})
     F = Face(body, J)
     fit = Fit(J, F)
+    fit.B = B
     paint_skin(body, F, C, J)
     head = eyes(B, C, F) + hair(body, F, C, J)
 
@@ -960,6 +1326,7 @@ def build(name):
         return out
 
     under = dress(C["underwear"])
+    fit.cover = []
     outfit = dress(C["outfit"])
     # collections: base (body + head + underwear) and outfit
     # collections: base (body + head), underwear, outfit. Preview "base underwear" or "base outfit".
@@ -978,46 +1345,109 @@ def build(name):
     bpy.ops.wm.save_as_mainfile(filepath=blend)
     print("  saved", blend)
 
-    # ---- game exports: decimated, hidden faces dropped
+    # ---- game exports: decimated to a triangle budget, rigged (stage 2), skin hidden under clothes dropped.
+    # <name>.glb dressed, <name>_base.glb in underwear, <name>_crowd.glb a light version for pedestrians (LOD1).
+    import rig
+    report = {}
+    budget = {"hair": 1800, "beard": 1500, "sneaker_l": 700, "sneaker_r": 700, "boot_l": 800, "boot_r": 800, "ponytail": 400,
+              "longhair": 500, "tee": 2200, "hoodie": 2600, "jacket": 2600, "hivis": 2400, "jumper": 2400, "singlet": 1600,
+              "cargo_shorts": 1300, "pockets": 160, "denim_shorts": 900, "run_shorts": 900, "jeans": 2000, "cargo_pants": 2000,
+              "work_pants": 2000, "crop_top": 900, "briefs": 700, "bra": 700, "dress": 2000, "cap": 400, "beanie": 400,
+              "backpack": 300, "scarf": 300, "toolbelt": 300}
+
+    def game_copy(o, lod):
+        k = o.name.split(".")[0]
+        c = dup(o, k)
+        lim = budget.get(k)
+        if lod:
+            lim = int((lim or tris(c)) * .35)
+        if lim and tris(c) > lim * 1.1:
+            decimate_to(c, lim)
+        return c
+
     body_lo = dup(body, name + "_body_lod0")
     decimate(body_lo, .4)
-    report = {}
-
-    budget = {"hair": 1800, "beard": 1500, "sneaker_l": 700, "sneaker_r": 700, "ponytail": 400, "tee": 2200, "cargo_shorts": 1300,
-              "pockets": 160, "denim_shorts": 900, "run_shorts": 900, "crop_top": 900, "briefs": 700, "bra": 700}
+    arm = rig.make_armature(rig.joints_world(J, SOLE), body_lo, name + "_rig")
+    rig.weight_body(arm, body_lo)
+    rig.bake_clips(arm)
+    ghead, gunder, gout = ([game_copy(o, 0) for o in L] for L in (head, under, outfit))
+    for o in ghead + gunder + gout:
+        rig.bind(arm, o, body_lo)
+        if o.name.startswith(("sneaker", "boot")):
+            rig.rigid_feet(arm, o)
 
     def export(objs, path):
-        # game budget: heavy parts are decimated on copies for the export; the .blend keeps full detail
-        tmp = []
-        for i, o in enumerate(objs):
-            k = o.name.split(".")[0]
-            if k in budget and tris(o) > budget[k] * 1.1:
-                c = dup(o, k)
-                decimate_to(c, budget[k])
-                objs[i] = c
-                tmp.append(c)
         bpy.ops.object.select_all(action="DESELECT")
+        arm.select_set(True)
         for o in objs:
             o.select_set(True)
-        bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
-                                  export_yup=True, export_image_format="JPEG", export_jpeg_quality=88)
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=False,
+                                  export_yup=True, export_image_format="JPEG", export_jpeg_quality=86,
+                                  export_skins=True, export_animations=True, export_animation_mode="NLA_TRACKS")
         t = sum(tris(o) for o in objs)
-        parts = {}
-        for o in objs:
-            k = o.name.split(".")[0]
-            parts[k] = parts.get(k, 0) + tris(o)
-        print("   ", ", ".join("%s %d" % kv for kv in sorted(parts.items(), key=lambda kv: -kv[1])))
         report[os.path.basename(path)] = (t, os.path.getsize(path))
         print("  exported %s: %d tris, %d KB" % (path, t, os.path.getsize(path) // 1024))
-        for c in tmp:
-            bpy.data.objects.remove(c)
 
-    export([body_lo] + head + under, os.path.join(OUT["exports"], name + "_base.glb"))
+    export([body_lo] + ghead + gunder, os.path.join(OUT["exports"], name + "_base.glb"))
     dressed = dup(body_lo, name + "_body_dressed")
     hide_under(dressed, C["outfit"], fit)
-    export([dressed] + head + outfit, os.path.join(OUT["exports"], name + ".glb"))
-    for o in (body_lo, dressed):
-        bpy.data.objects.remove(o)
+    export([dressed] + ghead + gout, os.path.join(OUT["exports"], name + ".glb"))
+    # crowd LOD: a third of the triangles and 512px textures
+    small = {}
+
+    def shrink(o):
+        o.data = o.data.copy()
+        for i, m in enumerate(o.data.materials):
+            if m is None:
+                continue
+            if m.name not in small:
+                c = m.copy()
+                for n in c.node_tree.nodes:
+                    if n.type == "TEX_IMAGE" and n.image and n.image.size[0] > 512:
+                        im = n.image.copy()
+                        im.scale(512, 512)
+                        n.image = im
+                small[m.name] = c
+            o.data.materials[i] = small[m.name]
+        return o
+
+    def lod1(o, target):
+        c = dup(o, o.name.split(".")[0] + "_lod1")
+        d = c.modifiers.new("dec", "DECIMATE")
+        d.ratio = max(.05, target / max(1, tris(c)))
+        bpy.context.view_layer.objects.active = c
+        bpy.ops.object.modifier_move_to_index(modifier=d.name, index=0)
+        bpy.ops.object.modifier_apply(modifier=d.name)
+        return shrink(c)
+
+    crowd = [lod1(dressed, 2600)] + [lod1(o, max(60, int(tris(o) * .35))) for o in ghead + gout if not o.name.startswith("eyelash")]
+    # one skinned mesh for the whole crowd character: fewer objects and draw calls per pedestrian in the game
+    for o in crowd:
+        for m in list(o.modifiers):
+            if m.type == "ARMATURE":
+                o.modifiers.remove(m)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in crowd:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = crowd[0]
+    bpy.ops.object.join()
+    one = bpy.context.view_layer.objects.active
+    one.name = name + "_crowd"
+    one.modifiers.new("Armature", "ARMATURE").object = arm
+    export([one], os.path.join(OUT["exports"], name + "_crowd.glb"))
+    if os.environ.get("SAVE_RIG") == name:   # the shared rig on its own (armature + every clip), and the clips as a GLB
+        for o in [o for o in bpy.data.objects if o is not arm]:
+            bpy.data.objects.remove(o)
+        os.makedirs(os.path.join(ROOT, "rigs"), exist_ok=True)
+        os.makedirs(os.path.join(ROOT, "animations"), exist_ok=True)
+        arm.name = "aussie_rig"
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, "rigs", "aussie_rig.blend"), copy=True)
+        bpy.ops.object.select_all(action="DESELECT")
+        arm.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=os.path.join(ROOT, "animations", "aussie_clips.glb"), export_format="GLB", use_selection=True,
+                                  export_animations=True, export_animation_mode="NLA_TRACKS")
+        print("  saved the shared rig and clips")
     return report
 
 

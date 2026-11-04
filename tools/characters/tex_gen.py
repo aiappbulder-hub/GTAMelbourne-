@@ -55,7 +55,23 @@ def fabric(out, weave, col):
                 cr, cg, cb = cr + (235 - cr) * fade * .22, cg + (235 - cg) * fade * .22, cb + (235 - cb) * fade * .18
                 px[x, y] = (int(min(255, cr)), int(min(255, cg)), int(min(255, cb)))
                 continue
-            if weave == "rib":         # knitted ribs running vertically
+            if weave == "knit":        # chunky knit: rows of V stitches
+                cx, cy = x % 16, y % 12
+                v = abs(cx - 8) / 8
+                k *= .78 + .3 * (1 - abs(cy / 12 - v * .5 - .25) * 2) ** 2 * (0.85 + .15 * (cx // 8))
+            elif weave == "fleece":    # soft brushed fleece: low contrast mottling
+                k *= .97 + (fine[x, y] / 255 - .5) * .08
+            elif weave == "nylon":     # ripstop: fine grid, faint sheen
+                k *= (.92 if (x % 24 < 2 or y % 24 < 2) else 1.) * (1 + .06 * math.sin(y / N * 2 * math.pi * 3))
+            elif weave == "hivis":     # fluoro polyester: fine birdseye mesh
+                k *= .93 + .1 * (((x // 3) + (y // 3)) % 2)
+            elif weave == "mesh":      # athletic mesh: little holes
+                k *= .72 if ((x % 10 - 5) ** 2 + (y % 10 - 5) ** 2) < 5 else 1.
+            elif weave == "satin":     # satin: smooth with soft sheen bands
+                k *= .9 + .15 * math.sin((x * .3 + y) / N * 2 * math.pi * 2) ** 2
+            elif weave == "lycra":     # leggings: smooth, very fine rib
+                k *= .97 + .04 * (x % 4 < 2)
+            elif weave == "rib":         # knitted ribs running vertically
                 k *= .9 + .12 * (0.5 + 0.5 * math.cos(x / N * 2 * math.pi * 64))
             elif weave == "canvas":    # plain weave
                 k *= .93 + .1 * (((x // 2) + (y // 2)) % 2)

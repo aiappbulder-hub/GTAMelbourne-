@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Character Catalogue</title>
+<style>
+:root{--bg:#16171a;--panel:#1f2125;--ink:#e9eaec;--dim:#9aa0a6;--line:#2c2f35;--accent:#ff4fa3}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f4f2;--panel:#fff;--ink:#1a1b1e;--dim:#5f6368;--line:#e2e2df}}
+:root[data-theme="light"]{--bg:#f4f4f2;--panel:#fff;--ink:#1a1b1e;--dim:#5f6368;--line:#e2e2df}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:18px 16px 8px;max-width:1200px;margin:auto}h1{margin:0 0 4px;font-size:22px}header p{margin:0;color:var(--dim)}
+#stage{width:100%;height:min(62vh,560px);display:block;background:#202227}
+.bar{max-width:1200px;margin:10px auto;padding:0 16px;display:flex;gap:6px;flex-wrap:wrap}
+.bar button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;font:inherit}
+.bar button.on{border-color:var(--accent);color:var(--accent)}
+.grid{max-width:1200px;margin:8px auto 40px;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer}.card.on{border-color:var(--accent)}
+.card h3{margin:0 0 2px;font-size:15px}.card .t{color:var(--dim);font-size:12px;margin-bottom:6px}.card ul{margin:0;padding-left:16px;color:var(--dim);font-size:12px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:4px;border:1px solid #0003}
+#msg{color:var(--dim);padding:0 16px;max-width:1200px;margin:auto}
+</style></head><body>
+<header><h1>GTA Melbourne: character catalogue</h1><p>Every character on the shared rig, with the same animation clips. Click a card to look at one up close; drag to orbit.</p></header>
+<canvas id="stage"></canvas>
+<div class="bar" id="clips"></div>
+<div id="msg">Loading characters…</div>
+<div class="grid" id="grid"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const cv=document.getElementById('stage'),r=new THREE.WebGLRenderer({canvas:cv,antialias:true});r.outputEncoding=THREE.sRGBEncoding;r.setPixelRatio(Math.min(2,devicePixelRatio));
+const sc=new THREE.Scene();sc.background=new THREE.Color('#202227');sc.add(new THREE.HemisphereLight(0xffffff,0x3a3a40,.95));
+const sun=new THREE.DirectionalLight(0xfff2e0,1.15);sun.position.set(-3,5,4);sc.add(sun);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(30,48),new THREE.MeshLambertMaterial({color:'#2b2d33'}));floor.rotation.x=-Math.PI/2;sc.add(floor);
+const cam=new THREE.PerspectiveCamera(32,1,.1,200),ctl=new THREE.OrbitControls(cam,cv);ctl.target.set(0,.95,0);ctl.enableDamping=true;
+const people=[];let clip='walk',focus=-1;
+function size(){const w=cv.clientWidth,h=cv.clientHeight;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
+function frame(n){const span=Math.max(1,n-1)*.9;if(focus<0){cam.position.set(0,1.6,span*.9+4);ctl.target.set(0,.95,0)}else{const p=people[focus].o.position;cam.position.set(p.x+.4,1.55,3.2);ctl.target.set(p.x,.95,0)}}
+function play(c){clip=c;for(const p of people){const a=p.g.animations.find(x=>x.name===c);if(!a)continue;p.m.stopAllAction();const act=p.m.clipAction(a);if(c==='die'||c==='punch'||c==='jump'){act.setLoop(THREE.LoopRepeat)}act.play()}
+  document.querySelectorAll('#clips button').forEach(b=>b.classList.toggle('on',b.dataset.c===c))}
+fetch('catalogue.json').then(r=>r.json()).then(cat=>{const L=cat.characters.filter(c=>c.files.outfit),ld=new THREE.GLTFLoader();let got=0;
+  document.getElementById('clips').innerHTML=cat.clips.map(c=>`<button data-c="${c}">${c}</button>`).join('');
+  document.querySelectorAll('#clips button').forEach(b=>b.onclick=()=>play(b.dataset.c));
+  document.getElementById('grid').innerHTML=L.map((c,i)=>`<div class="card" data-i="${i}"><h3>${c.id.replace(/_/g,' ')}</h3><div class="t">${c.type} · ${c.sex} · hair: ${c.hair}${c.beard?' · beard':''}${c.tattoo.length?' · tattoos':''}</div>
+    <ul>${c.outfit.map(o=>`<li>${o.col?`<span class="sw" style="background:${o.col}"></span>`:''}${o.kind.replace(/_/g,' ')}</li>`).join('')}</ul>
+    <div class="t" style="margin-top:6px">${Object.entries(c.files).map(([k,f])=>`<a href="${f.file}" style="color:inherit">${k}</a> ${f.kb} KB`).join(' · ')}</div></div>`).join('');
+  document.querySelectorAll('.card').forEach(el=>el.onclick=()=>{const i=+el.dataset.i;focus=focus===i?-1:i;document.querySelectorAll('.card').forEach(x=>x.classList.toggle('on',+x.dataset.i===focus));frame(L.length)});
+  L.forEach((c,i)=>ld.load(c.files.outfit.file,g=>{const o=g.scene;o.position.x=(i-(L.length-1)/2)*.9;sc.add(o);people[i]={o,g,m:new THREE.AnimationMixer(o)};
+    if(++got===L.length){document.getElementById('msg').textContent=L.length+' characters, '+cat.clips.length+' clips each.';frame(L.length);play(clip)}},undefined,()=>{document.getElementById('msg').textContent='Could not load '+c.id}));
+  frame(L.length)});
+const clock=new THREE.Clock();(function loop(){requestAnimationFrame(loop);const dt=clock.getDelta();for(const p of people)if(p)p.m.update(dt);ctl.update();r.render(sc,cam)})();
+</script></body></html>
