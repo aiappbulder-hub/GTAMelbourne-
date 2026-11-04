@@ -2343,6 +2343,16 @@ function chunks3D(){const[fx,fy,R]=G3.focus,need=[];
   for(const[k,e]of G3.chunks)if(G3.frame-e.f>90){G3.sc.remove(e.g);disposeGroup(e.g);G3.chunks.delete(k)}}
 
 // ---------------------------------------------------------------- entity meshes
+// headlights after dark (and in storms): a soft cone of light on the road ahead of every driven car near the camera, all one instanced mesh
+function headlights3D(){const T=G3.T,N=64;if(!G3.hl){const c=document.createElement('canvas');c.width=128;c.height=64;const g=c.getContext('2d');
+    for(let x=0;x<128;x++){const t=x/128,w=6+t*26,a=(1-t)**1.4*(t<.06?t/.06:1);const gr=g.createLinearGradient(0,32-w,0,32+w);gr.addColorStop(0,'rgba(255,240,200,0)');gr.addColorStop(.5,`rgba(255,240,200,${a})`);gr.addColorStop(1,'rgba(255,240,200,0)');g.fillStyle=gr;g.fillRect(x,32-w,1,2*w)}
+    const m=new T.MeshBasicMaterial({map:new T.CanvasTexture(c),transparent:true,depthWrite:false,blending:T.AdditiveBlending,opacity:0});
+    G3.hl=new T.InstancedMesh(new T.PlaneGeometry(1,1).rotateX(-PI/2).translate(.5,0,0),m,N);G3.hl.frustumCulled=false;G3.hl.renderOrder=2;G3.sc.add(G3.hl);G3.hlM=new T.Matrix4();G3.hlQ=new T.Quaternion();G3.hlU=new T.Vector3(0,1,0)}
+  const k=TOD.night||0;G3.hl.visible=k>.03;if(!G3.hl.visible)return;G3.hl.material.opacity=.75*k;let n=0;const cx=G3.cam.position.x,cz=G3.cam.position.z;
+  for(const c of cars){if(n>=N)break;if(c.wreck||!(c.driver||c===player.car)||c.tram||Math.abs(c.x-cx)>1300||Math.abs(c.y-cz)>1300)continue;
+    const f=c.L/2+2,x=c.x+Math.cos(c.a)*f,z=c.y+Math.sin(c.a)*f,L=110+Math.min(60,Math.abs(fwdSpeed(c))*.15);G3.hlQ.setFromAxisAngle(G3.hlU,-c.a);
+    G3.hlM.compose(new T.Vector3(x,carY(c)+.7,z),G3.hlQ,new T.Vector3(L,1,c.Wd*2.6));G3.hl.setMatrixAt(n++,G3.hlM)}
+  G3.hl.count=n;G3.hl.instanceMatrix.needsUpdate=true}
 function M(col,emis){const k=col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=new G3.T.MeshLambertMaterial({color:col,emissive:emis||'#000000'}))}
 function part(g,mat,sx,sy,sz,x,y,z){const m=new G3.T.Mesh(G3.box,mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m}
 function shadowDisc(g,sx,sz){if(G3.shadows)return;const m=new G3.T.Mesh(G3.disc,G3.shadowMat);m.scale.set(sx,1,sz);m.position.y=.6;g.add(m)}
@@ -2359,7 +2369,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 56';
+const BUILD='Build 57';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2409,7 +2419,10 @@ function plumbDress(g,c,top){const T=G3.T,L=c.L,Wd=c.Wd,rk=M('#2b2f33'),pipe=M('
 function carMesh(c){const tpl=modelFor(c);if(!tpl&&c.type==='ranger')return rangerMesh(c);if(tpl)return modelMesh(c,tpl);return boxCarMesh(c)}
 // repaint the red body panels of everyday cars so traffic isn't a sea of red; liveried vehicles keep their colours
 const REPAINT=new Set(['sedan','hatch','micra','sports','hsv','wagon','suv','van','unmarked','armoured']);const paintCache={};
-function bodyMat(mat,col){const k='b'+mat.uuid+col;if(paintCache[k])return paintCache[k];const m2=mat.clone();m2.color.set(col);return paintCache[k]=m2}
+// car paint: a clear-coated metallic finish (on three.js r150+) so bodies carry sharp sky and street reflections like a modern game
+function bodyMat(mat,col){const k='b'+mat.uuid+col;if(paintCache[k])return paintCache[k];const T=G3.T;let m2;
+  if(T.MeshPhysicalMaterial&&+T.REVISION>=150){m2=new T.MeshPhysicalMaterial({color:col,metalness:.15,roughness:.5,clearcoat:.7,clearcoatRoughness:.12,envMapIntensity:.55})}
+  else{m2=mat.clone();m2.color.set(col)}return paintCache[k]=m2}
 function paintedMat(mat,col){if(!mat.map||!mat.map.image)return mat;const k=mat.uuid+col;if(paintCache[k])return paintCache[k];
   const img=mat.map.image,cv2=document.createElement('canvas');cv2.width=img.width;cv2.height=img.height;const g=cv2.getContext('2d');g.drawImage(img,0,0);
   const d=g.getImageData(0,0,cv2.width,cv2.height),a=d.data,n=parseInt(col.slice(1),16),tr=n>>16,tg=(n>>8)&255,tb=n&255;
@@ -2486,7 +2499,7 @@ const PEOPLE={ver:0,tpl:{}};
 // the Australian cast (characters/, built in Blender by tools/characters): realistic people on one shared rig. Pedestrians use
 // the light crowd versions; the player is Trent at full detail. Until they load, the simpler Quaternius people stand in.
 const AUS={player:'trent',male:['aussie_bloke','bearded_gaz','tradie_dazza','student_minh','street_kai','old_bruce','gym_jono'],
-  female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
+  female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],cop:['cop_vic'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
 const CHAR_EXT='';
 const AUSCLIP={idle:'idle',walk:'walk',run:'run',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',jump:'jump'};
 // colour variants: half the pedestrians wear their outfit in other colours (garment materials are named Cloth_*)
@@ -2503,7 +2516,7 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
       for(let i=0;i<P.count;i+=3){v.fromBufferAttribute(P,i);(o.applyBoneTransform||o.boneTransform).call(o,i,v);v.applyMatrix4(o.matrixWorld);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y)}});
     PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});
   // the Australian cast: binary GLB, metres, feet on the ground; skinned, with every clip
-  const aus=[...new Set([...AUS.male,...AUS.female,...AUS.gang])];
+  const aus=[...new Set([...AUS.male,...AUS.female,...AUS.gang,...AUS.cop])];
   // CHAR_EXT: hosts that won't serve .glb get each model as base64 in a .json wrapper ({b64}); both parse the same way
   const loadAus=(k,url)=>fetch(url+CHAR_EXT).then(r=>{if(!r.ok)throw new Error(r.status);return CHAR_EXT?r.json().then(j=>Uint8Array.from(atob(j.b64),c=>c.charCodeAt(0)).buffer):r.arrayBuffer()})
     .then(buf=>new THREE.GLTFLoader().parse(buf,'',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false}});
@@ -2520,7 +2533,7 @@ const GUN_LEN={pistol:4.6,uzi:7,shotgun:12.5,rifle:12.5,rpg:15},GUNM={};
 const pmatCache={};
 function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
   const h=hash((p.x|0)+7,(p.y|0)+3,91),pickA=L=>{const k=L[(h*L.length*7|0)%L.length]+'@crowd';return PEOPLE.tpl[k]?k:null};
-  const ausKey=isPl?(PEOPLE.tpl.trent?'trent':null):kind==='gang'?pickA(AUS.gang):p.runner?pickA(p.male===false?AUS.runF:AUS.runM):kind==='civ'?pickA(p.bald?AUS.bald:p.male?AUS.male:p.male===false?AUS.female:h<.42?AUS.female:AUS.male):null;
+  const ausKey=isPl?(PEOPLE.tpl.trent?'trent':null):kind==='gang'?pickA(AUS.gang):kind==='cop'?pickA(AUS.cop):p.runner?pickA(p.male===false?AUS.runF:AUS.runM):kind==='civ'?pickA(p.bald?AUS.bald:p.male?AUS.male:p.male===false?AUS.female:h<.42?AUS.female:AUS.male):null;
   const key=ausKey||(armed?'adventurer':p.bald||p.male?'worker':p.male===false?'woman':h<.38?'woman':'worker'),tp=PEOPLE.tpl[key];if(!tp)return null;
   const m=THREE.SkeletonUtils.clone(tp.scene),k=tp.aus?25/1.78:25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
   const top=isPl?ME.top:kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
@@ -2586,6 +2599,7 @@ function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt
       u.body.rotation.x=c.roll;u.body.rotation.z=c.pitch}
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
+  headlights3D();
   for(const p of peds){if(!p.m3||p.m3.userData.ver!==PEOPLE.ver&&PEOPLE.ver){p.m3=personMesh(p,false);castAll(p.m3);p.m3.userData.ver=PEOPLE.ver}syncPed(p.m3,p,false);touch(p.m3)}
   if(!player.car&&!player.ride&&started){if(!G3.pl||G3.pl.userData.ver!==PEOPLE.ver&&PEOPLE.ver){G3.pl=personMesh(player,true);castAll(G3.pl);G3.pl.userData.ver=PEOPLE.ver}syncPed(G3.pl,deadT>0?{...player,dead:true}:player,true);touch(G3.pl)}
   for(const p of pickups){if(p.t>0||p.dead)continue;if(!p.m3){const ic=PICK_ICON[p.kind];p.m3=sprite(iconMat(ic[0],ic[1],ic[2]),14)}p.m3.position.set(p.x,groundY(p.x,p.y)+12+Math.sin(gameT*5+p.x)*2,p.y);touch(p.m3)}
@@ -2669,7 +2683,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
 const TOD={h:14,rate:1/120,envH:-9};   // 2 real minutes per game hour: a 48-minute day
 const todClock=()=>{const m=Math.floor(TOD.h*60)%1440;return String((m/60)|0).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
 function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
-  const a=(TOD.h-6)/14*PI,se=Math.sin(a),day=smooth(-.08,.22,se),low=1-smooth(.02,.45,se),night=1-smooth(-.06,.12,se);
+  const a=(TOD.h-6)/14*PI,se=Math.sin(a),day=smooth(-.08,.22,se),low=1-smooth(.02,.45,se),night=1-smooth(-.06,.12,se);TOD.night=Math.max(night,WX.cloud>.85?.35:0);
   const sd=new T.Vector3(Math.cos(a),Math.max(.02,se*.95),-.5).normalize(),md=new T.Vector3(-Math.cos(a)*.6,.75,-.35).normalize(),dir=day>.02?sd:md;
   updateWeather(dt);const cl=WX.cloud;
   const sun=G3.sun;sun.position.set(fx+dir.x*1200,dir.y*1200,fz+dir.z*1200);sun.target.position.set(fx,0,fz);sun.target.updateMatrixWorld();

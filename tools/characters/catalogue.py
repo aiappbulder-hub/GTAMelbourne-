@@ -9,7 +9,7 @@ import stage1_base as S   # noqa: E402
 NICE = {"aussie_bloke": "Everyday Aussie bloke", "aussie_girl": "Everyday Aussie woman", "tradie_dazza": "Tradie",
         "student_minh": "Uni student", "student_amara": "Uni student", "gym_jono": "Gym and running", "gym_kayla": "Gym and running",
         "street_kai": "Streetwear", "old_bruce": "Older Aussie bloke (footy)", "old_marg": "Older Aussie woman", "night_jess": "Nightlife",
-        "gang_tama": "Street gang", "bearded_gaz": "Bald and bearded", "trent": "Player character (Trent)"}
+        "gang_tama": "Street gang", "bearded_gaz": "Bald and bearded", "cop_vic": "Victoria Police", "trent": "Player character (Trent)"}
 out = []
 for name, C in S.CHARACTERS.items():
     files = {}

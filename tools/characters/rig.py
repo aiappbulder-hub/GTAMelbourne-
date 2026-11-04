@@ -120,7 +120,10 @@ def weight_body(arm, body):
     print("  weighted body: %d vertex groups, %d vertices fixed by nearest bone" % (len(body.vertex_groups), fixed))
 
 
-def bind(arm, obj, src):
+ARM_BONES = tuple(b + s for b in ("UpperArm.", "LowerArm.", "Wrist.", "Fingers.") for s in SIDES)
+
+
+def bind(arm, obj, src, on_arm=None):
     """Copy skin weights from the weighted body src onto obj (clothes, hair...) and hang it on the armature."""
     for g in list(obj.vertex_groups):
         obj.vertex_groups.remove(g)
@@ -135,6 +138,15 @@ def bind(arm, obj, src):
     m.layers_vgroup_select_dst = "NAME"
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.modifier_apply(modifier=m.name)
+    # off the arm (by on_arm(world point)), a garment must not follow the hands hanging next to it: drop arm weights there
+    if on_arm:
+        mwo = obj.matrix_world
+        gi = {obj.vertex_groups[n].index: n for n in ARM_BONES if n in obj.vertex_groups}
+        for v in obj.data.vertices:
+            if on_arm(mwo @ v.co):
+                continue
+            for g in [g for g in v.groups if g.group in gi]:
+                obj.vertex_groups[gi[g.group]].remove([v.index])
     # any vertex the transfer left without weight (it would collapse to the origin in the game) takes its nearest bone
     bones = [(b.name, arm.matrix_world @ b.head_local, arm.matrix_world @ b.tail_local) for b in arm.data.bones]
     mwo = obj.matrix_world
@@ -142,7 +154,7 @@ def bind(arm, obj, src):
         if sum(g.weight for g in v.groups) > .05:
             continue
         p = mwo @ v.co
-        n = min(bones, key=lambda b: _seg_dist(p, b[1], b[2]))[0]
+        n = min((b for b in bones if not on_arm or b[0] not in ARM_BONES or on_arm(p)), key=lambda b: _seg_dist(p, b[1], b[2]))[0]
         obj.vertex_groups[n].add([v.index], 1., "REPLACE")
     mw = obj.matrix_world.copy()
     obj.parent = arm
@@ -161,6 +173,17 @@ def rigid_feet(arm, obj):
     mw = obj.matrix_world
     for v in obj.data.vertices:
         (t if (mw @ v.co).y < toe_y - .01 else f).add([v.index], 1., "REPLACE")
+
+
+def rigid(obj, bone):
+    """A solid prop (belt pouch, bag, cap, glasses, watch) rides on one bone instead of copying the skin's weights."""
+    for g in list(obj.vertex_groups):
+        obj.vertex_groups.remove(g)
+    obj.vertex_groups.new(name=bone).add([v.index for v in obj.data.vertices], 1., "REPLACE")
+
+
+RIGID = (("toolbelt", "Hips"), ("backpack", "Chest"), ("chain", "Chest"), ("scarf", "Chest"), ("watch", "LowerArm.L"),
+         ("cap", "Head"), ("beanie", "Head"), ("sunglasses", "Head"), ("hair_tie", "Head"), ("longhair", "Head"), ("hood", "Chest"), ("collar", "Chest"))
 
 
 # ------------------------------------------------------------------ animation

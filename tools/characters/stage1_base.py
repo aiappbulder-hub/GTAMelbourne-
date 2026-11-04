@@ -137,6 +137,14 @@ CHARACTERS = {
         outfit=[("hoodie", dict(col="#121214")), ("trackpants", dict(col="#141416", stripe="#f2f2f2")),
                 ("sneakers", dict(col="#f4f4f4", sole="#f4f4f4", trim="#141416")), ("beanie", dict(col="#141416")), ("chain", {})],
         underwear=[("briefs", dict(col="#141416"))]),
+    "cop_vic": dict(        # Victoria Police: navy shirt and cargo pants, duty vest and belt, chequered cap
+        sex="male", seed=107,
+        targets={"universal-male-young-averagemuscle-averageweight": .5, "universal-male-young-maxmuscle-averageweight": .3,
+                 "universal-male-young-averagemuscle-maxweight": .2, "caucasian-male-young": .8, "asian-male-young": .2},
+        skin="#d6a37e", lips="#a8705e", brows="#2e2016", hair_col="#2e2016", eye="#4a5a6a", stubble=.3, blush=.18, hair="crop",
+        outfit=[("shirt", dict(col="#1c2a48", sleeve=1.5)), ("vest", dict(col="#141c30")), ("cargo_pants", dict(col="#1c2a48")),
+                ("work_boots", dict(col="#111111")), ("toolbelt", dict(col="#111111")), ("cap", dict(col="#141a2a", band=True))],
+        underwear=[("briefs", dict(col="#2b3550"))]),
     "aussie_girl": dict(
         sex="female", seed=23,
         targets={"universal-female-young-averagemuscle-averageweight": .75, "universal-female-young-averagemuscle-minweight": .25,
@@ -969,13 +977,13 @@ def wardrobe(kind, body, fit, C, o):
     F, J, E = fit.F, fit.J, fit.F.E
     col = o.get("col", "#444444")
     if kind == "longsleeve":     # plain long-sleeve tee or work shirt
-        return [top_garment(body, fit, "longsleeve", o.get("sleeve", 1.92), -.085, .002, "cotton", col)]
+        return [top_garment(body, fit, "longsleeve", o.get("sleeve", 1.86), -.085, .002, "cotton", col)]
     if kind == "singlet":
         return [top_garment(body, fit, "singlet", 0, -.09, .001, o.get("weave", "mesh"), col, armhole=True, neck_drop=.03, vneck=.03)]
     if kind == "shirt":          # button-up shirt, sleeves rolled to the forearm
         return [top_garment(body, fit, "shirt", o.get("sleeve", 1.55), -.1, .004, "cotton", col, .7, vneck=.05)]
     if kind == "hoodie":
-        h = top_garment(body, fit, "hoodie", 1.9, -.11, .016, "fleece", col, .95, dec=.28)
+        h = top_garment(body, fit, "hoodie", 1.85, -.07, .014, "fleece", col, .95, dec=.28)
         c, r = neck_ring(body, fit, .01)
         hood = ring("hood", c + Vector((0, .035, -.005)), r + .035, .03, cloth("hoodie", "fleece", col, .95), rot=(math.radians(14), 0, 0))
         hood.scale = (1.05, 1.25, 1.)
@@ -983,14 +991,14 @@ def wardrobe(kind, body, fit, C, o):
         return [h, hood]
     if kind == "jacket":         # zip jacket: denim, leather, or a nylon rain jacket
         weave = o.get("weave", "nylon")
-        j = top_garment(body, fit, "jacket", 1.95, -.13, .022, weave, col, {"leather": .45, "nylon": .5}.get(weave, .85), dec=.28)
+        j = top_garment(body, fit, "jacket", 1.86, -.07, .013, weave, col, {"leather": .45, "nylon": .5}.get(weave, .85), dec=.28)
         c, r = neck_ring(body, fit, .015)
         collar = ring("collar", c, r + .03, .018, cloth("jacket", weave, col, .6))
-        zip_ = band(body, fit, "zip", lambda p: abs(p.x) < .006 and p.y < J["neck"].y and fit.pel - .12 < p.z < fit.neck - .04 and fit.arm_t(p) < 0,
-                    lambda p: .033, mat("Zip", "#2a2a2c", rough=.3, metal=.8))
+        zip_ = band(body, fit, "zip", lambda p: abs(p.x) < .006 and p.y < J["neck"].y and fit.pel - .06 < p.z < fit.neck - .04 and fit.arm_t(p) < 0,
+                    lambda p: .028, mat("Zip", "#2a2a2c", rough=.3, metal=.8))
         return [j, collar, zip_]
     if kind == "hivis":          # Victorian hi-vis work shirt: fluoro with silver reflective tape round the chest and arms
-        sleeve = o.get("sleeve", 1.92)
+        sleeve = o.get("sleeve", 1.86)
         h = top_garment(body, fit, "hivis", sleeve, -.1, .008, "hivis", col, .7)
         tape = mat("HiVisTape", "#c9ccd0", rough=.25, metal=.6)
         zc = fit.pel + .32
@@ -1004,8 +1012,10 @@ def wardrobe(kind, body, fit, C, o):
         g.data.materials.append(cloth("jumper", "knit", o.get("col2", "#f2f2f2"), .9))
         by_z_stripes(g, .075, fit.pel)
         return [g]
+    if kind == "vest":           # police duty vest over the shirt
+        return [top_garment(body, fit, "vest", 0, -.06, .016, "nylon", col, .6, armhole=True, neck_drop=.03, vneck=.06)]
     if kind == "cardigan":
-        return [top_garment(body, fit, "cardigan", 1.9, -.16, .014, "knit", col, .95, vneck=.12)]
+        return [top_garment(body, fit, "cardigan", 1.85, -.08, .012, "knit", col, .95, vneck=.12)]
     if kind == "dress":          # a slip dress: bodice from the bust plus a skirt from the base mesh's skirt helper
         top = top_garment(body, fit, "dress", 0, -.06, .002, "satin", col, .35, armhole=True, neck_drop=.09)
         sk = skirt(fit, "dress", col, "satin", o.get("hem", .55), .35)
@@ -1054,7 +1064,17 @@ def wardrobe(kind, body, fit, C, o):
         peak.rotation_euler.x = math.radians(-12 * sg)
         bpy.ops.object.transform_apply(scale=True, rotation=True)
         peak.data.materials.append(m)
-        return [crown, peak]
+        parts = [crown, peak]
+        if o.get("band"):   # police cap: a band of blue-and-white chequer round the crown
+            bnd = cut(body, "cap_band", lambda p: E.z + .036 < p.z < E.z + .058 and not is_ear(p, F) and fit.arm_t(p) < 0, lambda p: .0225, .002,
+                      mat("CapCheckBlue", "#1c3f94", rough=.6), smooth=1, decimate=.6)
+            bnd.data.materials.append(mat("CapCheckWhite", "#f2f2f2", rough=.6))
+            cxy = sum((v.co for v in bnd.data.vertices), Vector()) / max(1, len(bnd.data.vertices))
+            for poly in bnd.data.polygons:
+                a = math.atan2(poly.center.y - cxy.y, poly.center.x - cxy.x)
+                poly.material_index = (int((a + math.pi) / (2 * math.pi) * 22) + int(poly.center.z > E.z + .047)) % 2
+            parts.append(bnd)
+        return parts
     if kind == "beanie":
         m = cloth("beanie", "knit", col, .95)
         b = cut(body, "beanie", lambda p: p.z > E.z + .02 and not is_ear(p, F) and fit.arm_t(p) < 0, lambda p: .02 + .006 * smooth01(E.z + .05, F.head_top, p.z), .004, m, smooth=2, decimate=.4)
@@ -1353,7 +1373,7 @@ def build(name):
               "longhair": 500, "tee": 2200, "hoodie": 2600, "jacket": 2600, "hivis": 2400, "jumper": 2400, "singlet": 1600,
               "cargo_shorts": 1300, "pockets": 160, "denim_shorts": 900, "run_shorts": 900, "jeans": 2000, "cargo_pants": 2000,
               "work_pants": 2000, "crop_top": 900, "briefs": 700, "bra": 700, "dress": 2000, "cap": 400, "beanie": 400, "longsleeve": 1800, "shirt": 2000, "cardigan": 2200, "hood": 300, "collar": 200, "zip": 80,
-              "dress_skirt": 900, "skirt_skirt": 900, "hivis_tape": 300, "scarf": 400, "chain": 200, "watch": 120,
+              "dress_skirt": 900, "skirt_skirt": 900, "hivis_tape": 300, "vest": 1400, "cap_band": 300, "scarf": 400, "chain": 200, "watch": 120,
               "backpack": 300, "scarf": 300, "toolbelt": 300}
 
     def game_copy(o, lod):
@@ -1372,10 +1392,18 @@ def build(name):
     rig.weight_body(arm, body_lo)
     rig.bake_clips(arm)
     ghead, gunder, gout = ([game_copy(o, 0) for o in L] for L in (head, under, outfit))
+    def on_arm(w):   # near the shoulder-elbow-wrist chain and not below the wrist (the whole arm is above it in the rest pose)
+        p = w - Vector((0, 0, SOLE))
+        s_ = 1 if p.x > 0 else -1
+        S_, E_, W_ = fit.sh[s_], fit.el[s_], fit.wr[s_]
+        return p.z > W_.z - .06 and min(rig._seg_dist(p, S_, E_), rig._seg_dist(p, E_, W_)) < .1
     for o in ghead + gunder + gout:
-        rig.bind(arm, o, body_lo)
+        rig.bind(arm, o, body_lo, None if o in ghead else on_arm)
         if o.name.startswith(("sneaker", "boot")):
             rig.rigid_feet(arm, o)
+        for pre, bone in rig.RIGID:
+            if o.name.startswith(pre) and not o.name.startswith("backpack_strap"):
+                rig.rigid(o, bone)
 
     def export(objs, path):
         bpy.ops.object.select_all(action="DESELECT")
