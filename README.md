@@ -60,6 +60,7 @@ The 3D view runs on **three.js r170**. A small classic-script loader brings it i
 - **Day and night:** a summer day, with sunrise at 6am and sunset at 8pm, running at two real minutes per game hour (a 48-minute day). Press `Y` to skip two hours, and the clock sits under the wanted stars.
   - The sun crosses the northern sky, warm at either end of the day; moonlight takes over at night.
   - After dusk, office and house windows light up, street lamps throw pools of sodium light on the road, and lamps and car lights glow.
+- **Pause menu (Esc):** lock the time of day (dawn, day, sunset or night) and the weather (clear, overcast, rain, storm or fog), or leave either on Auto. The menu also lists every mission, so you can jump straight to any job.
 - **Weather:** Melbourne's four seasons in a day. It moves on by itself every couple of game hours; press `U` to change it, and the HUD shows it beside the clock.
   - **The kinds:** clear, overcast, rain, storm (with lightning and thunder) and fog.
   - **What changes:** cloud dims the sun and greys the sky and haze, and fog pulls the view in.

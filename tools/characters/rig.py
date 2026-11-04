@@ -231,27 +231,40 @@ def clips(arm):
             arms(w, s, *hang(sg))
         return w
 
-    def gait(t, swing, knee, knee0, arm_sw, elbow, bob, lean):
+    def gait(t, swing, knee, knee0, arm_sw, elbow, bob, lean, run=False):
+        """One stride. For the left leg the thigh swings forward while cos(p) > 0 (the swing phase): that's when the knee
+        folds most, just after toe-off. In stance the knee stays nearly straight, the heel strikes with the toes up and
+        the foot pushes off toes-down before it lifts. Arms counter-swing, the pelvis and chest twist against each other."""
         p = 2 * math.pi * t
         s, w = math.sin(p), {}
-        w["Spine"] = Rx(lean * .5) @ Rz(4 * s)
-        w["Chest"] = Rx(lean) @ Rz(-7 * s)
-        w["Neck"] = w["Head"] = Rx(-lean * .3)
+        w["Hips"] = Rz(-5 * s)
+        w["Spine"] = Rx(lean * .5) @ Rz(3 * s)
+        w["Chest"] = Rx(lean) @ Rz(8 * s)
+        w["Neck"] = w["Head"] = Rx(-lean * .4) @ Rz(-4 * s)
         for k, sg in (("L", 1), ("R", -1)):
-            th = -swing * s * sg                                   # thigh: forward swing is negative
-            bend = knee0 + knee * max(0., -math.cos(p if sg > 0 else p + math.pi))
+            q = p if sg > 0 else p + math.pi
+            sq, cq = math.sin(q), math.cos(q)
+            th = -swing * sq                                       # thigh: forward is negative
+            sw = max(0., math.cos(q + .35)) ** 1.6                 # swing-phase knee fold, peaking just after toe-off
+            bend = knee0 * (1 - sw) + knee * sw
+            push = max(0., -sq) * max(0., -cq) * 2                 # late stance: heel lifts, toes push
+            heel = max(0., sq) ** 6                                # heel strike: toes up
             w["UpperLeg." + k] = Rx(th)
-            w["LowerLeg." + k] = Rx(th + bend)
-            w["Foot." + k] = w["Toes." + k] = Rx(min(25, max(-20, -th * .4)))
-            arms(w, k, *hang(sg, arm_sw * s * sg + lean, elbow))
-        return w, Vector((0, 0, -bob * (1 - math.cos(2 * p)) / 2))
+            shin = th + bend
+            w["LowerLeg." + k] = Rx(shin)
+            foot = max(-25., min(45., shin * .6 * sw + 22 * push - 14 * heel))
+            w["Foot." + k] = Rx(foot)
+            w["Toes." + k] = Rx(foot - 18 * push)
+            arms(w, k, *hang(sg, arm_sw * s * sg + lean * .6, elbow))
+        b = (1 + math.cos(2 * p)) / 2 if run else (1 - math.cos(2 * p)) / 2   # running is lowest at mid-stance, walking highest
+        return w, Vector((0, 0, -bob * b))
 
     def aim_arms(w, kick=0.):
         w = dict(w)
         w["Chest"] = Rz(-8) @ w.get("Chest", I)
         rx = Rx(-kick)
         arms(w, "R", rx @ Vector((.12, -1, .02)), rx @ Vector((.18, -1, .05)))          # gun arm straight out
-        arms(w, "L", rx @ Vector((-.15, -.55, -.75)), rx @ Vector((-.75, -.65, .1)))     # support hand under the gun
+        arms(w, "L", rx @ Vector((-.35, -.75, -.55)), rx @ Vector((-.48, -.8, .34)))     # support hand up on the fore-grip
         return w
 
     def idle(t):
@@ -289,11 +302,11 @@ def clips(arm):
             arms(w, s, *hang(sg, -45 * k, 40))
         return w, Vector()
 
-    rs = lambda t: gait(t, 42, 70, 18, 0, 0, .035, 8)
+    rs = lambda t: gait(t, 36, 100, 18, 0, 0, .04, 8, True)
     return {
         "idle": (3.0, True, idle),
-        "walk": (1.05, True, lambda t: gait(t, 24, 32, 6, 20, 18, .018, 3)),
-        "run": (.7, True, lambda t: gait(t, 42, 70, 18, 38, 85, .035, 12)),
+        "walk": (1.1, True, lambda t: gait(t, 22, 58, 5, 16, 14, .02, 2)),
+        "run": (.72, True, lambda t: gait(t, 38, 105, 18, 34, 88, .045, 11, True)),
         "aim": (1.0, True, lambda t: (aim_arms(idle(t)[0]), Vector())),
         "shoot": (.25, True, lambda t: (aim_arms(idle(0)[0], 8 * math.sin(math.pi * t)), Vector())),
         "runShoot": (.7, True, lambda t: (aim_arms(rs(t)[0]), rs(t)[1])),

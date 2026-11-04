@@ -35,6 +35,13 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .tag{font-family:var(--script);font-size:26px;color:#fff;text-align:center;margin:0}
 .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .big{font-size:22px;padding:12px 26px;border:3px solid #000;background:var(--pink);color:#fff;box-shadow:4px 4px 0 #000;text-transform:uppercase}
+.opts{margin:14px auto 0;max-width:560px;display:grid;gap:8px}
+.optrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}.optrow>span:first-child{min-width:70px;text-align:right;font-weight:700;text-transform:uppercase;font-size:13px}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}.seg button{font:inherit;font-size:13px;padding:5px 10px;border:2px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.seg button.on{background:var(--pink);border-color:#000;color:#fff}
+.mlist{max-width:620px;margin:0 auto;max-height:34vh;overflow:auto;display:grid;gap:4px;text-align:left}
+.mlist button{font:inherit;font-size:14px;padding:7px 10px;border:2px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;display:flex;justify-content:space-between;gap:8px;width:100%}
+.mlist button:hover{border-color:var(--pink)}.mlist .st{opacity:.65;font-size:12px}
 .big.alt{background:var(--panel);color:var(--fg);border-color:var(--line)}
 .big:active{transform:translate(2px,2px);box-shadow:2px 2px 0 #000}
 .lede{margin:0 auto;max-width:46ch;text-align:center;color:var(--dim);font-size:16px;line-height:1.5}
@@ -137,6 +144,12 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
       <button id="btnMute" class="big alt" type="button">Sound: on</button>
       <button id="btnQuit" class="big alt" type="button">Title</button>
     </div>
+    <div class="opts">
+      <div class="optrow"><span>Time</span><span id="optTime" class="seg"></span></div>
+      <div class="optrow"><span>Weather</span><span id="optWx" class="seg"></span></div>
+    </div>
+    <h3 class="ttl" style="font-size:18px;margin:14px 0 6px">Missions</h3>
+    <div id="missionList" class="mlist"></div>
   </div>
 </div>
 
@@ -1804,8 +1817,8 @@ function update(dt){
   else if(CUT.on){updateCut(dt);if(player.car){player.car.vx*=.9;player.car.vy*=.9}}
   else updatePlayer(dt,c);
   updateBubbles(dt);
-  if(pressed.KeyY){TOD.h=(TOD.h+2)%24;TOD.envH=-9;sub('Time: '+todClock(),1.5)}
-  if(pressed.KeyU){const L=Object.keys(WXK);setWeather(L[(L.indexOf(WX.kind)+1)%L.length]);sub('Weather: '+WXK[WX.kind].label,1.5)}
+  if(pressed.KeyY){TOD.lock=null;TOD.h=(TOD.h+2)%24;TOD.envH=-9;sub('Time: '+todClock(),1.5)}
+  if(pressed.KeyU){WX.lock=null;const L=Object.keys(WXK);setWeather(L[(L.indexOf(WX.kind)+1)%L.length]);sub('Weather: '+WXK[WX.kind].label,1.5)}
   for(const k in pressed)delete pressed[k];
   for(const car of cars){
     if(car.tram){updateTram(car,dt);continue}
@@ -2369,7 +2382,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 57';
+const BUILD='Build 58';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2552,10 +2565,10 @@ function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==
   if((p.bald||isPl)&&head&&!tp.aus){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
     b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
   if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
-    for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);if(tp.aus)gun.rotation.y=PI;hand.add(gun);gun.visible=false}   // the cast's hand bone is rolled the other way
+    for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
   else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
-  g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
+  g.userData={model:true,aus:!!tp.aus,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
 let HIDDEN=null;
 const BEARD=['#3a2a1e','#5a4030','#7a6a5a','#2a1b10','#9a8a7a'];
 const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
@@ -2566,7 +2579,7 @@ function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.
   const aiming=isPl?player.wi>0&&(!!player.aimT||mouse.aim):p.weapon&&(p.alert||p.kind==='cop'&&stars>0);
   let want=p.dead?A.die:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
   want=want||A.idle;if(want!==u.cur){want.reset().fadeIn(.18).play();if(u.cur)u.cur.fadeOut(.18);u.cur=want}
-  if(want===A.walk)want.timeScale=clamp(u.spd/55,.6,1.6);else if(want===A.run)want.timeScale=clamp(u.spd/150,.7,1.4);
+  if(want===A.walk)want.timeScale=clamp(u.spd/(u.aus?42:55),.6,1.8);else if(want===A.run||want===A.runShoot)want.timeScale=clamp(u.spd/(u.aus?120:150),.75,1.6);
   if(u.gun){u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));const wid=isPl?WEAPONS[player.wi].id:(WEAPONS[p.weapon]||WEAPONS[1]).id;
     if(u.gunId!==wid){u.gunId=wid;for(const c of u.gun.children)if(c.name&&GUN_LEN[c.name])c.visible=c.name===wid}}
   u.mixer.update(dt)}
@@ -2682,7 +2695,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
 // hemisphere), the sky, haze, light colours and exposure follow it, and after dusk windows, lamps and car lights come on.
 const TOD={h:14,rate:1/120,envH:-9};   // 2 real minutes per game hour: a 48-minute day
 const todClock=()=>{const m=Math.floor(TOD.h*60)%1440;return String((m/60)|0).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
-function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=(TOD.h+dt*TOD.rate)%24;
+function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+dt*TOD.rate)%24;
   const a=(TOD.h-6)/14*PI,se=Math.sin(a),day=smooth(-.08,.22,se),low=1-smooth(.02,.45,se),night=1-smooth(-.06,.12,se);TOD.night=Math.max(night,WX.cloud>.85?.35:0);
   const sd=new T.Vector3(Math.cos(a),Math.max(.02,se*.95),-.5).normalize(),md=new T.Vector3(-Math.cos(a)*.6,.75,-.35).normalize(),dir=day>.02?sd:md;
   updateWeather(dt);const cl=WX.cloud;
@@ -2712,7 +2725,7 @@ const WX={kind:'clear',cloud:0,rain:0,fog:1,wet:0,storm:0,nextH:16+Math.random()
 function setWeather(k){WX.kind=k;WX.nextH=(TOD.h+1.5+Math.random()*2.5)%24}
 function pickWeather(){const r=Math.random(),k=WX.kind;return r<.34?'clear':r<.56?(k==='rain'?'storm':'cloudy'):r<.82?'rain':r<.92?'storm':'fog'}
 function wetGround(m){m.roughness=lerp(.95,.16,WX.wet);m.color.setScalar(1-.3*WX.wet);m.envMapIntensity=.4+1.1*WX.wet}
-function updateWeather(dt){if(Math.abs(TOD.h-WX.nextH)<.05)setWeather(pickWeather());
+function updateWeather(dt){if(WX.lock){WX.kind=WX.lock}else if(Math.abs(TOD.h-WX.nextH)<.05)setWeather(pickWeather());
   const T=WXK[WX.kind],k=Math.min(1,dt*.04);for(const f of['cloud','rain','fog','storm'])WX[f]+=(T[f]-WX[f])*k;
   WX.wet+=((T.wet>WX.wet?T.wet:T.wet)-WX.wet)*(T.wet>WX.wet?dt*.05:dt*.008);   // roads soak quickly and dry slowly
   if(WX.storm>.5&&Math.random()<dt*.07){WX.flash=.18;WX.thunder=.6+Math.random()*2.2}
@@ -2854,7 +2867,7 @@ function buildLandmarks3D(){const T=G3.T,root=new T.Group();G3.sc.add(root);
 
 // ================================================================ flow control
 const titleEl=document.getElementById('title'),pauseEl=document.getElementById('pause');
-function setPaused(p){paused=p;pauseEl.hidden=!p||!started;if(p)mapOpen=false;for(const k in keys)keys[k]=false;mouse.down=false}
+function setPaused(p){paused=p;pauseEl.hidden=!p||!started;if(p&&started)renderOpts();if(p)mapOpen=false;for(const k in keys)keys[k]=false;mouse.down=false}
 function newGame(save){
   cars=[];peds=[];bullets=[];parts=[];decals=[];pickups=[];inside={};mission=null;objective='';subs=[];big=null;heat=0;stars=0;
   buildLocations();spawnTrams();
@@ -2873,6 +2886,16 @@ function newGame(save){
 document.getElementById('btnNew').addEventListener('click',()=>{SFX.init();newGame(null)});
 document.getElementById('btnCont').addEventListener('click',()=>{SFX.init();newGame(loadSave())});
 document.getElementById('btnResume').addEventListener('click',e=>{e.currentTarget.blur();setPaused(false)});
+// pause menu: lock the time of day and the weather, or leave them running; pick any mission to play now
+const TIME_OPTS=[['Auto',null],['Dawn',6.3],['Day',13],['Sunset',19.4],['Night',22.5]],WX_OPTS=[['Auto',null],['Clear','clear'],['Overcast','cloudy'],['Rain','rain'],['Storm','storm'],['Fog','fog']];
+function renderOpts(){const seg=(id,opts,cur,fn)=>{const el=document.getElementById(id);el.innerHTML='';for(const[l,v]of opts){const b=document.createElement('button');b.type='button';b.textContent=l;if(v===cur)b.className='on';b.onclick=()=>{fn(v);renderOpts()};el.appendChild(b)}};
+  seg('optTime',TIME_OPTS,TOD.lock??null,v=>{TOD.lock=v;if(v!=null){TOD.h=v;TOD.envH=-9}});
+  seg('optWx',WX_OPTS,WX.lock??null,v=>{WX.lock=v;if(v){setWeather(v);const T=WXK[v];for(const f of['cloud','rain','fog','storm','wet'])WX[f]=T[f];TOD.envH=-9}});
+  const ml=document.getElementById('missionList');ml.innerHTML='';
+  MISSIONS.forEach((m,i)=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<span>${i+1}. ${m.name}</span><span class="st">${i<progress?'done':i===progress?'next':''} · ${m.giver||''}</span>`;
+    b.onclick=()=>{playMission(i);b.blur()};ml.appendChild(b)})}
+function playMission(i){if(mission)failMission('Switched job.');if(player.car)exitCar&&exitCar();const st=missionStart(i);player.x=st.x;player.y=st.y+20;player.car=null;stars=0;heat=0;
+  cam.x=player.x;cam.y=player.y;if(G3.ok)GTA.snapCam();setPaused(false);startMission(i)}
 const btnDrive=document.getElementById('btnDrive');const driveLabel=()=>{btnDrive.textContent='Driving: '+(driveMode==='point'?'point (overhead only)':'GTA')};driveLabel();
 btnDrive.addEventListener('click',()=>{driveMode=driveMode==='point'?'gta':'point';driveLabel();try{localStorage.setItem('gta-melbourne-drive2',driveMode)}catch(e){}});
 document.getElementById('btnMute').addEventListener('click',e=>{SFX.setMuted(!SFX.muted);e.target.textContent='Sound: '+(SFX.muted?'off':'on')});
