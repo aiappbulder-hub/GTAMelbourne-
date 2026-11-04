@@ -2487,6 +2487,7 @@ const PEOPLE={ver:0,tpl:{}};
 // the light crowd versions; the player is Trent at full detail. Until they load, the simpler Quaternius people stand in.
 const AUS={player:'trent',male:['aussie_bloke','bearded_gaz','tradie_dazza','student_minh','street_kai','old_bruce','gym_jono'],
   female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
+const CHAR_EXT='';
 const AUSCLIP={idle:'idle',walk:'walk',run:'run',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',jump:'jump'};
 // colour variants: half the pedestrians wear their outfit in other colours (garment materials are named Cloth_*)
 const OUTFIT_COLS=['#1d2b45','#3a3d42','#7b9cc4','#2e3b55','#4b5240','#8b7d5a','#c46a3a','#d23b2a','#f2efe8','#141416','#2f6bd8','#6b4a2e','#9a3b5a','#e8b500','#5a6f4a','#b8b2a8'];
@@ -2503,8 +2504,10 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
     PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});
   // the Australian cast: binary GLB, metres, feet on the ground; skinned, with every clip
   const aus=[...new Set([...AUS.male,...AUS.female,...AUS.gang])];
-  const loadAus=(k,url)=>new THREE.GLTFLoader().load(url,g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false}});
-    PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:1.78,y0:0,aus:true};PEOPLE.ver++},undefined,e=>console.warn('character failed',url,e));
+  // CHAR_EXT: hosts that won't serve .glb get each model as base64 in a .json wrapper ({b64}); both parse the same way
+  const loadAus=(k,url)=>fetch(url+CHAR_EXT).then(r=>{if(!r.ok)throw new Error(r.status);return CHAR_EXT?r.json().then(j=>Uint8Array.from(atob(j.b64),c=>c.charCodeAt(0)).buffer):r.arrayBuffer()})
+    .then(buf=>new THREE.GLTFLoader().parse(buf,'',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false}});
+      PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:1.78,y0:0,aus:true};PEOPLE.ver++},e=>console.warn('character failed',url,e))).catch(e=>console.warn('character failed',url,e));
   loadAus('trent','characters/exports/trent.glb');for(const k of aus)loadAus(k+'@crowd','characters/exports/'+k+'_crowd.glb');
   // gun models (Quaternius, CC0): each one is turned so its barrel runs along the hand bone (+y) with the top of the gun towards +z,
   // and scaled to its length in game px; people get rebuilt once they're all in
