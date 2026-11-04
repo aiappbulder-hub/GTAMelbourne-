@@ -165,7 +165,7 @@
    "files": {
     "outfit": {
      "file": "exports/tradie_dazza.glb",
-     "kb": 1237
+     "kb": 1217
     },
     "base": {
      "file": "exports/tradie_dazza_base.glb",
@@ -173,7 +173,7 @@
     },
     "crowd": {
      "file": "exports/tradie_dazza_crowd.glb",
-     "kb": 708
+     "kb": 700
     }
    }
   },
@@ -209,7 +209,7 @@
    "files": {
     "outfit": {
      "file": "exports/student_minh.glb",
-     "kb": 1141
+     "kb": 1138
     },
     "base": {
      "file": "exports/student_minh_base.glb",
@@ -217,7 +217,7 @@
     },
     "crowd": {
      "file": "exports/student_minh_crowd.glb",
-     "kb": 658
+     "kb": 656
     }
    }
   },
@@ -297,7 +297,7 @@
    "files": {
     "outfit": {
      "file": "exports/gym_jono.glb",
-     "kb": 1093
+     "kb": 1088
     },
     "base": {
      "file": "exports/gym_jono_base.glb",
@@ -305,7 +305,7 @@
     },
     "crowd": {
      "file": "exports/gym_jono_crowd.glb",
-     "kb": 613
+     "kb": 612
     }
    }
   },
@@ -340,7 +340,7 @@
    "files": {
     "outfit": {
      "file": "exports/gym_kayla.glb",
-     "kb": 1192
+     "kb": 1188
     },
     "base": {
      "file": "exports/gym_kayla_base.glb",
@@ -348,7 +348,7 @@
     },
     "crowd": {
      "file": "exports/gym_kayla_crowd.glb",
-     "kb": 613
+     "kb": 612
     }
    }
   },
@@ -391,7 +391,7 @@
    "files": {
     "outfit": {
      "file": "exports/street_kai.glb",
-     "kb": 1149
+     "kb": 1139
     },
     "base": {
      "file": "exports/street_kai_base.glb",
@@ -399,7 +399,7 @@
     },
     "crowd": {
      "file": "exports/street_kai_crowd.glb",
-     "kb": 647
+     "kb": 643
     }
    }
   },
@@ -443,7 +443,7 @@
    "files": {
     "outfit": {
      "file": "exports/old_bruce.glb",
-     "kb": 1282
+     "kb": 1283
     },
     "base": {
      "file": "exports/old_bruce_base.glb",
@@ -484,7 +484,7 @@
    "files": {
     "outfit": {
      "file": "exports/old_marg.glb",
-     "kb": 1084
+     "kb": 1076
     },
     "base": {
      "file": "exports/old_marg_base.glb",
@@ -492,7 +492,7 @@
     },
     "crowd": {
      "file": "exports/old_marg_crowd.glb",
-     "kb": 613
+     "kb": 607
     }
    }
   },
@@ -522,7 +522,7 @@
    "files": {
     "outfit": {
      "file": "exports/night_jess.glb",
-     "kb": 1103
+     "kb": 1085
     },
     "base": {
      "file": "exports/night_jess_base.glb",
@@ -530,7 +530,7 @@
     },
     "crowd": {
      "file": "exports/night_jess_crowd.glb",
-     "kb": 558
+     "kb": 550
     }
    }
   },
@@ -574,7 +574,7 @@
    "files": {
     "outfit": {
      "file": "exports/gang_tama.glb",
-     "kb": 1270
+     "kb": 1257
     },
     "base": {
      "file": "exports/gang_tama_base.glb",
@@ -582,7 +582,59 @@
     },
     "crowd": {
      "file": "exports/gang_tama_crowd.glb",
-     "kb": 671
+     "kb": 665
+    }
+   }
+  },
+  {
+   "id": "cop_vic",
+   "type": "Victoria Police",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#d6a37e",
+   "eye": "#4a5a6a",
+   "outfit": [
+    {
+     "kind": "shirt",
+     "col": "#1c2a48",
+     "sleeve": 1.5
+    },
+    {
+     "kind": "vest",
+     "col": "#141c30"
+    },
+    {
+     "kind": "cargo_pants",
+     "col": "#1c2a48"
+    },
+    {
+     "kind": "work_boots",
+     "col": "#111111"
+    },
+    {
+     "kind": "toolbelt",
+     "col": "#111111"
+    },
+    {
+     "kind": "cap",
+     "col": "#141a2a",
+     "band": true
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/cop_vic.glb",
+     "kb": 1209
+    },
+    "base": {
+     "file": "exports/cop_vic_base.glb",
+     "kb": 898
+    },
+    "crowd": {
+     "file": "exports/cop_vic_crowd.glb",
+     "kb": 698
     }
    }
   },

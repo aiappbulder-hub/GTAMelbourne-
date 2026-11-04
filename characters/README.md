@@ -14,7 +14,7 @@ character, with a button for each clip and a card per character listing the outf
 | 1 | Male and female base characters | Done: Aussie Bloke and Aussie Girl |
 | 2 | Shared humanoid rig and animations | Done: one skeleton, 9 clips, all characters |
 | 3 | Interchangeable clothing | Done: 30 garment and accessory kinds, tattoos, 6 hair styles |
-| 4 | The remaining 10 character types | Done: 14 characters in all |
+| 4 | The remaining 10 character types | Done: 15 characters in all, including Victoria Police |
 | 5 | Materials, skins and colour variations | Done: recolourable garments, skin, hair, iris and print textures |
 | 6 | GLB export and browser check | Done: three.js r128 and r170 both load them. They run in the game |
 | 7 | Catalogue and preview scene | Done: `catalogue.html`, `catalogue.json`, `previews/` |
@@ -36,6 +36,7 @@ character, with a button for each clip and a card per character listing the outf
 | `old_bruce` | Older male | Off to the footy: hooped jumper over a long-sleeve, scarf and beanie, slacks, brown shoes | 17.0k / 6.7k |
 | `old_marg` | Older female | Short grey hair. Yellow Melbourne rain jacket, navy slacks | 14.5k / 5.8k |
 | `night_jess` | Nightlife | Long dark hair, red lips. Black satin slip dress, ankle boots, chain | 16.3k / 5.7k |
+| `cop_vic` | Victoria Police | Navy shirt and cargo pants, duty vest, belt, boots, cap with the blue-and-white chequered band | 16.5k / 6.5k |
 | `gang_tama` | Street gang | Black hoodie, black trackies with white stripes, beanie, chain, tattooed sleeves and neck | 19.2k / 7.4k |
 
 Each character has three exports in `exports/`:
@@ -102,6 +103,7 @@ hi-vis mesh, athletic mesh, satin and lycra.
 
 `index.html` loads `trent.glb` for the player and the `_crowd` versions for pedestrians. Pedestrians are picked by role:
 - gang members get the gang character
+- police get the Victoria Police officer
 - runners on the Tan and the athletics track get the gym pair
 - bald pedestrians get Gaz
 - everyone else is drawn from the everyday cast by sex
