@@ -14,7 +14,7 @@ Clips are authored as world-space rotations per bone (easy to reason about: +X t
 hanging leg swings back) and converted to each bone's local pose rotation. Because the rig has the same rest pose
 on every body, the clips are identical in every export.
 """
-import math
+import math, os, json
 import bpy
 from mathutils import Vector, Quaternion, Matrix
 
@@ -89,7 +89,7 @@ def _seg_dist(p, a, b):
     return (p - (a + ab * t)).length
 
 
-def weight_body(arm, body):
+def weight_body(arm, body, on_arm=None):
     """Automatic weights; any vertex the heat solver leaves unweighted goes to its nearest bone."""
     for o in bpy.context.view_layer.objects:
         o.select_set(False)
@@ -117,6 +117,20 @@ def weight_body(arm, body):
         n = min(bones, key=lambda b: _seg_dist(p, b[1], b[2]))[0]
         body.vertex_groups[n].add([v.index], 1., "REPLACE")
         fixed += 1
+    # in the A-pose the hands hang beside the thighs, so the heat solver lets them pull hip and thigh skin: keep arm
+    # influence on the arm only, and give anything left without weight its nearest non-arm bone
+    if on_arm:
+        mw = body.matrix_world
+        gi = {body.vertex_groups[n].index: n for n in ARM_BONES if n in body.vertex_groups}
+        for v in body.data.vertices:
+            p = mw @ v.co
+            if on_arm(p):
+                continue
+            for g in [g for g in v.groups if g.group in gi]:
+                body.vertex_groups[gi[g.group]].remove([v.index])
+            if sum(g.weight for g in v.groups) < .05:
+                n = min((b for b in bones if b[0] not in ARM_BONES), key=lambda b: _seg_dist(p, b[1], b[2]))[0]
+                body.vertex_groups[n].add([v.index], 1., "REPLACE")
     print("  weighted body: %d vertex groups, %d vertices fixed by nearest bone" % (len(body.vertex_groups), fixed))
 
 
@@ -156,6 +170,14 @@ def bind(arm, obj, src, on_arm=None):
         p = mwo @ v.co
         n = min((b for b in bones if not on_arm or b[0] not in ARM_BONES or on_arm(p)), key=lambda b: _seg_dist(p, b[1], b[2]))[0]
         obj.vertex_groups[n].add([v.index], 1., "REPLACE")
+    # smooth the weights so no edge spans two bones that move apart (the crotch of shorts between the legs), then normalise
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
+    bpy.ops.object.vertex_group_smooth(group_select_mode="ALL", factor=.6, repeat=4)
+    bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
     mw = obj.matrix_world.copy()
     obj.parent = arm
     obj.matrix_world = mw
@@ -316,6 +338,60 @@ def clips(arm):
     }
 
 
+UAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "characters", "animations", "ual_retarget.json")
+
+
+def _basis(f, s):
+    f = Vector(f).normalized()
+    s = Vector(s)
+    s = (s - f * s.dot(f)).normalized()
+    return Matrix((f, s, f.cross(s))).transposed()     # columns f, s, f x s
+
+
+def retargeted(arm):
+    """Clips from the retargeted Quaternius library (retarget.py), as world rotations for this rig, or {} if absent."""
+    if not os.path.exists(UAL):
+        return {}
+    D = json.load(open(UAL))
+    B = arm.data.bones
+    leg = (B["UpperLeg.L"].head_local - B["LowerLeg.L"].tail_local).length
+    ours = {}
+    for bn, (fs, ss) in D["rest"].items():
+        if bn not in B:
+            continue
+        ft = (B[bn].tail_local - B[bn].head_local).normalized()
+        st = Vector(fs).normalized().rotation_difference(ft) @ Vector(ss)      # the source's twist axis carried onto our bone
+        ours[bn] = _basis(ft, st).inverted()
+    # proportion fix: the source mannequin's bulky shoulders hold its relaxed arms ~23 degrees out from the body, which on
+    # our slimmer people reads as arms held out. Turn each whole arm in about the forward axis (Y) so the idle arm hangs
+    # 7 degrees out; arms reaching forward (aiming) lie along that axis and are untouched.
+    f0 = D["clips"]["idle"]["frames"][0]["p"]
+    corr = {}
+    for sd, sg in (("L", 1), ("R", -1)):
+        d = Vector(f0["UpperArm." + sd][0])
+        ab = math.atan2(abs(d.x), -d.z)
+        corr[sd] = Quaternion((0, 1, 0), sg * (ab - math.radians(7)))
+    armb = lambda bn: bn.split(".")[0] in ("UpperArm", "LowerArm", "Wrist", "Fingers")
+    out = {}
+    for name, c in D["clips"].items():
+        rows = c["frames"]
+
+        def pose(t, rows=rows):
+            r = rows[min(len(rows) - 1, int(round(t * (len(rows) - 1))))]
+            W = {}
+            for bn, inv in ours.items():
+                if bn not in r["p"]:
+                    continue
+                f, sv = (Vector(v) for v in r["p"][bn])
+                if armb(bn):
+                    q = corr[bn[-1]]
+                    f, sv = q @ f, q @ sv
+                W[bn] = (_basis(f, sv) @ inv).to_quaternion()
+            return W, Vector(r["h"]) * leg
+        out[name] = (max(.1, c["dur"]), c["loop"], pose)
+    return out
+
+
 def bake_clips(arm):
     """Key every clip onto its own NLA track (the glTF exporter turns each track into one named animation)."""
     sc = bpy.context.scene
@@ -327,7 +403,33 @@ def bake_clips(arm):
     parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
     order = [b.name for b in arm.data.bones]            # parents come before children
     ad = arm.animation_data_create()
-    for name, (dur, loop, fn) in clips(arm).items():
+    C = clips(arm)
+    RT = retargeted(arm)        # professional motion where we have it; the procedural clips fill any gaps
+    hold, kickhold = C["aim"][2], C["shoot"][2]
+    for k in ("aim", "shoot", "reload"):
+        RT.pop(k, None)         # the library's pistol stance crosses the arms; our two-handed rifle hold reads better
+    ARMS = [b.name for b in arm.data.bones if b.name.split(".")[0] in ("Shoulder", "UpperArm", "LowerArm", "Wrist", "Fingers")]
+
+    def with_hold(base, kick=None):
+        def fn(t):
+            W, h = base(t)
+            A, _ = (kickhold if kick else hold)(t)
+            W = dict(W)
+            for bn in ARMS + ["Chest"]:
+                if bn in A:
+                    W[bn] = A[bn]
+            return W, h
+        return fn
+    for k, src in (("runShoot", "run"), ("walkGun", "walk")):
+        if src in RT:
+            d, lp, fn = RT[src]
+            RT[k] = (d, lp, with_hold(fn, k == "runShoot"))
+    if "idle" in RT:   # aim and shoot stand on the real idle legs
+        d, lp, fn = RT["idle"]
+        RT["aim"] = (1., True, with_hold(fn))
+        RT["shoot"] = (C["shoot"][0], True, with_hold(fn, True))
+    C.update(RT)
+    for name, (dur, loop, fn) in C.items():
         act = bpy.data.actions.new(name)
         act.use_fake_user = True
         ad.action = act

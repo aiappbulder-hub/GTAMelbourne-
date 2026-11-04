@@ -64,7 +64,14 @@ How it binds:
 - **Shoes and boots:** bound rigidly to the foot and toes.
 - **Gaps:** any vertex left unweighted takes its nearest bone.
 
-**Clips:** `idle`, `walk`, `run`, `aim`, `shoot`, `runShoot`, `punch`, `jump` and `die`.
+**Clips:** most of the motion is professional animation from **Quaternius' Universal Animation Library** (CC0), retargeted
+onto our rig by `tools/characters/retarget.py`. For every body part and every frame, the retarget records the source's
+direction and twist, then rebuilds that pose on each of our characters. That way different rest poses and proportions
+don't matter, and the arms are turned in to suit our slimmer builds. The clips are `idle`, `walk`, `run` (a jog),
+`sprint`, `punch`, `jump`, `die`, `hit` and `crouch`.
+- Aiming and shooting use our own two-handed rifle hold on top of the real legs and body: `aim`, `shoot`, `walkGun` and
+  `runShoot`. The library's pistol stance crosses the arms.
+- `retarget.py` writes `animations/ual_retarget.json`, and `rig.py` bakes it per character.
 - They're authored in world terms: legs and spine as rotations, and arms by the direction they should point.
 - They're baked to every character, so the clips are identical across the cast and interchangeable.
 
@@ -152,5 +159,6 @@ A new garment kind is one more branch in `wardrobe()`.
 
 - The MakeHuman base mesh, targets and eye texture are **CC0** (MakeHuman project, `source/LICENSE.ASSETS.md`).
   MakeHuman's AGPL application code is not used.
-- Everything else is original to this project: the scripts, textures, rig, animations, models and renders.
+- Motion: Quaternius Universal Animation Library, **CC0** (quaternius.com), retargeted.
+- Everything else is original to this project: the scripts, textures, rig, models and renders.
 - *Southerly Surf Co.*, *Yarra Rats* and *Melbourne Run Club* are fictional brands made for the game. No real logos are used.

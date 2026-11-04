@@ -1389,14 +1389,15 @@ def build(name):
     body_lo = dup(body, name + "_body_lod0")
     decimate(body_lo, .4)
     arm = rig.make_armature(rig.joints_world(J, SOLE), body_lo, name + "_rig")
-    rig.weight_body(arm, body_lo)
     rig.bake_clips(arm)
     ghead, gunder, gout = ([game_copy(o, 0) for o in L] for L in (head, under, outfit))
     def on_arm(w):   # near the shoulder-elbow-wrist chain and not below the wrist (the whole arm is above it in the rest pose)
         p = w - Vector((0, 0, SOLE))
         s_ = 1 if p.x > 0 else -1
         S_, E_, W_ = fit.sh[s_], fit.el[s_], fit.wr[s_]
-        return p.z > W_.z - .06 and min(rig._seg_dist(p, S_, E_), rig._seg_dist(p, E_, W_)) < .1
+        tip = W_ + (W_ - E_).normalized() * .21                       # the hand carries on past the wrist
+        return min(rig._seg_dist(p, S_, E_), rig._seg_dist(p, E_, W_)) < .1 and p.z > W_.z - .06 or rig._seg_dist(p, W_, tip) < .065
+    rig.weight_body(arm, body_lo)
     for o in ghead + gunder + gout:
         rig.bind(arm, o, body_lo, None if o in ghead else on_arm)
         if o.name.startswith(("sneaker", "boot")):

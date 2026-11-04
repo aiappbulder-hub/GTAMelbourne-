@@ -2394,7 +2394,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 59';
+const BUILD='Build 60';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2526,7 +2526,7 @@ const PEOPLE={ver:0,tpl:{}};
 const AUS={player:'trent',male:['aussie_bloke','bearded_gaz','tradie_dazza','student_minh','street_kai','old_bruce','gym_jono'],
   female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],cop:['cop_vic'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
 const CHAR_EXT='';
-const AUSCLIP={idle:'idle',walk:'walk',run:'run',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',jump:'jump'};
+const AUSCLIP={idle:'idle',walk:'walk',run:'run',sprint:'sprint',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',walkGun:'walkGun',jump:'jump',hit:'hit'};
 // colour variants: half the pedestrians wear their outfit in other colours (garment materials are named Cloth_*)
 const OUTFIT_COLS=['#1d2b45','#3a3d42','#7b9cc4','#2e3b55','#4b5240','#8b7d5a','#c46a3a','#d23b2a','#f2efe8','#141416','#2f6bd8','#6b4a2e','#9a3b5a','#e8b500','#5a6f4a','#b8b2a8'];
 const PCLIP={worker:{idle:'Man_Idle',walk:'Man_Walk',run:'Man_Run',die:'Man_Death',punch:'Man_Punch',jump:'Man_Jump'},
@@ -2572,7 +2572,7 @@ function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==
   const inner=new T.Group();inner.rotation.y=PI/2;inner.add(m);const g=new T.Group();g.add(inner);shadowDisc(g,7,7);
   const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(tp.aus?AUSCLIP:PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
-  if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
+  if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);if(acts.hit){acts.hit.setLoop(T.LoopOnce,1)}
   let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
   if((p.bald||isPl)&&head&&!tp.aus){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
     b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
@@ -2589,9 +2589,10 @@ function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?
 function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.px,p.y-u.py);u.px=p.x;u.py=p.y;u.spd=lerp(u.spd,dt>0?d/dt:0,Math.min(1,dt*8));
   const shooting=isPl?gameT-(player.shotT??-99)<.35:p.weapon&&p.alert&&(p.cool||0)>.8*(p.kind==='cop'?1.6:1.1)-.35;
   const aiming=isPl?player.wi>0&&(!!player.aimT||mouse.aim):p.weapon&&(p.alert||p.kind==='cop'&&stars>0);
-  let want=p.dead?A.die:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
+  const hurt=A.hit&&(isPl?gameT-(player.lastHurt??-99)<.3:p.hp<(u.lastHp??p.hp));u.lastHp=p.hp;if(hurt)u.hitT=.3;u.hitT=(u.hitT||0)-dt;
+  let want=p.dead?A.die:u.hitT>0&&A.hit?A.hit:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>170&&A.sprint&&!shooting?A.sprint:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:aiming&&A.walkGun?A.walkGun:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
   want=want||A.idle;if(want!==u.cur){want.reset().fadeIn(.18).play();if(u.cur)u.cur.fadeOut(.18);u.cur=want}
-  if(want===A.walk)want.timeScale=clamp(u.spd/(u.aus?42:55),.6,1.8);else if(want===A.run||want===A.runShoot)want.timeScale=clamp(u.spd/(u.aus?120:150),.75,1.6);
+  if(want===A.walk||want===A.walkGun)want.timeScale=clamp(u.spd/(u.aus?45:55),.6,1.8);else if(want===A.run||want===A.runShoot)want.timeScale=clamp(u.spd/(u.aus?125:150),.75,1.6);else if(want===A.sprint)want.timeScale=clamp(u.spd/200,.8,1.4);
   if(u.gun){u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));const wid=isPl?WEAPONS[player.wi].id:(WEAPONS[p.weapon]||WEAPONS[1]).id;
     if(u.gunId!==wid){u.gunId=wid;for(const c of u.gun.children)if(c.name&&GUN_LEN[c.name])c.visible=c.name===wid}}
   u.mixer.update(dt)}
