@@ -319,6 +319,7 @@ function generate(){
   PIER_PTS=ll(PIER_LL);strokePoly(PIER_PTS,14,TS,W,H,tile(i=>{if(tiles[i]===WATER){tiles[i]=WALK;flags[i]|=PIER}}));strokePoly(PIER_PTS,11,FS,FW,FH,fine(i=>SOL[i]=0));
   // railways
   for(const f of MAP.rails){strokePoly(f,11,TS,W,H,tile(i=>{if(tiles[i]===GRASS)tiles[i]=RAIL}));strokePoly(f,14,FS,FW,FH,fine(i=>OCC[i]=1))}
+  for(const f of MAP.trains||[]){strokePoly(f,24,TS,W,H,tile(i=>{if(tiles[i]===GRASS||tiles[i]===YARD||tiles[i]===IND)tiles[i]=RAIL}));strokePoly(f,52,FS,FW,FH,fine(i=>{OCC[i]=1}))}   // the running lines: a clear corridor for the trains
   // roads: asphalt over everything (a road over water is a bridge), with footpaths alongside
   for(const E of EDGES){const walk=E.fw?26:20;
     if(E.tun){for(const[a,b]of tunOpen(E)){const f=subPoly(E,a,b);strokePoly(f,E.hw+walk,FS,FW,FH,fine(i=>OCC[i]=1));strokePoly(f,E.hw+2,FS,FW,FH,fine(i=>SOL[i]=0));
@@ -677,7 +678,11 @@ function renderChunk(g,cx,cy,for3d){
   // railways: ballast, sleepers, rails
   for(const f of K.r){linePath(g,f);g.strokeStyle=COL.rail;g.lineWidth=22;g.stroke()}
   g.setLineDash([3,6]);for(const f of K.r){linePath(g,f);g.strokeStyle='#5c4a3a';g.lineWidth=15;g.stroke()}g.setLineDash([]);
-  for(const f of K.r){linePath(g,f);g.strokeStyle='#b9bcc0';g.lineWidth=9;g.stroke();g.strokeStyle='#6f6457';g.lineWidth=6;g.stroke()}
+  // the running rails: drawn along the trains' own path so the trains sit exactly on them
+  for(const f of MAP.trains||[]){if(!hasBox(f,X0-40,Y0-40,X1+40,Y1+40))continue;linePath(g,f);g.strokeStyle=COL.rail;g.lineWidth=26;g.stroke();
+    g.setLineDash([3,5]);g.strokeStyle='#5c4a3a';g.lineWidth=17;g.stroke();g.setLineDash([]);
+    for(const o of[-5.5,5.5]){g.save();g.beginPath();for(let i=0;i<f.length-2;i+=2){const dx=f[i+2]-f[i],dy=f[i+3]-f[i+1],l=Math.hypot(dx,dy)||1,nx=-dy/l*o,ny=dx/l*o;if(i===0)g.moveTo(f[i]+nx,f[i+1]+ny);g.lineTo(f[i+2]+nx,f[i+3]+ny)}
+      g.strokeStyle='#c4c8cc';g.lineWidth=1.8;g.stroke();g.restore()}}
   // the Tan and the Albert Park circuit
   if(TAN_LOOP&&hasBox(TAN_LOOP,X0-60,Y0-60,X1+60,Y1+60)){linePath(g,TAN_LOOP);g.strokeStyle=texFill(g,'gravel_tan','#c9a873');g.lineWidth=24;g.stroke()}
   if(TRACK&&hasBox(TRACK.lanes[6],X0-20,Y0-20,X1+20,Y1+20)){const T=TRACK;g.fillStyle='#b3432e';linePath(g,T.lanes[6]);g.fill();g.fillStyle='#4f8f3c';linePath(g,T.lanes[0]);g.fill();
@@ -702,7 +707,7 @@ function renderChunk(g,cx,cy,for3d){
     if(E.t0){const p=edgeAt(E,E.t0+3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x-p.dy*(E.hw-3),p.y+p.dx*(E.hw-3));g.stroke()}
     if(E.t1){const p=edgeAt(E,E.len-E.t1-3);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+p.dy*(E.hw-3),p.y-p.dx*(E.hw-3));g.stroke()}};
   for(const E of ES)paint(E);
-  g.strokeStyle='#a3a6ab';g.lineWidth=2;for(const E of ES){if(!E.tram)continue;for(const o of[-17,-10,10,17])st(E,o,2,'#a3a6ab')}   // tram tracks down the middle
+  g.strokeStyle='#a3a6ab';g.lineWidth=2;for(const E of ES){if(!E.tram)continue;{const lo=laneOff(E,0);for(const o of[-lo-3.5,-lo+3.5,lo-3.5,lo+3.5])st(E,o,2,'#a3a6ab')}}   // tram tracks under the trams' lanes
   for(const E of FR){let s=0;for(const[a,b]of E.br||[]){st(E,0,E.w+(E.fw?52:30),COL.verge,s,a);s=b}st(E,0,E.w+(E.fw?52:30),COL.verge,s,E.len)}   // no grass verge on bridges
   for(const E of FR)st(E,0,E.w+8,'#8c8f96');
   for(const E of FR)st(E,0,E.w,texFill(g,'road_asphalt',COL.fwy));
@@ -1048,6 +1053,7 @@ function obstacleAhead(c,range=140,width=19){const fx=Math.cos(c.a),fy=Math.sin(
   const test=(x,y,w)=>{const dx=x-c.x,dy=y-c.y;if(Math.abs(dx)>range+60||Math.abs(dy)>range+60)return;const f=dx*fx+dy*fy,l=-dx*fy+dy*fx;
     if(f>0&&f<range&&Math.abs(l)<width+w&&f<best)best=f};
   for(const o of cars){if(o===c||!!o.ug!==!!c.ug||!sameLayer(o,c))continue;const cross=Math.abs(Math.cos(o.a-c.a))<.5;if(cross&&Math.hypot(o.x-c.x,o.y-c.y)>46)continue;if(cross&&c.id>o.id&&Math.abs(fwdSpeed(o))>20)continue;test(o.x,o.y,o.type==='tram'?14:4)}
+  if(!c.ug)for(const o of trainProxies())if(Math.hypot(o.x-c.x,o.y-c.y)<range+60)for(const k of[-.4,0,.4])test(o.x+Math.cos(o.a)*o.L*k,o.y+Math.sin(o.a)*o.L*k,10);   // wait at level crossings
   if(c.ug)return best;   // nobody walks in the tunnels
   if(!player.car&&deadT<=0)test(player.x,player.y,0);
   for(const p of peds)if(!p.dead&&Math.abs(p.x-c.x)<80&&Math.abs(p.y-c.y)<80){const t=tileAtPx(p.x,p.y);if(t===ROAD||t===BRIDGE||t===FWY)test(p.x,p.y,0)}
@@ -1757,6 +1763,11 @@ function drawFlames(vis){for(const t of flameTowers()){if(!vis(t.x,t.y,60))conti
 // ================================================================ trains, riding public transport, and boats
 // Trains: six-carriage Metro sets shuttle along each rail line, stopping at a station every 1600 px and turning round at the ends.
 let trainRoutes=[];const TRAINS_G=[],STATION=1600;
+// track height: the ground, or a rail bridge deck where the line crosses water
+const trackY=(x,y)=>{const t=tileAtPx(x,y);return t===WATER||t===RIVER?Math.max(terrainH(x,y),7):terrainH(x,y)};
+// every train carriage as a solid, heavy box for the car physics and the traffic AI
+function trainProxies(){const out=[];for(const t of TRAINS_G)for(const q of t.carPos)if(q&&player&&Math.abs(q.x-player.x)<1800&&Math.abs(q.y-player.y)<1800)
+  out.push({x:q.x,y:q.y,a:q.a,L:t.carL-2,Wd:20,tram:true,train:true,vx:Math.cos(q.a)*t.spd*t.dir,vy:Math.sin(q.a)*t.spd*t.dir,id:-1});return out}
 function mkPath(f){const n=f.length/2,S=new Float32Array(n);for(let i=1;i<n;i++)S[i]=S[i-1]+Math.hypot(f[2*i]-f[2*i-2],f[2*i+1]-f[2*i-1]);return{P:new Float32Array(f),S,n,len:S[n-1]}}
 function pathPos(r,s){s=clamp(s,0,r.len);let lo=0,hi=r.n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.S[m]<=s)lo=m;else hi=m}
   const L=r.S[hi]-r.S[lo]||1,t=(s-r.S[lo])/L,ax=r.P[2*lo],ay=r.P[2*lo+1],bx=r.P[2*hi],by=r.P[2*hi+1];return{x:ax+(bx-ax)*t,y:ay+(by-ay)*t,a:Math.atan2(by-ay,bx-ax)}}
@@ -1839,6 +1850,7 @@ function update(dt){
   // car-car collisions
   for(let i=0;i<cars.length;i++){const a=cars[i];for(let j=i+1;j<cars.length;j++){const b=cars[j];
     const lim=(a.L+b.L)/2+4;if(Math.abs(a.x-b.x)>lim||Math.abs(a.y-b.y)>lim)continue;collideCars(a,b)}}
+  {const TP=trainProxies();for(const a of cars){if(a.ug||a.tram)continue;for(const b of TP){const lim=(a.L+b.L)/2+4;if(Math.abs(a.x-b.x)>lim||Math.abs(a.y-b.y)>lim)continue;collideCars(a,b)}}}   // trains are solid
   updatePeds(dt);updateBullets(dt);updateAir(dt);updateFooty(dt);updateRunners(dt);updateFlames(dt);updateTrains(dt);updateBoats(dt);
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.life-=dt;if(p.life<=0){parts.splice(i,1);continue}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;if(p.grow)p.size+=p.grow*dt*10}
   if(parts.length>500)parts.splice(0,parts.length-500);
@@ -2382,7 +2394,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 58';
+const BUILD='Build 59';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2403,7 +2415,7 @@ function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')r
   // Melbourne landmarks built in Blender (tools/make_landmarks.py); the box versions stand in until they arrive
   Promise.all(LM_IDS.map(id=>{MODELS.want++;return new Promise(res=>ld.load('models/landmarks/'+id+'.json',g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.material=occlude(o.material);o.castShadow=o.receiveShadow=true}});LMT[id]=sc;MODELS.got++;modelStatus();res()},undefined,()=>{MODELS.failed++;modelStatus();res()}))}))
     .then(()=>{if(G3.lm){G3.sc.remove(G3.lm)}buildLandmarks3D()});
-  UTE_MODELS.forEach(load);load(BIKE_MODEL);new Set(Object.values(CUSTOM)).forEach(n=>load(cuUrl(n)));new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)));
+  UTE_MODELS.forEach(load);load(BIKE_MODEL);new Set([...Object.values(CUSTOM),'train_cab','train_mid']).forEach(n=>load(cuUrl(n)));new Set(Object.values(CARKIT).flat()).forEach(n=>load(ckUrl(n)));
   // street furniture: each prop baked to a list of (geometry, material) parts, then the city chunks are rebuilt to show them
   Promise.all(PROPS.names.map(n=>new Promise(res=>ld.load('models/props/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);const parts=[];
     sc.traverse(o=>{if(o.isMesh)parts.push({geo:o.geometry.clone().applyMatrix4(o.matrixWorld),mat:o.material})});PROPS.tpl[n]=parts;res(true)},undefined,()=>res(false)))))
@@ -2629,10 +2641,13 @@ function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt
     if(k>.04){const w=1+Math.sin(gameT*31+t.x)*.12;g.userData.fl.scale.set(9*k*w,34*k,9*k*w);g.userData.fl.position.y=36+17*k;g.userData.core.scale.set(5*k,20*k*w,5*k);g.userData.core.position.y=36+10*k}
     touch(g)}
   for(const t of TRAINS_G)t.carPos.forEach((q,i)=>{if(Math.abs(q.x-player.x)>2600||Math.abs(q.y-player.y)>2600)return;t.m3=t.m3||[];
+    const end=i===0||i===t.cars-1,tpl=MODELS.tpl[cuUrl(end?'train_cab':'train_mid')];
+    if(t.m3[i]&&!t.m3[i].userData.model&&tpl){G3.sc.remove(t.m3[i]);t.m3[i]=null}
+    if(!t.m3[i]&&tpl){const g=new T.Group(),m=tpl.clone(true);m.scale.setScalar((t.carL-3)/tpl.userData.len);if(i===t.cars-1)m.rotation.y=PI;g.add(m);g.userData.model=true;castAll(g);t.m3[i]=g}
     if(!t.m3[i]){const g=new T.Group(),L=t.carL-3,P=(c,sx,sy,sz,x,y,z)=>{const m=new T.Mesh(G3.box,OM(c));m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m};
       P('#d6dadf',L,15,19,0,10,0);P('#2b3036',L-6,5,19.4,0,12,0);P('#24418c',L,2.5,19.6,0,6.5,0);P('#8f959c',L-2,2,16,0,18.5,0);P('#3a3a3a',L-10,3,14,0,1.5,0);
       if(i===0||i===t.cars-1){P('#f2c230',2,13,19.6,(i===0?1:-1)*(L/2),10,0);P('#1b2026',1,5,15,(i===0?1:-1)*(L/2+.6),13,0)}castAll(g);t.m3[i]=g}
-    const g=t.m3[i];g.position.set(q.x,terrainH(q.x,q.y),q.y);g.rotation.y=-q.a;touch(g)});
+    const g=t.m3[i];g.position.set(q.x,trackY(q.x,q.y),q.y);g.rotation.y=-q.a;touch(g)});
   for(const b of BOATS){if(b.x==null||Math.abs(b.x-player.x)>3500||Math.abs(b.y-player.y)>3500)continue;
     if(!b.m3){const g=new T.Group(),P=(c,sx,sy,sz,x,y,z)=>{const m=new T.Mesh(G3.box,OM(c));m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m};
       if(b.kind==='ship'){P('#7a1f1f',150,14,30,0,3,0);P('#1d1d1d',150,3,30.4,0,-3,0);const cc=['#c0392b','#2e86c1','#27ae60','#f39c12','#8e44ad'];for(let i=0;i<9;i++)for(let j=0;j<2;j++)for(let k=0;k<2;k++)P(cc[(i+j*2+k)%5],11,7,12,-44+i*12,14+k*7,(j?6.5:-6.5));P('#ececec',16,22,26,-62,21,0);P('#3a3a3a',3,10,3,-62,36,0)}

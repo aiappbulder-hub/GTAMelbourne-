@@ -11,6 +11,7 @@ All vehicle models are by **Kenney (www.kenney.nl)** and licensed [CC0](https://
 | `people/` | **Quaternius** (CC0), from the per-model GLBs Quaternius uploaded to Poly Pizza | Animated people: `worker` (everyday men), `woman` (the hooded adventurer, sword removed) and `adventurer` (you, cops, gangs and guards; backpack removed). Unpacked from meshopt compression and trimmed to the animations the game uses |
 | `guns/` | **Quaternius** (CC0): Ultimate Gun Pack (`pistol`, `uzi`, `shotgun`, `rifle`) and Toon Shooter Game Kit (`rpg`), from GitHub mirrors of the packs (quaternius.com/packs/ultimategun.html, quaternius.com/packs/toonshootergamekit.html) | Guns held in the hand, swapped with the weapon you carry. GLBs repacked as glTF JSON with embedded buffers |
 | `aircraft/` | Made for this game in Blender by `tools/make_aircraft.py` (CC0) | The airliner, the light plane and the police helicopter (its rotors are separate parts named `rotor-main` and `rotor-tail` so they spin) |
+| `custom/train_cab`, `custom/train_mid` | Made for this game in Blender by `tools/make_trains.py` | Suburban train carriages: a driving car and a middle car with a pantograph |
 | `props/` | Made for this game in Blender by `tools/make_props.py` | Street furniture: traffic signals, street lamps, bus shelters, bins, benches, payphones and bollards, instanced along the streets |
 | `city/` | Kenney **Starter Kit City Builder** | Shops and flats on inner-suburb lots (Fitzroy, Carlton, Richmond and so on) |
 
