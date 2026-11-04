@@ -1352,7 +1352,8 @@ def build(name):
     budget = {"hair": 1800, "beard": 1500, "sneaker_l": 700, "sneaker_r": 700, "boot_l": 800, "boot_r": 800, "ponytail": 400,
               "longhair": 500, "tee": 2200, "hoodie": 2600, "jacket": 2600, "hivis": 2400, "jumper": 2400, "singlet": 1600,
               "cargo_shorts": 1300, "pockets": 160, "denim_shorts": 900, "run_shorts": 900, "jeans": 2000, "cargo_pants": 2000,
-              "work_pants": 2000, "crop_top": 900, "briefs": 700, "bra": 700, "dress": 2000, "cap": 400, "beanie": 400,
+              "work_pants": 2000, "crop_top": 900, "briefs": 700, "bra": 700, "dress": 2000, "cap": 400, "beanie": 400, "longsleeve": 1800, "shirt": 2000, "cardigan": 2200, "hood": 300, "collar": 200, "zip": 80,
+              "dress_skirt": 900, "skirt_skirt": 900, "hivis_tape": 300, "scarf": 400, "chain": 200, "watch": 120,
               "backpack": 300, "scarf": 300, "toolbelt": 300}
 
     def game_copy(o, lod):

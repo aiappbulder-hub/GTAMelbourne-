@@ -32,7 +32,7 @@ const floor=new THREE.Mesh(new THREE.CircleGeometry(30,48),new THREE.MeshLambert
 const cam=new THREE.PerspectiveCamera(32,1,.1,200),ctl=new THREE.OrbitControls(cam,cv);ctl.target.set(0,.95,0);ctl.enableDamping=true;
 const people=[];let clip='walk',focus=-1;
 function size(){const w=cv.clientWidth,h=cv.clientHeight;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
-function frame(n){const span=Math.max(1,n-1)*.9;if(focus<0){cam.position.set(0,1.6,span*.9+4);ctl.target.set(0,.95,0)}else{const p=people[focus].o.position;cam.position.set(p.x+.4,1.55,3.2);ctl.target.set(p.x,.95,0)}}
+function frame(n){const span=Math.max(1,n-1)*.9;if(focus<0){cam.position.set(0,1.4,span*.62+2.2);ctl.target.set(0,.95,0)}else{const p=people[focus].o.position;cam.position.set(p.x+.4,1.55,3.2);ctl.target.set(p.x,.95,0)}}
 function play(c){clip=c;for(const p of people){const a=p.g.animations.find(x=>x.name===c);if(!a)continue;p.m.stopAllAction();const act=p.m.clipAction(a);if(c==='die'||c==='punch'||c==='jump'){act.setLoop(THREE.LoopRepeat)}act.play()}
   document.querySelectorAll('#clips button').forEach(b=>b.classList.toggle('on',b.dataset.c===c))}
 fetch('catalogue.json').then(r=>r.json()).then(cat=>{const L=cat.characters.filter(c=>c.files.outfit),ld=new THREE.GLTFLoader();let got=0;

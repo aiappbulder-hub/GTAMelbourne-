@@ -1,0 +1,644 @@
+{
+ "characters": [
+  {
+   "id": "aussie_bloke",
+   "type": "Everyday Aussie bloke",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#c08a63",
+   "eye": "#5b7a3a",
+   "outfit": [
+    {
+     "kind": "tee",
+     "col": "#18191b",
+     "print": "southerly"
+    },
+    {
+     "kind": "cargo_shorts",
+     "col": "#3a3c3f"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f2f2f2",
+     "sole": "#e8e8e8",
+     "trim": "#1c1c1c"
+    },
+    {
+     "kind": "sunglasses"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/aussie_bloke.glb",
+     "kb": 1164
+    },
+    "base": {
+     "file": "exports/aussie_bloke_base.glb",
+     "kb": 905
+    },
+    "crowd": {
+     "file": "exports/aussie_bloke_crowd.glb",
+     "kb": 660
+    }
+   }
+  },
+  {
+   "id": "bearded_gaz",
+   "type": "Bald and bearded",
+   "sex": "male",
+   "hair": "bald",
+   "beard": true,
+   "tattoo": [],
+   "skin": "#c48662",
+   "eye": "#6b5a3a",
+   "outfit": [
+    {
+     "kind": "tee",
+     "col": "#1d2b45",
+     "print": "yarra_rats"
+    },
+    {
+     "kind": "cargo_shorts",
+     "col": "#8b7d5a"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#2b2d30",
+     "sole": "#d8d8d8",
+     "trim": "#c9a227"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/bearded_gaz.glb",
+     "kb": 1088
+    },
+    "base": {
+     "file": "exports/bearded_gaz_base.glb",
+     "kb": 881
+    },
+    "crowd": {
+     "file": "exports/bearded_gaz_crowd.glb",
+     "kb": 610
+    }
+   }
+  },
+  {
+   "id": "trent",
+   "type": "Player character (Trent)",
+   "sex": "male",
+   "hair": "bald",
+   "beard": true,
+   "tattoo": [],
+   "skin": "#c68a62",
+   "eye": "#5a4630",
+   "outfit": [
+    {
+     "kind": "tee",
+     "col": "#141416",
+     "print": "melb_run"
+    },
+    {
+     "kind": "run_shorts",
+     "col": "#111113"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f2f2f2",
+     "sole": "#f4f4f4",
+     "trim": "#ff6a2a"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/trent.glb",
+     "kb": 1036
+    },
+    "base": {
+     "file": "exports/trent_base.glb",
+     "kb": 880
+    },
+    "crowd": {
+     "file": "exports/trent_crowd.glb",
+     "kb": 559
+    }
+   }
+  },
+  {
+   "id": "tradie_dazza",
+   "type": "Tradie",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [
+    "forearm_r"
+   ],
+   "skin": "#b97a52",
+   "eye": "#4f6f8f",
+   "outfit": [
+    {
+     "kind": "hivis",
+     "col": "#ff6a13"
+    },
+    {
+     "kind": "cargo_shorts",
+     "col": "#1f2a44"
+    },
+    {
+     "kind": "work_boots",
+     "col": "#6b4a2e"
+    },
+    {
+     "kind": "toolbelt",
+     "col": "#5a3a22"
+    },
+    {
+     "kind": "cap",
+     "col": "#1f2a44"
+    },
+    {
+     "kind": "sunglasses"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/tradie_dazza.glb",
+     "kb": 1237
+    },
+    "base": {
+     "file": "exports/tradie_dazza_base.glb",
+     "kb": 912
+    },
+    "crowd": {
+     "file": "exports/tradie_dazza_crowd.glb",
+     "kb": 708
+    }
+   }
+  },
+  {
+   "id": "student_minh",
+   "type": "Uni student",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#d9b08c",
+   "eye": "#3a2a1e",
+   "outfit": [
+    {
+     "kind": "hoodie",
+     "col": "#3a3d42"
+    },
+    {
+     "kind": "jeans",
+     "col": "#7b9cc4"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f2f2f2",
+     "sole": "#e8e8e8",
+     "trim": "#f2f2f2"
+    },
+    {
+     "kind": "backpack",
+     "col": "#2a2f3a"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/student_minh.glb",
+     "kb": 1141
+    },
+    "base": {
+     "file": "exports/student_minh_base.glb",
+     "kb": 891
+    },
+    "crowd": {
+     "file": "exports/student_minh_crowd.glb",
+     "kb": 658
+    }
+   }
+  },
+  {
+   "id": "student_amara",
+   "type": "Uni student",
+   "sex": "female",
+   "hair": "bun",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#7a4a30",
+   "eye": "#2a1a12",
+   "outfit": [
+    {
+     "kind": "tee",
+     "col": "#f2efe8",
+     "print": "southerly"
+    },
+    {
+     "kind": "jeans",
+     "col": "#2e3b55"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f4f4f4",
+     "sole": "#ececec",
+     "trim": "#c46a3a"
+    },
+    {
+     "kind": "backpack",
+     "col": "#c46a3a"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/student_amara.glb",
+     "kb": 1163
+    },
+    "base": {
+     "file": "exports/student_amara_base.glb",
+     "kb": 941
+    },
+    "crowd": {
+     "file": "exports/student_amara_crowd.glb",
+     "kb": 683
+    }
+   }
+  },
+  {
+   "id": "gym_jono",
+   "type": "Gym and running",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#9a6444",
+   "eye": "#3a2a1e",
+   "outfit": [
+    {
+     "kind": "singlet",
+     "col": "#d23b2a"
+    },
+    {
+     "kind": "run_shorts",
+     "col": "#141416"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#1a1a1a",
+     "sole": "#f2f2f2",
+     "trim": "#ff6a2a"
+    },
+    {
+     "kind": "watch"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/gym_jono.glb",
+     "kb": 1093
+    },
+    "base": {
+     "file": "exports/gym_jono_base.glb",
+     "kb": 884
+    },
+    "crowd": {
+     "file": "exports/gym_jono_crowd.glb",
+     "kb": 613
+    }
+   }
+  },
+  {
+   "id": "gym_kayla",
+   "type": "Gym and running",
+   "sex": "female",
+   "hair": "ponytail",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#e0b48f",
+   "eye": "#4f6f5a",
+   "outfit": [
+    {
+     "kind": "bra",
+     "col": "#2f6bd8"
+    },
+    {
+     "kind": "leggings",
+     "col": "#141416"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f2f2f2",
+     "sole": "#f4f4f4",
+     "trim": "#ff4fa3"
+    },
+    {
+     "kind": "watch"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/gym_kayla.glb",
+     "kb": 1192
+    },
+    "base": {
+     "file": "exports/gym_kayla_base.glb",
+     "kb": 927
+    },
+    "crowd": {
+     "file": "exports/gym_kayla_crowd.glb",
+     "kb": 613
+    }
+   }
+  },
+  {
+   "id": "street_kai",
+   "type": "Streetwear",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [
+    "calf_l"
+   ],
+   "skin": "#c99a72",
+   "eye": "#2a1e14",
+   "outfit": [
+    {
+     "kind": "tee",
+     "col": "#141416",
+     "print": "yarra_rats"
+    },
+    {
+     "kind": "cargo_pants",
+     "col": "#4b5240"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f4f4f4",
+     "sole": "#e0e0e0",
+     "trim": "#141416"
+    },
+    {
+     "kind": "cap",
+     "col": "#141416",
+     "back": true
+    },
+    {
+     "kind": "chain"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/street_kai.glb",
+     "kb": 1149
+    },
+    "base": {
+     "file": "exports/street_kai_base.glb",
+     "kb": 902
+    },
+    "crowd": {
+     "file": "exports/street_kai_crowd.glb",
+     "kb": 647
+    }
+   }
+  },
+  {
+   "id": "old_bruce",
+   "type": "Older Aussie bloke (footy)",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#d6a184",
+   "eye": "#5a7a9a",
+   "outfit": [
+    {
+     "kind": "longsleeve",
+     "col": "#f2f2f2"
+    },
+    {
+     "kind": "footy_jumper",
+     "col": "#1d2b5c",
+     "col2": "#f2f2f2"
+    },
+    {
+     "kind": "work_pants",
+     "col": "#c2b38f"
+    },
+    {
+     "kind": "work_boots",
+     "col": "#3a2a1e"
+    },
+    {
+     "kind": "scarf",
+     "col": "#1d2b5c",
+     "col2": "#f2f2f2"
+    },
+    {
+     "kind": "beanie",
+     "col": "#1d2b5c"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/old_bruce.glb",
+     "kb": 1282
+    },
+    "base": {
+     "file": "exports/old_bruce_base.glb",
+     "kb": 909
+    },
+    "crowd": {
+     "file": "exports/old_bruce_crowd.glb",
+     "kb": 747
+    }
+   }
+  },
+  {
+   "id": "old_marg",
+   "type": "Older Aussie woman",
+   "sex": "female",
+   "hair": "short",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#e6c0a4",
+   "eye": "#5a6a7a",
+   "outfit": [
+    {
+     "kind": "jacket",
+     "col": "#e8b500",
+     "weave": "nylon"
+    },
+    {
+     "kind": "work_pants",
+     "col": "#2b3550"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f2f2f2",
+     "sole": "#f2f2f2",
+     "trim": "#9aa0a8"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/old_marg.glb",
+     "kb": 1084
+    },
+    "base": {
+     "file": "exports/old_marg_base.glb",
+     "kb": 969
+    },
+    "crowd": {
+     "file": "exports/old_marg_crowd.glb",
+     "kb": 613
+    }
+   }
+  },
+  {
+   "id": "night_jess",
+   "type": "Nightlife",
+   "sex": "female",
+   "hair": "long",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#e8c0a0",
+   "eye": "#3a2a1e",
+   "outfit": [
+    {
+     "kind": "dress",
+     "col": "#0d0d10",
+     "hem": 0.5
+    },
+    {
+     "kind": "work_boots",
+     "col": "#141416"
+    },
+    {
+     "kind": "chain"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/night_jess.glb",
+     "kb": 1103
+    },
+    "base": {
+     "file": "exports/night_jess_base.glb",
+     "kb": 979
+    },
+    "crowd": {
+     "file": "exports/night_jess_crowd.glb",
+     "kb": 558
+    }
+   }
+  },
+  {
+   "id": "gang_tama",
+   "type": "Street gang",
+   "sex": "male",
+   "hair": "crop",
+   "beard": false,
+   "tattoo": [
+    "sleeve_r",
+    "sleeve_l",
+    "neck"
+   ],
+   "skin": "#8a5a3c",
+   "eye": "#2a1a12",
+   "outfit": [
+    {
+     "kind": "hoodie",
+     "col": "#121214"
+    },
+    {
+     "kind": "trackpants",
+     "col": "#141416",
+     "stripe": "#f2f2f2"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f4f4f4",
+     "sole": "#f4f4f4",
+     "trim": "#141416"
+    },
+    {
+     "kind": "beanie",
+     "col": "#141416"
+    },
+    {
+     "kind": "chain"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/gang_tama.glb",
+     "kb": 1270
+    },
+    "base": {
+     "file": "exports/gang_tama_base.glb",
+     "kb": 933
+    },
+    "crowd": {
+     "file": "exports/gang_tama_crowd.glb",
+     "kb": 671
+    }
+   }
+  },
+  {
+   "id": "aussie_girl",
+   "type": "Everyday Aussie woman",
+   "sex": "female",
+   "hair": "ponytail",
+   "beard": false,
+   "tattoo": [],
+   "skin": "#d29b74",
+   "eye": "#4f7fa6",
+   "outfit": [
+    {
+     "kind": "crop_top",
+     "col": "#141416"
+    },
+    {
+     "kind": "denim_shorts",
+     "col": "#7f9fc4"
+    },
+    {
+     "kind": "sneakers",
+     "col": "#f4f4f4",
+     "sole": "#ececec",
+     "trim": "#c9ccd1"
+    },
+    {
+     "kind": "sunglasses"
+    }
+   ],
+   "files": {
+    "outfit": {
+     "file": "exports/aussie_girl.glb",
+     "kb": 1181
+    },
+    "base": {
+     "file": "exports/aussie_girl_base.glb",
+     "kb": 993
+    },
+    "crowd": {
+     "file": "exports/aussie_girl_crowd.glb",
+     "kb": 634
+    }
+   }
+  }
+ ],
+ "clips": [
+  "idle",
+  "walk",
+  "run",
+  "aim",
+  "shoot",
+  "runShoot",
+  "punch",
+  "jump",
+  "die"
+ ]
+}

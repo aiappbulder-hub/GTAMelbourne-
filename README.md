@@ -71,6 +71,8 @@ The Tan, the 3.8 km loop around the Botanic Gardens, always has a crowd running 
 
 Shallow water is drivable and walkable: creeks, ponds and the edges of lakes and the Yarra. Cars slow right down and throw spray, and you wade on foot. The middle of the Yarra, the big lakes and the bay stay deep. The water surface is glossy and rippling, reflecting the sky with sun glints.
 
+The people are a scripted Australian cast (see `characters/README.md`): you as Trent, plus thirteen others including tradies, students, gym-goers, footy fans, nightlife, older locals and a street gang. All share one rig with walk, run, aim, shoot, punch, jump and die clips, and pedestrians wear their outfits in varied colours.
+
 Plumbright, a made-up trade plumbing supplier, has stores in Port Melbourne, North Melbourne, South Melbourne, Fairfield and Heidelberg West. They sit near the addresses of real plumbing-supply branches and show on the map as teal icons. Their teal utes, carrying white PVC pipe on roof racks, wait in the car parks and drive around town.
 
 You carry every weapon with unlimited ammo (you still reload the magazine): pistol, Uzi, shotgun, rocket launcher and the M4 rifle on `6`.

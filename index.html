@@ -2359,7 +2359,7 @@ const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sport
 const ckUrl=n=>'models/car-kit/'+n+'.json';
 const MODELS={ver:0,tpl:{},want:0,got:0,failed:0};
 const LM_IDS=['flinders','arts','mcg','westgate','bolte','eureka','shrine','fedsq','star','stpauls','reb','luna','crown','rialto','parliament'],LMT={};
-const BUILD='Build 55';
+const BUILD='Build 56';
 function modelStatus(){const el=document.getElementById('buildInfo');if(!el)return;const s=!G3.ok?'2D mode (3D not available on this device)':location.protocol==='file:'?'3D on, models need a web server':MODELS.got+MODELS.failed<MODELS.want?`loading 3D models ${MODELS.got}/${MODELS.want}…`:`3D models ready: ${MODELS.got}${MODELS.failed?` (${MODELS.failed} failed)`:''}`;el.textContent=BUILD+' · '+s}
 // The model files are glTF JSON with their geometry embedded as a data: URI. Newer three.js fetch()es that URI, and a strict
 // content-security policy (as on some hosts) blocks it, so every model failed. Instead fetch the file ourselves, decode the
@@ -2483,6 +2483,13 @@ function pedMesh(shirt,skin,hair,kind,stripes){const T=G3.T,g=new T.Group(),b=ne
 // ================================================================ animated people (Quaternius, CC0): skinned models with walk, run, shoot and die
 // worker: everyday people, recoloured per person; woman: more everyday people; adventurer: you, cops, gangs and guards (it has the gun animations).
 const PEOPLE={ver:0,tpl:{}};
+// the Australian cast (characters/, built in Blender by tools/characters): realistic people on one shared rig. Pedestrians use
+// the light crowd versions; the player is Trent at full detail. Until they load, the simpler Quaternius people stand in.
+const AUS={player:'trent',male:['aussie_bloke','bearded_gaz','tradie_dazza','student_minh','street_kai','old_bruce','gym_jono'],
+  female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
+const AUSCLIP={idle:'idle',walk:'walk',run:'run',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',jump:'jump'};
+// colour variants: half the pedestrians wear their outfit in other colours (garment materials are named Cloth_*)
+const OUTFIT_COLS=['#1d2b45','#3a3d42','#7b9cc4','#2e3b55','#4b5240','#8b7d5a','#c46a3a','#d23b2a','#f2efe8','#141416','#2f6bd8','#6b4a2e','#9a3b5a','#e8b500','#5a6f4a','#b8b2a8'];
 const PCLIP={worker:{idle:'Man_Idle',walk:'Man_Walk',run:'Man_Run',die:'Man_Death',punch:'Man_Punch',jump:'Man_Jump'},
   woman:{idle:'Idle',walk:'Walk',run:'Run',die:'Death',punch:'Punch_Right'},
   adventurer:{idle:'Idle',walk:'Walk',run:'Run',die:'Death',punch:'Punch_Right',aim:'Idle_Gun_Pointing',shoot:'Idle_Gun_Pointing',runShoot:'Run_Shoot',jump:'Roll'}};
@@ -2494,6 +2501,11 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
     let y0=1e9,y1=-1e9;const v=new G3.T.Vector3();sc.traverse(o=>{if(!o.isSkinnedMesh)return;const P=o.geometry.attributes.position;
       for(let i=0;i<P.count;i+=3){v.fromBufferAttribute(P,i);(o.applyBoneTransform||o.boneTransform).call(o,i,v);v.applyMatrix4(o.matrixWorld);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y)}});
     PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:y1-y0,y0};if(++n===3){PEOPLE.ver++}},undefined,()=>{});
+  // the Australian cast: binary GLB, metres, feet on the ground; skinned, with every clip
+  const aus=[...new Set([...AUS.male,...AUS.female,...AUS.gang])];
+  const loadAus=(k,url)=>new THREE.GLTFLoader().load(url,g=>{const sc=g.scene;sc.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false}});
+    PEOPLE.tpl[k]={scene:sc,clips:g.animations,h:1.78,y0:0,aus:true};PEOPLE.ver++},undefined,e=>console.warn('character failed',url,e));
+  loadAus('trent','characters/exports/trent.glb');for(const k of aus)loadAus(k+'@crowd','characters/exports/'+k+'_crowd.glb');
   // gun models (Quaternius, CC0): each one is turned so its barrel runs along the hand bone (+y) with the top of the gun towards +z,
   // and scaled to its length in game px; people get rebuilt once they're all in
   let ng=0;const ids=Object.keys(GUN_LEN);for(const id of ids)ld.load('models/guns/'+id+'.json',g=>{const T=G3.T,sc=g.scene,turn=new T.Group(),w=new T.Group();
@@ -2504,22 +2516,27 @@ function loadPeople(ld){if(!THREE.SkeletonUtils)return;let n=0;for(const k of['w
 const GUN_LEN={pistol:4.6,uzi:7,shotgun:12.5,rifle:12.5,rpg:15},GUNM={};
 const pmatCache={};
 function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==='cop'||kind==='gang'||kind==='guard'||kind==='target';
-  const key=armed?'adventurer':p.bald||p.male?'worker':p.male===false?'woman':hash((p.x|0)+7,(p.y|0)+3,91)<.38?'woman':'worker',tp=PEOPLE.tpl[key];if(!tp)return null;
-  const m=THREE.SkeletonUtils.clone(tp.scene),k=25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
+  const h=hash((p.x|0)+7,(p.y|0)+3,91),pickA=L=>{const k=L[(h*L.length*7|0)%L.length]+'@crowd';return PEOPLE.tpl[k]?k:null};
+  const ausKey=isPl?(PEOPLE.tpl.trent?'trent':null):kind==='gang'?pickA(AUS.gang):p.runner?pickA(p.male===false?AUS.runF:AUS.runM):kind==='civ'?pickA(p.bald?AUS.bald:p.male?AUS.male:p.male===false?AUS.female:h<.42?AUS.female:AUS.male):null;
+  const key=ausKey||(armed?'adventurer':p.bald||p.male?'worker':p.male===false?'woman':h<.38?'woman':'worker'),tp=PEOPLE.tpl[key];if(!tp)return null;
+  const m=THREE.SkeletonUtils.clone(tp.scene),k=tp.aus?25/1.78:25/tp.h;m.scale.multiplyScalar(k);m.position.y=-tp.y0*k;
   const top=isPl?ME.top:kind==='cop'?'#1d2d5a':kind==='gang'?'#1a1a1a':kind==='guard'?'#3a3f45':kind==='target'?'#f2f2f2':p.shirt||'#888',
     bottom=isPl?ME.bottom:kind==='cop'?'#1d2d5a':kind==='gang'?'#26262a':pick(['#2b3550','#3a3a3a','#5a4a3a','#1f2a44','#6b6f76']),cols={top,bottom,hair:isPl?ME.skin:p.bald?(p.skin||'#e0b090'):p.hair||'#2a1b10',skin:isPl?ME.skin:p.skin||'#e0b090'},M=PMATS[key];
   m.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.frustumCulled=false;const mats=Array.isArray(o.material)?o.material:[o.material];
+    if(tp.aus){o.material=mats.map(mt=>{if(isPl||!/^Cloth_/.test(mt.name)||hash(p.x|0,mt.name.length,17)<.5)return mt;   // recolour some garments
+        const c=OUTFIT_COLS[(hash(p.y|0,mt.name.length,19)*OUTFIT_COLS.length)|0],ck=key+mt.name+c;if(!pmatCache[ck]){const x=mt.clone();x.color.set(c);pmatCache[ck]=x}return pmatCache[ck]});
+      if(o.material.length===1)o.material=o.material[0];return}
     o.material=mats.map(mt=>{if((p.bald||isPl)&&mt.name==='Hair')return HIDDEN||(HIDDEN=new T.MeshBasicMaterial({visible:false}));for(const part in M)if(M[part].includes(mt.name)){const ck=key+mt.name+cols[part];if(!pmatCache[ck]){const c=mt.clone();c.color.set(cols[part]);pmatCache[ck]=c}return pmatCache[ck]}return mt});
     if(o.material.length===1)o.material=o.material[0]});
   const inner=new T.Group();inner.rotation.y=PI/2;inner.add(m);const g=new T.Group();g.add(inner);shadowDisc(g,7,7);
-  const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
+  const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(tp.aus?AUSCLIP:PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
   if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);
   let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
-  if((p.bald||isPl)&&head){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
+  if((p.bald||isPl)&&head&&!tp.aus){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
     b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
   if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
-    for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
+    for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);if(tp.aus)gun.rotation.y=PI;hand.add(gun);gun.visible=false}   // the cast's hand bone is rolled the other way
   else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
   g.userData={model:true,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
@@ -2862,7 +2879,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{PEOPLE,RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
