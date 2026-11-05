@@ -3,10 +3,12 @@ import {
   ALL_STREETS,
   ISLAND_BOUNDS,
   getIslandBoundsAtZ,
-  BLOCKS
+  BLOCKS,
+  GRID_ZONE
 } from './city-config.js';
-import { GEO } from './nyc-geodata.js';
+import { GEO } from './geodata.js';
 import { polygonBoxOverlaps } from './building-collision.js';
+import { IS_MELBOURNE } from './city.js';
 
 // Drivable road graph derived from the ground layout that city-grid.js actually builds: avenue corridors
 // between the raised curbs, cross-street gaps between curb rows, lanes that keep clear of medians, plazas
@@ -24,6 +26,9 @@ const CROSSWALK = 2.5; // depth between an intersection box and its stop lines
 const SHORE_MARGIN = 6;
 
 function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
+  // ?debugroads: the network's inputs and every edge before the connectivity cut, for checking it from tools
+  const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debugroads');
+  if (DEBUG) globalThis.__roadInputs = { sidewalks: sidewalks.map((r) => [r.minX, r.maxX, r.minZ, r.maxZ, r.polygon ? 1 : 0]), obstacles: obstacles.map((r) => [r.minX, r.maxX, r.minZ, r.maxZ, r.pedestrianOnly ? 1 : 0, r.polygon ? 1 : 0, r.minY ?? null, r.maxY ?? null]) };
   // 1. Spatial hash of ground footprints: curbs bound the roads, everything else also blocks pedestrians
   const hash = new Map();
   const cellKey = (ix, iz) => (ix + 512) * 1024 + iz + 512;
@@ -37,7 +42,8 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
       }
     }
   }
-  for (const r of sidewalks) insert({ minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ, curb: true });
+  // (a kerb given as a polygon, an irregular island, is tested by its outline rather than its bounds)
+  for (const r of sidewalks) insert({ minX: r.minX, maxX: r.maxX, minZ: r.minZ, maxZ: r.maxZ, curb: true, polygon: r.polygon });
   for (const r of obstacles) insert(r);
 
   // Calls fn(rect) for every footprint overlapping the box until fn returns true
@@ -302,10 +308,13 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
     }
     // Links the grid already carries: most of their length runs along an avenue (north-south) or a cross street
     const links = [];
+    const inGridZone = (p) => GRID_ZONE && p.x > GRID_ZONE.minX && p.x < GRID_ZONE.maxX && p.z > GRID_ZONE.minZ && p.z < GRID_ZONE.maxZ;
     for (const [a, b, ni, w, lanes, dir, inner] of RG.links) {
       const pts = [pos[a]];
       for (let k = 0; k < inner.length; k += 2) pts.push({ x: inner[k], z: inner[k + 1] });
       pts.push(pos[b]);
+      // the grid corridors alone carry traffic inside GRID_ZONE (Melbourne's Hoddle Grid)
+      if (GRID_ZONE && (inGridZone(pts[0]) && inGridZone(pts[pts.length - 1]))) continue;
       let n = 0;
       let hit = 0;
       const len = samples(pts, (x, z, dx, dz) => {
@@ -598,7 +607,7 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
       if (!outsOf.has(e.from)) outsOf.set(e.from, []);
       outsOf.get(e.from).push(e);
     }
-    const live = largestComponent(edges, (e) => (outsOf.get(e.to) || []).filter((f) => f.to !== e.from && e.dx * f.dx + e.dz * f.dz >= -0.5));
+    const live = largestComponent(edges, (e) => (outsOf.get(e.to) || []).filter((f) => f.to !== e.from && e.dx * f.dx + e.dz * f.dz >= -0.5), IS_MELBOURNE ? 12 : Infinity);
     for (const e of edges) e.live = live.has(e);
   }
   const liveArm = (a) => !!((a.in && a.in.live) || (a.out && a.out.live));
@@ -982,7 +991,13 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
   }
 
   // 7. Keep the largest strongly connected set of edges so no vehicle can ever reach a dead end
-  const kept = largestComponent(edges, (e) => e.moves.map((m) => m.to));
+  // (Melbourne keeps every strongly connected network of 12 edges or more: its suburbs still join the city in places
+  // the network can't drive yet, and no vehicle on any of them can reach a dead end either)
+  const kept = largestComponent(edges, (e) => e.moves.map((m) => m.to), IS_MELBOURNE ? 12 : Infinity);
+  if (DEBUG) {
+    const ix = new Map(edges.map((e, i) => [e, i]));
+    globalThis.__roadEdges = edges.map((e) => [e.x0, e.z0, e.x0 + e.dx * e.span, e.z0 + e.dz * e.span, kept.has(e) ? 1 : 0, e.general ? 1 : 0, e.moves.length, e.moves.map((m) => ix.get(m.to) ?? -1), e.lanes.length, e.axis]);
+  }
   const genShortKept = edges.filter((e) => e.general).length;
   const genLost = edges.filter((e) => e.general && !kept.has(e));
   edges = edges.filter((e) => kept.has(e));
@@ -1061,7 +1076,7 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
 }
 
 // The largest strongly connected set of `list` (a Set), going on from item e to the items next(e)
-function largestComponent(list, next) {
+function largestComponent(list, next, minSize = Infinity) {
   const index = new Map(list.map((e, i) => [e, i]));
   const succ = list.map((e) => next(e).map((f) => index.get(f)).filter((j) => j !== undefined));
   const pred = list.map(() => []);
@@ -1090,6 +1105,7 @@ function largestComponent(list, next) {
     }
   }
   const comp = new Int32Array(list.length).fill(-1);
+  const sizes = [];
   let best = -1;
   let bestSize = 0;
   for (let k = order.length - 1, c = 0; k >= 0; k--) {
@@ -1111,9 +1127,11 @@ function largestComponent(list, next) {
       bestSize = size;
       best = c;
     }
+    sizes.push(size);
     c++;
   }
-  return new Set(list.filter((_, i) => comp[i] === best));
+  // every component of at least minSize items, or else the largest
+  return new Set(list.filter((_, i) => comp[i] === best || sizes[comp[i]] >= minSize));
 }
 
 // Cubic Bézier from the end of lane i on edge e to the start of lane j on edge f: a quarter-circle-like

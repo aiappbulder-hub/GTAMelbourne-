@@ -1,4 +1,4 @@
-import { GEO } from './nyc-geodata.js';
+import { GEO } from './geodata.js';
 import {
   ROADS,
   BLOCKS,

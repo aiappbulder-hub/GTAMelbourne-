@@ -134,7 +134,7 @@ const grid = {
   streets: GRID_EW.map((n) => gridLine(n, 'z')).filter(Boolean),
   avenues: GRID_NS.map((n) => gridLine(n, 'x')).filter(Boolean),
   little: LITTLE_EW.map((n) => gridLine(n, 'z')).filter(Boolean),
-  width: 20.1, littleWidth: 6.5, reserve: 30.2
+  width: 20.1, littleWidth: 8, reserve: 30.2
 };
 // The grid's extent: Flinders to La Trobe, Spencer to Spring
 const gx0 = grid.avenues[0].at, gx1 = grid.avenues[grid.avenues.length - 1].at;
@@ -250,10 +250,20 @@ for (const y of railYards) land.fillRing(y.ring, 0);
 // Roadways that bound blocks: at-grade streets (pedestrian malls too), the grid's own lines at full width, and tram
 // tracks (the median between Melbourne's split carriageways)
 const cut = [];
-const addPolyline = (pts, r, name) => { for (let i = 0; i + 1 < pts.length; i++) cut.push({ x0: pts[i][0], z0: pts[i][1], x1: pts[i + 1][0], z1: pts[i + 1][1], r, name }); };
+// Inside the Hoddle Grid (out to its edge streets' far kerbs) only the grid's own measured lines are stamped, so its
+// blocks come out exactly rectangular; OSM's carriageways, tram tracks and laneways there are left out.
+const GRID_ZONE = { x0: gx0 - grid.width / 2 - 1, x1: gx1 + grid.width / 2 + 1, z0: gz0 - grid.width / 2 - 1, z1: gz1 + grid.width / 2 + 1 };
+const inZone = (x, z) => x > GRID_ZONE.x0 && x < GRID_ZONE.x1 && z > GRID_ZONE.z0 && z < GRID_ZONE.z1;
+const addPolyline = (pts, r, name, gridLine = false) => {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    if (!gridLine && inZone((pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2)) continue;
+    cut.push({ x0: pts[i][0], z0: pts[i][1], x1: pts[i + 1][0], z1: pts[i + 1][1], r, name });
+  }
+};
 for (const s of atGrade) addPolyline(s.pts, s.w / 2, s.name);
-for (const st of grid.streets) addPolyline([[Math.max(st.from, gx0 - 30), st.at], [Math.min(st.to, gx1 + 30), st.at]], grid.width / 2, st.name);
-for (const av of grid.avenues) addPolyline([[av.at, Math.max(av.from, gz0 - 30)], [av.at, Math.min(av.to, gz1 + 30)]], grid.width / 2, av.name);
+for (const st of grid.streets) addPolyline([[GRID_ZONE.x0 - 15, st.at], [GRID_ZONE.x1 + 15, st.at]], grid.width / 2, st.name, true);
+for (const av of grid.avenues) addPolyline([[av.at, GRID_ZONE.z0 - 15], [av.at, GRID_ZONE.z1 + 15]], grid.width / 2, av.name, true);
+for (const st of grid.little) addPolyline([[gx0, st.at], [gx1, st.at]], grid.littleWidth / 2, st.name, true);
 for (const w of ways.values()) {
   const t = w.tags || {};
   if (t.railway === 'tram' && !(t.tunnel && t.tunnel !== 'no')) addPolyline(wayPts(w, nodes), 3.5, 'tram');

@@ -32,8 +32,8 @@ import {
   createBillboardMaterial,
   filteredPulse
 } from './tsl-materials.js';
-import { GEO } from './nyc-geodata.js';
-import { REAL_BUILDINGS } from './building-geodata.js';
+import { GEO } from './geodata.js';
+import { REAL_BUILDINGS } from './city-buildings.js';
 import { createBuildingFootprints } from './building-footprints.js';
 import { polygonContains, polygonBoxOverlaps } from './building-collision.js';
 import { pavedPlazaRects, parkTreeSites, sidewalkBlocks } from './city-grid.js';

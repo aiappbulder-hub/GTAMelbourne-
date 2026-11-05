@@ -9,15 +9,31 @@ shadows, screen-space reflections, bloom and a filmic grade.
 ## Plan
 
 1. **Data in Melbourne, in the engine's formats.** *(done: see below)*
-2. **The engine on Melbourne.** `city-config.js`, `city-grid.js`, `boroughs.js` and `nyc-map.js` are written around
-   Manhattan (numbered streets, avenues, Broadway, Central Park, the island's shoreline, the boroughs). They get
-   Melbourne versions that read `js/melbourne-geodata.js`: the road graph for every street, the Hoddle Grid lines for
-   the CBD's signals and crossings, water rings for the Yarra and the harbour, and the blocks and lots as they are.
-   `buildings.js`, `street-details.js` and the traffic, pedestrian and material code are already generic.
+2. **The engine on Melbourne.** *(running: see "The city switch")* Still to do: join the suburbs' road networks to the
+   CBD's everywhere (St Kilda Rd and Kings Way don't connect yet), Melbourne street furniture in place of New York's
+   (subway entrances, steam stacks, hot-dog carts are parked off the map), laneways inside the grid, and the minimap's
+   water and labels.
 3. **Melbourne's own pieces:** trams on the real routes, Flinders Street Station, Eureka, the MCG and the other
    landmarks, the bridges over the Yarra, and the freeways (CityLink and the West Gate run on viaducts and in tunnels,
    so they are left out of the at-grade road graph for now).
 4. **The game:** GTA Melbourne's missions, police, weapons and characters move across from the WebGL game (`../index.html`).
+
+## The city switch
+
+`index.html` builds Melbourne. Add `?nyc` to build Slop New York's Manhattan, the reference the port is checked against,
+and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU, and for headless testing).
+
+- `js/city.js` picks the city. `js/city-config.js` re-exports `js/melbourne-config.js` or `js/nyc-config.js` (the same
+  exports), and `js/geodata.js`, `js/city-buildings.js` and `js/city-trees.js` pick the data files.
+- Melbourne's config maps the Hoddle Grid onto the engine's grid: its nine north-south streets are the "avenues", its
+  five main streets and four little streets the "streets". Everything beyond the grid is driven on the OSM centreline
+  graph. Manhattan's features (Central Park, Broadway, piers, boroughs, bridges) are empty.
+- `buildCityGrid` hands Melbourne to `buildMelbourneGrid` (in `js/city-grid.js`): the land deck with the Yarra,
+  Victoria Harbour and the lakes cut out, bluestone quay walls, every kerb island's footpath, and the parks.
+  `boroughs.js` and Slop New York's hand-built landmarks are skipped.
+- The road network keeps every strongly connected network of 12 edges or more in Melbourne (New York keeps the largest
+  only). `?debugroads` leaves its inputs and edges on `globalThis.__roadInputs` / `__roadEdges` for checking.
+- `window.__city` exposes the scene, controllers, cameras, traffic and `teleportTo` for scripted checks.
 
 ## Melbourne data
 
@@ -42,4 +58,6 @@ City of Melbourne's portal can't be reached from the build machine.
   plus `water`, `grid` (the Hoddle Grid's streets, measured), `railYards`, `bounds` and 35 `landmarks`. Blocks are made
   by the same method as Manhattan's (`tools/melbourne/blocks.mjs`, from `tools/geo-blocks.mjs`): streets, tram tracks
   and the grid's chain-wide roads stamped onto a 1 m land raster, the islands left over traced, given a property line
-  and covered with lots.
+  and covered with lots. Inside the Hoddle Grid only the grid's own measured street lines are stamped, so its blocks are
+  exact rectangles, and the buildings there are clipped to their blocks' property lines (the real streets wander a few
+  metres off the straight lines).

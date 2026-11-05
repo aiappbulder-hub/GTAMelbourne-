@@ -185,11 +185,68 @@ for (const b of outlines) {
 }
 log(`${known.length} heights from tags and parts, ${estimated} estimated`);
 
+// --- The Hoddle Grid: footprints clipped to their blocks' property lines -----------------------------------------------
+// js/melbourne-geodata.js lays the grid's streets out as straight, axis-aligned corridors a chain wide; the real streets
+// wander a few metres off those lines (most at the grid's west end, where Flinders, Lonsdale and La Trobe Streets bend),
+// so real footprints would stand in the roadway. Inside the grid every footprint is clipped to the rectangular block
+// it stands on, inset by the footpath; one standing mostly in the road is dropped. Needs build-geodata.mjs run first.
+const { GEO } = await import('../../js/melbourne-geodata.js');
+const SIDEWALK = GEO.frame.sidewalk;
+const EXT = GEO.grid.extent, GW = GEO.grid.width / 2;
+const inGridZone = ([x, z]) => x > EXT.minX - GW && x < EXT.maxX + GW && z > EXT.minZ - GW && z < EXT.maxZ + GW;
+const propRects = GEO.blocks.filter((b) => b[4]).map((b) => {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < b[0].length; i += 2) { x0 = Math.min(x0, b[0][i]); x1 = Math.max(x1, b[0][i]); z0 = Math.min(z0, b[0][i + 1]); z1 = Math.max(z1, b[0][i + 1]); }
+  return { x0: x0 + SIDEWALK, x1: x1 - SIDEWALK, z0: z0 + SIDEWALK, z1: z1 - SIDEWALK, bx0: x0, bx1: x1, bz0: z0, bz1: z1 };
+});
+function clipRing(r, R) {
+  // Sutherland-Hodgman against the rect's four sides
+  const sides = [[(p) => p[0] - R.x0, 0, R.x0], [(p) => R.x1 - p[0], 0, R.x1], [(p) => p[1] - R.z0, 1, R.z0], [(p) => R.z1 - p[1], 1, R.z1]];
+  let pts = r;
+  for (const [f, axis, v] of sides) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const fa = f(a), fb = f(b);
+      if (fa >= 0) out.push(a);
+      if ((fa >= 0) !== (fb >= 0)) {
+        const t = fa / (fa - fb);
+        const q = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        q[axis] = v;
+        out.push(q);
+      }
+    }
+    pts = out;
+    if (pts.length < 3) return null;
+  }
+  return pts;
+}
+let clipped = 0, dropped = 0;
+for (const b of outlines) {
+  if (!inGridZone(b.c)) continue;
+  const R = propRects.find((r) => b.c[0] > r.bx0 && b.c[0] < r.bx1 && b.c[1] > r.bz0 && b.c[1] < r.bz1);
+  if (!R) { b.drop = true; dropped++; continue; } // centred in a grid street
+  let before = 0, after = 0, changed = false;
+  for (const p of b.polys) {
+    const ring = p.outer[0][0] === p.outer[p.outer.length - 1][0] && p.outer[0][1] === p.outer[p.outer.length - 1][1] ? p.outer.slice(0, -1) : p.outer;
+    before += Math.abs(area(ring));
+    const c = clipRing(ring, R);
+    if (!c || c.length !== ring.length || c.some((q, i) => q[0] !== ring[i][0] || q[1] !== ring[i][1])) changed = true;
+    p.outer = c || [];
+    p.inner = p.inner.filter((h) => h.every((q) => q[0] > R.x0 && q[0] < R.x1 && q[1] > R.z0 && q[1] < R.z1));
+    after += c ? Math.abs(area(c)) : 0;
+  }
+  if (after < before * 0.3) { b.drop = true; dropped++; } else if (changed) clipped++;
+}
+log(`Hoddle Grid: ${clipped} footprints clipped to their property lines, ${dropped} dropped`);
+
 // --- Quantise and pack -------------------------------------------------------------------------------------------------
 const buildings = [];
 for (const b of outlines) {
+  if (b.drop) continue;
   const polygons = [];
   for (const p of b.polys) {
+    if (p.outer.length < 3) continue;
     const outer = quantRing(p.outer, 1);
     if (!outer) continue;
     const holes = p.inner.map((h) => quantRing(h, -1)).filter(Boolean).sort();

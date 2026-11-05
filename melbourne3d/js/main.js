@@ -5,7 +5,9 @@ import { createPostProcessing } from './post-processing.js';
 import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
-import { buildBoroughs } from './boroughs.js';
+import { IS_MELBOURNE } from './city.js';
+// boroughs.js builds New York's surroundings as it loads, so Melbourne never imports it
+const { buildBoroughs } = IS_MELBOURNE ? {} : await import('./boroughs.js');
 import { buildLandmarks } from './landmarks.js';
 import { buildCityBlocks } from './buildings.js';
 import { buildStreetDetails } from './street-details.js';
@@ -19,6 +21,9 @@ import { LightingSystem } from './lighting.js';
 import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
 import { CityAudioSystem } from './audio-system.js';
+
+// Saved player positions, per city (the frames differ)
+const PLAYER_STATE_KEY = IS_MELBOURNE ? 'melbourne-player-state' : 'nyc-player-state';
 
 // Application setup, shader warm-up and frame loop.
 
@@ -82,6 +87,8 @@ async function initApp() {
   // on multisampled floating-point MRT post-processing render targets, so disable MSAA on Firefox.
   const isFirefox = typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
   const renderer = new THREE.WebGPURenderer({
+    // ?webgl forces three's WebGL2 backend (for browsers whose WebGPU is missing or unstable, and for testing)
+    forceWebGL: new URLSearchParams(location.search).has('webgl'),
     antialias: !isFirefox,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true
@@ -115,10 +122,11 @@ async function initApp() {
   const cityGrid = buildCityGrid(scene);
   markInit('cityGrid');
   await showLoadingStage('Building bridges and surrounding boroughs...', 'boroughs');
-  const boroughs = buildBoroughs(scene, { sidewalks: cityGrid.sidewalks });
+  // Melbourne has no boroughs or harbour bridges (and Slop New York's hand-built landmarks are Manhattan's)
+  const boroughs = IS_MELBOURNE ? { colliders: [] } : buildBoroughs(scene, { sidewalks: cityGrid.sidewalks });
   markInit('boroughs');
   await showLoadingStage('Building landmarks...', 'landmarks');
-  const { colliders: landmarkColliders } = buildLandmarks(scene);
+  const { colliders: landmarkColliders } = IS_MELBOURNE ? { colliders: [] } : buildLandmarks(scene);
   markInit('landmarks');
   await showLoadingStage('Generating building footprints and facades...', 'blocks');
   const cityBlocks = buildCityBlocks(scene, landmarkColliders);
@@ -148,7 +156,7 @@ async function initApp() {
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   // Reuse teleport placement so saved players return at rest, close to their last positions.
   try {
-    const saved = JSON.parse(localStorage.getItem('nyc-player-state'));
+    const saved = JSON.parse(localStorage.getItem(PLAYER_STATE_KEY));
     if (saved?.version === 1) {
       for (const mode of Object.keys(controllerManager.entities)) {
         const p = saved.entities?.[mode];
@@ -165,7 +173,7 @@ async function initApp() {
       const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, {
         x: entity.position.x, y: entity.position.y, z: entity.position.z, heading: entity.heading
       }]));
-      localStorage.setItem('nyc-player-state', JSON.stringify({ version: 1, activeMode: controllerManager.activeMode, entities }));
+      localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify({ version: 1, activeMode: controllerManager.activeMode, entities }));
     } catch { /* Storage may be disabled or full. */ }
   }
 
@@ -259,6 +267,26 @@ async function initApp() {
   const reflections = ssrPass.mul(reflectionMask);
   const colorGrade = createPostProcessing(renderer, scenePassColor, reflections);
   const renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);
+
+  // Melbourne's teleport destinations replace the New York ones in the popover
+  if (IS_MELBOURNE) {
+    const pop = document.getElementById('teleport-popover');
+    for (const b of pop.querySelectorAll('[data-teleport]')) b.remove();
+    for (const [key, loc] of Object.entries(TELEPORT_LOCATIONS)) {
+      const b = document.createElement('button');
+      b.className = 'pop-item tp-btn';
+      b.type = 'button';
+      b.dataset.teleport = key;
+      const n = document.createElement('span');
+      n.className = 'pop-name';
+      n.textContent = loc.name;
+      const sub = document.createElement('span');
+      sub.className = 'pop-sub';
+      sub.textContent = loc.sub;
+      b.append(n, sub);
+      pop.append(b);
+    }
+  }
 
   // 6. Wire UI Controls (Strictly using safe DOM APIs: textContent, classList, addEventListener)
   const modeButtons = document.querySelectorAll('[data-mode]');
@@ -494,6 +522,8 @@ async function initApp() {
     };
     return destination;
   }
+  // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,

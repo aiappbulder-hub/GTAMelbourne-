@@ -57,7 +57,8 @@ import {
   createTunnelShadeMaterial
 } from './tsl-materials.js';
 import { createRoadPaintChunkBuilder } from './road-paint.js';
-import { GEO } from './nyc-geodata.js';
+import { GEO } from './geodata.js';
+import { IS_MELBOURNE } from './city.js';
 
 // Live construction data consumed by the building and street-detail builders after buildCityGrid().
 let centralParkClearings;
@@ -1490,6 +1491,7 @@ function buildWaterfrontPiers(group) {
 }
 
 function buildCityGrid(scene) {
+  if (IS_MELBOURNE) return buildMelbourneGrid(scene);
   streetGroundSurfaces = [];
   const group = new THREE.Group();
   group.name = 'ManhattanCityGrid';
@@ -3529,6 +3531,230 @@ function buildUnderpassPortal(frames, acc, quad, lights, colliders) {
     }
   }
   return { S, kO };
+}
+
+// =====================================================================================================================
+// MELBOURNE (js/city.js): the ground, the Yarra and the harbour, kerbs and footpaths, parks
+// =====================================================================================================================
+
+/**
+ * Melbourne's counterpart of buildCityGrid, from js/melbourne-geodata.js: the water plane under the Yarra, Victoria
+ * Harbour and the lakes, the land deck at road level with the water cut out and bluestone quay walls down to the
+ * water, every kerb island's raised footpath (the Hoddle Grid's rectangular blocks instanced, the rest extruded from
+ * their outlines), and the parks: a paved walk round each park block, a lawn bed inside it under scattered trees, and
+ * lampposts. Returns what buildCityGrid returns, and sets the same module state for buildings.js and
+ * street-details.js.
+ */
+function buildMelbourneGrid(scene) {
+  streetGroundSurfaces = [];
+  const group = new THREE.Group();
+  group.name = 'MelbourneCityGrid';
+  const dummy = new THREE.Object3D();
+  const unitBox = new THREE.BoxGeometry(1, 1, 1);
+  const footprints = [];
+  const addFootprint = (x, z, w, d) => footprints.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+  const toPts = (flat) => {
+    const out = [];
+    for (let i = 0; i < flat.length; i += 2) out.push({ x: flat[i], z: flat[i + 1] });
+    return out;
+  };
+  const prand = (x, z, k = 0) => {
+    const s = Math.sin(x * 12.9898 + z * 78.233 + k * 37.719) * 43758.5453;
+    return s - Math.floor(s);
+  };
+  const WL = ISLAND_BOUNDS.waterLevel;
+
+  // 1. Water: one plane under everything, seen through the holes in the land deck
+  const waterMat = createWaterMaterial();
+  const waterGeo = new THREE.PlaneGeometry(60000, 60000, 1, 1);
+  waterGeo.rotateX(-Math.PI / 2);
+  const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+  waterMesh.position.set(0, WL, 0);
+  group.add(waterMesh);
+
+  // 2. Land deck at road level (y = 0) out to the horizon, with every water body cut out of it
+  const waters = GEO.water.map((w) => w.rings.map(toPts)).filter((r) => r[0].length >= 3);
+  const roadMat = createRoadSurfaceMaterial();
+  {
+    const R = 12000;
+    const shape = new THREE.Shape();
+    shape.moveTo(-R, R); shape.lineTo(R, R); shape.lineTo(R, -R); shape.lineTo(-R, -R); shape.closePath();
+    for (const [outer] of waters) {
+      const hole = new THREE.Path();
+      outer.forEach((p, i) => (i ? hole.lineTo(p.x, -p.z) : hole.moveTo(p.x, -p.z)));
+      hole.closePath();
+      shape.holes.push(hole);
+    }
+    const geo = new THREE.ShapeGeometry(shape, 1);
+    geo.rotateX(-Math.PI / 2);
+    const deck = new THREE.Mesh(geo, roadMat);
+    deck.receiveShadow = true;
+    group.add(deck);
+    // islands inside the water bodies (lake islands) as their own land
+    for (const rings of waters) for (const island of rings.slice(1)) group.add(createFlatPolygonMesh(island, 0.0, roadMat, true));
+  }
+
+  // Bluestone quay walls round each water body, from the deck down below the water
+  const quayMat = new THREE.MeshStandardNodeMaterial({ color: 0x4a4c4f, roughness: 0.9, metalness: 0.0 });
+  {
+    const pos = [];
+    const wall = (ring) => {
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length];
+        pos.push(a.x, 0.0, a.z, b.x, 0.0, b.z, b.x, WL - 0.6, b.z, a.x, 0.0, a.z, b.x, WL - 0.6, b.z, a.x, WL - 0.6, a.z);
+        // both faces: the water may lie on either side of a ring's winding
+        pos.push(a.x, 0.0, a.z, b.x, WL - 0.6, b.z, b.x, 0.0, b.z, a.x, 0.0, a.z, a.x, WL - 0.6, a.z, b.x, WL - 0.6, b.z);
+      }
+    };
+    for (const rings of waters) rings.forEach(wall);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    const walls = new THREE.Mesh(geo, quayMat);
+    walls.receiveShadow = true;
+    group.add(walls);
+  }
+
+  // 3. Raised footpaths & kerbs on every kerb island (as buildCityGrid's section 4)
+  const sidewalkMat = createSidewalkMaterial();
+  const curbMat = createCurbMaterial();
+  const blockSidewalks = [];
+  const roadSidewalks = [];
+  const slabGeos = [];
+  const curbGeos = [];
+  const SW_TOP = 0.22;
+  for (const b of BLOCKS) {
+    if (b.park > 0.6 && !b.median && b.area > 250) continue; // parks build their own walks (section 4)
+    if (b.rect) {
+      const slab = { cx: (b.minX + b.maxX) * 0.5, cz: (b.minZ + b.maxZ) * 0.5, w: b.maxX - b.minX, d: b.maxZ - b.minZ, block: b };
+      blockSidewalks.push(slab);
+      if (b.median) addFootprint(slab.cx, slab.cz, slab.w, slab.d);
+      else roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
+    } else {
+      curbGeos.push(createExtrudedPolygonMesh(b.poly, 0.0, 0.18, curbMat).geometry);
+      const inner = offsetPolygonInward(b.poly, 0.25);
+      if (inner) slabGeos.push(createExtrudedPolygonMesh(inner, 0.03, SW_TOP - 0.03, sidewalkMat).geometry);
+      for (const [x0, x1, z0, z1] of b.rects) {
+        const r = { minX: x0 - 4.4, maxX: x1 + 4.4, minZ: z0 - 4.4, maxZ: z1 + 4.4 };
+        blockSidewalks.push({ cx: (r.minX + r.maxX) * 0.5, cz: (r.minZ + r.maxZ) * 0.5, w: r.maxX - r.minX, d: r.maxZ - r.minZ, block: b, cover: true });
+      }
+      // the roads are bounded by the kerb itself (lot rects grown to the kerb would reach into diagonal streets)
+      if (!b.median) roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, polygon: { outer: b.poly, holes: [] } });
+      if (b.median) addFootprint((b.minX + b.maxX) * 0.5, (b.minZ + b.maxZ) * 0.5, b.maxX - b.minX, b.maxZ - b.minZ);
+    }
+  }
+  const mergeInto = (geos, mat, cast = false) => {
+    for (let i = 0; i < geos.length; i += 400) {
+      const m = new THREE.Mesh(mergeGeometries(geos.slice(i, i + 400), false), mat);
+      m.receiveShadow = true;
+      m.castShadow = cast;
+      group.add(m);
+    }
+  };
+  mergeInto(curbGeos, curbMat);
+  mergeInto(slabGeos, sidewalkMat);
+  const rectSlabs = blockSidewalks.filter((s) => !s.cover);
+  if (rectSlabs.length) {
+    const swInstanced = new THREE.InstancedMesh(unitBox, sidewalkMat, rectSlabs.length);
+    const curbInstanced = new THREE.InstancedMesh(unitBox, curbMat, rectSlabs.length);
+    swInstanced.receiveShadow = curbInstanced.receiveShadow = true;
+    rectSlabs.forEach((blk, i) => {
+      dummy.position.set(blk.cx, 0.125, blk.cz);
+      dummy.scale.set(blk.w - 0.5, 0.19, blk.d - 0.5);
+      dummy.updateMatrix();
+      swInstanced.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(blk.cx, 0.095, blk.cz);
+      dummy.scale.set(blk.w, 0.17, blk.d);
+      dummy.updateMatrix();
+      curbInstanced.setMatrixAt(i, dummy.matrix);
+    });
+    swInstanced.instanceMatrix.needsUpdate = curbInstanced.instanceMatrix.needsUpdate = true;
+    group.add(swInstanced, curbInstanced);
+  }
+
+  // 4. Parks: each park block's island paved as a walk, a lawn bed inset from it under scattered trees, lampposts
+  const pavingMat = createParkPavingMaterial();
+  const graniteMat = new THREE.MeshStandardNodeMaterial({ color: 0x86837c, roughness: 0.8 });
+  const lawnMat = createParkLawnMaterial(false);
+  const PARK_Y = 0.26, BED_Y = 0.41;
+  const treeSites = [];
+  const lampMatrices = [];
+  const pavedRects = [];
+  const parkLawnGeos = [], parkWalkGeos = [], parkEdgeGeos = [], parkCurbGeos = [];
+  const lampM = new THREE.Matrix4();
+  const addLamp = (x, y, z) => lampMatrices.push(lampM.clone().makeTranslation(x, y, z));
+  for (const b of BLOCKS) {
+    if (!(b.park > 0.6 && !b.median && b.area > 250)) continue;
+    const slab = offsetPolygonInward(b.poly, 0.1) || b.poly;
+    parkCurbGeos.push(createExtrudedPolygonMesh(b.poly, 0.0, PARK_Y - 0.04, curbMat).geometry);
+    const top = createExtrudedPolygonMesh(slab, 0.0, PARK_Y, pavingMat).geometry;
+    setPavingStyle(top, 0);
+    parkWalkGeos.push(top);
+    addStreetGround(slab, PARK_Y);
+    pavedRects.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
+    roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, polygon: { outer: b.poly, holes: [] } });
+    const bed = offsetPolygonInward(b.poly, Math.min(4, Math.min(b.maxX - b.minX, b.maxZ - b.minZ) * 0.15));
+    if (!bed) continue;
+    parkEdgeGeos.push(createExtrudedPolygonMesh(bed, 0.2, BED_Y - 0.21, graniteMat).geometry);
+    const lawn = offsetPolygonInward(bed, 0.3) || bed;
+    parkLawnGeos.push(createExtrudedPolygonMesh(lawn, 0.3, BED_Y - 0.3, lawnMat).geometry);
+    addStreetGround(lawn, BED_Y);
+    // trees on a jittered lattice with glades (big parks get them sparser, the Domain and the Fitzroy and Flagstaff
+    // Gardens have their real trees from street-details.js's survey too)
+    const SP = b.area > 40000 ? 16 : 11;
+    for (let gx = b.minX + SP * 0.5; gx < b.maxX; gx += SP) {
+      for (let gz = b.minZ + SP * 0.5; gz < b.maxZ; gz += SP) {
+        const tx = gx + (prand(gx, gz) - 0.5) * SP * 0.7;
+        const tz = gz + (prand(gz, gx, 1) - 0.5) * SP * 0.7;
+        if (prand(tx, tz, 9) < 0.35 || !pointInPolygonXZ(lawn, tx, tz)) continue;
+        const r = prand(tx, tz, 2);
+        treeSites.push({ x: tx, y: BED_Y, z: tz, scale: 0.9 + prand(tx, tz, 3) * 0.4, species: r < 0.55 ? 0 : (r < 0.75 ? 1 : 2) });
+      }
+    }
+    for (let i = 0; i < slab.length; i++) {
+      const a = slab[i], c = slab[(i + 1) % slab.length];
+      const len = Math.hypot(c.x - a.x, c.z - a.z);
+      for (let t = 17; t < len - 8; t += 34) addLamp(a.x + ((c.x - a.x) * t) / len, PARK_Y, a.z + ((c.z - a.z) * t) / len);
+    }
+  }
+  mergeInto(parkCurbGeos, curbMat);
+  mergeInto(parkWalkGeos, pavingMat);
+  mergeInto(parkEdgeGeos, graniteMat);
+  mergeInto(parkLawnGeos, lawnMat);
+  if (lampMatrices.length) {
+    const poleGeo = mergeGeometries([
+      new THREE.CylinderGeometry(0.15, 0.2, 0.7, 8).translate(0, 0.35, 0),
+      new THREE.CylinderGeometry(0.055, 0.085, 3.1, 8).translate(0, 2.25, 0),
+      new THREE.CylinderGeometry(0.13, 0.07, 0.2, 8).translate(0, 3.85, 0)
+    ]);
+    const poleMat = new THREE.MeshStandardNodeMaterial({ color: 0x1c201d, roughness: 0.45, metalness: 0.6 });
+    const globeGeo = new THREE.SphereGeometry(0.27, 12, 8).translate(0, 4.17, 0);
+    const poleInst = new THREE.InstancedMesh(poleGeo, poleMat, lampMatrices.length);
+    const globeInst = new THREE.InstancedMesh(globeGeo, createParkLampGlobeMaterial(), lampMatrices.length);
+    lampMatrices.forEach((m, i) => { poleInst.setMatrixAt(i, m); globeInst.setMatrixAt(i, m); });
+    poleInst.castShadow = true;
+    poleInst.computeBoundingSphere();
+    globeInst.computeBoundingSphere();
+    group.add(poleInst, globeInst);
+    const poolInst = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), createParkLampPoolMaterial(), lampMatrices.length);
+    const poolM = new THREE.Matrix4();
+    lampMatrices.forEach((m, i) => poolInst.setMatrixAt(i, poolM.makeScale(14, 1, 14).setPosition(m.elements[12], m.elements[13] + 0.17, m.elements[14])));
+    poolInst.computeBoundingSphere();
+    group.add(poolInst);
+  }
+
+  centralParkClearings = { polygons: [], drives: [], transverseZ: [], rects: [], circles: [], mall: { x: 1e7, z0: 1e7, z1: 1e7 } };
+  parkTreeSites = treeSites;
+  parkLampSites = lampMatrices.map((m) => ({ x: m.elements[12], y: m.elements[13] + 4.17, z: m.elements[14] }));
+  pavedPlazaRects = pavedRects;
+  sidewalkBlocks = blockSidewalks;
+  fdrViaduct = null;
+
+  const roadPaint = createRoadPaintChunkBuilder('RoadMarkings');
+  batchStaticGroupMeshes(group, new Set([waterMat, roadMat, lawnMat]));
+  scene.add(group);
+  console.info(`[melbourne] ground: ${waters.length} water bodies, ${BLOCKS.length} kerb islands (${rectSlabs.length} rectangular), ${pavedRects.length} parks, ${treeSites.length} park trees, ${lampMatrices.length} lamps`);
+  return { group, sidewalks: roadSidewalks, footprints, highwayLanes: [], colliders: [], roadPaint };
 }
 
 export {
