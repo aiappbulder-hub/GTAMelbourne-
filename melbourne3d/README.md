@@ -44,7 +44,14 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   Bikies, The Informant, Tobacco Wars and Harbour Run, plus Chop Shop (steal a ute), Word on the Street (ask the locals),
   Collection Day (hold-ups) and Clean Up (take out three dealers): ten jobs. Pink beam: the next job; yellow beam: the objective, with the
   GPS route on the map. Between jobs, the objective line says where the next one is (distance and direction) and the
-  map's waypoint points to it. Walk or drive into the pink marker to start. Cutscene dialogue is advanced with Enter
+  map's waypoint points to it.
+  - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
+    or the nearest target (red). It sits over the marker, or at the screen's edge pointing towards it.
+  - The marker beams are 140 m tall, to show over the buildings.
+  - The minimap and its GPS route stay on phones and touch screens, small and top left.
+- **The start**: a new story begins with the taxi ride in from the airport. In the intro's last shot the taxi rolls
+  down Elizabeth Street to the kerb by Flinders Lane, and you step out by Vince's first job. Skipping the intro
+  still drops you there. Walk or drive into the pink marker to start. Cutscene dialogue is advanced with Enter
   or a click. Timers, cash and progress are saved. The teleport menu's Jobs list takes you to any job and starts it. The jobs that needed guns, gangs and police are driving jobs until those move
   across.
 - **On foot and behind the wheel** (`js/gameplay.js`, `js/controllers.js`):

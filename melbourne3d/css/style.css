@@ -1436,3 +1436,18 @@ body.touch-enabled .pop-item { min-height: 44px; }
 
 /* Graphics quality button (js/quality.js) */
 .gfx-label { font-size: 12px; font-weight: 650; letter-spacing: 0.02em; white-space: nowrap; }
+
+/* GTA Melbourne: the radar (with the GPS route to the next job) stays on phones and touch screens, small, top left */
+@media (max-width: 620px), (max-height: 500px) {
+  .hud-bottom-left { display: block !important; }
+  #hud-location { display: none; }
+}
+@media (max-width: 620px), (max-height: 500px), (pointer: coarse) {
+  .radar.radar { display: block; position: fixed; left: max(var(--edge), env(safe-area-inset-left));
+    top: calc(max(var(--edge), env(safe-area-inset-top)) + 136px); width: 136px; height: 104px; border-radius: 14px; z-index: 25; }
+  .radar .radar-key { display: none; }
+}
+body.touch-enabled .radar.radar { display: block; position: fixed; left: max(var(--edge), env(safe-area-inset-left));
+  top: calc(max(var(--edge), env(safe-area-inset-top)) + 136px); width: 136px; height: 104px; border-radius: 14px; z-index: 25; }
+body.touch-enabled .hud-bottom-left { display: block !important; }
+body.touch-enabled #hud-location { display: none; }

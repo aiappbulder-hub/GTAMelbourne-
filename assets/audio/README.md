@@ -116,8 +116,11 @@ don't matter.
   - A character never talks over themselves.
 - **No repetition.** About 60% of a pool sits out after playing, and each line has a cooldown: talk 45 s, chat 90 s,
   radio 50 s.
-- **Street conversations.** Every 10–24 s, two pedestrians standing together 5–26 m away swap lines in their own
-  voices.
+- **Street conversations.** Every 7–16 s, two pedestrians within 7 m of each other and 3–30 m away swap lines in their
+  own voices.
+- **Passers-by.** On foot, walk within 2.6 m of someone and now and then (about every 6–12 s at most) they say
+  something to you. The same person won't speak again for two minutes.
+- **Level.** Voices are boosted 1.7× over the city's soundscape.
 - **Police.**
   - Gunfire or a carjacking brings a radio call a moment later, at most every 40 s.
   - An officer in a police car within 45 m shouts.

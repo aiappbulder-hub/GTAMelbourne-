@@ -237,7 +237,11 @@ function createScore() {
   return { start, stop };
 }
 
-export function createIntro({ cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices = null }) {
+// The arrival: fresh from the airport, the taxi comes down Elizabeth Street (southbound, in the left lane) and pulls
+// up at the kerb short of Flinders Lane, where Vince's first job is; then the player gets out
+const ARRIVE = { x: -224 + 9, z0: 66, z1: 100, heading: 0 }; // heading 0 = facing +z (grid south)
+
+export function createIntro({ cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices = null, gameplay = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -295,11 +299,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     t = 0;
     lineK = -1;
     selectTime('golden');
-    // the story starts on foot at the first job, unless it's further along
-    if (missionSystem && missionSystem.progress === 0) {
-      selectMode('person');
-      teleportTo(-224 + 7, 120 + 6, Math.atan2(-7, -6));
-    }
+    // a new story starts with the taxi ride in from the airport (the last shot); further along, where you are
+    arriving = !!(missionSystem && missionSystem.progress === 0);
     document.body.classList.add('cinematic');
     fade.style.opacity = '1';
     setTimeout(() => { if (active) fade.style.opacity = '0'; }, 250);
@@ -308,6 +309,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     if (!active) return;
     active = false;
     score.stop();
+    if (arriving) arrive(false);
     voices?.stopStory();
     document.body.classList.remove('cinematic');
     line.style.opacity = '0';
@@ -340,6 +342,22 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     cameraSystem.camera.lookAt(look);
     cameraSystem.camera.updateMatrixWorld();
 
+    // the taxi ride: placed as the last shot begins, then rolling to a stop at the kerb
+    if (arriving && s.title) {
+      const car = controllerManager.entities.car;
+      if (!rolling) {
+        rolling = true;
+        selectMode('car');
+        teleportTo(ARRIVE.x, ARRIVE.z0, ARRIVE.heading);
+      }
+      // speed falling linearly to nothing over the shot covers z1 - z0
+      const T = s.secs - 0.8, v0 = (2 * (ARRIVE.z1 - ARRIVE.z0)) / T;
+      car.heading = ARRIVE.heading;
+      car.angularVel = 0;
+      car.vx = car.vz = 0;
+      car.speed = Math.max(0, v0 * (1 - t / T));
+    }
+
     // lines spread over the shot
     const k = Math.min(s.lines.length - 1, Math.floor((t / s.secs) * s.lines.length));
     if (k !== lineK) {
@@ -366,6 +384,32 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     return true;
   }
 
+  // The arrival's end state: the taxi at the kerb on Elizabeth Street and the player out of it, on the footpath.
+  // fromSkip: nothing drove it there (the intro was skipped), so put the taxi there first
+  let arriving = false, rolling = false;
+  function arrive(fromSkip) {
+    arriving = false;
+    if (fromSkip || !rolling) {
+      selectMode('car');
+      teleportTo(ARRIVE.x, ARRIVE.z1, ARRIVE.heading);
+    }
+    rolling = false;
+    const car = controllerManager.entities.car;
+    car.speed = 0;
+    car.vx = car.vz = 0;
+    if (gameplay) {
+      setTimeout(() => {
+        if (controllerManager.activeMode !== 'car') return;
+        gameplay.exitCar();
+        // a passenger: out on the kerb side (the left), facing up the street towards the job
+        const h = car.heading, person = controllerManager.entities.person;
+        person.position.set(car.position.x + Math.cos(h) * 2.6, person.position.y, car.position.z - Math.sin(h) * 2.6);
+        person.heading = h;
+      }, 50);
+    }
+    missionSystem?.sub?.("Fresh off the plane. Vince's job is just up the road: the pink marker.", 6);
+  }
+
   let seen = false;
   try { seen = localStorage.getItem(KEY) === '1'; } catch { /* storage unavailable */ }
   const forced = new URLSearchParams(location.search).has('intro');
@@ -374,7 +418,12 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     card.hidden = false;
     const begin = (e) => {
       if (card.hidden) return;
-      if (e && e.type === 'keydown' && e.code === 'Escape') { card.hidden = true; try { localStorage.setItem(KEY, '1'); } catch { /* storage unavailable */ } return; }
+      if (e && e.type === 'keydown' && e.code === 'Escape') {
+        card.hidden = true;
+        try { localStorage.setItem(KEY, '1'); } catch { /* storage unavailable */ }
+        if (missionSystem && missionSystem.progress === 0) arrive(true); // still dropped off by the taxi
+        return;
+      }
       window.removeEventListener('keydown', begin, true);
       start();
     };

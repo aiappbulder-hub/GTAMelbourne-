@@ -20,6 +20,7 @@ const AUDIO_URL = new URL('../../assets/audio/', import.meta.url);
 const PRIORITY = { story: 3, radio: 2, bark: 2, talk: 1, chat: 0 };
 const COOLDOWN = { story: 0, radio: 50, bark: 12, talk: 45, chat: 90 }; // seconds before the same line again
 const VOLUME_KEY = 'gta-melbourne3d-voice-volume';
+const BOOST = 1.7; // voices sit above the traffic and the city's hum
 const SUBS_KEY = 'gta-melbourne3d-subtitles';
 
 const CSS = `
@@ -45,7 +46,7 @@ function silent() {
     volume: 0, setVolume() {}, subtitles: true, setSubtitles() {}, ambient: false, setAmbient() {}, lines: [] };
 }
 
-export async function createVoiceManager({ audioSystem, cameraSystem, trafficSystem, isCinematic = () => false } = {}) {
+export async function createVoiceManager({ audioSystem, cameraSystem, trafficSystem, controllerManager = null, isCinematic = () => false } = {}) {
   if (!audioSystem?.supported) return silent();
   let data;
   try {
@@ -92,7 +93,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     if (c !== ctx) {
       ctx = c;
       bus = c.createGain();
-      bus.gain.value = volume;
+      bus.gain.value = volume * BOOST;
       bus.connect(audioSystem.master);
       duck = c.createGain();
       duck.connect(bus);
@@ -273,7 +274,9 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   }
 
   // Random pedestrian conversations
-  let nextChat = 6 + Math.random() * 6;
+  let nextChat = 3 + Math.random() * 4;
+  let nextRemark = 4;
+  const remarked = new WeakMap(); // ped → clock when they last spoke to the player
   function startConversation() {
     const L = audioSystem.listener;
     const peds = trafficSystem?.peds;
@@ -282,11 +285,11 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     for (const q of peds) {
       if (!q.placed || q.dead || q.fleeing) continue;
       const d = Math.hypot(q.x - L.x, q.z - L.z);
-      if (d > 5 && d < 26) near.push(q);
+      if (d > 3 && d < 30) near.push(q);
     }
     for (let tries = 0; tries < 8 && near.length > 1; tries++) {
       const a = near[Math.floor(Math.random() * near.length)];
-      const b = near.find((q) => q !== a && Math.hypot(q.x - a.x, q.z - a.z) < 4.5);
+      const b = near.find((q) => q !== a && Math.hypot(q.x - a.x, q.z - a.z) < 7);
       if (!b) continue;
       const voiceOf = (q) => (q.female ? 'local_female' : 'local_male');
       const chatty = (l) => l.ambient !== false;
@@ -335,8 +338,21 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     if (ambient && c && !isCinematic() && !storyOn) {
       nextChat -= dt;
       if (nextChat <= 0) {
-        nextChat = 10 + Math.random() * 14;
+        nextChat = 7 + Math.random() * 9;
         if (!active.some((v) => v.channel === 'ambient')) startConversation();
+      }
+      // passers-by: walk close past someone and now and then they say something to you
+      nextRemark -= dt;
+      const me = controllerManager?.activeMode === 'person' ? controllerManager.entities.person.position : null;
+      if (me && nextRemark <= 0 && trafficSystem?.peds && !active.some((v) => v.channel === 'dialogue')) {
+        for (const q of trafficSystem.peds) {
+          if (!q.placed || q.dead) continue;
+          if (Math.hypot(q.x - me.x, q.z - me.z) > 2.6 || clock - (remarked.get(q) ?? -1e9) < 120) continue;
+          remarked.set(q, clock);
+          nextRemark = 6 + Math.random() * 6;
+          if (Math.random() < 0.55) say(pick(q.female ? 'local_female' : 'local_male', 'talk'), { at: q });
+          break;
+        }
       }
     }
   }
@@ -357,7 +373,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     get volume() { return volume; },
     setVolume(x) {
       volume = Math.min(1, Math.max(0, x));
-      if (bus && ctx) bus.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
+      if (bus && ctx) bus.gain.setTargetAtTime(volume * BOOST, ctx.currentTime, 0.05);
       try { localStorage.setItem(VOLUME_KEY, String(volume)); } catch { /* storage unavailable */ }
     },
     get subtitles() { return subtitles; },

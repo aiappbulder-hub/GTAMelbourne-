@@ -137,6 +137,12 @@ const MISSIONS = [
 const SAVE_KEY = 'gta-melbourne3d-save-v1';
 
 const CSS = `
+.gm-pointer { position: fixed; left: 0; top: 0; z-index: 31; pointer-events: none; display: none; transform: translate(-50%, -50%);
+  font: 800 13px/1 'JetBrains Mono', monospace; color: #fff; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+.gm-pointer.on { display: block; }
+.gm-pointer i { display: block; width: 0; height: 0; margin: 0 auto 4px; border-left: 11px solid transparent; border-right: 11px solid transparent;
+  border-top: 18px solid var(--pc, #ff3d9a); filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.gm-pointer span { display: inline-block; padding: 3px 7px; border-radius: 8px; background: rgba(10,12,16,.72); }
 .gm-objective { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); max-width: min(720px, 92vw); z-index: 30;
   padding: 10px 16px; border-radius: 12px; background: rgba(10, 12, 16, 0.78); color: #fff; font: 600 15px/1.35 Inter, system-ui, sans-serif;
   text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.35); pointer-events: none; }
@@ -158,7 +164,7 @@ const CSS = `
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem, voices = null }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -175,6 +181,40 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
   const elBig = el('gm-big');
   const elSub = el('gm-sub');
   const elCut = el('gm-cut');
+  // A pointer to the marker that matters (the next job, or the objective): over it when it's on screen, pinned to
+  // the screen's edge and turned towards it when it isn't
+  const elPointer = el('gm-pointer');
+  const elPointerArrow = document.createElement('i');
+  const elPointerText = document.createElement('span');
+  elPointer.append(elPointerArrow, elPointerText);
+  const _pv = new THREE.Vector3();
+  function point(target, colour) {
+    const cam = cameraSystem?.camera;
+    if (!target || !cam) { elPointer.classList.remove('on'); return; }
+    const p = playerPos();
+    const d = Math.hypot(target.x - p.x, target.z - p.z);
+    _pv.set(target.x, 3, target.z).applyMatrix4(cam.matrixWorldInverse);
+    const behind = _pv.z > 0; // camera space looks down -z
+    _pv.set(target.x, 3, target.z).project(cam);
+    let nx = _pv.x, ny = _pv.y;
+    if (behind) { nx = -nx; ny = -Math.abs(ny) - 1; }
+    const W = window.innerWidth, H = window.innerHeight, M = 46;
+    let sx = ((nx + 1) / 2) * W, sy = ((1 - ny) / 2) * H, angle = 0;
+    const inside = !behind && sx > M && sx < W - M && sy > M + 60 && sy < H - M;
+    if (!inside) {
+      // pin to the edge, along the line from the centre of the screen
+      const cx = W / 2, cy = H / 2, dx = sx - cx, dy = sy - cy;
+      const k = Math.min((W / 2 - M) / Math.max(1e-3, Math.abs(dx)), (H / 2 - M - 30) / Math.max(1e-3, Math.abs(dy)));
+      sx = cx + dx * k; sy = cy + dy * k;
+      angle = Math.atan2(dy, dx) * 180 / Math.PI - 90; // the arrow (pointing down at rest) turned towards the marker
+    }
+    elPointer.style.setProperty('--pc', colour);
+    elPointer.style.left = `${sx}px`;
+    elPointer.style.top = `${sy}px`;
+    elPointerArrow.style.transform = `rotate(${angle}deg)`;
+    elPointerText.textContent = d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
+    elPointer.classList.add('on');
+  }
   elCut.hidden = true;
 
   // Save: cash and how far through the story
@@ -191,8 +231,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
   function makeMarker(colorHex) {
     const g = new THREE.Group();
     const mat = new THREE.MeshBasicNodeMaterial({ color: colorHex, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 40, 24, 1, true), mat);
-    beam.position.y = 20;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 140, 24, 1, true), mat); // tall enough to see over the buildings
+    beam.position.y = 70;
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 8, 48), mat);
     ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.4;
@@ -376,6 +416,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
     startMarker.children[0].material.opacity = pulse;
     goalMarker.children[0].material.opacity = pulse;
     const p = playerPos();
+    // the pointer: the objective's marker, or the nearest target, or the next job's
+    if (cut || document.body.classList.contains('cinematic')) point(null);
+    else if (mission && goalMarker.visible) point(goalMarker.position, '#ffd23f');
+    else if (mission && targetMarkers.some((t) => t.visible)) {
+      const t = targetMarkers.filter((q) => q.visible).sort((a, b) => Math.hypot(a.position.x - p.x, a.position.z - p.z) - Math.hypot(b.position.x - p.x, b.position.z - p.z))[0];
+      point(t.position, '#ff2a2a');
+    } else if (!mission && startMarker.visible) point(startMarker.position, '#ff3d9a');
+    else point(null);
 
     if (!mission) {
       // the next job's marker

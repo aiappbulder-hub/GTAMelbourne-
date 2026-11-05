@@ -612,10 +612,10 @@ async function initApp() {
   // GTA Melbourne's story missions (js/missions.js), and a Jobs list in the teleport menu that takes you to any job
   // Recorded Australian voices for the characters, pedestrians and police (js/voice-manager.js, data/character-voices.json)
   const voices = IS_MELBOURNE ? await (await import('./voice-manager.js')).createVoiceManager({
-    audioSystem, cameraSystem, trafficSystem, isCinematic: () => document.body.classList.contains('cinematic')
+    audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, voices }) : null;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices
@@ -624,7 +624,7 @@ async function initApp() {
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
-    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices
+    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay
   }) : null;
   window.__city.intro = intro;
   if (intro) {
