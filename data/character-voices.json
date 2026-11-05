@@ -644,28 +644,52 @@
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/tobacco-wars",
-      "text": "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf."
+      "text": "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco_2.mp3",
+      "duration": 5.47,
+      "check": {
+        "heard": "It is now, the nomads burnt down our shop last night, there's stocks in a warehouse at South Wharf",
+        "score": 0.89
+      }
     },
     {
       "id": "kaz_tobacco_3",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/tobacco-wars",
-      "text": "Set the charge, then get well clear. Make it loud."
+      "text": "Set the charge, then get well clear. Make it loud.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco_3.mp3",
+      "duration": 2.71,
+      "check": {
+        "heard": "Set the charge then get well clear, make it loud.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_harbour_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/harbour-run",
-      "text": "Taskforce Kestrel raided the Brighton house. Both crews want you gone now."
+      "text": "Taskforce Kestrel raided the Brighton house. Both crews want you gone now.",
+      "file": "dialogue/harbour-run/kaz_harbour_1.mp3",
+      "duration": 4.44,
+      "check": {
+        "heard": "Task Force Kestrel raided the Brighton House. Both crews want you gone now.",
+        "score": 0.88
+      }
     },
     {
       "id": "kaz_harbour_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/harbour-run",
-      "text": "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."
+      "text": "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother.",
+      "file": "dialogue/harbour-run/kaz_harbour_2.mp3",
+      "duration": 4.2,
+      "check": {
+        "heard": "There's a boat waiting off Harbour Estronade, be on it in two and a half minutes or don't bother.",
+        "score": 0.95
+      }
     }
   ]
 }
