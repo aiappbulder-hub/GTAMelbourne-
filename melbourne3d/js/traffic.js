@@ -1999,6 +1999,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       knock(v, dt);
       pose(v, dt);
     }
+    for (const v of cars) if (v.parked) { v.prevX = v.x; v.prevZ = v.z; }
+    if (player.active) {
+      for (const v of vehicles) if (v.edge || v.parked) collideWithPlayer(v);
+    }
+    collideTraffic();
+    // the car the player drives, where the player's car physics left it after this frame's collisions
     for (const v of cars) {
       if (!v.driven || !player.entity) continue;
       const pe = player.entity;
@@ -2013,11 +2019,6 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       v.pitch = pe.chassisPivot ? pe.chassisPivot.rotation.x : 0;
       v.roll = pe.chassisPivot ? pe.chassisPivot.rotation.z : 0;
     }
-    for (const v of cars) if (v.parked) { v.prevX = v.x; v.prevZ = v.z; }
-    if (player.active) {
-      for (const v of vehicles) if (v.edge || v.parked) collideWithPlayer(v);
-    }
-    collideTraffic();
     for (const v of vehicles) {
       if (!v.edge && !v.driven && !v.parked) continue;
       if (v.bus) renderBus(v);

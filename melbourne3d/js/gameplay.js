@@ -142,8 +142,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     driving = v;
     lastTaken = v;
     placeCarEntity(v.x, v.z, v.yaw);
-    carMesh.visible = false;
     go('car');
+    // (setMode shows the active vehicle's own body: here the taken car is drawn by the traffic instead)
+    carMesh.visible = false;
     if (wasMoving || v.edge === null) {
       trafficSystem.scarePeds(v.x, v.z, 18, 6);
     }
