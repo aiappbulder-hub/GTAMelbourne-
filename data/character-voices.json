@@ -331,7 +331,13 @@
       "character": "local_male",
       "category": "talk",
       "folder": "voices/local-male",
-      "text": "You going to the footy Saturday? Carn the Pies!"
+      "text": "You going to the footy Saturday? Carn the Pies!",
+      "file": "voices/local-male/male_talk_2.mp3",
+      "duration": 4.42,
+      "check": {
+        "heard": "you going to the footy Saturday? I am the boss.",
+        "score": 0.74
+      }
     },
     {
       "id": "male_talk_3",
