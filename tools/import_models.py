@@ -2,6 +2,7 @@
 
     python tools/import_models.py eureka <Eureka Tower .obj>     -> models/landmarks/eureka.json
     python tools/import_models.py jet <airliner .obj>            -> models/aircraft/jet.json
+    python tools/import_models.py oldcar <Generic_Old_Car.obj>   -> models/custom/oldcar.json (the classic car)
 
 Run with Blender's Python module (bpy). The OBJ files came without their .mtl, so materials are assigned here by
 position: Eureka Tower's podium, blue glass shaft and gold crown; the airliner's white body and grey wings.
@@ -121,6 +122,82 @@ def jet(path):
     export(o, "jet", os.path.join(ROOT, "models", "aircraft", "jet.json"))
 
 
+def oldcar(path):
+    """The classic car: in metres, front at -Y, each tyre with its rim and hubcap as a spinning wheel-N part."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.wm.obj_import(filepath=path, use_split_groups=True)
+    objs = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    ctr = lambda o: sum((o.matrix_world @ Vector(b) for b in o.bound_box), Vector()) / 8
+    tyres = [o for o in objs if o.name.startswith("tire")]
+    groups = {t.name: [t] for t in tyres}
+    rest = []
+    for o in objs:
+        if o in tyres:
+            continue
+        near = min(tyres, key=lambda t: (ctr(t) - ctr(o)).length)
+        (groups[near.name] if (ctr(near) - ctr(o)).length < 25 else rest).append(o)
+
+    def join(parts, name):
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in parts:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = parts[0]
+        if len(parts) > 1:
+            bpy.ops.object.join()
+        o = bpy.context.view_layer.objects.active
+        o.name = name
+        return o
+
+    def dec(o, target):
+        d = o.modifiers.new("dec", "DECIMATE")
+        d.ratio = min(1., target / max(1, sum(len(p.vertices) - 2 for p in o.data.polygons)))
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.modifier_apply(modifier=d.name)
+
+    body = join(rest, "body")
+    dec(body, 14000)
+    wheels = []
+    for i, parts in enumerate(groups.values()):
+        w = join(parts, "wheel-%d" % (i + 1))
+        dec(w, 700)
+        wheels.append(w)
+    # centimetres to metres; each wheel's origin on its axle so it spins in place
+    for o in [body] + wheels:
+        o.data.transform(__import__("mathutils").Matrix.Scale(.01, 4))
+    for w in wheels:
+        bpy.ops.object.select_all(action="DESELECT")
+        w.select_set(True)
+        bpy.context.view_layer.objects.active = w
+        bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+    # the game's material names: Body is repainted per car, lights glow after dark
+    names = {"body": "Body", "glass": "Glass", "chrome": "Chrome", "headlight": "HeadLight", "redlight": "TailLight",
+             "orange_light_": "IndicatorLight", "white_light": "Reverse", "tire": "Tyre", "plate": "Plate"}
+    glow = {"HeadLight": (1., .95, .85), "TailLight": (1., .08, .05), "IndicatorLight": (1., .45, .05), "Reverse": (1., 1., 1.)}
+    for m in bpy.data.materials:
+        m.name = names.get(m.name, m.name)
+        if m.name in glow and m.use_nodes:
+            b = m.node_tree.nodes.get("Principled BSDF")
+            if b:
+                b.inputs["Emission Color"].default_value = glow[m.name] + (1,)
+                b.inputs["Emission Strength"].default_value = 1.
+                for l in list(m.node_tree.links):   # the lamp texture's Windows path doesn't come with the files
+                    if l.to_node == b and l.to_socket.name == "Base Color":
+                        m.node_tree.links.remove(l)
+    for o in [body] + wheels:
+        for p in o.data.polygons:
+            p.use_smooth = True
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in [body] + wheels:
+        o.select_set(True)
+    out = os.path.join(ROOT, "models", "custom", "oldcar.json")
+    glb = out[:-5] + ".glb"
+    bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True, export_apply=True, export_yup=True,
+                              export_image_format="JPEG")
+    to_json(glb, out)
+    os.remove(glb)
+    print("wrote", out, os.path.getsize(out) // 1024, "KB,", sum(len(p.vertices) - 2 for o in [body] + wheels for p in o.data.polygons), "tris")
+
+
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-    {"eureka": eureka, "jet": jet}[args[0]](args[1])
+    {"eureka": eureka, "jet": jet, "oldcar": oldcar}[args[0]](args[1])

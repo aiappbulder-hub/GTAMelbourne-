@@ -807,7 +807,7 @@ const CARS={
   sports:{L:46,Wd:22,max:690,acc:470,name:'FPB Typhoon F6'},hsv:{L:46,Wd:23,max:720,acc:500,name:'HSB Clubbie R8'},
   ute:{L:48,Wd:23,max:480,acc:310,name:'Holdan Ute SS'},wagon:{L:47,Wd:22,max:460,acc:290,name:'Holdan Sportwagon'},
   suv:{L:46,Wd:24,max:430,acc:270,name:'Fjord Territorial'},taxi:{L:44,Wd:22,max:470,acc:300,name:'Silver Top Taxi'},
-  van:{L:50,Wd:25,max:370,acc:220,name:'Toyoda Tarrago'},micra:{L:34,Wd:19,max:380,acc:260,name:'Nissin Micro'},
+  van:{L:50,Wd:25,max:370,acc:220,name:'Toyoda Tarrago'},micra:{L:34,Wd:19,max:380,acc:260,name:'Nissin Micro'},classic:{L:46,Wd:21,max:390,acc:220,name:'Classic sedan'},
   police:{L:46,Wd:22,max:610,acc:430,name:'VicPol Comodo Patrol',cop:1},unmarked:{L:44,Wd:22,max:640,acc:450,name:'VicPol Unmarked',cop:1},
   highway:{L:46,Wd:22,max:720,acc:520,name:'VicPol Highway Patrol',cop:1},federal:{L:46,Wd:24,max:600,acc:420,name:'AFP Territorial',cop:1},
   ambulance:{L:54,Wd:25,max:560,acc:360,name:'Ambulance Victoria'},firetruck:{L:66,Wd:27,max:400,acc:220,name:'MFB Fire Truck'},
@@ -1280,7 +1280,7 @@ function plumbUte(c){c.livery='plumb';c.color='#0b7a7a';return c}
 function plumbFleet(){for(const st of PLUMB){const d=Math.hypot(st.x-player.x,st.y-player.y);if(d>spawnR+400){st.fleet=0;continue}
     if(st.fleet||d<viewHalfDiag()+40&&gameT>2)continue;st.fleet=1;const ca=Math.cos(st.a),sa=Math.sin(st.a);
     for(const u of[-34,10,52]){if(R()<.3)continue;const x=st.lot.x+ca*u,y=st.lot.y+sa*u,c=plumbUte(makeCar('ranger',x,y,st.a+PI/2));c.driver=null;c.mode='parked'}}}
-function randType(){const r=R();if(player.x<WEST_X&&R()<.25)return'bike';if(r>.97)return'bike';if(r>.89)return'ranger';if(r<.04){const q=R();return q<.25?'ambulance':q<.45?'firetruck':q<.75?'garbage':'delivery'}return r<.08?'police':r<.05?'highway':r<.13?'taxi':r<.17?'sports':r<.19?'hsv':r<.29?'ute':r<.35?'wagon':r<.43?'suv':r<.49?'van':r<.55?'micra':r<.7?'hatch':'sedan'}
+function randType(){const r=R();if(player.x<WEST_X&&R()<.25)return'bike';if(r>.97)return'bike';if(r>.89)return'ranger';if(r<.04){const q=R();return q<.25?'ambulance':q<.45?'firetruck':q<.75?'garbage':'delivery'}return r<.08?'police':r<.05?'highway':r<.13?'taxi':r<.17?'sports':r<.19?'hsv':r<.29?'ute':r<.35?'wagon':r<.43?'suv':r<.49?'van':r<.55?'micra':r<.7?'hatch':r<.76?'classic':'sedan'}
 function copType(){return pick([[],['police'],['police','police','unmarked'],['police','unmarked','highway'],['highway','unmarked','highway'],['federal','highway','federal']][stars]||['police'])}
 // pedestrians walk the footpaths of real streets
 function civAttach(p){const r=nearestEdge(p.x,p.y,110,E=>!E.fw&&!E.tun&&!E.ramp);if(!r)return false;const E=EDGES[r.e];p.e=r.e;p.dir=R()<.5?1:-1;p.sd=p.dir>0?r.s:E.len-r.s;p.lside=-p.dir*r.side;return true}
@@ -2426,7 +2426,7 @@ const BIKE_MODEL='models/kenney/vehicle-motorcycle.json';
 const UTE_MODELS=['red','yellow','green','purple'].map(c=>'models/kenney/vehicle-truck-'+c+'.json');
 // Kenney Car Kit (CC0), converted to glTF JSON sharing models/car-kit/colormap.png
 // models built for this game in Blender (tools/make_models.py), preferred where they exist
-const CUSTOM={sedan:'comodo',unmarked:'comodo',sports:'clubbie',hsv:'clubbie',suv:'territorial',wagon:'territorial',police:'police',highway:'police',taxi:'taxi',hatch:'barrina',micra:'barrina',ranger:'strainger',tram:'tram'};
+const CUSTOM={sedan:'comodo',unmarked:'comodo',sports:'clubbie',hsv:'clubbie',suv:'territorial',wagon:'territorial',police:'police',highway:'police',taxi:'taxi',hatch:'barrina',micra:'barrina',ranger:'strainger',tram:'tram',classic:'oldcar'};
 const cuUrl=n=>'models/custom/'+n+'.json';
 const CARKIT={sedan:['sedan'],hatch:['hatchback-sports'],micra:['hatchback-sports'],sports:['sedan-sports'],hsv:['race'],wagon:['suv'],suv:['suv','suv-luxury'],
   van:['van','delivery'],taxi:['taxi'],police:['police'],highway:['police'],unmarked:['sedan'],federal:['suv-luxury'],ute:['truck'],
@@ -2483,7 +2483,7 @@ function plumbDress(g,c,top){const T=G3.T,L=c.L,Wd=c.Wd,rk=M('#2b2f33'),pipe=M('
   for(const s of[1,-1]){const m=new T.Mesh(new T.PlaneGeometry(L*.42,L*.42*96/512),G3.plumbSign);m.position.set(L*.08,top*.5,s*(Wd/2+.35));if(s<0)m.rotation.y=PI;g.add(m)}}
 function carMesh(c){const tpl=modelFor(c);if(!tpl&&c.type==='ranger')return rangerMesh(c);if(tpl)return modelMesh(c,tpl);return boxCarMesh(c)}
 // repaint the red body panels of everyday cars so traffic isn't a sea of red; liveried vehicles keep their colours
-const REPAINT=new Set(['sedan','hatch','micra','sports','hsv','wagon','suv','van','unmarked','armoured']);const paintCache={};
+const REPAINT=new Set(['sedan','hatch','micra','sports','hsv','wagon','suv','van','unmarked','armoured','classic']);const paintCache={};
 // car paint: a clear-coated metallic finish (on three.js r150+) so bodies carry sharp sky and street reflections like a modern game
 function bodyMat(mat,col){const k='b'+mat.uuid+col;if(paintCache[k])return paintCache[k];const T=G3.T;let m2;
   if(T.MeshPhysicalMaterial&&+T.REVISION>=150){m2=new T.MeshPhysicalMaterial({color:col,metalness:.15,roughness:.5,clearcoat:.7,clearcoatRoughness:.12,envMapIntensity:.55})}
@@ -2495,7 +2495,7 @@ function paintedMat(mat,col){if(!mat.map||!mat.map.image)return mat;const k=mat.
   g.putImageData(d,0,0);const t=mat.map.clone();t.image=cv2;t.needsUpdate=true;const m2=mat.clone();m2.map=t;return paintCache[k]=m2}
 function modelMesh(c,tpl){const T=G3.T,g=new T.Group(),m=tpl.clone(true),k=c.L*(c.tram?1:1.12)/tpl.userData.len;m.scale.setScalar(k);g.add(m);shadowDisc(g,c.L*.62,c.Wd*.78);
   if((REPAINT.has(c.type)||c.type==='ranger')&&!c.wreck)m.traverse(o=>{if(!o.isMesh)return;o.material=o.material.name==='Body'?bodyMat(o.material,c.color):paintedMat(o.material,c.color)});
-  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.length)wheels.push(o)});g.userData.wheels=wheels;g.userData.body=m;
+  const wheels=[];m.traverse(o=>{if(/wheel/i.test(o.name)&&!/well/i.test(o.name)&&!o.children.some(c=>/wheel/i.test(c.name)))wheels.push(o)});   // (a wheel with several materials loads as a group of meshes: spin the group)g.userData.wheels=wheels;g.userData.body=m;
   if(c.wreck){const dm=M('#2b2826');m.traverse(o=>{if(o.isMesh)o.material=dm})}
   const top=tpl.userData.top*k;
   if(c.type==='bike'&&c.driver){const r=pedMesh(c===player.car?ME.top:'#151515',c===player.car?ME.skin:'#d9a47c','#2a1b10','rider',false);r.position.set(-3,4,0);r.userData.legs.forEach(l=>l.rotation.z=1.25);g.add(r)}
