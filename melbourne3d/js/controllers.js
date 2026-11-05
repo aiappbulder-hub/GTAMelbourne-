@@ -28,6 +28,7 @@ import { PersonCrowd, PersonRig } from './pedestrians.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { bryantParkLawn } from './landmarks.js';
 import { polygonContact } from './building-collision.js';
+import { trackHeight } from './race-track.js';
 
 // Player models, animation and movement for walking, driving, cycling and flying.
 
@@ -40,14 +41,14 @@ const CAR_DRIVE = {
   speed: 36, reverseSpeed: 10.5, acceleration: 4.5,
   powerSpeed: 14.5, // Above 52 km/h, engine power limits acceleration.
   rolling: 0.18, drag: 0.0012, coast: 0.6, brake: 9,
-  wheelbase: 2.76, grip: 9.5, cornering: 10.5 // Wheelbase (m), tire and steering acceleration limits (m/s²).
+  wheelbase: 2.76, grip: 13, cornering: 15 // Wheelbase (m), tire and steering acceleration limits (m/s²).
 };
 // The sports car (the HSB Clubbie R8, js/gameplay.js): about 280 km/h, twice the pull, harder brakes, more grip
 export const SPORTS_DRIVE = {
   speed: 78, reverseSpeed: 12, acceleration: 9.5,
   powerSpeed: 30, // power-limited above ~108 km/h
   rolling: 0.15, drag: 0.0005, coast: 0.5, brake: 15,
-  wheelbase: 2.7, grip: 15, cornering: 14
+  wheelbase: 2.7, grip: 21, cornering: 22
 };
 const BICYCLE_DRIVE = {
   speed: 19, reverseSpeed: 4.5, acceleration: 9,
@@ -1228,7 +1229,7 @@ class ThirdPersonControllerManager {
     const steps = Math.ceil(dt * 120);
     const step = dt / steps;
     const steerResponse = 1 - Math.exp(-10 * step);
-    const yawResponse = 1 - Math.exp(-5 * step);
+    const yawResponse = 1 - Math.exp(-8 * step);
     const tireResponse = 1 - Math.exp(-4 * step);
     for (let i = 0; i < steps; i++) {
       const sin = Math.sin(c.heading), cos = Math.cos(c.heading);
@@ -1247,13 +1248,15 @@ class ThirdPersonControllerManager {
       const steeringGrip = grip + (gripMax - grip) * handbrake;
 
       // Full lock at parking speeds, progressively less steering at road speeds.
+      // (the lock falls off with speed more gently than 1/v², so a fast car still turns into a corner)
       const turn = D.wheelbase * D.cornering;
-      const maxSteer = Math.atan(turn / Math.max(speed * speed, turn / Math.tan(0.60)));
+      const v2 = Math.abs(speed) ** 1.75 * 1.6;
+      const maxSteer = Math.atan(turn / Math.max(v2, turn / Math.tan(0.62)));
       c.steerAngle += (steerInput * maxSteer - c.steerAngle) * steerResponse;
       const yawLimit = steeringGrip / Math.max(2, Math.abs(speed));
       const targetYaw = Math.max(-yawLimit, Math.min(yawLimit, speed * Math.tan(c.steerAngle) / D.wheelbase));
       // Collision spin remains part of the yaw velocity; the tires gradually regain control.
-      const yawStep = steeringGrip * 0.65 * step;
+      const yawStep = steeringGrip * 0.9 * step;
       c.angularVel += Math.max(-yawStep, Math.min(yawStep, (targetYaw - c.angularVel) * yawResponse));
       c.heading += c.angularVel * step;
 
@@ -1289,7 +1292,12 @@ class ThirdPersonControllerManager {
       // grass (a park's lawn): the wheels sink into the turf (lawn top 0.41 m, 0.1 m down into it)
       let grass = 0;
       const at = (along, side) => {
-        const b = blockAt(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side);
+        const wx = c.position.x + fx * along + lx * side, wz = c.position.z + fz * along + lz * side;
+        // the Albert Park race track: asphalt, at its own height (over the grass where it leaves the roads)
+        const track = trackHeight(wx, wz, 1.3);
+        const b = blockAt(wx, wz);
+        // (where the real road is narrower than the track, its edge wheels ride up on the kerb, but never count as grass)
+        if (track !== null) return Math.max(track, !b ? 0 : b.park > 0.6 && !b.median ? 0.31 : SW);
         if (!b) return 0;
         if (b.park > 0.6 && !b.median) { grass++; return 0.31; }
         return SW;

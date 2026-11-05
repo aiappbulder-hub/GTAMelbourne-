@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config.js';
+import { circuitPoint } from './race-track.js';
 
 // GTA Melbourne's story, moved across from the original game (../index.html) onto the new engine's real-scale map.
 //
@@ -11,8 +12,8 @@ import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config
 // move across too.
 //
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
-// streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: 'n' | 'e' | 's' | 'w' } the Albert Park
-// circuit's extremes.
+// streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: u } the point a fraction u of the
+// way round the Albert Park Grand Prix circuit from its start line (js/race-track.js), off: metres in towards the lake.
 // Steps can also ask for: targets: n (take out the n people nearest the player, red beams over them), steal: 'pickup'
 // (be driving a car of that kind taken from the traffic, or 'any'), talkTo: n (talk to n people), rob: n (hold up n
 // people: aim and T).
@@ -33,17 +34,18 @@ const MISSIONS = [
     ]
   },
   {
-    name: 'Hot Lap', giver: 'Vince', crew: 'Lygon Street Crew', start: { circuit: 'w', off: 14 }, reward: 1500,
+    name: 'Hot Lap', giver: 'Vince', crew: 'Lygon Street Crew', start: { circuit: 0.006, off: 14 }, reward: 1500,
     cut: [['Vince', 'Every Sunday the Broady boys race their hotted-up cars round the Albert Park circuit.'],
       ['Vince', "Their best lap is three and a half minutes. Beat it and they'll know whose town this is."],
       ['You', 'One lap?'],
       ['Vince', 'One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go.']],
     steps: [
       { text: 'Get in your car.', car: true },
-      { text: 'Hot lap of Albert Park: the top of the lake.', at: { circuit: 'n' }, r: 18, car: true, time: 210, keepTime: true },
-      { text: 'Hot lap: the east side, along Lakeside Drive.', at: { circuit: 'e' }, r: 18, car: true, keepTime: true },
-      { text: 'Hot lap: the bottom of the lake.', at: { circuit: 's' }, r: 18, car: true, keepTime: true },
-      { text: 'Hot lap: back to the pits on Aughtie Drive. Bring it home.', at: { circuit: 'w' }, r: 18, car: true, keepTime: true }
+      { text: 'Hot lap: round the circuit, clockwise. Up Aughtie Drive.', at: { circuit: 0.2 }, r: 16, car: true, time: 210, keepTime: true },
+      { text: 'Hot lap: across the top on Albert Road Drive.', at: { circuit: 0.4 }, r: 16, car: true, keepTime: true },
+      { text: 'Hot lap: down Lakeside Drive.', at: { circuit: 0.6 }, r: 16, car: true, keepTime: true },
+      { text: 'Hot lap: through the bottom of the park.', at: { circuit: 0.8 }, r: 16, car: true, keepTime: true },
+      { text: 'Hot lap: the pit straight. Bring it home across the line.', at: { circuit: 0 }, r: 16, car: true, keepTime: true }
     ]
   },
   {
@@ -227,18 +229,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
         const d = Math.hypot(a.x - b.x, a.z - b.z);
         if (d < best) { best = d; p = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }; }
       }
-    } else if (at.circuit) {
-      // the Albert Park Grand Prix circuit (Lakeside Drive and Aughtie Drive): its northern, eastern, southern or western
-      // extreme, moved `off` metres towards the lake's middle (so a start marker sits off the racing line)
-      const pts = ROADS.filter((r) => r.raw === 'LAKESIDE DRIVE' || r.raw === 'AUGHTIE DRIVE').flatMap((r) => r.pts);
-      if (pts.length) {
-        const key = { n: (q) => -q.z, s: (q) => q.z, e: (q) => q.x, w: (q) => -q.x }[at.circuit];
-        p = pts.reduce((m, q) => (key(q) > key(m) ? q : m));
-        if (at.off) {
-          const cx = pts.reduce((t, q) => t + q.x, 0) / pts.length, cz = pts.reduce((t, q) => t + q.z, 0) / pts.length;
-          const d = Math.hypot(cx - p.x, cz - p.z) || 1;
-          p = { x: p.x + ((cx - p.x) / d) * at.off, z: p.z + ((cz - p.z) / d) * at.off };
-        }
+    } else if (typeof at.circuit === 'number') {
+      // a point round the Albert Park Grand Prix circuit, moved `off` metres in towards the middle (a start marker
+      // beside the track rather than on the racing line)
+      p = circuitPoint(at.circuit);
+      if (at.off) {
+        const nx = -Math.cos(p.heading), nz = Math.sin(p.heading); // across the track, to the inside (it runs clockwise)
+        p = { x: p.x + nx * at.off, z: p.z + nz * at.off };
       }
     } else if (at.road) {
       const pts = ROADS.filter((r) => r.raw === at.road).flatMap((r) => r.pts);
@@ -383,9 +380,22 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
     if (!mission) {
       // the next job's marker
       if (save.progress < MISSIONS.length) {
-        const st = resolve(MISSIONS[save.progress].start);
+        const def = MISSIONS[save.progress];
+        const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
-        if (!cut && Math.hypot(p.x - st.x, p.z - st.z) < 5.5) start(save.progress);
+        const d = Math.hypot(p.x - st.x, p.z - st.z);
+        if (!cut && d < 8) start(save.progress);
+        else if (!cut) {
+          // say where the next job is, and put it on the map
+          const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+          // world z is grid south and the grid is turned ~19° off north
+          const bearing = (Math.atan2(st.x - p.x, -(st.z - p.z)) * 180) / Math.PI - 19.18;
+          const dir = dirs[(Math.round((((bearing % 360) + 360) % 360) / 45)) % 8];
+          const dist = d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 10) * 10} m`;
+          const text = `Next job: ${def.name} (${def.giver}). Go to the pink marker, ${dist} ${dir}.`;
+          if (elObjective.textContent !== text) elObjective.textContent = text;
+          if (mapSystem && (!mapSystem.waypoint || mapSystem.waypoint.job !== save.progress)) mapSystem.waypoint = { x: st.x, z: st.z, name: def.name, job: save.progress };
+        }
       } else startMarker.visible = false;
       return;
     }
@@ -458,6 +468,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, voice
     get progress() { return save.progress; },
     get money() { return save.money; },
     start,
+    /** Start a job now, wherever the player is (the Jobs list) */
+    startNow(i) {
+      if (mission) fail('You walked off the job.');
+      save.progress = i;
+      persist();
+      start(i);
+      return resolve(MISSIONS[i].start);
+    },
     /** Jump to a job: its start marker becomes the next one (the pause/jobs list) */
     jumpTo(i) {
       if (mission) fail('You walked off the job.');

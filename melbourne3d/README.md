@@ -43,8 +43,9 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   mob, Taskforce Kestrel closing in) with Vince and Kaz's six jobs, set on this map: Laneway Hustle, Hot Lap, Westside
   Bikies, The Informant, Tobacco Wars and Harbour Run, plus Chop Shop (steal a ute), Word on the Street (ask the locals),
   Collection Day (hold-ups) and Clean Up (take out three dealers): ten jobs. Pink beam: the next job; yellow beam: the objective, with the
-  GPS route on the map. Cutscene dialogue (Enter or click), timers, cash and progress are saved. The teleport menu's
-  Jobs list goes straight to any job. The jobs that needed guns, gangs and police are driving jobs until those move
+  GPS route on the map. Between jobs, the objective line says where the next one is (distance and direction) and the
+  map's waypoint points to it. Walk or drive into the pink marker to start. Cutscene dialogue is advanced with Enter
+  or a click. Timers, cash and progress are saved. The teleport menu's Jobs list takes you to any job and starts it. The jobs that needed guns, gangs and police are driving jobs until those move
   across.
 - **On foot and behind the wheel** (`js/gameplay.js`, `js/controllers.js`):
   - Movement as in GTA: the keys go where the camera looks; jog by default, Shift to sprint, a light touch of the stick
@@ -70,9 +71,17 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   Vince's phone call, to a synthesised score, ending on the player at the first job. The first time, a title card
   waits for a key or a tap (so the music can play); Esc / Enter / Skip end it; replay it from the teleport menu or
   with `?intro`.
-- **Albert Park**: the Grand Prix circuit (Lakeside Drive, Aughtie Drive) dressed as a race track: red and white kerbs,
-  a chequered start line on the pit straight, a grandstand; a red running track round the lake. Lakes inside park
-  blocks are cut out of the lawn (Albert Park Lake was hidden under the grass).
+- **Albert Park** (`js/race-track.js`): the real 5.3 km Grand Prix loop, from OSM's "Albert Park Circuit" relation via
+  `tools/melbourne/build-circuit.mjs` into `js/albert-park-circuit.js`.
+  - The track is an 11 m asphalt ribbon following Aughtie Drive, Albert Road Drive, Lakeside Drive, Ross Gregory Drive
+    and the raceway-only links. It has white edge lines, red and white kerbs on the corners, a chequered start/finish
+    line on the pit straight and a grandstand.
+  - The car counts the track as asphalt, never grass.
+  - The park itself is open grass right up to the kerb: no paved walks and no lamp posts. Lakes inside park blocks are
+    cut out of the lawn.
+  - Hot Lap is one clockwise lap of it, with five checkpoints.
+- **Steering**: more grip and a lock that falls off more gently with speed. The standard car turns a ~26 m circle at
+  70 km/h, and both cars corner at about 1–1.4 g.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the

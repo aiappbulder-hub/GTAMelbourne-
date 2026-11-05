@@ -674,10 +674,11 @@ async function initApp() {
       sub.textContent = `${m.giver} · ${m.crew} · $${m.reward.toLocaleString('en-AU')}`;
       b.append(n, sub);
       b.addEventListener('click', () => {
+        // go to the job and start it straight away
         const p = missionSystem.jumpTo(i);
-        // arrive a few metres short of the job's marker
-        teleportTo(p.x + 9, p.z + 9, Math.atan2(-9, -9));
+        teleportTo(p.x + 3, p.z + 3, Math.atan2(-3, -3));
         closePopovers();
+        missionSystem.startNow(i);
       });
       pop.append(b);
     });
