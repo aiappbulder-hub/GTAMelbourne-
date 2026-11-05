@@ -2247,7 +2247,7 @@ const CANYON_GLSL=`{float y=vWPos.y,st=vn(vec2((vWPos.x+vWPos.z)*.35,y*.004));
 function canyon(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{prev(sh);sh.fragmentShader=sh.fragmentShader.replace('void main() {',NOISE_GLSL+'void main() {').replace('#include <map_fragment>','#include <map_fragment>\n'+CANYON_GLSL)};
   m.customProgramCacheKey=()=>'canyon1';return m}
 function occlude(m){m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,G3.occ);
-  sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  #ifdef USE_INSTANCING\n  vWPos=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;\n  #else\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;\n  #endif');
   sh.fragmentShader='varying vec3 vWPos;\nuniform vec3 uCam;\nuniform vec3 uTarget;\nuniform float uRad;\n'+sh.fragmentShader.replace('void main() {',
     'void main() {\n  vec3 ab=uTarget-uCam;float t=clamp(dot(vWPos-uCam,ab)/dot(ab,ab),0.,1.);\n  if(t<0.985&&vWPos.y>3.&&length(vWPos-(uCam+ab*t))<uRad){vec2 q=mod(floor(gl_FragCoord.xy),2.);if(q.x+q.y>0.5)discard;}')};return m}
 function waterNormals(){const N=128,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d'),im=g.createImageData(N,N),h=(x,y)=>
@@ -2307,6 +2307,12 @@ function facadeOf(b){const k=hash(b.x|0,b.y|0,31);if(b.k==='tower')return k<.68?
   if(b.airport)return'office';if(b.k==='shop')return k<.6?'brick':'stone';return b.h>100?(k<.5?'glass':'office'):k<.4?'brick':k<.65?'stone':'office'}
 const SIGN_NAMES=['stop','giveway','60','50','nostanding','2p','1p','buszone','clearway','noparking','kangaroo','bikelane'];   // tools/make_signs.py
 const PROPS={ready:false,tpl:{},names:['traffic-light','street-lamp','bus-shelter','street-bin','bench','phone-box','bollard',...SIGN_NAMES.map(n=>'sign-'+n)]};
+// building looks from the owner's city pack (tools/import_models.py citypack): fitted to the footprint and height of
+// most CBD towers and some mid-rise blocks, tinted per building (the pack has no textures)
+const TOWERS={ready:false,tpl:{},names:{tower:['tower-a','tower-b','tower-c','tower-d','tower-e'],mid:['mid-a','mid-b','mid-c','mid-d','mid-e','mid-f','mid-g'],heritage:['heritage-a']},
+  tint:{tower:['#7d93a8','#a9b4bf','#5f7387','#c8c4bb','#8c9aa3','#d2d6da'],mid:['#c9b79a','#a36a52','#d8d2c4','#8e8a83','#b9a07e','#e2dccf'],heritage:['#d6cbb3']}};
+function towerLook(b){if(b.airport||b.k==='model')return null;const h=hash(b.x|0,b.y|0,81);if(b.k==='tower')return h<.6?'tower':null;
+  if(b.k==='bld'&&realR(b.x,b.y)<3000&&h<.35)return hash(b.x|0,b.y|0,83)<.04?'heritage':'mid';return null}
 const CITY={ready:false,tpl:{},names:['building-small-a','building-small-b','building-small-c','building-small-d','building-garage']};
 function mkBuf(){const b={p:[],n:[],c:[],uv:[]};
   // sh: optional shade by height, for the darkening where a wall meets the ground
@@ -2386,8 +2392,8 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const tex=new T.CanvasTexture(cvs);tex.anisotropy=G3.aniso;
   const pg=new T.PlaneGeometry(CPX,CPX,16,16).rotateX(-PI/2),pa=pg.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,terrainH(cx*CPX+CPX/2+pa.getX(i),cy*CPX+CPX/2+pa.getZ(i)));pg.computeVertexNormals();
   const ground=new T.Mesh(pg,groundDetail(new T.MeshStandardMaterial({map:tex,alphaTest:.5,roughness:.95,metalness:0})));ground.userData.ground=true;wetGround(ground.material);ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
-  const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[],fac={},W=k=>fac[k]||(fac[k]=mkBuf());
-  for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}addBuilding(W,roof,b)}
+  const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[],tws=[],fac={},W=k=>fac[k]||(fac[k]=mkBuf());
+  for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}const tl=TOWERS.ready&&towerLook(b);if(tl){tws.push([b,tl]);continue}addBuilding(W,roof,b)}
   for(let ty=cy*CH;ty<Math.min(H,cy*CH+CH);ty++)for(let tx=cx*CH;tx<Math.min(W,cx*CH+CH);tx++){const i=ty*W+tx,t=tiles[i];
     if(t===TREE){addTree(tree,tx,ty);continue}
     if(t===CONT){const h=13+(shade[i]%2)*12,x0=tx*TS+1,x1=x0+TS-2,z0=ty*TS+1,z1=z0+TS-2;col.set(PAL.cont[shade[i]%6]);roof.quad([x0,h,z0],[x1,h,z0],[x1,h,z1],[x0,h,z1],[0,1,0],col);
@@ -2412,6 +2418,13 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
     for(const l of lots){const k=CITY.names[(hash(l.x|0,l.y|0,77)*CITY.names.length)|0];(by[k]=by[k]||[]).push(l)}
     for(const k in by){const tp=CITY.tpl[k],arr=by[k];if(!tp)continue;const im=new T.InstancedMesh(tp.geo,tp.mat,arr.length);
       arr.forEach((l,i)=>{const sc=Math.min(l.w,l.d)*1.15/tp.w,dx=Math.cos(l.a),dy=Math.sin(l.a);q.setFromAxisAngle(up,Math.atan2(dy*l.side,-dx*l.side));m4.compose(new T.Vector3(l.x,terrainH(l.x,l.y)-2,l.y),q,new T.Vector3(sc,sc*(1.2+hash(l.x|0,l.y|0,78)*.3),sc));im.setMatrixAt(i,m4)});
+      im.castShadow=im.receiveShadow=true;grp.add(im)}}
+  // city-pack buildings: one InstancedMesh per model, each stretched to its building's footprint and height
+  if(tws.length){const by={},m4=new T.Matrix4(),q=new T.Quaternion(),up=new T.Vector3(0,1,0),c=new T.Color();
+    for(const[b,role]of tws){const L=TOWERS.names[role],k=L[(hash(b.x|0,b.y|0,84)*L.length)|0];(by[k]=by[k]||[]).push([b,role])}
+    for(const k in by){const tp=TOWERS.tpl[k],arr=by[k];if(!tp)continue;const im=new T.InstancedMesh(tp.geo,tp.mat,arr.length);
+      arr.forEach(([b,role],i)=>{q.setFromAxisAngle(up,-b.a);m4.compose(new T.Vector3(b.x,terrainH(b.x,b.y)-2,b.y),q,new T.Vector3(b.w/tp.sx,b.h/tp.sy,b.d/tp.sz));im.setMatrixAt(i,m4);
+        const P=TOWERS.tint[role];im.setColorAt(i,c.set(P[(hash(b.x|0,b.y|0,85)*P.length)|0]))});
       im.castShadow=im.receiveShadow=true;grp.add(im)}}
   return grp}
 function disposeGroup(g){g.traverse(o=>{if(!o.isMesh)return;if(o.isInstancedMesh){o.dispose&&o.dispose();return}o.geometry.dispose();if(o.material.map&&o.material!==G3.wallMat&&o.material!==G3.waterMat&&!Object.values(G3.fac).includes(o.material)){o.material.map.dispose();o.material.dispose()}})}
@@ -2474,6 +2487,12 @@ function loadModels(){if(!G3.T||!THREE.GLTFLoader||location.protocol==='file:')r
   Promise.all(PROPS.names.map(n=>new Promise(res=>ld.load('models/props/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);const parts=[];
     sc.traverse(o=>{if(o.isMesh)parts.push({geo:o.geometry.clone().applyMatrix4(o.matrixWorld),mat:o.material})});PROPS.tpl[n]=parts;res(true)},undefined,()=>res(false)))))
    .then(r=>{if(r.some(Boolean)){PROPS.ready=true;for(const[k,e]of G3.chunks){G3.sc.remove(e.g);disposeGroup(e.g)}G3.chunks.clear()}});
+  // city-pack building looks: one baked geometry each, sitting on the ground, with its size for fitting
+  Promise.all(Object.values(TOWERS.names).flat().map(n=>new Promise(res=>ld.load('models/towers/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);let mesh=null;sc.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
+    if(!mesh)return res(false);const geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geo.computeBoundingBox();const b=geo.boundingBox;geo.translate(-(b.min.x+b.max.x)/2,-b.min.y,-(b.min.z+b.max.z)/2);
+    if(!TOWERS.mat)TOWERS.mat=canyon(occlude(pbr(new G3.T.MeshStandardMaterial({color:'#ffffff',roughness:.5,metalness:.15,envMapIntensity:.3}))));
+    TOWERS.tpl[n]={geo,mat:TOWERS.mat,sx:b.max.x-b.min.x,sy:b.max.y-b.min.y,sz:b.max.z-b.min.z};res(true)},undefined,()=>res(false)))))
+   .then(r=>{if(r.some(Boolean)){TOWERS.ready=true;for(const[k,e]of G3.chunks){G3.sc.remove(e.g);disposeGroup(e.g)}G3.chunks.clear()}});
   // suburban buildings: bake each model to one geometry sitting on the ground, then rebuild the city chunks to use them
   Promise.all(CITY.names.map(n=>new Promise(res=>ld.load('models/city/'+n+'.json',g=>{const sc=g.scene;sc.updateMatrixWorld(true);let mesh=null;sc.traverse(o=>{if(o.isMesh&&!mesh)mesh=o});
     if(!mesh)return res(false);const geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geo.computeBoundingBox();const b=geo.boundingBox;
@@ -3044,7 +3063,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={LOOKK,get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{PEOPLE,RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={LOOKK,TOWERS:()=>TOWERS,get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{PEOPLE,RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>

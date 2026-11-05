@@ -3,6 +3,7 @@
     python tools/import_models.py eureka <Eureka Tower .obj>     -> models/landmarks/eureka.json
     python tools/import_models.py jet <airliner .obj>            -> models/aircraft/jet.json
     python tools/import_models.py oldcar <Generic_Old_Car.obj>   -> models/custom/oldcar.json (the classic car)
+    python tools/import_models.py citypack <city+models+byothers.obj> -> models/towers/*.json (CBD building looks)
 
 Run with Blender's Python module (bpy). The OBJ files came without their .mtl, so materials are assigned here by
 position: Eureka Tower's podium, blue glass shaft and gold crown; the airliner's white body and grey wings.
@@ -198,6 +199,45 @@ def oldcar(path):
     print("wrote", out, os.path.getsize(out) // 1024, "KB,", sum(len(p.vertices) - 2 for o in [body] + wheels for p in o.data.polygons), "tris")
 
 
+# the city pack's complete buildings: (name in the pack, game id, role). The game fits each to a building's footprint
+# and height, so only the shape matters; there are no textures, so one plain material, tinted per building in the game.
+CITYPACK = [("hirise13", "tower-a", "tower"), ("hirise8", "tower-b", "tower"), ("hivizcayne", "tower-c", "tower"),
+            ("hirise12", "tower-d", "tower"), ("hirise7", "tower-e", "tower"), ("45building", "mid-a", "mid"),
+            ("AIT01W2W2", "mid-b", "mid"), ("AIT01W2W8", "mid-c", "mid"), ("AIT01W2W1", "mid-d", "mid"),
+            ("AIT01W2W6", "mid-e", "mid"), ("LOWRISEMODERNCONDO2", "mid-f", "mid"), ("Plane001", "mid-g", "mid"),
+            ("nationalarchives", "heritage-a", "heritage")]
+
+
+def citypack(path):
+    import re
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.wm.obj_import(filepath=path)
+    objs = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    out_dir = os.path.join(ROOT, "models", "towers")
+    os.makedirs(out_dir, exist_ok=True)
+    facade = mat("Facade", "#ffffff", .55, .15)
+    for src, gid, role in CITYPACK:
+        cand = [o for o in objs if re.split(r"[._]", o.name)[0] == src]
+        if not cand:
+            print("missing", src)
+            continue
+        o = max(cand, key=lambda o: len(o.data.polygons))   # the complete one (the others are copies or pieces)
+        o.data = o.data.copy()
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        o.data.materials.clear()
+        o.data.materials.append(facade)
+        fit(o, 1, 1, 1)
+        n = sum(len(p.vertices) - 2 for p in o.data.polygons)
+        if n > 6000:
+            d = o.modifiers.new("dec", "DECIMATE")
+            d.ratio = 6000 / n
+            bpy.ops.object.modifier_apply(modifier=d.name)
+        export(o, gid, os.path.join(out_dir, gid + ".json"))
+
+
 if __name__ == "__main__":
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
-    {"eureka": eureka, "jet": jet, "oldcar": oldcar}[args[0]](args[1])
+    {"eureka": eureka, "jet": jet, "oldcar": oldcar, "citypack": citypack}[args[0]](args[1])
