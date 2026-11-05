@@ -319,7 +319,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
           v.panner.positionZ.setTargetAtTime(at.z, c.currentTime, 0.05);
         } else v.panner.setPosition(at.x, (at.y ?? 0) + 1.6, at.z);
         // a speaker who dies or wanders out of range stops
-        if (at.dead || Math.hypot(at.x - audioSystem.listener.x, at.z - audioSystem.listener.z) > v.ch.maxDistance * 1.2) { stop(v, 0.3); continue; }
+        if (at.dead || (audioSystem.haveListener && Math.hypot(at.x - audioSystem.listener.x, at.z - audioSystem.listener.z) > v.ch.maxDistance * 1.2)) { stop(v, 0.3); continue; }
       }
       if (v.sub) {
         const n = Math.min(v.words.length, Math.ceil((v.t / Math.max(0.5, v.dur * 0.92)) * v.words.length));

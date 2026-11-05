@@ -333,10 +333,10 @@
       "folder": "voices/local-male",
       "text": "You going to the footy Saturday? Carn the Pies!",
       "file": "voices/local-male/male_talk_2.mp3",
-      "duration": 4.42,
+      "duration": 3.17,
       "check": {
-        "heard": "you going to the footy Saturday? I am the boss.",
-        "score": 0.74
+        "heard": "You going to the footy Saturday? Car in the pies?",
+        "score": 0.84
       }
     },
     {
@@ -344,98 +344,183 @@
       "character": "local_male",
       "category": "talk",
       "folder": "voices/local-male",
-      "text": "Bloody trams. The eighty six never comes when you want it."
+      "text": "Bloody trams. The eighty six never comes when you want it.",
+      "file": "voices/local-male/male_talk_3.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Bloody trams, the 86 never comes when you want it.",
+        "score": 0.86
+      }
     },
     {
       "id": "male_talk_4",
       "character": "local_male",
       "category": "talk",
       "folder": "voices/local-male",
-      "text": "Lygon Street for a parma, that's my tip."
+      "text": "Lygon Street for a parma, that's my tip.",
+      "file": "voices/local-male/male_talk_4.mp3",
+      "duration": 3.12,
+      "check": {
+        "heard": "like on street for a parma. That's my tip.",
+        "score": 0.82
+      }
     },
     {
       "id": "male_talk_5",
       "character": "local_male",
       "category": "talk",
       "folder": "voices/local-male",
-      "text": "Can't stop, I'm late for work. Again."
+      "text": "Can't stop, I'm late for work. Again.",
+      "file": "voices/local-male/male_talk_5.mp3",
+      "duration": 3.74,
+      "check": {
+        "heard": "Don't stop. I'm late for work. Again.",
+        "score": 0.86
+      }
     },
     {
       "id": "male_talk_6",
       "character": "local_male",
       "category": "talk",
       "folder": "voices/local-male",
-      "text": "Watch yourself round here. The Broadmeadows lot have been about."
+      "text": "Watch yourself round here. The Broadmeadows lot have been about.",
+      "file": "voices/local-male/male_talk_6.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Watch yourself round here, the Broadnettos lot have been about",
+        "score": 0.9
+      }
     },
     {
       "id": "male_chat_1",
       "character": "local_male",
       "category": "chat",
       "folder": "voices/local-male",
-      "text": "Did you see the game on the weekend? Absolute shocker."
+      "text": "Did you see the game on the weekend? Absolute shocker.",
+      "file": "voices/local-male/male_chat_1.mp3",
+      "duration": 3.07,
+      "check": {
+        "heard": "Did you see the game on the weekend? Absolute shocker.",
+        "score": 1.0
+      }
     },
     {
       "id": "male_chat_2",
       "character": "local_male",
       "category": "chat",
       "folder": "voices/local-male",
-      "text": "Yeah, nah. I reckon we'll still make the finals."
+      "text": "Yeah, nah. I reckon we'll still make the finals.",
+      "file": "voices/local-male/male_chat_2.mp3",
+      "duration": 2.81,
+      "check": {
+        "heard": "And I reckon we'll still make the finals.",
+        "score": 0.82
+      }
     },
     {
       "id": "female_talk_1",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "Grab a coffee on Degraves. Best in town, I reckon."
+      "text": "Grab a coffee on Degraves. Best in town, I reckon.",
+      "file": "voices/local-female/female_talk_1.mp3",
+      "duration": 3.65,
+      "check": {
+        "heard": "Grab a coffee on the graves, best in town I reckon.",
+        "score": 0.86
+      }
     },
     {
       "id": "female_talk_2",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "Four seasons in one day, this city. Brought the wrong jacket again."
+      "text": "Four seasons in one day, this city. Brought the wrong jacket again.",
+      "file": "voices/local-female/female_talk_2.mp3",
+      "duration": 4.42,
+      "check": {
+        "heard": "Four seasons in one day, this city brought the wrong jacket again.",
+        "score": 1.0
+      }
     },
     {
       "id": "female_talk_3",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "Have you been to the Queen Vic Market? The doughnut van, mate."
+      "text": "Have you been to the Queen Vic Market? The doughnut van, mate.",
+      "file": "voices/local-female/female_talk_3.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Have you been to the Queen Vic Market? The donut van, mate.",
+        "score": 0.92
+      }
     },
     {
       "id": "female_talk_4",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "Don't touch me, ya weirdo."
+      "text": "Don't touch me, ya weirdo.",
+      "file": "voices/local-female/female_talk_4.mp3",
+      "duration": 2.98,
+      "check": {
+        "heard": "Don't touch me, you're weirdo.",
+        "score": 0.8
+      },
+      "ambient": false
     },
     {
       "id": "female_talk_5",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "No worries. Have a good one."
+      "text": "No worries. Have a good one.",
+      "file": "voices/local-female/female_talk_5.mp3",
+      "duration": 2.62,
+      "check": {
+        "heard": "No worries, have a good one.",
+        "score": 1.0
+      }
     },
     {
       "id": "female_talk_6",
       "character": "local_female",
       "category": "talk",
       "folder": "voices/local-female",
-      "text": "You lost? Swanston's the one with all the trams."
+      "text": "You lost? Swanston's the one with all the trams.",
+      "file": "voices/local-female/female_talk_6.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "You lost? Swanston's the one with all the charms.",
+        "score": 0.89
+      }
     },
     {
       "id": "female_chat_1",
       "character": "local_female",
       "category": "chat",
       "folder": "voices/local-female",
-      "text": "Is it me, or are there more cranes than people in this town?"
+      "text": "Is it me, or are there more cranes than people in this town?",
+      "file": "voices/local-female/female_chat_1.mp3",
+      "duration": 3.53,
+      "check": {
+        "heard": "Is it me, or are there more cranes than people in this town?",
+        "score": 1.0
+      }
     },
     {
       "id": "female_chat_2",
       "character": "local_female",
       "category": "chat",
       "folder": "voices/local-female",
-      "text": "Honestly, the rent in Fitzroy is getting ridiculous."
+      "text": "Honestly, the rent in Fitzroy is getting ridiculous.",
+      "file": "voices/local-female/female_chat_2.mp3",
+      "duration": 2.93,
+      "check": {
+        "heard": "Honestly, the Rotten Fitzroy is getting ridiculous.",
+        "score": 0.8
+      }
     }
   ]
 }
