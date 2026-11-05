@@ -13,6 +13,9 @@ import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
 // streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: 'n' | 'e' | 's' | 'w' } the Albert Park
 // circuit's extremes.
+// Steps can also ask for: targets: n (take out the n people nearest the player, red beams over them), steal: 'pickup'
+// (be driving a car of that kind taken from the traffic, or 'any'), talkTo: n (talk to n people), rob: n (hold up n
+// people: aim and T).
 // A job's steps: { text, at: place, r: metres, car: true (must be driving), time: seconds,
 // wait: seconds standing in the marker, away: metres to get clear of the last marker, cut: [[who, line], ...] }
 
@@ -44,14 +47,47 @@ const MISSIONS = [
     ]
   },
   {
+    name: 'Chop Shop', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 2500,
+    cut: [['Vince', 'The Broady boys love their utes. So do the buyers at my chop shop.'],
+      ['Vince', "Nick one off the street. Walk up, pull the driver out, done. Then get it to North Melbourne."],
+      ['You', 'Any ute?'],
+      ['Vince', "Any ute. Just don't bring it back with bullet holes."]],
+    steps: [
+      { text: 'Steal a ute: walk up to one in the traffic and press F.', steal: 'pickup' },
+      { text: 'Take the ute to the chop shop on Errol St, North Melbourne.', at: { cross: ['ERROL STREET', 'VICTORIA STREET'] }, r: 16, steal: 'pickup', time: 180 }
+    ]
+  },
+  {
+    name: 'Word on the Street', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 2000,
+    cut: [['Vince', "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who."],
+      ['Vince', 'Go to Fitzroy and ask around. Locals talk if you ask nicely.']],
+    steps: [
+      { text: 'Get to Gertrude St, Fitzroy.', at: { cross: ['GERTRUDE STREET', 'NICHOLSON STREET'] }, r: 30 },
+      { text: 'Ask around: talk to three locals (T next to someone).', talkTo: 3,
+        say: 'A local: "The bloke you want drinks at the pub on Smith Street. Didn\'t hear it from me."' },
+      { text: 'Check out the pub on Smith St.', at: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, r: 16, time: 90 }
+    ]
+  },
+  {
     name: 'Westside Bikies', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3000,
     cut: [['Kaz', "So you're the one Vince keeps sending round. Forget the Lygon lot."],
       ['You', 'I go where the money is.'],
       ['Kaz', 'Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it.']],
     steps: [
       { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
+      { text: 'The Nomads are guarding it. Take them out.', targets: 3 },
       { text: 'Grab the bag. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
       { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
+    ]
+  },
+  {
+    name: 'Collection Day', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3500,
+    cut: [['Kaz', 'Half the corner boys in the city owe us money and think we forgot.'],
+      ['Kaz', 'Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet.']],
+    steps: [
+      { text: 'Get to the Bourke Street Mall.', at: { grid: ['Bourke St', 'Elizabeth St'] }, r: 40 },
+      { text: 'Hold up three people: aim (right mouse) and press T next to them.', rob: 3 },
+      { text: 'Lose yourself: get 300 m from the Mall.', away: 300, time: 60 }
     ]
   },
   {
@@ -62,6 +98,16 @@ const MISSIONS = [
       { text: 'Get the first tape from the phone box on Nicholson St, by the Exhibition Building.', at: { cross: ['NICHOLSON STREET', 'CARLTON STREET'] }, r: 12, time: 150, keepTime: true },
       { text: 'Get the other tape from the informant\'s flat on Clarendon St, East Melbourne.', at: { cross: ['CLARENDON STREET', 'GIPPS STREET'] }, r: 12, keepTime: true },
       { text: 'Burn the tapes at the lock-up in Collingwood. Kestrel is onto you.', at: { cross: ['WELLINGTON STREET', 'GIPPS STREET'] }, r: 14, time: 90 }
+    ]
+  },
+  {
+    name: 'Clean Up', giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 5000,
+    cut: [['Kaz', 'Three Nomads are dealing outside Southern Cross like they own the place.'],
+      ['Kaz', "They don't. Go and make that clear."]],
+    steps: [
+      { text: 'Get to Southern Cross Station.', at: { grid: ['Bourke St', 'Spencer St'] }, r: 40, time: 150 },
+      { text: 'Take out the three Nomads.', targets: 3 },
+      { text: 'Get away: 400 m clear of the station.', away: 400, time: 45 }
     ]
   },
   {
@@ -156,6 +202,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
   }
   const startMarker = makeMarker(0xff3d9a);
   const goalMarker = makeMarker(0xffd23f);
+  const targetMarkers = Array.from({ length: 4 }, () => makeMarker(0xff2a2a));
+
+  // the player's game (js/gameplay.js) and the traffic (people, cars), attached once they exist
+  let gameplay = null, traffic = null;
+  const counters = { talk: 0, rob: 0 };
   const placeMarker = (m, p, r) => {
     m.position.set(p.x, 0.2, p.z);
     m.scale.set(r, 1, r);
@@ -272,6 +323,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
     if (!s.time && !s.keepTime) m.timer = 0;
     m.wait = 0;
     m.from = { x: playerPos().x, z: playerPos().z };
+    m.count0 = { talk: counters.talk, rob: counters.rob };
+    m.targets = null;
+    if (s.targets && traffic) {
+      // the people nearest the player become the targets
+      const p = playerPos();
+      m.targets = traffic.peds.filter((q) => q.placed && !q.dead)
+        .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
+    }
     elObjective.textContent = s.text;
     if (s.at) {
       const p = resolve(s.at);
@@ -291,6 +350,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
     elObjective.textContent = '';
     elTimer.hidden = true;
     goalMarker.visible = false;
+    for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
     if (save.progress >= MISSIONS.length) {
       big('MELBOURNE IS YOURS', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
@@ -302,6 +362,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
     elObjective.textContent = '';
     elTimer.hidden = true;
     goalMarker.visible = false;
+    for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
     big('MISSION FAILED', '#e5383b', 3);
     sub(why, 4);
@@ -336,7 +397,31 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
     } else elTimer.hidden = true;
 
     let done = false;
-    if (s.at) {
+    const stealOk = !s.steal || (gameplay && gameplay.driving && (s.steal === 'any' || gameplay.driving.bodyType === s.steal));
+    if (s.targets && m.targets) {
+      const left = m.targets.filter((q) => !q.dead);
+      targetMarkers.forEach((tm, i) => {
+        const q = left[i];
+        if (q) placeMarker(tm, { x: q.x, z: q.z }, 0.8);
+        else tm.visible = false;
+      });
+      if (left[0] && mapSystem) mapSystem.waypoint = { x: left[0].x, z: left[0].z, name: 'Target' };
+      elObjective.textContent = `${s.text} ${left.length} left.`;
+      done = left.length === 0;
+      if (done) for (const tm of targetMarkers) tm.visible = false;
+    } else if (s.talkTo) {
+      const n = counters.talk - m.count0.talk;
+      elObjective.textContent = `${s.text} ${n} / ${s.talkTo}`;
+      done = n >= s.talkTo;
+    } else if (s.rob) {
+      const n = counters.rob - m.count0.rob;
+      elObjective.textContent = `${s.text} ${n} / ${s.rob}`;
+      done = n >= s.rob;
+    } else if (s.steal && !s.at) {
+      done = stealOk;
+    } else if (s.at && s.steal && !stealOk) {
+      elObjective.textContent = `${s.text} (You need the ute.)`;
+    } else if (s.at) {
       const g = resolve(s.at);
       const inside = Math.hypot(p.x - g.x, p.z - g.z) < s.r;
       const modeOk = (!s.car || driving()) && (!s.foot || controllerManager.activeMode === 'person');
@@ -362,6 +447,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
   return {
     update,
     sub,
+    /** gameplay.js and the traffic, once they exist; gameplay reports talks and hold-ups here */
+    attach(g, t) { gameplay = g; traffic = t; },
+    onTalk(robbed) { if (robbed) counters.rob++; else counters.talk++; },
     addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,
     get progress() { return save.progress; },

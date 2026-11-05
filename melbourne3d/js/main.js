@@ -602,6 +602,7 @@ async function initApp() {
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode
   }) : null;
   window.__city.gameplay = gameplay;
+  if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo
@@ -908,7 +909,7 @@ async function initApp() {
         initTimings = null;
         setLoadingProgress(1);
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
-        if (intro && intro.shouldAutoplay) intro.start();
+        if (intro && intro.shouldAutoplay) intro.prompt();
         audioSystem.ready = true;
       });
     }

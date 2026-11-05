@@ -1660,11 +1660,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     for (let w = 0; w < 2; w++) {
       const wz = w === 0 ? halfBase : -halfBase;
       dummy.rotation.set(v.wheelSpin + w * 0.55, rotY + (w === 0 ? v.steer : 0), roll, 'YXZ');
-      dummy.position.set(v.x - halfTrack * cosY + wz * sinY, radius, v.z + halfTrack * sinY + wz * cosY);
+      dummy.position.set(v.x - halfTrack * cosY + wz * sinY, radius + ((v.driven || v.parked) ? v.y || 0 : 0), v.z + halfTrack * sinY + wz * cosY);
       dummy.updateMatrix();
       leftInst.setMatrixAt(i * 2 + w, dummy.matrix);
 
-      dummy.position.set(v.x + halfTrack * cosY + wz * sinY, radius, v.z - halfTrack * sinY + wz * cosY);
+      dummy.position.set(v.x + halfTrack * cosY + wz * sinY, radius + ((v.driven || v.parked) ? v.y || 0 : 0), v.z - halfTrack * sinY + wz * cosY);
       dummy.updateMatrix();
       rightInst.setMatrixAt(i * 2 + w, dummy.matrix);
     }
@@ -1693,7 +1693,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     const bodyInst = near ? bodies[c.bodyType].near : bodies[c.bodyType].far;
     const slot = bodyInst.count++;
 
-    dummy.position.set(c.x, 0.0, c.z);
+    // (the player's car, or one it left, may stand up on a footpath)
+    dummy.position.set(c.x, (c.driven || c.parked) ? c.y || 0 : 0.0, c.z);
     dummy.rotation.set(c.pitch, rotY, c.roll, 'YXZ');
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
@@ -2016,8 +2017,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       v.z = pe.position.z;
       v.yaw = pe.heading;
       v.yawOffset = 0;
-      v.pitch = pe.chassisPivot ? pe.chassisPivot.rotation.x : 0;
-      v.roll = pe.chassisPivot ? pe.chassisPivot.rotation.z : 0;
+      v.pitch = (pe.chassisPivot ? pe.chassisPivot.rotation.x : 0) + (pe.kerbPitch || 0);
+      v.roll = (pe.chassisPivot ? pe.chassisPivot.rotation.z : 0) + (pe.kerbRoll || 0);
+      v.y = pe.position.y + (pe.heaveY || 0); // up on the footpath
     }
     for (const v of vehicles) {
       if (!v.edge && !v.driven && !v.parked) continue;

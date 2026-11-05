@@ -39,7 +39,8 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 
 - **Story missions** (`js/missions.js`): the original game's story (the Lygon Street Crew against the Broadmeadows
   mob, Taskforce Kestrel closing in) with Vince and Kaz's six jobs, set on this map: Laneway Hustle, Hot Lap, Westside
-  Bikies, The Informant, Tobacco Wars and Harbour Run. Pink beam: the next job; yellow beam: the objective, with the
+  Bikies, The Informant, Tobacco Wars and Harbour Run, plus Chop Shop (steal a ute), Word on the Street (ask the locals),
+  Collection Day (hold-ups) and Clean Up (take out three dealers): ten jobs. Pink beam: the next job; yellow beam: the objective, with the
   GPS route on the map. Cutscene dialogue (Enter or click), timers, cash and progress are saved. The teleport menu's
   Jobs list goes straight to any job. The jobs that needed guns, gangs and police are driving jobs until those move
   across.
@@ -55,9 +56,10 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
     person or car in front. People fall and stay down a while; everyone nearby runs; shot cars flee, then stall.
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
 - **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
-  Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with Trent setting up the story and
-  Vince's phone call, ending on the player at the first job. Plays the first time; Esc / Enter / Skip end it; replay
-  it from the teleport menu or with `?intro`.
+  Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with the player's own voice setting up the story and
+  Vince's phone call, to a synthesised score, ending on the player at the first job. The first time, a title card
+  waits for a key or a tap (so the music can play); Esc / Enter / Skip end it; replay it from the teleport menu or
+  with `?intro`.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the

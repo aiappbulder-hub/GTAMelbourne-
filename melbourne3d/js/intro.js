@@ -1,8 +1,9 @@
 import * as THREE from 'three/webgpu';
 
-// The opening: wide shots of Melbourne at golden hour, letterboxed, with Trent setting up the story over them and Vince
-// on the phone, ending on the player at the first job's marker. It plays the first time the game starts (and with
-// ?intro, or "Watch the intro" in the teleport menu); Esc, Enter or Skip end it.
+// The opening: wide shots of Melbourne at golden hour, letterboxed, with the player's own voice setting up the story
+// over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. The first
+// time the game starts it waits on a title card for a key or a tap (browsers only play sound after one); it also plays
+// with ?intro, or "Watch the intro" in the teleport menu. Esc, Enter or Skip end it.
 //
 // Each shot moves the camera from `from` to `to` (eye) while looking from `lookFrom` to `lookTo`, over `secs`, eased.
 // World metres (x = east along Collins St, z = south). 'sun' as a look target points the camera into the sunset.
@@ -12,29 +13,29 @@ const KEY = 'gta-melbourne3d-intro-seen';
 const SHOTS = [
   { // the skyline from over Yarra Park and the MCG
     from: [1550, 260, 1250], to: [1150, 190, 930], lookFrom: [-150, 70, -60], lookTo: [-200, 60, -80], secs: 7.5,
-    lines: [['Trent', 'Melbourne. Four seasons in one day, and somebody fighting over every one of them.']]
+    lines: [['', 'Melbourne. Four seasons in one day, and somebody fighting over every one of them.']]
   },
   { // Flinders Street Station from over the Yarra
     from: [-30, 42, 390], to: [10, 34, 360], lookFrom: [-180, 16, 262], lookTo: [-165, 14, 262], secs: 7,
-    lines: [['Trent', "It's 2004. I've been gone three years. The city's grown up. So have the crooks."]]
+    lines: [['', "It's 2004. I've been gone three years. The city's grown up. So have the crooks."]]
   },
   { // Lygon Street, Carlton
     from: [700, 120, -880], to: [575, 85, -1060], lookFrom: [470, 0, -1420], lookTo: [480, 0, -1430], secs: 7,
-    lines: [['Trent', 'The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.']]
+    lines: [['', 'The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.']]
   },
   { // Docklands, into the sunset
     from: [-1750, 32, -180], to: [-1900, 38, -360], lookFrom: 'sun', lookTo: 'sun', secs: 7.5,
-    lines: [['Trent', 'Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.']]
+    lines: [['', 'Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.']]
   },
   { // up at Eureka from the river
     from: [-260, 5, 430], to: [-300, 7, 455], lookFrom: [-381, 120, 597], lookTo: [-381, 230, 597], secs: 6.5,
-    lines: [['Trent', "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them."]]
+    lines: [['', "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them."]]
   },
   { // down Swanston Street to the station
     from: [-5, 7, -560], to: [-5, 6, -330], lookFrom: [-5, 16, 262], lookTo: [-5, 14, 262], secs: 9,
-    lines: [['Vince (phone)', "Trent. Heard you were back. I've got work, if you want it."],
+    lines: [['Vince (phone)', "Heard you were back. I've got work, if you want it."],
       ['Vince (phone)', "Flinders Lane, off Elizabeth Street. Don't keep me waiting."],
-      ['Trent', 'Fresh off the plane and already working. Typical.']]
+      ['You', 'Fresh off the plane and already working. Typical.']]
   },
   { // down onto the player at the job
     from: 'player-high', to: 'player-chase', lookFrom: 'player', lookTo: 'player', secs: 5.5, title: true,
@@ -53,16 +54,188 @@ body.cinematic .gp-weapon, body.cinematic .gp-fire, body.cinematic .gp-cross, bo
 .intro-line { position: fixed; left: 50%; bottom: calc(11vh + 18px); transform: translateX(-50%); width: min(820px, 92vw); z-index: 61; text-align: center;
   color: #fff; font: 500 clamp(15px, 2.1vw, 20px)/1.45 Inter, system-ui, sans-serif; text-shadow: 0 2px 8px rgba(0,0,0,.9); pointer-events: none;
   transition: opacity .35s; }
+.intro-line.narration { font-style: italic; }
 .intro-line b { display: block; color: #ffcf6e; font-size: .7em; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 2px; }
 .intro-title { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); z-index: 61; text-align: center; color: #fff; pointer-events: none;
   font: 900 clamp(38px, 8vw, 92px)/1 Inter, system-ui, sans-serif; letter-spacing: .06em; text-shadow: 0 6px 30px rgba(0,0,0,.6); opacity: 0; transition: opacity 1s; }
 .intro-title small { display: block; margin-top: 10px; font-size: .2em; letter-spacing: .3em; color: #ffcf6e; }
+.intro-card { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(40, 20, 6, .55), rgba(0, 0, 0, .9)); color: #fff; cursor: pointer; text-align: center; }
+.intro-card[hidden] { display: none; }
+.intro-card h1 { margin: 0; font: 900 clamp(40px, 9vw, 104px)/1 Inter, system-ui, sans-serif; letter-spacing: .06em; }
+.intro-card p { margin: 14px 0 0; font: 600 13px/1 Inter, system-ui, sans-serif; letter-spacing: .3em; color: #ffcf6e; }
+.intro-card span { margin-top: 42px; font: 600 15px/1 Inter, system-ui, sans-serif; opacity: .85; animation: introPulse 1.6s ease-in-out infinite; }
+@keyframes introPulse { 50% { opacity: .35; } }
 .intro-skip { position: fixed; right: 18px; top: calc(11vh + 12px); z-index: 62; padding: 7px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
   background: rgba(0,0,0,.45); color: #fff; font: 600 13px/1 Inter, system-ui, sans-serif; cursor: pointer; display: none; }
 body.cinematic .intro-skip { display: block; }
 `;
 
 const ease = (t) => t * t * (3 - 2 * t);
+
+// --- The score: a minor-key build at 84 bpm, synthesised (no audio files). Am, F, C, G bars: pads from the start, bass
+// and a plucked arpeggio through a delay from bar 5, drums from bar 9, the last bars held under the title. Every note is
+// scheduled ahead on the audio clock; stop() fades it out.
+function createScore() {
+  let ctx = null, master = null, started = false;
+  const BPM = 84, BEAT = 60 / BPM, BAR = BEAT * 4;
+  const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]]; // Am F C G (MIDI)
+  const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function reverb() {
+    const len = ctx.sampleRate * 2.6;
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.4);
+    }
+    const conv = ctx.createConvolver();
+    conv.buffer = buf;
+    return conv;
+  }
+  function start(totalSecs) {
+    if (started) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch { return; }
+    started = true;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0 = ctx.currentTime + 0.15;
+    master = ctx.createGain();
+    master.gain.setValueAtTime(0, t0);
+    master.gain.linearRampToValueAtTime(0.55, t0 + 3);
+    const verb = reverb();
+    const wet = ctx.createGain();
+    wet.gain.value = 0.35;
+    verb.connect(wet).connect(master);
+    master.connect(ctx.destination);
+    const out = (node, dry = 1) => { const g = ctx.createGain(); g.gain.value = dry; node.connect(g); g.connect(master); node.connect(verb); };
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = BEAT * 0.75;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.38;
+    delay.connect(fb).connect(delay);
+    out(delay, 0.6);
+
+    const bars = Math.ceil(totalSecs / BAR) + 1;
+    for (let b = 0; b < bars; b++) {
+      const tb = t0 + b * BAR;
+      const chord = CHORDS[b % 4];
+      const last = b >= bars - 2;
+      // pad: detuned saws through a lowpass opening over the piece
+      for (const n of chord) for (const det of [-7, 7]) {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.value = hz(n);
+        o.detune.value = det;
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.value = 500 + Math.min(1, b / bars) * 1400;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, tb);
+        g.gain.linearRampToValueAtTime(0.028, tb + 0.9);
+        g.gain.setValueAtTime(0.028, tb + BAR - 0.3);
+        g.gain.linearRampToValueAtTime(last ? 0.02 : 0, tb + BAR + 0.4);
+        o.connect(f).connect(g);
+        out(g);
+        o.start(tb);
+        o.stop(tb + BAR + 0.5);
+      }
+      if (b >= 4 && !last) {
+        // bass: the root in eighths, accented on the beat
+        for (let i = 0; i < 8; i++) {
+          const t = tb + i * BEAT / 2;
+          const o = ctx.createOscillator();
+          o.type = 'triangle';
+          o.frequency.value = hz(chord[0] - 24);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(i % 2 ? 0.07 : 0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + BEAT * 0.45);
+          o.connect(g);
+          out(g, 1);
+          o.start(t);
+          o.stop(t + BEAT / 2);
+        }
+        // plucked arpeggio into the delay
+        const arp = [chord[0] + 12, chord[1] + 12, chord[2] + 12, chord[1] + 12];
+        for (let i = 0; i < 8; i++) {
+          const t = tb + i * BEAT / 2;
+          const o = ctx.createOscillator();
+          o.type = 'triangle';
+          o.frequency.value = hz(arp[i % 4]);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0.05, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          o.connect(g);
+          g.connect(delay);
+          out(g, 0.8);
+          o.start(t);
+          o.stop(t + 0.4);
+        }
+      }
+      if (b >= 8 && !last) {
+        for (let beat = 0; beat < 4; beat++) {
+          const t = tb + beat * BEAT;
+          if (beat % 2 === 0) { // kick
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.frequency.setValueAtTime(110, t);
+            o.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+            g.gain.setValueAtTime(0.5, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            o.connect(g);
+            out(g, 1);
+            o.start(t);
+            o.stop(t + 0.32);
+          } else { // snare: a noise burst
+            const len = Math.floor(ctx.sampleRate * 0.2);
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            const f = ctx.createBiquadFilter();
+            f.type = 'bandpass';
+            f.frequency.value = 1800;
+            const g = ctx.createGain();
+            g.gain.value = 0.22;
+            src.connect(f).connect(g);
+            out(g, 1);
+            src.start(t);
+          }
+          for (const half of [0, 0.5]) { // hats
+            const th = t + half * BEAT;
+            const len = Math.floor(ctx.sampleRate * 0.05);
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            const f = ctx.createBiquadFilter();
+            f.type = 'highpass';
+            f.frequency.value = 7000;
+            const g = ctx.createGain();
+            g.gain.value = 0.05;
+            src.connect(f).connect(g);
+            g.connect(master);
+            src.start(th);
+          }
+        }
+      }
+    }
+  }
+  function stop() {
+    if (!ctx || !started) return;
+    const t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(master.gain.value, t);
+    master.gain.linearRampToValueAtTime(0, t + 1.6);
+    const c = ctx;
+    setTimeout(() => c.close().catch(() => {}), 2000);
+    ctx = null;
+    started = false;
+  }
+  return { start, stop };
+}
 
 export function createIntro({ cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo }) {
   const style = document.createElement('style');
@@ -78,6 +251,17 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   const sm = document.createElement('small');
   sm.textContent = 'MELBOURNE · 2004';
   title.append(sm);
+  const card = div('intro-card');
+  card.hidden = true;
+  const h1 = document.createElement('h1');
+  h1.textContent = 'GTA MELBOURNE';
+  const cp = document.createElement('p');
+  cp.textContent = 'MELBOURNE · 2004';
+  const go = document.createElement('span');
+  go.textContent = 'Press any key or tap to start';
+  card.append(h1, cp, go);
+  const score = createScore();
+  const totalSecs = SHOTS.reduce((t, s) => t + s.secs, 0);
   const skip = document.createElement('button');
   skip.className = 'intro-skip';
   skip.type = 'button';
@@ -104,6 +288,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   }
 
   function start() {
+    card.hidden = true;
+    score.start(totalSecs);
     active = true;
     shot = 0;
     t = 0;
@@ -121,6 +307,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   function stop() {
     if (!active) return;
     active = false;
+    score.stop();
     document.body.classList.remove('cinematic');
     line.style.opacity = '0';
     title.style.opacity = '0';
@@ -158,6 +345,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       lineK = k;
       const [who, text] = s.lines[k];
       line.innerHTML = '';
+      line.classList.toggle('narration', !who);
       if (who) { const b = document.createElement('b'); b.textContent = who; line.append(b); }
       line.append(document.createTextNode(text));
       line.style.opacity = '1';
@@ -178,9 +366,23 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   let seen = false;
   try { seen = localStorage.getItem(KEY) === '1'; } catch { /* storage unavailable */ }
   const forced = new URLSearchParams(location.search).has('intro');
+  /** The title card: waits for a key or a tap, then plays (with sound: the gesture lets the browser start audio) */
+  function prompt() {
+    card.hidden = false;
+    const begin = (e) => {
+      if (card.hidden) return;
+      if (e && e.type === 'keydown' && e.code === 'Escape') { card.hidden = true; try { localStorage.setItem(KEY, '1'); } catch { /* storage unavailable */ } return; }
+      window.removeEventListener('keydown', begin, true);
+      start();
+    };
+    window.addEventListener('keydown', begin, true);
+    card.addEventListener('pointerdown', begin, { once: true });
+  }
+
   return {
     apply,
     start,
+    prompt,
     stop,
     get active() { return active; },
     /** For checking a shot: show shot i, a little way in */

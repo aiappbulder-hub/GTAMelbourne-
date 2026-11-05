@@ -391,10 +391,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       trafficSystem.talkToPed(q, person.position.x, person.position.z, 1.5);
       chat = { p: q, lines: [['You', 'Wallet. Now.'], ['Local', `Alright, alright! Take it, $${cash}, just don't shoot!`]], k: 0, t: 0 };
       missionSystem?.addMoney?.(cash);
+      missionSystem?.onTalk?.(true);
       setTimeout(() => trafficSystem.scarePeds(q.x, q.z, 6, 10), 2600);
       return;
     }
     trafficSystem.talkToPed(q, person.position.x, person.position.z, 7);
+    missionSystem?.onTalk?.(false);
     const line = LINES[Math.floor(Math.random() * LINES.length)];
     chat = { p: q, lines: [['You', GREETINGS[Math.floor(Math.random() * GREETINGS.length)]], ['Local', line]], k: 0, t: 0 };
   }

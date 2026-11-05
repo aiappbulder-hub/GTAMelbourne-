@@ -1113,6 +1113,11 @@ class ThirdPersonControllerManager {
       e.mesh.position.copy(e.position);
       e.mesh.rotation.y = e.heading;
     }
+    // the car's tilt over kerbs (heading first, then the tilt in its own frame)
+    const carEnt = this.entities.car;
+    carEnt.mesh.rotation.order = 'YXZ';
+    carEnt.mesh.rotation.x = carEnt.kerbPitch || 0;
+    carEnt.mesh.rotation.z = carEnt.kerbRoll || 0;
 
     // Modulate clustered vehicle & bike lights by time of day (off during Midday & Golden Hour; fade in at Dusk & Night)
     const glow = cityUniforms && cityUniforms.uInteriorGlow ? cityUniforms.uInteriorGlow.value : 0.48;
@@ -1265,7 +1270,30 @@ class ThirdPersonControllerManager {
       c.heaveVel += (-c.heaveY * 85 - c.heaveVel * 12) * step;
       c.heaveY = Math.max(-0.08, Math.min(0.14, c.heaveY + c.heaveVel * step));
     }
-    c.position.y = this.getGroundHeight(c.position.x, c.position.z, 'car');
+    // Kerbs: each wheel stands on the road or up on the raised footpath (or a kerb island); the body rides at their
+    // mean height and tilts with the difference front to back and side to side, so the car climbs onto the pavement
+    // and drops off it again, with a jolt (and a little lost speed) as a wheel goes over the kerb
+    {
+      const SW = ISLAND_BOUNDS.sidewalkHeight;
+      const fx = Math.sin(c.heading), fz = Math.cos(c.heading), lx = Math.cos(c.heading), lz = -Math.sin(c.heading);
+      const at = (along, side) => (blockAt(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side) ? SW : 0);
+      const fl = at(1.3, 0.78), fr = at(1.3, -0.78), bl = at(-1.3, 0.78), br = at(-1.3, -0.78);
+      const ground = (fl + fr + bl + br) / 4;
+      const wheelsUp = (fl > 0) + (fr > 0) + (bl > 0) + (br > 0);
+      if (c._wheelsUp !== undefined && wheelsUp !== c._wheelsUp && Math.abs(c.speed) > 1) {
+        const hit = Math.min(1.8, Math.abs(c.speed) * 0.09);
+        c.heaveVel += hit;
+        c.pitchVel += (wheelsUp > c._wheelsUp ? -1 : 1) * Math.sign(c.speed) * hit * 0.6;
+        c.speed *= 0.97;
+      }
+      c._wheelsUp = wheelsUp;
+      const k = Math.min(1, dt * 18);
+      c.rideY = (c.rideY ?? ground) + (ground - (c.rideY ?? ground)) * k;
+      // front up = nose up (negative x rotation); left (+x in the car's frame) up = positive z rotation
+      c.kerbPitch = (c.kerbPitch || 0) + (-Math.atan2((fl + fr - bl - br) / 2, 2.6) - (c.kerbPitch || 0)) * k;
+      c.kerbRoll = (c.kerbRoll || 0) + (Math.atan2((fl + bl - fr - br) / 2, 1.56) - (c.kerbRoll || 0)) * k;
+    }
+    c.position.y = Math.max(this.getGroundHeight(c.position.x, c.position.z, 'car'), c.rideY);
     c.chassisPivot.position.y = c.heaveY;
 
     if (c.carState) {
