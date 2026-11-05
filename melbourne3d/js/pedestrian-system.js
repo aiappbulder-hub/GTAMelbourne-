@@ -2,6 +2,7 @@ import { blockAt } from './city-config.js';
 import { Q } from './quality.js';
 import { createPedestrianRoutes } from './pedestrian-routes.js';
 import { PersonCrowd, PersonRig, PEDESTRIAN_DIVE_DURATION } from './pedestrians.js';
+import { createMelbourneCharacterRig } from './character-presets.js';
 
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
@@ -76,7 +77,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       diveStart: -Infinity,
       diveHeading: 0,
       diveT: 0,
-      rig: new PersonRig({
+      // the first five are the named Melbourne characters (js/character-presets.js)
+      rig: i < 5 ? createMelbourneCharacterRig(i) : new PersonRig({
         seed: i * 1.6180339 + 0.13,
         female,
         scale: (female ? 0.91 : 0.97) + hash(i, 4) * 0.1,

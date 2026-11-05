@@ -42,6 +42,13 @@ const CAR_DRIVE = {
   rolling: 0.18, drag: 0.0012, coast: 0.6, brake: 9,
   wheelbase: 2.76, grip: 9.5, cornering: 10.5 // Wheelbase (m), tire and steering acceleration limits (m/s²).
 };
+// The sports car (the HSB Clubbie R8, js/gameplay.js): about 280 km/h, twice the pull, harder brakes, more grip
+export const SPORTS_DRIVE = {
+  speed: 78, reverseSpeed: 12, acceleration: 9.5,
+  powerSpeed: 30, // power-limited above ~108 km/h
+  rolling: 0.15, drag: 0.0005, coast: 0.5, brake: 15,
+  wheelbase: 2.7, grip: 15, cornering: 14
+};
 const BICYCLE_DRIVE = {
   speed: 19, reverseSpeed: 4.5, acceleration: 9,
   rolling: 0.08, drag: 0.004, coast: 0.2, brake: 7.5 // Backward input is scaled to 0.6, giving 4.5 m/s² braking.
@@ -1198,6 +1205,8 @@ class ThirdPersonControllerManager {
   }
 
   updateCar(dt) {
+    // the car's handling: its own (the sports car, js/gameplay.js) or the standard set
+    const D = this.entities.car.drive || CAR_DRIVE;
     if (dt <= 0) return;
     const c = this.entities.car;
 
@@ -1226,22 +1235,22 @@ class ThirdPersonControllerManager {
       const vx = sin * c.speed + c.vx, vz = cos * c.speed + c.vz;
       const forward = vx * sin + vz * cos;
       const sideways = vx * cos - vz * sin;
-      const speed = driveSpeed(forward, throttle, step, CAR_DRIVE);
+      const speed = driveSpeed(forward, throttle, step, D);
       const acceleration = (speed - forward) / step;
       // Braking and cornering share tire grip; air resistance does not use it.
-      const tireAcceleration = acceleration + CAR_DRIVE.drag * forward * Math.abs(forward);
-      const grip = Math.sqrt(Math.max(0, CAR_DRIVE.grip ** 2 - tireAcceleration ** 2));
+      const tireAcceleration = acceleration + D.drag * forward * Math.abs(forward);
+      const grip = Math.sqrt(Math.max(0, D.grip ** 2 - tireAcceleration ** 2));
       // A handbrake slide preserves steering while reducing lateral grip; fade it out at low speed.
       const handbrake = forward * throttle < 0 ? Math.abs(throttle) * Math.min(1, Math.abs(forward) / 5) : 0;
       const lateralGrip = grip * (1 - 0.7 * handbrake);
-      const steeringGrip = grip + (CAR_DRIVE.grip - grip) * handbrake;
+      const steeringGrip = grip + (D.grip - grip) * handbrake;
 
       // Full lock at parking speeds, progressively less steering at road speeds.
-      const turn = CAR_DRIVE.wheelbase * CAR_DRIVE.cornering;
+      const turn = D.wheelbase * D.cornering;
       const maxSteer = Math.atan(turn / Math.max(speed * speed, turn / Math.tan(0.60)));
       c.steerAngle += (steerInput * maxSteer - c.steerAngle) * steerResponse;
       const yawLimit = steeringGrip / Math.max(2, Math.abs(speed));
-      const targetYaw = Math.max(-yawLimit, Math.min(yawLimit, speed * Math.tan(c.steerAngle) / CAR_DRIVE.wheelbase));
+      const targetYaw = Math.max(-yawLimit, Math.min(yawLimit, speed * Math.tan(c.steerAngle) / D.wheelbase));
       // Collision spin remains part of the yaw velocity; the tires gradually regain control.
       const yawStep = steeringGrip * 0.65 * step;
       c.angularVel += Math.max(-yawStep, Math.min(yawStep, (targetYaw - c.angularVel) * yawResponse));
@@ -1261,7 +1270,7 @@ class ThirdPersonControllerManager {
       c.position.z += (nextCos * c.speed + c.vz) * step;
       this.resolveHorizontalCollision(c.position, 1.35, c);
 
-      const targetPitch = -Math.max(-1, Math.min(1, acceleration / CAR_DRIVE.acceleration)) * 0.026;
+      const targetPitch = -Math.max(-1, Math.min(1, acceleration / D.acceleration)) * 0.026;
       const targetRoll = Math.max(-0.09, Math.min(0.09, correction / step * 0.012));
       c.pitchVel += ((targetPitch - c.chassisPivot.rotation.x) * 68 - c.pitchVel * 11.2) * step;
       c.rollVel += ((targetRoll - c.chassisPivot.rotation.z) * 68 - c.rollVel * 11.2) * step;

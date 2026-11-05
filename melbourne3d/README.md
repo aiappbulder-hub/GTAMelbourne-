@@ -37,6 +37,8 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 
 ## Game
 
+- **Characters** (`js/character-presets.js`): five named Melbourne presets (a local, a street criminal, a local woman,
+  a bikie, a Victoria Police officer) on the shared person rig, given to the first five pedestrians.
 - **Story missions** (`js/missions.js`): the original game's story (the Lygon Street Crew against the Broadmeadows
   mob, Taskforce Kestrel closing in) with Vince and Kaz's six jobs, set on this map: Laneway Hustle, Hot Lap, Westside
   Bikies, The Informant, Tobacco Wars and Harbour Run, plus Chop Shop (steal a ute), Word on the Street (ask the locals),
@@ -54,6 +56,9 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - Guns: pistol, Uzi, shotgun (**Tab** to change, **G** to holster, **R** to reload). Hold the right mouse button to
     aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot; without aiming, shots lock on to the nearest
     person or car in front. People fall and stay down a while; everyone nearby runs; shot cars flee, then stall.
+  - The **sports car**: the old game's HSB Clubbie R8 in red, parked on Elizabeth St by the first job ("Get the
+    sports car" in the teleport menu brings it beside you). 0-100 km/h in 3 s, 281 km/h flat out, harder brakes, more
+    grip; the view widens with speed and the speedo reads to 300.
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
 - **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
   Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with the player's own voice setting up the story and

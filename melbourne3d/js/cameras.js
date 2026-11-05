@@ -392,6 +392,16 @@ class CameraSystem {
 
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentLookAt);
+
+    // Speed: in a car on the follow cameras the view widens as it goes faster (up to 14 degrees at ~250 km/h)
+    const preset = this.getActivePreset();
+    const baseFov = preset.fov || 56;
+    const fast = entity.type === 'car' && preset.category === 'follow' ? Math.max(0, Math.abs(entity.speed) - 15) : 0;
+    const targetFov = baseFov + Math.min(14, fast * 0.26);
+    if (Math.abs(this.camera.fov - targetFov) > 0.05) {
+      this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 2.5);
+      this.camera.updateProjectionMatrix();
+    }
   }
 }
 

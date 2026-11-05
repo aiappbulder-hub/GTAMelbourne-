@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { SPORTS_DRIVE } from './controllers.js';
 
 // The player's game on foot and behind the wheel (Melbourne):
 // - Cars: F (or the touch CAR prompt) gets in the player's own taxi or any car in the traffic, and out again. From a
@@ -95,18 +96,56 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   // ------------------------------------------------------------------------------------------------------------------
   // Cars
   // ------------------------------------------------------------------------------------------------------------------
-  let driving = null; // the traffic car being driven, or null for the player's own taxi
-  let lastTaken = null; // the last traffic car taken (parked now, while on foot)
-  let taxiClone = null; // the player's taxi left parked while another car is driven
-  const taxiSpot = () => (taxiClone ? taxiClone.position : car.position);
-  const ownTaxiParked = () => !(cm.activeMode === 'car' && !driving);
+  // The car entity (controllers.js) is the physics of whatever the player drives: the taxi (its own body), a car taken
+  // from the traffic (drawn by traffic.js) or the sports car (the HSB Clubbie R8, drawn here). Whatever is left behind
+  // stays parked: the taxi as a copy of its body, a taken car in the traffic's hands, the sports car where it stopped.
+  let riding = 'taxi'; // what the car entity is: 'taxi', 'sports' or a traffic vehicle
+  let lastRide = 'taxi'; // the last thing driven (the HUD's car button goes back to it)
+  let taxiClone = null; // the player's taxi left parked while something else is driven
+  const driving = () => (typeof riding === 'object' ? riding : null);
+  const ownTaxiParked = () => !(cm.activeMode === 'car' && riding === 'taxi');
+  const TAXI_LABEL = car.label;
+
+  // --- The sports car: the old game's HSB Clubbie R8 (models/custom/clubbie.json), with its own handling
+  const sports = { mesh: null, wheels: {}, x: -237, z: 160, heading: 0, y: 0, pitch: 0, roll: 0, ready: false };
+  (async () => {
+    try {
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const gltf = await new GLTFLoader().loadAsync(new URL('../../models/custom/clubbie.json', import.meta.url).href);
+      const root = new THREE.Group();
+      root.name = 'SportsCar';
+      root.rotation.order = 'YXZ';
+      gltf.scene.traverse((o) => {
+        if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+        if (o.material && o.material.name === 'Body') o.material.color.setHex(0xd8221d); // Clubbie red
+      });
+      root.add(gltf.scene);
+      for (const n of ['wheel-front-left', 'wheel-front-right', 'wheel-back-left', 'wheel-back-right']) {
+        const w = gltf.scene.getObjectByName(n);
+        if (w) { w.rotation.order = 'YXZ'; sports.wheels[n] = w; }
+      }
+      scene.add(root);
+      sports.mesh = root;
+      sports.ready = true;
+      placeSports();
+    } catch (e) {
+      console.warn('[gameplay] the sports car failed to load', e);
+    }
+  })();
+  function placeSports() {
+    const m = sports.mesh;
+    if (!m) return;
+    m.position.set(sports.x, sports.y, sports.z);
+    m.rotation.set(sports.pitch, sports.heading, sports.roll);
+    m.updateMatrixWorld(true);
+  }
 
   function parkTaxiCopy() {
     if (taxiClone) return;
     taxiClone = carMesh.clone(true);
     taxiClone.traverse((o) => { if (o.isLight) o.visible = false; });
     taxiClone.position.copy(car.position);
-    taxiClone.rotation.y = car.heading;
+    taxiClone.rotation.set(0, car.heading, 0);
     taxiClone.name = 'ParkedTaxi';
     scene.add(taxiClone);
     taxiClone.updateMatrixWorld(true);
@@ -124,62 +163,106 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   // the right-hand (driver's) side door of a car at (x, z) facing heading
   const doorOf = (x, z, heading, out = 1.45) => ({ x: x - Math.cos(heading) * out, z: z + Math.sin(heading) * out });
 
+  // Leave what the car entity is now where it stands
+  function parkCurrent() {
+    if (!riding) return; // already parked (on foot)
+    if (riding === 'taxi') { parkTaxiCopy(); }
+    else if (riding === 'sports') {
+      sports.x = car.position.x; sports.z = car.position.z; sports.heading = car.heading; sports.y = car.position.y;
+      sports.pitch = car.kerbPitch || 0; sports.roll = car.kerbRoll || 0;
+      placeSports();
+    } else if (riding) trafficSystem.parkCar(riding);
+    lastRide = riding;
+    riding = null;
+  }
   function enterOwnTaxi() {
-    if (driving) { trafficSystem.parkCar(driving); lastTaken = driving; driving = null; }
+    if (riding !== 'taxi') parkCurrent();
     if (taxiClone) {
       placeCarEntity(taxiClone.position.x, taxiClone.position.z, taxiClone.rotation.y);
       scene.remove(taxiClone);
       taxiClone = null;
     }
-    carMesh.visible = true;
+    riding = lastRide = 'taxi';
+    car.drive = null;
+    car.label = TAXI_LABEL;
     go('car');
+    carMesh.visible = true;
+  }
+  function enterSports() {
+    if (!sports.ready) return;
+    if (riding !== 'sports') parkCurrent();
+    placeCarEntity(sports.x, sports.z, sports.heading);
+    riding = lastRide = 'sports';
+    car.drive = SPORTS_DRIVE;
+    car.label = 'HSB Clubbie R8';
+    go('car');
+    carMesh.visible = false;
+    missionSystem?.sub?.('HSB Clubbie R8. Try not to wrap it round a tram.', 2.5);
   }
   function enterTrafficCar(v) {
     const wasMoving = v.edge && v.speed > 0.5;
-    if (!driving && !taxiClone) parkTaxiCopy();
-    if (driving && driving !== v) trafficSystem.parkCar(driving);
+    if (riding !== v) parkCurrent();
     trafficSystem.takeCar(v);
-    driving = v;
-    lastTaken = v;
+    riding = lastRide = v;
     placeCarEntity(v.x, v.z, v.yaw);
+    car.drive = null;
+    car.label = `Stolen ${v.bodyType === 'pickup' ? 'ute' : v.bodyType}`;
     go('car');
     // (setMode shows the active vehicle's own body: here the taken car is drawn by the traffic instead)
     carMesh.visible = false;
-    if (wasMoving || v.edge === null) {
-      trafficSystem.scarePeds(v.x, v.z, 18, 6);
-    }
+    if (wasMoving || v.edge === null) trafficSystem.scarePeds(v.x, v.z, 18, 6);
     missionSystem?.sub?.(wasMoving ? 'You dragged the driver out and took the car.' : 'You took the car.', 2.5);
   }
   function exitCar() {
     if (Math.abs(car.speed) > 9) { missionSystem?.sub?.('Slow down before you get out.', 1.5); return; }
     const d = doorOf(car.position.x, car.position.z, car.heading, 1.6);
-    if (driving) {
-      trafficSystem.parkCar(driving);
-      lastTaken = driving;
-      driving = null;
+    if (riding !== 'taxi') {
+      parkCurrent();
+      // the car entity is nobody's now: keep the taxi's body hidden where it stood
+      carMesh.visible = false;
+    } else {
+      lastRide = 'taxi';
     }
     go('person');
+    if (riding === null && lastRide !== 'taxi') carMesh.visible = false;
     person.position.set(d.x, 0.22, d.z);
     person.heading = car.heading + Math.PI / 2;
     person.speed = 0;
+  }
+  /** The sports car, brought round to the kerb beside the player */
+  function summonSports() {
+    if (!sports.ready || riding === 'sports' && cm.activeMode === 'car') return;
+    const p = cm.activeMode === 'person' ? person.position : car.position;
+    const h = cm.activeMode === 'person' ? person.heading : car.heading;
+    // 3.5 m to the player's left, facing the same way
+    sports.x = p.x + Math.cos(h) * 3.5;
+    sports.z = p.z - Math.sin(h) * 3.5;
+    sports.heading = h;
+    sports.y = 0;
+    sports.pitch = sports.roll = 0;
+    placeSports();
+    missionSystem?.sub?.('Your HSB Clubbie R8 is waiting. Walk up and press F.', 3);
   }
 
   // the nearest car to get into: [kind, target, distance to its driver's door]
   function nearestRide() {
     const p = person.position;
     let best = null;
+    const consider = (r) => { if (!best || r.dist < best.dist) best = r; };
     if (ownTaxiParked()) {
       const t = taxiClone || car;
       const h = taxiClone ? taxiClone.rotation.y : car.heading;
       const d = doorOf(t.position.x, t.position.z, h);
-      const dist = Math.hypot(d.x - p.x, d.z - p.z);
-      best = { kind: 'taxi', door: d, dist, heading: h, centre: t.position };
+      if (taxiClone || riding === 'taxi' || lastRide === 'taxi') consider({ kind: 'taxi', door: d, dist: Math.hypot(d.x - p.x, d.z - p.z) });
+    }
+    if (sports.ready && !(riding === 'sports' && cm.activeMode === 'car')) {
+      const d = doorOf(sports.x, sports.z, sports.heading);
+      consider({ kind: 'sports', door: d, dist: Math.hypot(d.x - p.x, d.z - p.z) });
     }
     const v = trafficSystem.nearestCar(p.x, p.z, WALK_REACH + 3);
     if (v) {
       const d = doorOf(v.x, v.z, v.yaw);
-      const dist = Math.hypot(d.x - p.x, d.z - p.z);
-      if (!best || dist < best.dist) best = { kind: 'traffic', v, door: d, dist, heading: v.yaw, centre: { x: v.x, z: v.z } };
+      consider({ kind: 'traffic', v, door: d, dist: Math.hypot(d.x - p.x, d.z - p.z) });
     }
     return best && best.dist < WALK_REACH ? best : null;
   }
@@ -194,6 +277,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function board(r) {
     approach = null;
     if (r.kind === 'taxi') enterOwnTaxi();
+    else if (r.kind === 'sports') enterSports();
     else enterTrafficCar(r.v);
   }
 
@@ -510,6 +594,20 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       }
     }
 
+    // the sports car, driven: where the car physics puts it, tilting over kerbs and with the chassis, wheels turning
+    if (riding === 'sports' && cm.activeMode === 'car' && sports.mesh) {
+      const m = sports.mesh;
+      m.position.set(car.position.x, car.position.y + (car.heaveY || 0), car.position.z);
+      m.rotation.set((car.kerbPitch || 0) + (car.chassisPivot ? car.chassisPivot.rotation.x : 0), car.heading,
+        (car.kerbRoll || 0) + (car.chassisPivot ? car.chassisPivot.rotation.z : 0));
+      m.updateMatrixWorld(true);
+      for (const [n, w] of Object.entries(sports.wheels)) {
+        w.rotation.x = car.wheelSpin || 0;
+        if (n.startsWith('wheel-front')) w.rotation.y = car.steerAngle || 0;
+      }
+      sports.x = car.position.x; sports.z = car.position.z; sports.heading = car.heading;
+    }
+
     // effects
     if (flashT > 0) { flashT -= dt; if (flashT <= 0) flash.visible = false; }
     for (const tr of tracers) if (tr.visible) { tr.userData.t -= dt; if (tr.userData.t <= 0) tr.visible = false; }
@@ -536,7 +634,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (onFoot && !approach) {
       const r = nearestRide();
       const q = nearestPed(TALK_REACH);
-      if (r && r.dist < 5) { act = 'enter'; label = r.kind === 'taxi' ? 'Get in your taxi' : 'Take this car'; }
+      if (r && r.dist < 5) { act = 'enter'; label = r.kind === 'taxi' ? 'Get in your taxi' : r.kind === 'sports' ? 'Drive the HSB Clubbie R8' : 'Take this car'; }
       else if (q && !chat) { act = 'talk'; label = armed && aimHeld ? 'Rob them' : 'Talk'; }
     } else if (cm.activeMode === 'car' && Math.abs(car.speed) < 3) { act = 'exit'; label = 'Get out'; }
     if (elPrompt.dataset.act !== act) {
@@ -564,26 +662,28 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   /** When the HUD's mode buttons change mode: keep the cars consistent (main.js calls this first) */
   function beforeMode(mode) {
     if (internal || mode === cm.activeMode) return true;
-    if (cm.activeMode === 'car' && mode !== 'car' && driving) {
-      trafficSystem.parkCar(driving);
-      lastTaken = driving;
-      driving = null;
+    if (cm.activeMode === 'car' && mode !== 'car' && riding !== 'taxi') {
+      parkCurrent();
+      carMesh.visible = false;
     }
     if (mode === 'car') {
-      // the mode button goes back to the last car: the taken one if it's still parked here, else the taxi
-      if (lastTaken && lastTaken.parked && Math.hypot(lastTaken.x - person.position.x, lastTaken.z - person.position.z) < 300) {
-        enterTrafficCar(lastTaken);
+      // the car button goes back to the last car driven
+      if (lastRide === 'sports' && sports.ready) { enterSports(); return false; }
+      if (lastRide && typeof lastRide === 'object' && lastRide.parked && Math.hypot(lastRide.x - person.position.x, lastRide.z - person.position.z) < 300) {
+        enterTrafficCar(lastRide);
         return false;
       }
-      if (taxiClone) { enterOwnTaxi(); return false; }
-      carMesh.visible = true;
+      enterOwnTaxi();
+      return false;
     }
     return true;
   }
 
   return {
     update, beforeMode, weapons: WEAPONS,
-    get driving() { return driving; },
+    get driving() { return driving(); },
+    get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
+    summonSports,
     // for scripted checks
     fire, talk, tryEnter, exitCar,
     get state() { return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode }; }

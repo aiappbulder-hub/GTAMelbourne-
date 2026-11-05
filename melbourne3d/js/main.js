@@ -622,6 +622,19 @@ async function initApp() {
     b.append(n, sub);
     b.addEventListener('click', () => { closePopovers(); intro.start(); });
     pop.prepend(b);
+    // the sports car, brought round beside the player
+    const sc = document.createElement('button');
+    sc.className = 'pop-item tp-btn';
+    sc.type = 'button';
+    const sn = document.createElement('span');
+    sn.className = 'pop-name';
+    sn.textContent = 'Get the sports car';
+    const ss = document.createElement('span');
+    ss.className = 'pop-sub';
+    ss.textContent = 'HSB Clubbie R8 · 280 km/h';
+    sc.append(sn, ss);
+    sc.addEventListener('click', () => { closePopovers(); gameplay?.summonSports(); });
+    b.after(sc);
   }
   if (missionSystem) {
     window.__city.missions = missionSystem;
@@ -944,7 +957,8 @@ async function initApp() {
         elFps.className = currentFps >= 50 ? 'fps-ok' : currentFps >= 30 ? 'fps-warn' : 'fps-bad';
       }
       if (elSpeed) elSpeed.textContent = String(mph);
-      if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / (topSpeedMph[mode] || 80))})`;
+      const topSpeed = mode === 'car' && gameplay && gameplay.inSports ? 300 : topSpeedMph[mode] || 80; // the sports car's dial
+      if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / topSpeed)})`;
       if (elAltitude) elAltitude.textContent = altFt.toLocaleString('en-US');
       // The street corner of the player on the follow cameras, of the camera itself on the scenic ones
       const where = cameraSystem.getActivePreset().category === 'follow' ? activeEnt.position : cameraSystem.currentPos;
