@@ -60,14 +60,15 @@ City of Melbourne's portal can't be reached from the build machine.
 
 | Step | Writes |
 |---|---|
-| `node tools/melbourne/fetch-osm.mjs` | `tools/data/osm-tiles/` (77 tiles, about 90 MB, not committed) |
-| `node tools/melbourne/build-buildings.mjs` | `js/melbourne-building-geodata.js` + `.bin.gz`: 10,659 footprints with heights (NYB1) |
-| `node tools/melbourne/build-trees.mjs` | `js/melbourne-tree-geodata.js` + `.bin.gz`: 10,733 trees (NYT1) |
-| `node --max-old-space-size=8192 tools/melbourne/build-geodata.mjs` | `js/melbourne-geodata.js` (about 1 MB) |
+| `node tools/melbourne/fetch-osm.mjs` | `tools/data/osm-tiles/` (154 tiles, about 180 MB, not committed) |
+| `node tools/melbourne/build-buildings.mjs` | `js/melbourne-building-geodata.js` + `.bin.gz`: 26,590 footprints with heights (NYB1) |
+| `node tools/melbourne/build-trees.mjs` | `js/melbourne-tree-geodata.js` + `.bin.gz`: 15,853 trees (NYT1) |
+| `node --max-old-space-size=8192 tools/melbourne/build-geodata.mjs` | `js/melbourne-geodata.js` (about 1.8 MB) |
 | `node tools/melbourne/preview-map.mjs out.svg [x0 z0 x1 z1]` | an SVG of the lot, for checking a build |
 
-- **Area:** 144.935–144.990 E, 37.800–37.832 S: the Hoddle Grid, Southbank, Docklands, the edges of Carlton, Fitzroy,
-  East Melbourne and South Melbourne, the Domain, Yarra Park and the MCG.
+- **Area:** 144.935–144.990 E, 37.800–37.867 S: the Hoddle Grid, Southbank, Docklands, South Melbourne, Albert Park
+  and its lake and Grand Prix circuit, St Kilda Road, the edges of Carlton, Fitzroy, East Melbourne, Middle Park and
+  St Kilda, the Domain, Yarra Park and the MCG, and Port Phillip Bay's shore (the sea built from the OSM coastline).
 - **Frame** (`tools/melbourne/osm.mjs`): metres, x = grid east along Collins St, z = grid south, origin at Swanston and
   Collins, axes turned −19.18° (fitted from the grid's centrelines), the same convention as `js/nyc-geodata.js`.
 - **Buildings:** heights come from `height` and `building:levels` tags and `building:part` pieces (about 2,000), and

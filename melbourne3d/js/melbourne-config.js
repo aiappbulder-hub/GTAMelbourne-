@@ -240,7 +240,15 @@ const yarraNorthZ = (() => {
 function districtAt(x, z) {
   const m = 12;
   if (x > EXT.minX - m && x < EXT.maxX + m && z > EXT.minZ - m && z < EXT.maxZ + m) return 'cbd';
-  if (x < EXT.minX - 120 && z > -700) return 'docklands';
+  // south of the river, from the bay side round to St Kilda Road (the map runs to Albert Park and St Kilda's edge)
+  if (z > 4600) return 'st_kilda';
+  if (z > 2250 && x > -1450 && x < -150) return 'albert_park';
+  if (z > 2500 && x <= -1450) return 'middle_park';
+  if (z > 2500 && x >= -150) return 'st_kilda_road';
+  if (z > 900 && x > -200) return 'domain';
+  if (z > 900 && x < -2300) return 'port_melbourne';
+  if (z > 900) return 'south_melbourne';
+  if (x < EXT.minX - 120 && z > -700 && z < yarraNorthZ(x)) return 'docklands';
   if (z > yarraNorthZ(x)) return x > 900 ? 'domain' : x < -1100 ? 'south_wharf' : 'southbank';
   if (x > EXT.maxX + 400 && z > -300) return 'richmond';
   if (x > EXT.maxX) return z < -900 ? 'fitzroy' : 'east_melbourne';
@@ -250,7 +258,9 @@ function districtAt(x, z) {
 for (const b of BLOCKS) b.district = districtAt(b.cx, b.cz);
 const DISTRICT_NAMES = {
   cbd: 'Melbourne CBD', docklands: 'Docklands', southbank: 'Southbank', south_wharf: 'South Wharf', domain: 'Kings Domain',
-  richmond: 'Richmond', fitzroy: 'Fitzroy', east_melbourne: 'East Melbourne', north_melbourne: 'North Melbourne', carlton: 'Carlton'
+  richmond: 'Richmond', fitzroy: 'Fitzroy', east_melbourne: 'East Melbourne', north_melbourne: 'North Melbourne', carlton: 'Carlton',
+  st_kilda: 'St Kilda', albert_park: 'Albert Park', middle_park: 'Middle Park', st_kilda_road: 'St Kilda Road',
+  port_melbourne: 'Port Melbourne', south_melbourne: 'South Melbourne'
 };
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -290,7 +300,9 @@ const TELEPORT_LOCATIONS = {
   collins: { x: avenueX('william') + 40, z: zOf('Collins Street') + 3.6, heading: Math.PI * 0.5, name: 'Collins Street', sub: 'William St · CBD' },
   southerncross: { x: spencer + 3.6, z: zOf('Collins Street') - 40, heading: Math.PI, name: 'Southern Cross Station', sub: 'Spencer St · CBD' },
   parliament: { x: spring - 3.6, z: zOf('Bourke Street') + 30, heading: Math.PI, name: 'Parliament House', sub: 'Spring St · CBD' },
-  latrobe: { x: swan + 3.6, z: zOf('La Trobe Street') + 40, heading: Math.PI, name: 'State Library', sub: 'Swanston St · La Trobe St' }
+  latrobe: { x: swan + 3.6, z: zOf('La Trobe Street') + 40, heading: Math.PI, name: 'State Library', sub: 'Swanston St · La Trobe St' },
+  albertpark: { x: -1340.5, z: 2716.9, heading: Math.PI, name: 'Albert Park', sub: 'The Grand Prix pits · Aughtie Dr' },
+  shrine: { x: -109.8, z: 1648.2, heading: 0, name: 'Shrine of Remembrance', sub: 'St Kilda Rd · Kings Domain' }
 };
 // Spawn on Swanston St between Collins and Bourke, facing south toward Flinders Street Station
 const SPAWN = { x: swan, z: (zOf('Collins Street') + zOf('Bourke Street')) / 2 };

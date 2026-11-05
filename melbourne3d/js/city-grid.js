@@ -59,6 +59,7 @@ import {
 import { createRoadPaintChunkBuilder } from './road-paint.js';
 import { GEO } from './geodata.js';
 import { IS_MELBOURNE } from './city.js';
+import { Q } from './quality.js';
 
 // Live construction data consumed by the building and street-detail builders after buildCityGrid().
 let centralParkClearings;
@@ -3580,7 +3581,14 @@ function buildMelbourneGrid(scene) {
   {
     const R = 12000;
     const shape = new THREE.Shape();
-    shape.moveTo(-R, R); shape.lineTo(R, R); shape.lineTo(R, -R); shape.lineTo(-R, -R); shape.closePath();
+    if (GEO.landOuter) {
+      // the land stops at Port Phillip Bay's shore (the coastline, closed round the land side out to the horizon)
+      const L = toPts(GEO.landOuter);
+      L.forEach((p, i) => (i ? shape.lineTo(p.x, -p.z) : shape.moveTo(p.x, -p.z)));
+    } else {
+      shape.moveTo(-R, R); shape.lineTo(R, R); shape.lineTo(R, -R); shape.lineTo(-R, -R);
+    }
+    shape.closePath();
     for (const [outer] of waters) {
       const hole = new THREE.Path();
       outer.forEach((p, i) => (i ? hole.lineTo(p.x, -p.z) : hole.moveTo(p.x, -p.z)));
@@ -3592,6 +3600,32 @@ function buildMelbourneGrid(scene) {
     const deck = new THREE.Mesh(geo, roadMat);
     deck.receiveShadow = true;
     group.add(deck);
+  }
+
+  // Port Phillip Bay's beaches: a sand strip sloping from the shore down under the water, on the sea side of the
+  // coastline (OSM: sea to the right of its direction)
+  if (GEO.coast) {
+    const C = toPts(GEO.coast);
+    const pos = [];
+    const BEACH = 26;
+    const off = C.map((p, i) => {
+      const a = C[Math.max(0, i - 1)], b = C[Math.min(C.length - 1, i + 1)];
+      const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+      return { x: p.x - (dz / L) * BEACH, z: p.z + (dx / L) * BEACH }; // right of travel: (-dz, dx)
+    });
+    for (let i = 0; i + 1 < C.length; i++) {
+      const a = C[i], b = C[i + 1], c = off[i + 1], d = off[i];
+      pos.push(a.x, 0.02, a.z, c.x, WL - 0.7, c.z, b.x, 0.02, b.z, a.x, 0.02, a.z, d.x, WL - 0.7, d.z, c.x, WL - 0.7, c.z);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    const n = geo.attributes.normal;
+    for (let i = 0; i < n.count; i++) if (n.getY(i) < 0) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
+    const beach = new THREE.Mesh(geo, new THREE.MeshStandardNodeMaterial({ color: 0xcdb98f, roughness: 0.95, side: THREE.DoubleSide }));
+    beach.receiveShadow = true;
+    beach.name = 'Beach';
+    group.add(beach);
   }
 
   // Bluestone quay walls round each water body, from the deck down below the water
@@ -3701,7 +3735,7 @@ function buildMelbourneGrid(scene) {
     addStreetGround(lawn, BED_Y);
     // trees on a jittered lattice with glades (big parks get them sparser, the Domain and the Fitzroy and Flagstaff
     // Gardens have their real trees from street-details.js's survey too)
-    const SP = b.area > 40000 ? 16 : 11;
+    const SP = (b.area > 40000 ? 16 : 11) * (Q.treeDist < 0.5 ? 1.5 : 1); // sparser on low graphics quality
     for (let gx = b.minX + SP * 0.5; gx < b.maxX; gx += SP) {
       for (let gz = b.minZ + SP * 0.5; gz < b.maxZ; gz += SP) {
         const tx = gx + (prand(gx, gz) - 0.5) * SP * 0.7;

@@ -23,7 +23,7 @@ import { ringArea, bbox, rdp, rdpRing, Raster } from '../geo-geometry.mjs';
 import { makeBlocks } from './blocks.mjs';
 
 const OUT = process.argv[2] || fileURLToPath(new URL('../../js/melbourne-geodata.js', import.meta.url));
-const BOX = [144.935, -37.832, 144.990, -37.800]; // fetch-osm.mjs's default box
+const BOX = [144.935, -37.867, 144.990, -37.800]; // fetch-osm.mjs's default box
 const EDGE = 60; // metres in from the box edge: no blocks beyond (tile-edge data is incomplete)
 const SIDEWALK = 4.6;
 const q = (v) => Math.round(v * 10) / 10;
@@ -64,6 +64,34 @@ for (const w of ways.values()) {
   if (Math.abs(ringArea(p)) < 40) continue;
   water.push({ name: t.name || '', kind: t.water || 'water', rings: [p] });
 }
+// Port Phillip Bay: OSM draws the sea as coastline ways (land on the left, sea on the right). Chained into one line, it
+// is closed round the sea side out to BIG metres for the bay, and round the land side for the land deck's outline.
+const BIG = 12000;
+const coast = (() => {
+  const parts = [...ways.values()].filter((w) => w.tags && w.tags.natural === 'coastline').map((w) => w.nodes.filter((id) => nodes.has(id)));
+  if (!parts.length) return null;
+  let line = parts.shift();
+  while (parts.length) {
+    const i = parts.findIndex((p) => p[0] === line[line.length - 1] || p[p.length - 1] === line[0]);
+    if (i < 0) break;
+    const p = parts.splice(i, 1)[0];
+    line = p[0] === line[line.length - 1] ? line.concat(p.slice(1)) : p.concat(line.slice(1));
+  }
+  return line.map((id) => toWorld(...nodes.get(id)));
+})();
+let seaRing = null, landOuter = null;
+if (coast) {
+  const a = coast[0], b = coast[coast.length - 1];
+  // sea: to the right of the line's direction. Which corners close it depends on where the line enters and leaves;
+  // for this map it runs from the west (Port Melbourne) to the south (St Kilda), the bay lying south-west of it.
+  seaRing = [...coast, [b[0], BIG], [-BIG, BIG], [-BIG, a[1]]];
+  landOuter = [...coast, [BIG, BIG], [BIG, -BIG], [-BIG, -BIG], [-BIG, a[1]]];
+  // the right side check: the sea ring must lie to the right of the coastline (clockwise in this frame: z points south)
+  if (ringArea(seaRing) < 0) log('warning: the bay ring winds the wrong way; check the coastline closure');
+  water.push({ name: 'Port Phillip Bay', kind: 'sea', rings: [seaRing] });
+  log(`coastline: ${coast.length} points, Port Phillip Bay closed round the south-west`);
+}
+
 // The Yarra and Victoria Harbour pieces carry no names: name them by where they lie
 for (const wt of water) {
   if (wt.name) continue;
@@ -280,7 +308,9 @@ const waterOutlines = (() => {
   const wr = new Raster(bb.x0 - M, bb.z0 - M, bb.x1 + M, bb.z1 + M, 1);
   for (const wt of water) wr.fillRing(wt.rings[0], 1);
   const bodies = makeBlocks({ land: wr, roads: [], sidewalk: 1, log: () => {} });
-  return bodies.filter((b) => b.area > 150).map((b) => rdpRing(b.poly, 0.6));
+  // the bay's own outline is left out: the land deck's outer edge follows the coast instead (landOuter)
+  const inSea = (poly) => seaRing && poly.filter((q) => pointInRing(q, seaRing)).length > poly.length * 0.5;
+  return bodies.filter((b) => b.area > 150 && !inSea(b.poly)).map((b) => rdpRing(b.poly, 0.6));
 })();
 log(`water outlines: ${waterOutlines.length} bodies`);
 // Park share of each block, by the block's centre points sampled on a 4 m lattice
@@ -420,6 +450,8 @@ const GEO = {
   bounds: flat(bounds),
   water: water.map((w) => ({ name: w.name, kind: w.kind, rings: w.rings.map((r) => flat(rdpRing(r.slice(0, -1), 0.5))) })),
   waterOutlines: waterOutlines.map(flat),
+  coast: coast ? flat(rdp(coast, 0.5)) : null,
+  landOuter: landOuter ? flat(rdpRing(landOuter, 0.5)) : null,
   grid,
   roads,
   roadGraph,

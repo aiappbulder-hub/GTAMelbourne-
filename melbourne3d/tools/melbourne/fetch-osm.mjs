@@ -5,15 +5,15 @@
 //
 // usage: node tools/melbourne/fetch-osm.mjs [west south east north]
 //
-// The default box covers the Hoddle Grid, Southbank, Docklands, the edges of Carlton, East Melbourne and South
-// Melbourne, and the Yarra from Docklands to Richmond. Data © OpenStreetMap contributors (ODbL).
+// The default box covers the Hoddle Grid, Southbank, Docklands, South Melbourne, Albert Park and its lake, the edges of
+// Carlton, East Melbourne and Middle Park, and the Yarra from Docklands to Richmond. Data © OpenStreetMap contributors (ODbL).
 // Please keep to the API's usage policy: the script waits a second between requests and caches everything.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DIR = fileURLToPath(new URL('../data/osm-tiles/', import.meta.url));
-const BOX = process.argv.length >= 6 ? process.argv.slice(2, 6).map(Number) : [144.935, -37.832, 144.990, -37.800];
+const BOX = process.argv.length >= 6 ? process.argv.slice(2, 6).map(Number) : [144.935, -37.867, 144.990, -37.800];
 const STEP = 0.005;
 const UA = 'GTAMelbourne-mapbuild/1.0 (github.com/aiappbulder-hub/GTAMelbourne-)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

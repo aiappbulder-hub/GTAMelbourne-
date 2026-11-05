@@ -11,7 +11,8 @@ import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config
 // move across too.
 //
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
-// streets meet (OSM names), { road: 'STREET' } the middle of a street.
+// streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: 'n' | 'e' | 's' | 'w' } the Albert Park
+// circuit's extremes.
 // A job's steps: { text, at: place, r: metres, car: true (must be driving), time: seconds,
 // wait: seconds standing in the marker, away: metres to get clear of the last marker, cut: [[who, line], ...] }
 
@@ -29,15 +30,17 @@ const MISSIONS = [
     ]
   },
   {
-    name: 'Hot Lap', giver: 'Vince', crew: 'Lygon Street Crew', start: { grid: ['Collins St', 'King St'] }, reward: 1500,
-    cut: [['Vince', "Before I trust you with the real work, show me you can handle the grid."],
-      ['Vince', 'One lap of the city: Spencer, La Trobe, Spring and back down Flinders. Two minutes. Go.']],
+    name: 'Hot Lap', giver: 'Vince', crew: 'Lygon Street Crew', start: { circuit: 'w', off: 14 }, reward: 1500,
+    cut: [['Vince', 'Every Sunday the Broady boys race their hotted-up cars round the Albert Park circuit.'],
+      ['Vince', "Their best lap is three and a half minutes. Beat it and they'll know whose town this is."],
+      ['You', 'One lap?'],
+      ['Vince', 'One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go.']],
     steps: [
       { text: 'Get in your car.', car: true },
-      { text: 'Lap of the grid: Flinders St & Spencer St.', at: { grid: ['Flinders St', 'Spencer St'] }, r: 16, car: true, time: 120, keepTime: true },
-      { text: 'Lap of the grid: La Trobe St & Spencer St.', at: { grid: ['La Trobe St', 'Spencer St'] }, r: 16, car: true, keepTime: true },
-      { text: 'Lap of the grid: La Trobe St & Spring St.', at: { grid: ['La Trobe St', 'Spring St'] }, r: 16, car: true, keepTime: true },
-      { text: 'Lap of the grid: Flinders St & Spring St. Bring it home.', at: { grid: ['Flinders St', 'Spring St'] }, r: 16, car: true, keepTime: true }
+      { text: 'Hot lap of Albert Park: the top of the lake.', at: { circuit: 'n' }, r: 18, car: true, time: 210, keepTime: true },
+      { text: 'Hot lap: the east side, along Lakeside Drive.', at: { circuit: 'e' }, r: 18, car: true, keepTime: true },
+      { text: 'Hot lap: the bottom of the lake.', at: { circuit: 's' }, r: 18, car: true, keepTime: true },
+      { text: 'Hot lap: back to the pits on Aughtie Drive. Bring it home.', at: { circuit: 'w' }, r: 18, car: true, keepTime: true }
     ]
   },
   {
@@ -172,6 +175,19 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
       for (const r of A) for (const a of r.pts) for (const q of B) for (const b of q.pts) {
         const d = Math.hypot(a.x - b.x, a.z - b.z);
         if (d < best) { best = d; p = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }; }
+      }
+    } else if (at.circuit) {
+      // the Albert Park Grand Prix circuit (Lakeside Drive and Aughtie Drive): its northern, eastern, southern or western
+      // extreme, moved `off` metres towards the lake's middle (so a start marker sits off the racing line)
+      const pts = ROADS.filter((r) => r.raw === 'LAKESIDE DRIVE' || r.raw === 'AUGHTIE DRIVE').flatMap((r) => r.pts);
+      if (pts.length) {
+        const key = { n: (q) => -q.z, s: (q) => q.z, e: (q) => q.x, w: (q) => -q.x }[at.circuit];
+        p = pts.reduce((m, q) => (key(q) > key(m) ? q : m));
+        if (at.off) {
+          const cx = pts.reduce((t, q) => t + q.x, 0) / pts.length, cz = pts.reduce((t, q) => t + q.z, 0) / pts.length;
+          const d = Math.hypot(cx - p.x, cz - p.z) || 1;
+          p = { x: p.x + ((cx - p.x) / d) * at.off, z: p.z + ((cz - p.z) / d) * at.off };
+        }
       }
     } else if (at.road) {
       const pts = ROADS.filter((r) => r.raw === at.road).flatMap((r) => r.pts);
