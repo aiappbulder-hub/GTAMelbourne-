@@ -146,70 +146,130 @@
       "character": "vince",
       "category": "story",
       "folder": "dialogue/hot-lap",
-      "text": "One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go."
+      "text": "One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go.",
+      "file": "dialogue/hot-lap/vince_hotlap_2.mp3",
+      "duration": 4.94,
+      "check": {
+        "heard": "One lap, lakeside drive, otty drive, back to the pits. Go!",
+        "score": 0.91
+      }
     },
     {
       "id": "kaz_bikies_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/westside-bikies",
-      "text": "So you're the one Vince keeps sending round. Forget the Lygon lot."
+      "text": "So you're the one Vince keeps sending round. Forget the Lygon lot.",
+      "file": "dialogue/westside-bikies/kaz_bikies_1.mp3",
+      "duration": 3.29,
+      "check": {
+        "heard": "So you're the one Vince keeps sending round, forget the Lygon lot.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_bikies_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/westside-bikies",
-      "text": "Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it."
+      "text": "Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it.",
+      "file": "dialogue/westside-bikies/kaz_bikies_2.mp3",
+      "duration": 5.93,
+      "check": {
+        "heard": "answer. The Westside nomads have stashed their takings on a boat in Docklands. Get there before they move it.",
+        "score": 0.97
+      }
     },
     {
       "id": "kaz_collection_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/collection-day",
-      "text": "Half the corner boys in the city owe us money and think we forgot."
+      "text": "Half the corner boys in the city owe us money and think we forgot.",
+      "file": "dialogue/collection-day/kaz_collection_1.mp3",
+      "duration": 3.31,
+      "check": {
+        "heard": "Half the corner boys in the city owe us money and think we forgot.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_collection_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/collection-day",
-      "text": "Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet."
+      "text": "Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet.",
+      "file": "dialogue/collection-day/kaz_collection_2.mp3",
+      "duration": 4.99,
+      "check": {
+        "heard": "Go to the Bork Street Mall and remind three of them Point the piece, ask for the wallet",
+        "score": 0.94
+      }
     },
     {
       "id": "kaz_cleanup_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/clean-up",
-      "text": "Three Nomads are dealing outside Southern Cross like they own the place."
+      "text": "Three Nomads are dealing outside Southern Cross like they own the place.",
+      "file": "dialogue/clean-up/kaz_cleanup_1.mp3",
+      "duration": 3.53,
+      "check": {
+        "heard": "Three nomads are dueling outside Southern Cross like they own the place.",
+        "score": 0.92
+      }
     },
     {
       "id": "kaz_cleanup_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/clean-up",
-      "text": "They don't. Go and make that clear."
+      "text": "They don't. Go and make that clear.",
+      "file": "dialogue/clean-up/kaz_cleanup_2.mp3",
+      "duration": 3.38,
+      "check": {
+        "heard": "They don't. Go and make that clear. Next.",
+        "score": 0.93
+      }
     },
     {
       "id": "police_bark_stop",
       "character": "police",
       "category": "bark",
       "folder": "voices/police",
-      "text": "Victoria Police! Stop right there!"
+      "text": "Victoria Police! Stop right there!",
+      "file": "voices/police/police_bark_stop.mp3",
+      "duration": 2.95,
+      "check": {
+        "heard": "Victoria police stop right there.",
+        "score": 1.0
+      }
     },
     {
       "id": "police_bark_weapon",
       "character": "police",
       "category": "bark",
       "folder": "voices/police",
-      "text": "Drop the weapon! Get on the ground, now!"
+      "text": "Drop the weapon! Get on the ground, now!",
+      "file": "voices/police/police_bark_weapon.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "Drop the weapon. Get on the ground. Now.",
+        "score": 1.0
+      }
     },
     {
       "id": "police_bark_move",
       "character": "police",
       "category": "bark",
       "folder": "voices/police",
-      "text": "Keep moving, folks. Nothing to see here."
+      "text": "Keep moving, folks. Nothing to see here.",
+      "file": "voices/police/police_bark_move.mp3",
+      "duration": 2.81,
+      "check": {
+        "heard": "Keep moving, folks. Nothing to see here.",
+        "score": 1.0
+      }
     },
     {
       "id": "radio_shots_cbd",
@@ -231,7 +291,13 @@
       "category": "radio",
       "folder": "radio",
       "radio": true,
-      "text": "Dispatch, we have a reported carjacking. Suspect vehicle heading towards Docklands."
+      "text": "Dispatch, we have a reported carjacking. Suspect vehicle heading towards Docklands.",
+      "file": "radio/radio_stolen_car.mp3",
+      "duration": 5.76,
+      "check": {
+        "heard": "Dispatch, we have a reported carjacking. Suspect vehicle heading towards Docklands.",
+        "score": 1.0
+      }
     },
     {
       "id": "radio_kestrel",
@@ -239,7 +305,13 @@
       "category": "radio",
       "folder": "radio",
       "radio": true,
-      "text": "Taskforce Kestrel to all units, be on the lookout. Suspect is armed."
+      "text": "Taskforce Kestrel to all units, be on the lookout. Suspect is armed.",
+      "file": "radio/radio_kestrel.mp3",
+      "duration": 6.43,
+      "check": {
+        "heard": "Tusk Force Kestrel to all units, be on the lookout, suspect is armed.",
+        "score": 0.88
+      }
     },
     {
       "id": "male_talk_1",
