@@ -2113,7 +2113,8 @@ function init3D(){
   if(G3.ok)return true;if(!window.THREE)return false;
   try{const T=THREE,r=new T.WebGLRenderer({canvas:glEl,antialias:true});
     try{G3.phone=isTouch||matchMedia('(pointer:coarse)').matches}catch(e){G3.phone=isTouch}
-    r.setPixelRatio(Math.min(G3.phone?1.5:2,window.devicePixelRatio||1));   // phones: 1.5x is sharp enough and leaves GPU time for lightingr.setSize(cw,chh,false);
+    r.setPixelRatio(Math.min(G3.phone?1.5:2,window.devicePixelRatio||1));   // phones: 1.5x is sharp enough and leaves GPU time for lighting
+    r.setSize(cw,chh,false);
     const sc=new T.Scene();{const c=document.createElement('canvas');c.width=2;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
       gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.55,'#9cc5e6');gr.addColorStop(1,'#d9e8f1');g.fillStyle=gr;g.fillRect(0,0,2,256);sc.background=new T.CanvasTexture(c)}
     sc.fog=new T.Fog('#cfe1ec',900,2400);
@@ -2763,7 +2764,8 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
   if(G3.hemi){G3.hemi.color.copy(L.hs);G3.hemi.groundColor.copy(L.hg);G3.hemi.intensity=L.hI*k}   // sky above, warm bounce off stone and pavement below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
   const fog=TC.b.copy(L.fog);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=L.exp*LOOKK.exposure;if(G3.bloom){G3.bloom.strength=.18+.12*night;G3.bloom.threshold=lerp(1.35,1,night)/Math.max(.05,G3.r.toneMappingExposure)}   // only what's bright after exposure blooms (lamps, glints, the sun)if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
+  G3.r.toneMappingExposure=L.exp*LOOKK.exposure;if(G3.bloom){G3.bloom.strength=.18+.12*night;G3.bloom.threshold=lerp(1.35,1,night)/Math.max(.05,G3.r.toneMappingExposure)}   // only what's bright after exposure blooms (lamps, glints, the sun)
+  if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
   if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);{const u=G3.sky.material.uniforms;if(u.time){u.time.value=gameT;u.cloudCoverage.value=.32+.5*cl}if(u.skyExposure){u.skyExposure.value=L.sky*LOOKK.sky;const e=G3.skyEnvSky.material.uniforms.skyExposure;if(e)e.value=u.skyExposure.value}}G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
     if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=6.5+12*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
       G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:nightEnv();TOD.envCl=cl;for(const m of G3.envMats)m.envMap=G3.sc.environment;if(old&&old!==G3.sc.environment&&old!==G3.nightEnv&&old.dispose)old.dispose()}}
