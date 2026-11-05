@@ -2112,7 +2112,8 @@ const glEl=document.getElementById('gl');
 function init3D(){
   if(G3.ok)return true;if(!window.THREE)return false;
   try{const T=THREE,r=new T.WebGLRenderer({canvas:glEl,antialias:true});
-    r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));r.setSize(cw,chh,false);
+    try{G3.phone=isTouch||matchMedia('(pointer:coarse)').matches}catch(e){G3.phone=isTouch}
+    r.setPixelRatio(Math.min(G3.phone?1.5:2,window.devicePixelRatio||1));   // phones: 1.5x is sharp enough and leaves GPU time for lightingr.setSize(cw,chh,false);
     const sc=new T.Scene();{const c=document.createElement('canvas');c.width=2;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
       gr.addColorStop(0,'#4f8fcf');gr.addColorStop(.55,'#9cc5e6');gr.addColorStop(1,'#d9e8f1');g.fillStyle=gr;g.fillRect(0,0,2,256);sc.background=new T.CanvasTexture(c)}
     sc.fog=new T.Fog('#cfe1ec',900,2400);
@@ -2126,21 +2127,22 @@ function init3D(){
     // a physical sky (Preetham) with Melbourne haze; a twin in a small scene feeds the reflections (PMREM) as the sun moves
     if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=3.2;u.rayleigh.value=1.1;u.mieCoefficient.value=.003;u.mieDirectionalG.value=.83;return s};
       G3.sky=mk(7000);sc.add(G3.sky);G3.skyEnv=new T.Scene();G3.skyEnvSky=mk(100);G3.skyEnv.add(G3.skyEnvSky);G3.pmrem=new T.PMREMGenerator(r);G3.nightBg=new T.Color('#0b1222');G3.dayBg=sc.background}
-    r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=isTouch||cw<800?1024:2048;sun.shadow.mapSize.set(sm,sm);
+    r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=G3.phone||cw<800?1536:2048;sun.shadow.mapSize.set(sm,sm);
     Object.assign(sun.shadow.camera,{left:-700,right:700,top:700,bottom:-700,near:10,far:3200});sun.shadow.bias=-.0006;sun.shadow.normalBias=.6;
     Object.assign(G3,{sun,shadows:true,T,r,sc,cam:new T.PerspectiveCamera(50,cw/chh,8,8000),aniso:Math.min(8,r.capabilities.getMaxAnisotropy()),
       box:new T.BoxGeometry(1,1,1),plane:new T.PlaneGeometry(CPX,CPX).rotateX(-PI/2),disc:new T.CircleGeometry(1,16).rotateX(-PI/2),
       ico:new T.IcosahedronGeometry(1,0),sph:new T.SphereGeometry(1,8,6),ray:new T.Raycaster(),gp:new T.Plane(new T.Vector3(0,1,0),-10),
       occ:{uCam:{value:new T.Vector3()},uTarget:{value:new T.Vector3()},uRad:{value:70}}});
-    G3.wallMat=occlude(new T.MeshLambertMaterial({vertexColors:true,map:windowTex()}));
-    G3.roofMat=occlude(new T.MeshLambertMaterial({vertexColors:true}));
-    G3.fac={};for(const k in FACADES){const F=FACADES[k],o={vertexColors:true,map:facadeTex(F)};if(F.lit){o.emissiveMap=litTex(o.map.image,F.lit,k);o.emissive=new T.Color('#ffffff');o.emissiveIntensity=0}G3.fac[k]=occlude(F.glass?new T.MeshPhongMaterial({...o,specular:'#9fb4c8',shininess:70}):new T.MeshLambertMaterial(o))}
+    // physically based (roughness/metalness): matte walls still pick up the sky's tint, glass and wet roads mirror it
+    G3.wallMat=occlude(pbr(new T.MeshStandardMaterial({vertexColors:true,map:windowTex(),roughness:.85,metalness:0,envMapIntensity:.15})));
+    G3.roofMat=occlude(pbr(new T.MeshStandardMaterial({vertexColors:true,roughness:.9,metalness:0,envMapIntensity:.12})));
+    G3.fac={};for(const k in FACADES){const F=FACADES[k],o={vertexColors:true,map:facadeTex(F)};if(F.lit){o.emissiveMap=litTex(o.map.image,F.lit,k);o.emissive=new T.Color('#ffffff');o.emissiveIntensity=0}G3.fac[k]=occlude(pbr(F.glass?new T.MeshStandardMaterial({...o,roughness:.25,metalness:.1,envMapIntensity:.25}):new T.MeshStandardMaterial({...o,roughness:.82,metalness:0,envMapIntensity:.15})))}
     G3.treeMat=new T.MeshLambertMaterial({vertexColors:true});
     G3.shadowMat=new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.32,depthWrite:false});
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
     const mt=new T.CanvasTexture(buildMini(true));
     const base=new T.Mesh(new T.PlaneGeometry(W*TS,H*TS).rotateX(-PI/2),new T.MeshLambertMaterial({map:mt,alphaTest:.5}));base.position.set(W*TS/2,-170,H*TS/2);sc.add(base);   // far backdrop, sunk below the tunnels
-    G3.waterTex=waterNormals();G3.waterTex.repeat.set(7,7);G3.waterMat=new T.MeshStandardMaterial({color:'#18506f',roughness:.16,metalness:.05,normalMap:G3.waterTex,normalScale:new T.Vector2(.3,.3),envMapIntensity:.75,transparent:true,opacity:.94});   // glossy: mirrors the sky, sun glints on the ripples
+    G3.waterTex=waterNormals();G3.waterTex.repeat.set(7,7);G3.waterMat=pbr(new T.MeshStandardMaterial({color:'#18506f',roughness:.16,metalness:.05,normalMap:G3.waterTex,normalScale:new T.Vector2(.3,.3),envMapIntensity:.75,transparent:true,opacity:.94}));   // glossy: mirrors the sky, sun glints on the ripples
     const seaTex=G3.waterTex.clone();seaTex.needsUpdate=true;seaTex.repeat.set(140,140);G3.seaTex=seaTex;
     // water surfaces only where there is water (the bay, lakes, rivers, and open sea past the map), so tunnel trenches can dip below water level elsewhere
     {const pos=[],uv=[],Y=-3,tri=(ax,ay,bx,by,cx,cy)=>{if((by-ay)*(cx-ax)-(bx-ax)*(cy-ay)<0){[bx,by,cx,cy]=[cx,cy,bx,by]}pos.push(ax,Y,ay,bx,Y,by,cx,Y,cy);uv.push(ax/420,ay/420,bx/420,by/420,cx/420,cy/420)};
@@ -2152,7 +2154,7 @@ function init3D(){
         for(let i=0;i<f.length;i+=2)for(let k=0;k<10;k++){const a0=k/10*TAU,a1=(k+1)/10*TAU;tri(f[i],f[i+1],f[i]+Math.cos(a0)*30,f[i+1]+Math.sin(a0)*30,f[i]+Math.cos(a1)*30,f[i+1]+Math.sin(a1)*30)}}
       const M=60000;poly([new T.Vector2(-M,-M),new T.Vector2(M,-M),new T.Vector2(M,M),new T.Vector2(-M,M)],[[new T.Vector2(0,0),new T.Vector2(0,MAP.h),new T.Vector2(MAP.w,MAP.h),new T.Vector2(MAP.w,0)]]);
       const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('normal',new T.Float32BufferAttribute(new Float32Array(pos.length).map((v,i)=>i%3===1?1:0),3));
-      const sea=new T.Mesh(g,new T.MeshStandardMaterial({color:'#164f74',roughness:.14,metalness:.05,normalMap:G3.seaTex,normalScale:new T.Vector2(.4,.4),envMapIntensity:.8}));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
+      const sea=new T.Mesh(g,pbr(new T.MeshStandardMaterial({color:'#164f74',roughness:.14,metalness:.05,normalMap:G3.seaTex,normalScale:new T.Vector2(.4,.4),envMapIntensity:.8})));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
     G3.pm=new T.InstancedMesh(G3.ico,new T.MeshBasicMaterial({color:0xffffff}),900);G3.pm.frustumCulled=false;
     G3.dm=new T.InstancedMesh(G3.disc,new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),200);G3.dm.frustumCulled=false;
     const wc=new T.Color(1,1,1);for(let i=0;i<900;i++)G3.pm.setColorAt(i,wc);for(let i=0;i<200;i++)G3.dm.setColorAt(i,wc);
@@ -2160,25 +2162,40 @@ function init3D(){
     G3.mk=new T.Group();sc.add(G3.mk);
     buildLandmarks3D();
     loadModels();
-    G3.ok=true;initAO();glEl.style.filter=GRADE_CSS;   // the grade, until (or unless) the post-processing grade pass takes over
+    G3.ok=true;initAO();liteGrade(true);   // the grade, until (or unless) the post-processing grade pass takes over
   }catch(e){console.error(e);G3.ok=false}
   return G3.ok}
 addEventListener('resize',()=>{if(G3.ok){G3.r.setSize(cw,chh,false);if(G3.comp)G3.comp.setSize(cw,chh)}});
 // screen-space ambient occlusion (three.js's SSAOPass): soft shading in corners, under eaves and where walls meet the road.
 // Desktop only; it switches itself off if the frame rate can't keep up.
-async function initAO(){if(isTouch||cw<900||G3.aoTried||+THREE.REVISION<150||!window.THREE_ADDON)return;G3.aoTried=true;
+async function initAO(){if(isTouch||G3.phone||cw<900||G3.aoTried||+THREE.REVISION<150||!window.THREE_ADDON)return;G3.aoTried=true;
   // post-processing on desktop: the scene, ground-truth ambient occlusion, a soft bloom on bright lights and sky, then tone mapping
   try{const A=n=>THREE_ADDON('postprocessing/'+n),[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(A));
     const T=THREE,comp=new EffectComposer(G3.r);comp.addPass(new RenderPass(G3.sc,G3.cam));
     const ao=new GTAOPass(G3.sc,G3.cam,cw,chh);ao.updateGtaoMaterial({radius:AO.radius,distanceExponent:1.4,thickness:AO.thick,scale:1,samples:12});ao.blendIntensity=AO.blend;comp.addPass(ao);
     const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.12,.4,.95);comp.addPass(bloom);comp.addPass(new OutputPass());
-    const{ShaderPass}=await A('ShaderPass');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);glEl.style.filter='';
+    const{ShaderPass}=await A('ShaderPass');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);liteGrade(false);
     Object.assign(G3,{comp,ao,bloom,aoSlow:0})}
   catch(e){console.warn('post-processing unavailable',e)}}
 const AO={radius:26,thick:14,blend:.85};
 // the look: a GTA-style grade. Muted colour, an S-curve for contrast and deep shadows, warm highlights over cool shadows,
 // and a soft vignette. As a shader pass on desktop; phones and the no-post path get the nearest CSS filter.
 const GRADE_CSS='contrast(1.08) saturate(1.02) sepia(.04)';
+// the same grade as the desktop pass, folded into three.js's tone mapping step: AgX, then colour, S-curve and split tone in
+// display space. It runs in every material's own shader, so it costs no extra pass, which suits phones. The vignette is CSS.
+const GRADE_TM=`vec3 CustomToneMapping( vec3 color ) {
+  vec3 c=pow(max(AgXToneMapping(color),vec3(0.)),vec3(1./2.2));float l=dot(c,vec3(.299,.587,.114));
+  c=mix(vec3(l),c,1.1);c=c*.96+.02;c=clamp((c-.45)*1.18+.45,0.,1.);c=c*c*(3.-2.*c)*.3+c*.7;
+  c*=mix(vec3(.95,.99,1.05),vec3(1.05,1.01,.93),smoothstep(.15,.75,l));
+  return pow(c,vec3(2.2)); }`;
+function liteGrade(on){const T=G3.T,r=G3.r;if(!T||!r)return;
+  if(!G3.vig){G3.vig=document.createElement('div');G3.vig.style.cssText='position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 58%,rgba(0,0,0,.26) 100%)';glEl.insertAdjacentElement('afterend',G3.vig)}
+  G3.vig.style.display=on?'block':'none';
+  if(!T.CustomToneMapping||!T.AgXToneMapping||+T.REVISION<160){glEl.style.filter=on?GRADE_CSS:'';return}   // older three.js: the CSS approximation
+  if(!G3.gradeTM){const ch=T.ShaderChunk,stub='vec3 CustomToneMapping( vec3 color ) { return color; }';
+    if(!ch.tonemapping_pars_fragment.includes(stub)){glEl.style.filter=on?GRADE_CSS:'';return}
+    ch.tonemapping_pars_fragment=ch.tonemapping_pars_fragment.replace(stub,GRADE_TM);G3.gradeTM=true}
+  glEl.style.filter='';r.toneMapping=on?T.CustomToneMapping:T.AgXToneMapping}
 const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
   void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));
@@ -2190,9 +2207,12 @@ const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;voi
     gl_FragColor=vec4(c,1.);}`};
 function present3D(dt){if(G3.comp){const t0=performance.now();G3.comp.render(dt);
     // a slow machine: drop the effect rather than the frame rate
-    if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
+    if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;liteGrade(true);console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
   else G3.r.render(G3.sc,G3.cam)}
 // buildings between the camera and the player go see-through (screen-door dither) so towers never hide you
+// three.js gives every physically based material the scene's sky at full strength, ignoring its own envMapIntensity, unless
+// the material holds the sky itself. These materials do, and updateTOD hands them each new sky, so their strengths apply.
+function pbr(m){(G3.envMats||(G3.envMats=new Set())).add(m);m.envMap=G3.sc?G3.sc.environment:null;return m}
 function occlude(m){m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,G3.occ);
   sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
   sh.fragmentShader='varying vec3 vWPos;\nuniform vec3 uCam;\nuniform vec3 uTarget;\nuniform float uRad;\n'+sh.fragmentShader.replace('void main() {',
@@ -2378,7 +2398,7 @@ function headlights3D(){const T=G3.T,N=64;if(!G3.hl){const c=document.createElem
     const f=c.L/2+2,x=c.x+Math.cos(c.a)*f,z=c.y+Math.sin(c.a)*f,L=110+Math.min(60,Math.abs(fwdSpeed(c))*.15);G3.hlQ.setFromAxisAngle(G3.hlU,-c.a);
     G3.hlM.compose(new T.Vector3(x,carY(c)+.7,z),G3.hlQ,new T.Vector3(L,1,c.Wd*2.6));G3.hl.setMatrixAt(n++,G3.hlM)}
   G3.hl.count=n;G3.hl.instanceMatrix.needsUpdate=true}
-function M(col,emis){const k=col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=new G3.T.MeshLambertMaterial({color:col,emissive:emis||'#000000'}))}
+function M(col,emis){const k=col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=pbr(new G3.T.MeshStandardMaterial({color:col,emissive:emis||'#000000',roughness:.7,metalness:0,envMapIntensity:.2})))}
 function part(g,mat,sx,sy,sz,x,y,z){const m=new G3.T.Mesh(G3.box,mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);g.add(m);return m}
 function shadowDisc(g,sx,sz){if(G3.shadows)return;const m=new G3.T.Mesh(G3.disc,G3.shadowMat);m.scale.set(sx,1,sz);m.position.y=.6;g.add(m)}
 // ---------------------------------------------------------------- real vehicle models (Kenney, CC0); built-in blocky cars stand in for anything missing
@@ -2487,7 +2507,7 @@ function rangerMesh(c){const T=G3.T,g=new T.Group(),L=c.L,Wd=c.Wd,body=M(c.wreck
   if(!c.wreck){const hl=M('#fff6c8','#fff6c8'),tl=M('#b01515','#500000');for(const z of[-(Wd/2-2.6),Wd/2-2.6]){part(g,hl,1,2.4,4.4,L/2+.3,17,z);part(g,tl,1,4,2.4,-L/2,19.5,z)}}
   return g}
 function boxCarMesh(c){const g=new G3.T.Group(),L=c.L,Wd=c.Wd,glass=M('#1b2633'),dark=M('#161616');shadowDisc(g,L*.62,Wd*.75);
-  if(c.tram){const TM=col=>G3.mats['t'+col]||(G3.mats['t'+col]=occlude(new G3.T.MeshLambertMaterial({color:col})));
+  if(c.tram){const TM=col=>G3.mats['t'+col]||(G3.mats['t'+col]=occlude(pbr(new G3.T.MeshStandardMaterial({color:col,roughness:.45,metalness:.15,envMapIntensity:.4}))));
     part(g,TM('#e9ece6'),L,20,Wd,0,15,0);part(g,TM('#2f8f5b'),L+.5,4,Wd+.5,0,8,0);part(g,TM('#1b2633'),L-10,7,Wd+.6,0,18,0);part(g,TM('#c9ccc6'),L-24,2,Wd-6,0,26,0);
     const pole=part(g,dark,22,1.2,1.2,0,30,0);pole.rotation.z=.3;
     for(const x of[-L/2+16,L/2-16])for(const z of[-Wd/2+3,Wd/2-3])part(g,dark,12,6,3,x,3,z);return g}
@@ -2695,7 +2715,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     if(!(pc&&pc.ug))for(let k=8;k<=dd+8;k+=4)if(wall(pp.x-Math.cos(yw)*k+sx,pp.y-Math.sin(yw)*k+sz)){cd=Math.max(10,k-10);break}
     G3.camD=G3.camD==null||cd<G3.camD?cd:lerp(G3.camD,cd,Math.min(1,dt*2.5));const cdd=G3.camD,up=(dd-cdd)*.25;   // snap in, ease back out
     const gy=pc?carY(pc):pedY(pp);c3.position.set(pp.x-Math.cos(yw)*cdd+sh+sx,h2+up+sh+gy,pp.y-Math.sin(yw)*cdd+sz);c3.lookAt(pp.x+Math.cos(yw)*la+sx,lerp(8,16,ak)+gy-G3.pitch*10,pp.y+Math.sin(yw)*la+sz);
-    G3.sc.fog.near=1500*WX.fog**1.6;G3.sc.fog.far=4400*(.1+.9*WX.fog);G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];
+    G3.sc.fog.near=1500*WX.fog**1.6;G3.sc.fog.far=4400*(.1+.9*WX.fog);G3.focus=[pp.x+Math.cos(G3.yaw)*500,pp.y+Math.sin(G3.yaw)*500,1250];G3.sfocus=[pp.x+Math.cos(G3.yaw)*300,pp.y+Math.sin(G3.yaw)*300,560];
     // driving under an overpass: hide it while the camera passes through, so it never blocks the view
     for(const v of G3.ovp||[]){const o=v.o,r=o.half+230,dc=Math.hypot(c3.position.x-o.x,c3.position.z-o.y),dp=Math.hypot(pp.x-o.x,pp.y-o.y);
       v.m.visible=!((dc<r||dp<r)&&gy<o.top-12)}}
@@ -2715,7 +2735,11 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
   const a=(TOD.h-6)/14*PI,se=Math.sin(a),day=smooth(-.08,.22,se),low=1-smooth(.02,.45,se),night=1-smooth(-.06,.12,se);TOD.night=Math.max(night,WX.cloud>.85?.35:0);
   const sd=new T.Vector3(Math.cos(a),Math.max(.02,se*.95),-.5).normalize(),md=new T.Vector3(-Math.cos(a)*.6,.75,-.35).normalize(),dir=day>.02?sd:md;
   updateWeather(dt);const cl=WX.cloud;
-  const sun=G3.sun;sun.position.set(fx+dir.x*1200,dir.y*1200,fz+dir.z*1200);sun.target.position.set(fx,0,fz);sun.target.updateMatrixWorld();
+  const sun=G3.sun,sf=view==='chase'&&G3.sfocus&&!CUT.on?G3.sfocus:[fx,fz,700],scam=sun.shadow.camera;
+  if(scam.right!==sf[2]){scam.left=scam.bottom=-sf[2];scam.right=scam.top=sf[2];scam.updateProjectionMatrix()}
+  {const tx=2*sf[2]/sun.shadow.mapSize.x,rt=TC.r||(TC.r=new T.Vector3()),up=TC.u||(TC.u=new T.Vector3()),c=TC.s||(TC.s=new T.Vector3());rt.set(0,1,0).cross(dir).normalize();up.copy(dir).cross(rt);
+    const a1=Math.round((sf[0]*rt.x+sf[1]*rt.z)/tx)*tx,a2=Math.round((sf[0]*up.x+sf[1]*up.z)/tx)*tx,a3=sf[0]*dir.x+sf[1]*dir.z;   // the centre in the light's own axes, on whole texels
+    c.copy(rt).multiplyScalar(a1).addScaledVector(up,a2).addScaledVector(dir,a3);sun.position.copy(c).addScaledVector(dir,1200);sun.target.position.copy(c);sun.target.updateMatrixWorld()}
   if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=G3.LU*(.2+.9*day)}else{sun.color.set('#9fb4ff');sun.intensity=G3.LU*.38}
   if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=G3.LU*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
@@ -2723,7 +2747,7 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
   G3.r.toneMappingExposure=1.2-.25*day;if(G3.bloom)G3.bloom.strength=.12+.3*night;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
   if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
     if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=3.2+16*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
-      G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:null;TOD.envCl=cl;if(old&&old!==G3.sc.environment&&old.dispose)old.dispose()}}
+      G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:nightEnv();TOD.envCl=cl;for(const m of G3.envMats)m.envMap=G3.sc.environment;if(old&&old!==G3.sc.environment&&old!==G3.nightEnv&&old.dispose)old.dispose()}}
   // wet roads, and the rain itself
   for(const[,e]of G3.chunks){const gm=e.g.children[0];if(gm&&gm.userData.ground)wetGround(gm.material)}
   rain3D(dt);
@@ -2740,7 +2764,18 @@ const WXK={clear:{cloud:0,rain:0,fog:1,wet:0,storm:0,label:'Clear'},cloudy:{clou
 const WX={kind:'clear',cloud:0,rain:0,fog:1,wet:0,storm:0,nextH:16+Math.random()*3,flash:0,thunder:0};
 function setWeather(k){WX.kind=k;WX.nextH=(TOD.h+1.5+Math.random()*2.5)%24}
 function pickWeather(){const r=Math.random(),k=WX.kind;return r<.34?'clear':r<.56?(k==='rain'?'storm':'cloudy'):r<.82?'rain':r<.92?'storm':'fog'}
-function wetGround(m){m.roughness=lerp(.95,.16,WX.wet);m.color.setScalar(1-.3*WX.wet);m.envMapIntensity=.4+1.1*WX.wet}
+function wetGround(m){if(G3.sc&&m.envMap!==G3.sc.environment)m.envMap=G3.sc.environment;m.roughness=lerp(.95,.16,WX.wet);m.color.setScalar(1-.42*WX.wet);m.envMapIntensity=.4+.45*WX.wet;   // wet: darker, glossier, mirrors the sky without glaring
+  const pud=WX.wet>.08?puddles():null;if(m.roughnessMap!==pud){m.roughnessMap=pud;m.needsUpdate=true}}   // only while wet: dry roads stay evenly matte
+// puddles: a soft blotchy roughness map, so a wet road has mirror-like pools between duller patches
+function puddles(){if(G3.pud)return G3.pud;const N=128,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,N,N);
+  let sd=7;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+  for(let i=0;i<46;i++){const x=rnd()*N,y=rnd()*N,r=4+rnd()*14,v=(95+rnd()*90)|0;for(const ox of[-N,0,N])for(const oy of[-N,0,N]){const gr=g.createRadialGradient(x+ox,y+oy,0,x+ox,y+oy,r);
+    gr.addColorStop(0,`rgba(${v},${v},${v},.9)`);gr.addColorStop(1,`rgba(${v},${v},${v},0)`);g.fillStyle=gr;g.fillRect(x+ox-r,y+oy-r,r*2,r*2)}}
+  const t=new G3.T.CanvasTexture(c);t.colorSpace=G3.T.NoColorSpace||'';t.wrapS=t.wrapT=G3.T.RepeatWrapping;t.repeat.set(CPX/160,CPX/160);return G3.pud=t}
+// after dark: a dim sky with the city's sodium glow at the horizon, for wet roads, glass and car paint to reflect
+function nightEnv(){if(G3.nightEnv)return G3.nightEnv;const T=G3.T,es=new T.Scene(),c=document.createElement('canvas');c.width=2;c.height=128;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,128);
+  gr.addColorStop(0,'#05080f');gr.addColorStop(.38,'#141a2a');gr.addColorStop(.48,'#4a3a2e');gr.addColorStop(.53,'#1a1714');gr.addColorStop(1,'#08080a');g.fillStyle=gr;g.fillRect(0,0,2,128);
+  es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));return G3.nightEnv=G3.pmrem.fromScene(es).texture}
 function updateWeather(dt){if(WX.lock){WX.kind=WX.lock}else if(Math.abs(TOD.h-WX.nextH)<.05)setWeather(pickWeather());
   const T=WXK[WX.kind],k=Math.min(1,dt*.04);for(const f of['cloud','rain','fog','storm'])WX[f]+=(T[f]-WX[f])*k;
   WX.wet+=((T.wet>WX.wet?T.wet:T.wet)-WX.wet)*(T.wet>WX.wet?dt*.05:dt*.008);   // roads soak quickly and dry slowly
@@ -2781,7 +2816,7 @@ const btnView=document.getElementById('btnView');function viewLabel(){btnView.te
 btnView.addEventListener('click',cycleView);tapBtn('bCam',cycleView);
 
 // ---------------------------------------------------------------- Melbourne landmarks in 3D
-function OM(col,emis){const k='o'+col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=occlude(new G3.T.MeshLambertMaterial({color:col,emissive:emis||'#000000'})))}
+function OM(col,emis){const k='o'+col+'|'+(emis||'');return G3.mats[k]||(G3.mats[k]=occlude(pbr(new G3.T.MeshStandardMaterial({color:col,emissive:emis||'#000000',roughness:.75,metalness:0,envMapIntensity:.15}))))}
 function cyl(g,mat,rt,rb,h,x,y,z,seg){const m=new G3.T.Mesh(new G3.T.CylinderGeometry(rt,rb,h,seg||16),mat);m.position.set(x,y,z);g.add(m);return m}
 function siteBox(id){const r=SITES[id]||{x:0,y:0,w:60,d:60,a:0};return{x:r.x,z:r.y,w:r.w,d:r.d,a:r.a}}
 function lunaFace(){const c=document.createElement('canvas');c.width=256;c.height=128;const g=c.getContext('2d');g.fillStyle='#f3e3a6';g.fillRect(0,0,256,128);
