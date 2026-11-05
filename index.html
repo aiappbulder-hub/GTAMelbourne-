@@ -165,11 +165,11 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
 <script src="map/melbourne.js"></script>
 <script>
 // Loads three.js, then starts the game (a classic script kept in the text/plain block below).
-// 1. three.js r170 as ES modules from jsdelivr's +esm builds: they import each other by full URL, so no import map is needed
+// 1. three.js r187 as ES modules from jsdelivr's +esm builds: they import each other by full URL, so no import map is needed
 //    (an import map breaks if the host page has already loaded a module).
 // 2. If that fails (old browser, blocked CDN), the classic r128 build the game used before, so the 3D models still show.
 // 3. If nothing loads within 20 seconds, the game starts anyway and runs in 2D.
-(function(){const CDN='https://cdn.jsdelivr.net/npm/three@0.170.0';let started=false;
+(function(){const CDN='https://cdn.jsdelivr.net/npm/three@0.187.0';let started=false;
   const start=()=>{if(started)return;started=true;const g=document.createElement('script');g.textContent=document.getElementById('game').textContent;document.body.appendChild(g)};
   const classic=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
   const legacy=()=>classic('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js').then(()=>Promise.all([classic('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'),classic('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js')]));
@@ -183,7 +183,7 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
         img.onload=()=>createImageBitmap(img,Object.assign({colorSpaceConversion:'none'},o)).then(b=>{onLoad&&onLoad(b);this.manager.itemEnd(url)},e=>{onError&&onError(e);this.manager.itemError(url)});
         img.onerror=e=>{onError&&onError(e);this.manager.itemError(url);this.manager.itemEnd(url)};this.manager.itemStart(url);img.src=url}
       window.THREE={...T,CanvasTexture,GLTFLoader,SkeletonUtils,Sky}})
-    .catch(e=>{console.warn('three.js r170 unavailable, using r128',e);if(!started)return legacy().catch(e2=>console.warn('3D unavailable',e2))})
+    .catch(e=>{console.warn('three.js r187 unavailable, using r128',e);if(!started)return legacy().catch(e2=>console.warn('3D unavailable',e2))})
     .then(start);
   setTimeout(()=>{if(!started){console.warn('three.js is slow to load: starting in 2D');start()}},20000)})();
 </script>
@@ -2122,21 +2122,27 @@ function init3D(){
       es.add(new T.Mesh(new T.SphereGeometry(10,24,12),new T.MeshBasicMaterial({map:new T.CanvasTexture(c),side:T.BackSide})));
       const pm=new T.PMREMGenerator(r);sc.environment=pm.fromScene(es).texture;pm.dispose()}
     G3.LU=+T.REVISION>=155?PI:1;sc.add(new T.HemisphereLight(0xd6e8ff,0x66594a,.6*G3.LU));const sun=new T.DirectionalLight(0xffecd0,G3.LU);   // physical light units since r155: intensities x pi keep the old balance
-    r.toneMapping=T.AgXToneMapping||T.ACESFilmicToneMapping;r.toneMappingExposure=1.0;   // AgX: filmic, holds back saturation in bright lightsc.add(sun);sc.add(sun.target);
+    r.toneMapping=T.ACESFilmicToneMapping;r.toneMappingExposure=1.0;   // ACES filmic (setGrade() adds the colour grade in front of it)
+    sc.add(sun);sc.add(sun.target);
     const hemi=sc.children.find(o=>o.isHemisphereLight);G3.hemi=hemi;
     // a physical sky (Preetham) with Melbourne haze; a twin in a small scene feeds the reflections (PMREM) as the sun moves
-    if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=3.2;u.rayleigh.value=1.1;u.mieCoefficient.value=.003;u.mieDirectionalG.value=.83;return s};
+    if(T.Sky){const mk=k=>{const s=new T.Sky();s.scale.setScalar(k);const u=s.material.uniforms;u.turbidity.value=6.5;u.rayleigh.value=2.4;u.mieCoefficient.value=.006;u.mieDirectionalG.value=.86;   // a hazy city sky
+        if(u.cloudCoverage){u.cloudCoverage.value=.32;u.cloudDensity.value=.35;u.cloudElevation.value=.52}
+        // the sky shader's raw radiance is far brighter than the lit city: scale it down, like Slop New York's skyExposure
+        const m=s.material,f='gl_FragColor = vec4( texColor, 1.0 );';if(m.fragmentShader.includes(f)){u.skyExposure={value:.142};m.fragmentShader='uniform float skyExposure;\n'+m.fragmentShader.replace(f,'gl_FragColor = vec4( texColor * skyExposure, 1.0 );')}
+        return s};   // r180+: drifting clouds
       G3.sky=mk(7000);sc.add(G3.sky);G3.skyEnv=new T.Scene();G3.skyEnvSky=mk(100);G3.skyEnv.add(G3.skyEnvSky);G3.pmrem=new T.PMREMGenerator(r);G3.nightBg=new T.Color('#0b1222');G3.dayBg=sc.background}
-    r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;sun.castShadow=true;const sm=G3.phone||cw<800?1536:2048;sun.shadow.mapSize.set(sm,sm);
+    r.shadowMap.enabled=true;r.shadowMap.type=+T.REVISION>=180?T.PCFShadowMap:T.PCFSoftShadowMap;   // r180+ PCF is the soft one
+    sun.castShadow=true;const sm=G3.phone||cw<800?1536:2048;sun.shadow.mapSize.set(sm,sm);
     Object.assign(sun.shadow.camera,{left:-700,right:700,top:700,bottom:-700,near:10,far:3200});sun.shadow.bias=-.0006;sun.shadow.normalBias=.6;
     Object.assign(G3,{sun,shadows:true,T,r,sc,cam:new T.PerspectiveCamera(50,cw/chh,8,8000),aniso:Math.min(8,r.capabilities.getMaxAnisotropy()),
       box:new T.BoxGeometry(1,1,1),plane:new T.PlaneGeometry(CPX,CPX).rotateX(-PI/2),disc:new T.CircleGeometry(1,16).rotateX(-PI/2),
       ico:new T.IcosahedronGeometry(1,0),sph:new T.SphereGeometry(1,8,6),ray:new T.Raycaster(),gp:new T.Plane(new T.Vector3(0,1,0),-10),
       occ:{uCam:{value:new T.Vector3()},uTarget:{value:new T.Vector3()},uRad:{value:70}}});
     // physically based (roughness/metalness): matte walls still pick up the sky's tint, glass and wet roads mirror it
-    G3.wallMat=occlude(pbr(new T.MeshStandardMaterial({vertexColors:true,map:windowTex(),roughness:.85,metalness:0,envMapIntensity:.15})));
+    G3.wallMat=canyon(occlude(pbr(new T.MeshStandardMaterial({vertexColors:true,map:windowTex(),roughness:.85,metalness:0,envMapIntensity:.15}))));
     G3.roofMat=occlude(pbr(new T.MeshStandardMaterial({vertexColors:true,roughness:.9,metalness:0,envMapIntensity:.12})));
-    G3.fac={};for(const k in FACADES){const F=FACADES[k],o={vertexColors:true,map:facadeTex(F)};if(F.lit){o.emissiveMap=litTex(o.map.image,F.lit,k);o.emissive=new T.Color('#ffffff');o.emissiveIntensity=0}G3.fac[k]=occlude(pbr(F.glass?new T.MeshStandardMaterial({...o,roughness:.25,metalness:.1,envMapIntensity:.25}):new T.MeshStandardMaterial({...o,roughness:.82,metalness:0,envMapIntensity:.15})))}
+    G3.fac={};for(const k in FACADES){const F=FACADES[k],o={vertexColors:true,map:facadeTex(F)};if(F.lit){o.emissiveMap=litTex(o.map.image,F.lit,k);o.emissive=new T.Color('#ffffff');o.emissiveIntensity=0}G3.fac[k]=canyon(occlude(pbr(F.glass?new T.MeshStandardMaterial({...o,roughness:.25,metalness:.1,envMapIntensity:.25}):new T.MeshStandardMaterial({...o,roughness:.82,metalness:0,envMapIntensity:.15}))))}
     G3.treeMat=new T.MeshLambertMaterial({vertexColors:true});
     G3.shadowMat=new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.32,depthWrite:false});
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
@@ -2162,7 +2168,7 @@ function init3D(){
     G3.mk=new T.Group();sc.add(G3.mk);
     buildLandmarks3D();
     loadModels();
-    G3.ok=true;initAO();liteGrade(true);   // the grade, until (or unless) the post-processing grade pass takes over
+    G3.ok=true;initAO();setGrade();   // the colour grade, inside tone mapping (with or without post-processing)
   }catch(e){console.error(e);G3.ok=false}
   return G3.ok}
 addEventListener('resize',()=>{if(G3.ok){G3.r.setSize(cw,chh,false);if(G3.comp)G3.comp.setSize(cw,chh)}});
@@ -2173,46 +2179,59 @@ async function initAO(){if(isTouch||G3.phone||cw<900||G3.aoTried||+THREE.REVISIO
   try{const A=n=>THREE_ADDON('postprocessing/'+n),[{EffectComposer},{RenderPass},{GTAOPass},{UnrealBloomPass},{OutputPass}]=await Promise.all(['EffectComposer','RenderPass','GTAOPass','UnrealBloomPass','OutputPass'].map(A));
     const T=THREE,comp=new EffectComposer(G3.r);comp.addPass(new RenderPass(G3.sc,G3.cam));
     const ao=new GTAOPass(G3.sc,G3.cam,cw,chh);ao.updateGtaoMaterial({radius:AO.radius,distanceExponent:1.4,thickness:AO.thick,scale:1,samples:12});ao.blendIntensity=AO.blend;comp.addPass(ao);
-    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.12,.4,.95);comp.addPass(bloom);comp.addPass(new OutputPass());
-    const{ShaderPass}=await A('ShaderPass');comp.addPass(new ShaderPass(GRADE));comp.setSize(cw,chh);liteGrade(false);
+    const bloom=new UnrealBloomPass(new T.Vector2(cw,chh),.12,.4,.95);comp.addPass(bloom);comp.addPass(new OutputPass());   // OutputPass runs the graded tone mapping
+    comp.setSize(cw,chh);
     Object.assign(G3,{comp,ao,bloom,aoSlow:0})}
   catch(e){console.warn('post-processing unavailable',e)}}
 const AO={radius:26,thick:14,blend:.85};
-// the look: a GTA-style grade. Muted colour, an S-curve for contrast and deep shadows, warm highlights over cool shadows,
-// and a soft vignette. As a shader pass on desktop; phones and the no-post path get the nearest CSS filter.
+// the look, after Slop New York (github.com/mrdoob/slop-newyork, MIT): grade in scene-linear light, then ACES filmic.
+// White balance, cool shadows and warm highlights, contrast pivoting on middle grey, saturation with a little vibrance.
+// It is folded into three.js's tone-mapping step, so it runs inside every material's shader (no extra pass, fine on
+// phones) and in OutputPass on desktop. The vignette is a CSS overlay. Older three.js gets the CSS approximation.
 const GRADE_CSS='contrast(1.08) saturate(1.02) sepia(.04)';
-// the same grade as the desktop pass, folded into three.js's tone mapping step: AgX, then colour, S-curve and split tone in
-// display space. It runs in every material's own shader, so it costs no extra pass, which suits phones. The vignette is CSS.
-const GRADE_TM=`vec3 CustomToneMapping( vec3 color ) {
-  vec3 c=pow(max(AgXToneMapping(color),vec3(0.)),vec3(1./2.2));float l=dot(c,vec3(.299,.587,.114));
-  c=mix(vec3(l),c,1.1);c=c*.96+.02;c=clamp((c-.45)*1.18+.45,0.,1.);c=c*c*(3.-2.*c)*.3+c*.7;
-  c*=mix(vec3(.95,.99,1.05),vec3(1.05,1.01,.93),smoothstep(.15,.75,l));
-  return pow(c,vec3(2.2)); }`;
-function liteGrade(on){const T=G3.T,r=G3.r;if(!T||!r)return;
-  if(!G3.vig){G3.vig=document.createElement('div');G3.vig.style.cssText='position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 58%,rgba(0,0,0,.26) 100%)';glEl.insertAdjacentElement('afterend',G3.vig)}
-  G3.vig.style.display=on?'block':'none';
-  if(!T.CustomToneMapping||!T.AgXToneMapping||+T.REVISION<160){glEl.style.filter=on?GRADE_CSS:'';return}   // older three.js: the CSS approximation
-  if(!G3.gradeTM){const ch=T.ShaderChunk,stub='vec3 CustomToneMapping( vec3 color ) { return color; }';
-    if(!ch.tonemapping_pars_fragment.includes(stub)){glEl.style.filter=on?GRADE_CSS:'';return}
-    ch.tonemapping_pars_fragment=ch.tonemapping_pars_fragment.replace(stub,GRADE_TM);G3.gradeTM=true}
-  glEl.style.filter='';r.toneMapping=on?T.CustomToneMapping:T.AgXToneMapping}
-const GRADE={uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
-  void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(.299,.587,.114));
-    c=mix(vec3(l),c,1.1);                                            // a little extra colour
-    c=c*.96+.02;                                                     // lift the blacks a little so night stays readable
-    c=clamp((c-.45)*1.18+.45,0.,1.);c=c*c*(3.-2.*c)*.3+c*.7;            // contrast and an S-curve
-    vec3 warm=vec3(1.05,1.01,.93),cool=vec3(.95,.99,1.05);c*=mix(cool,warm,smoothstep(.15,.75,l));   // split tone
-    vec2 d=vUv-.5;c*=1.-dot(d,d)*.4;                                  // vignette
-    gl_FragColor=vec4(c,1.);}`};
+const LOOK={balance:[1.015,1,.985],contrast:1.1,saturation:1.06};
+const GRADE_TM=()=>`vec3 CustomToneMapping( vec3 color ) {
+  vec3 c=max(color,vec3(0.))*vec3(${LOOK.balance.map(v=>v.toFixed(3)).join(',')});
+  float l=dot(c,vec3(.2126,.7152,.0722));
+  c*=mix(vec3(.965,1.005,1.045),vec3(1.),smoothstep(.02,.6,l))*mix(vec3(1.),vec3(1.035,1.005,.965),smoothstep(.6,3.,l));
+  c*=pow(max(l,.0001)/.18,${(LOOK.contrast-1).toFixed(3)});
+  float g=dot(c,vec3(.2126,.7152,.0722)),mx=max(max(c.r,c.g),c.b),ch=mx-min(min(c.r,c.g),c.b);
+  c=max(mix(vec3(g),c,${LOOK.saturation.toFixed(3)}+.1*(1.-ch/max(mx,.0001))),vec3(0.));
+  return ACESFilmicToneMapping(c); }`;
+function setGrade(){const T=G3.T,r=G3.r;if(!T||!r)return;
+  if(!G3.vig){G3.vig=document.createElement('div');G3.vig.style.cssText='position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(0,0,0,.2) 100%)';glEl.insertAdjacentElement('afterend',G3.vig)}
+  const stub='vec3 CustomToneMapping( vec3 color ) { return color; }',ch=T.ShaderChunk;
+  if(!T.CustomToneMapping||+T.REVISION<160||!(G3.gradeTM||ch.tonemapping_pars_fragment.includes(stub))){glEl.style.filter=GRADE_CSS;return}   // older three.js
+  if(!G3.gradeTM){ch.tonemapping_pars_fragment=ch.tonemapping_pars_fragment.replace(stub,GRADE_TM());G3.gradeTM=true}
+  glEl.style.filter='';r.toneMapping=T.CustomToneMapping}
 function present3D(dt){if(G3.comp){const t0=performance.now();G3.comp.render(dt);
     // a slow machine: drop the effect rather than the frame rate
-    if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;liteGrade(true);console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
+    if(performance.now()-t0>28){if((G3.aoSlow+=dt)>4){G3.comp=null;console.warn('ambient occlusion off: too slow')}}else G3.aoSlow=Math.max(0,G3.aoSlow-dt)}
   else G3.r.render(G3.sc,G3.cam)}
 // buildings between the camera and the player go see-through (screen-door dither) so towers never hide you
 // three.js gives every physically based material the scene's sky at full strength, ignoring its own envMapIntensity, unless
 // the material holds the sky itself. These materials do, and updateTOD hands them each new sky, so their strengths apply.
 function pbr(m){(G3.envMats||(G3.envMats=new Set())).add(m);m.envMap=G3.sc?G3.sc.environment:null;return m}
+// surface detail after Slop New York's road and facade shaders (github.com/mrdoob/slop-newyork, MIT), in world space
+const NOISE_GLSL=`float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+`;
+// roads: the painted asphalt becomes worn charcoal with tar-filled cracks, patched areas and oil stains; paint, kerbs and
+// grass keep their colour (the mask is "dark and grey"). Paths and grass get a little grime.
+const GROUND_GLSL=`{vec3 c=diffuseColor.rgb;float l=dot(c,vec3(.2126,.7152,.0722)),mx=max(c.r,max(c.g,c.b)),sat=(mx-min(c.r,min(c.g,c.b)))/max(mx,1e-4);
+  float am=(1.-smoothstep(.07,.16,l))*(1.-smoothstep(.3,.55,sat));vec2 w=vGW.xz;
+  float big=vn(w*.0035),mid=vn(w*.03),fine=vn(w*.4);
+  float crack=(1.-smoothstep(0.,.03,abs(vn(w*.018)-.5)))*smoothstep(.45,.7,vn(w*.006+17.));
+  vec3 asph=vec3(l)*vec3(1.03,1.,.96)*(.6+.32*big)*(.9+.2*mid)*(.9+.2*fine);
+  asph*=(1.-.55*crack)*(1.-.28*smoothstep(.72,.9,vn(w*.02+41.)));
+  c=mix(c*(.9+.16*mid),asph,am);diffuseColor.rgb=c;}`;
+function groundDetail(m){m.onBeforeCompile=sh=>{sh.vertexShader='varying vec3 vGW;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  vGW=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader='varying vec3 vGW;\n'+NOISE_GLSL+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n'+GROUND_GLSL)};m.customProgramCacheKey=()=>'ground1';return m}
+// building walls: darker down in the street canyon with a warm bounce off the pavement, and faint vertical grime streaks
+const CANYON_GLSL=`{float y=vWPos.y,st=vn(vec2((vWPos.x+vWPos.z)*.35,y*.004));
+  diffuseColor.rgb*=mix(.6,1.,smoothstep(0.,380.,y))*(1.-.14*smoothstep(.55,.95,st))*mix(vec3(1.07,.99,.9),vec3(1.),smoothstep(0.,220.,y));}`;
+function canyon(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{prev(sh);sh.fragmentShader=sh.fragmentShader.replace('void main() {',NOISE_GLSL+'void main() {').replace('#include <map_fragment>','#include <map_fragment>\n'+CANYON_GLSL)};
+  m.customProgramCacheKey=()=>'canyon1';return m}
 function occlude(m){m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,G3.occ);
   sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
   sh.fragmentShader='varying vec3 vWPos;\nuniform vec3 uCam;\nuniform vec3 uTarget;\nuniform float uRad;\n'+sh.fragmentShader.replace('void main() {',
@@ -2351,7 +2370,7 @@ function buildChunk3D(cx,cy){const T=G3.T,grp=new T.Group();
   const cvs=document.createElement('canvas');cvs.width=cvs.height=CPX;renderChunk(cvs.getContext('2d'),cx,cy,true);
   const tex=new T.CanvasTexture(cvs);tex.anisotropy=G3.aniso;
   const pg=new T.PlaneGeometry(CPX,CPX,16,16).rotateX(-PI/2),pa=pg.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,terrainH(cx*CPX+CPX/2+pa.getX(i),cy*CPX+CPX/2+pa.getZ(i)));pg.computeVertexNormals();
-  const ground=new T.Mesh(pg,new T.MeshStandardMaterial({map:tex,alphaTest:.5,roughness:.95,metalness:0}));ground.userData.ground=true;wetGround(ground.material);ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
+  const ground=new T.Mesh(pg,groundDetail(new T.MeshStandardMaterial({map:tex,alphaTest:.5,roughness:.95,metalness:0})));ground.userData.ground=true;wetGround(ground.material);ground.position.set(cx*CPX+CPX/2,0,cy*CPX+CPX/2);ground.receiveShadow=true;grp.add(ground);
   const wall=mkBuf(),roof=mkBuf(),tree=mkBuf(),col=new T.Color(),K=CHK[cy*NCX+cx],lots=[],fac={},W=k=>fac[k]||(fac[k]=mkBuf());
   for(const b of K.b){if(Math.floor(b.x/CPX)!==cx||Math.floor(b.y/CPX)!==cy)continue;if(b.k==='model'&&CITY.ready){lots.push(b);continue}addBuilding(W,roof,b)}
   for(let ty=cy*CH;ty<Math.min(H,cy*CH+CH);ty++)for(let tx=cx*CH;tx<Math.min(W,cx*CH+CH);tx++){const i=ty*W+tx,t=tiles[i];
@@ -2740,13 +2759,13 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
   {const tx=2*sf[2]/sun.shadow.mapSize.x,rt=TC.r||(TC.r=new T.Vector3()),up=TC.u||(TC.u=new T.Vector3()),c=TC.s||(TC.s=new T.Vector3());rt.set(0,1,0).cross(dir).normalize();up.copy(dir).cross(rt);
     const a1=Math.round((sf[0]*rt.x+sf[1]*rt.z)/tx)*tx,a2=Math.round((sf[0]*up.x+sf[1]*up.z)/tx)*tx,a3=sf[0]*dir.x+sf[1]*dir.z;   // the centre in the light's own axes, on whole texels
     c.copy(rt).multiplyScalar(a1).addScaledVector(up,a2).addScaledVector(dir,a3);sun.position.copy(c).addScaledVector(dir,1200);sun.target.position.copy(c);sun.target.updateMatrixWorld()}
-  if(day>.02){sun.color.set('#fff1dc').lerp(TC.a.set('#ff9248'),low*.85);sun.intensity=G3.LU*(.2+.9*day)}else{sun.color.set('#9fb4ff');sun.intensity=G3.LU*.38}
-  if(G3.hemi){G3.hemi.color.set('#3a4a78').lerp(TC.a.set('#d6e8ff'),day);G3.hemi.groundColor.set('#4a3420').lerp(TC.a.set('#66594a'),day);G3.hemi.intensity=G3.LU*(1.05-.43*day)}   // at night: sky glow above, sodium bounce below
+  const L=todLook(se),k=LOOKK.light*G3.LU/PI;sun.color.copy(L.sun);sun.intensity=L.sunI*k;   // (r128's legacy light units are pi times smaller)
+  if(G3.hemi){G3.hemi.color.copy(L.hs);G3.hemi.groundColor.copy(L.hg);G3.hemi.intensity=L.hI*k}   // sky above, warm bounce off stone and pavement below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
-  const fog=TC.b.set('#28324a').lerp(TC.a.set('#d79a72').lerp(TC.c.set('#8796a4'),smooth(.12,.5,se)),day);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=1.2-.25*day;if(G3.bloom)G3.bloom.strength=.12+.3*night;if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
-  if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
-    if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=3.2+16*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
+  const fog=TC.b.copy(L.fog);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
+  G3.r.toneMappingExposure=L.exp*LOOKK.exposure;if(G3.bloom){G3.bloom.strength=.18+.12*night;G3.bloom.threshold=lerp(1.35,1,night)/Math.max(.05,G3.r.toneMappingExposure)}   // only what's bright after exposure blooms (lamps, glints, the sun)if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
+  if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);{const u=G3.sky.material.uniforms;if(u.time){u.time.value=gameT;u.cloudCoverage.value=.32+.5*cl}if(u.skyExposure){u.skyExposure.value=L.sky*LOOKK.sky;const e=G3.skyEnvSky.material.uniforms.skyExposure;if(e)e.value=u.skyExposure.value}}G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
+    if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=6.5+12*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;
       G3.sc.environment=day>.01?G3.pmrem.fromScene(G3.skyEnv,0,.1,1000).texture:nightEnv();TOD.envCl=cl;for(const m of G3.envMats)m.envMap=G3.sc.environment;if(old&&old!==G3.sc.environment&&old!==G3.nightEnv&&old.dispose)old.dispose()}}
   // wet roads, and the rain itself
   for(const[,e]of G3.chunks){const gm=e.g.children[0];if(gm&&gm.userData.ground)wetGround(gm.material)}
@@ -2757,6 +2776,18 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
     for(const k in PROPS.tpl)for(const pt of PROPS.tpl[k])add(pt.mat);for(const k in MODELS.tpl)MODELS.tpl[k].traverse&&MODELS.tpl[k].traverse(o=>{if(o.isMesh)(Array.isArray(o.material)?o.material:[o.material]).forEach(add)})}
   for(const[m,b]of G3.glows)m.emissiveIntensity=b*(.25+1.6*night)}
 const TC={a:null,b:null,c:null};
+// time-of-day looks, after Slop New York's lighting presets (github.com/mrdoob/slop-newyork, MIT): a strong sun against a
+// soft sky light with a warm bounce from below, and haze to match. Blended by the sun's height (sin of its elevation).
+const TOD_LOOKS=[
+  {se:-.14,sun:'#8cb0e8',sunI:1.45,hs:'#263a62',hg:'#382e36',hI:1.3,fog:'#0c1424',exp:1.5,sky:.022},   // midnight (moonlight)
+  {se:.02,sun:'#ff9466',sunI:3.1,hs:'#4c6ca8',hg:'#6e5048',hI:1.5,fog:'#353c58',exp:1.5,sky:.115},     // twilight
+  {se:.3,sun:'#ffca92',sunI:5.8,hs:'#9abbe6',hg:'#c88a62',hI:1.48,fog:'#dcc5ae',exp:1.04,sky:.148},     // golden hour
+  {se:.75,sun:'#fff5e8',sunI:6.6,hs:'#aad2ff',hg:'#b89678',hI:1.58,fog:'#c6dcf2',exp:1,sky:.142}];      // midday
+const LOOKK={light:1,exposure:1,sky:1};   // overall light level and exposure, tuned against our (bright) textures
+function todLook(se){const T=G3.T,K=TOD_LOOKS;if(!K.cols)K.cols=K.map(k=>({sun:new T.Color(k.sun),hs:new T.Color(k.hs),hg:new T.Color(k.hg),fog:new T.Color(k.fog)}));
+  const o=TOD_LOOKS.out||(TOD_LOOKS.out={sun:new T.Color(),hs:new T.Color(),hg:new T.Color(),fog:new T.Color()});
+  let i=0;while(i<K.length-2&&se>K[i+1].se)i++;const t=smooth(K[i].se,K[i+1].se,se),a=K.cols[i],b=K.cols[i+1];
+  for(const c of['sun','hs','hg','fog'])o[c].copy(a[c]).lerp(b[c],t);for(const n of['sunI','hI','exp','sky'])o[n]=lerp(K[i][n],K[i+1][n],t);return o}
 // weather: Melbourne's four seasons in a day. Each kind sets cloud, rain, fog and wetness; the current values ease towards the
 // target over about half a minute, and the weather moves on by itself every couple of game hours (U changes it now).
 const WXK={clear:{cloud:0,rain:0,fog:1,wet:0,storm:0,label:'Clear'},cloudy:{cloud:.75,rain:0,fog:.85,wet:0,storm:0,label:'Overcast'},
@@ -2970,7 +3001,7 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
   try{render()}catch(e){console.error(e)}
   requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.GTA={get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{PEOPLE,RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
+window.GTA={LOOKK,get street(){return street},AIR,AP,TRAINS:TRAINS_G,BOATS,boardable:()=>boardable(),CUT,BUBBLES,FOOTY,FLAMES,SIDE,get mission(){return mission},set progress(v){progress=v},quit:()=>failMission('test'),missionStart:i=>missionStart(i),sideStart:()=>sideStart(),get cars(){return cars},talkTarget:()=>talkTarget(),get G3(){return G3},makePed:(x,y,k,o)=>makePed(x,y,k,o),shadeAt:i=>shade[i],get look(){return G3.look},get gameT(){return gameT},get decks(){return DECKS.map(D=>({name:D.name,n:D.pts.length,s0:D.s0|0,s1:D.s1|0}))},get edges(){return EDGES.length},get buildings(){return BUILDINGS.length},proj,get _w(){return{PEOPLE,RUN,TRACK:()=>TRACK,SHAL,isShallow,WX,setWeather,TOD,PLUMB,obstacleAhead,wallAhead,SITES,BUILDINGS,EDGES,OCC,SOL,FW,rectFree,edgeAt,realR,flags,tiles,W,H,MAP,CHK,NCX,terrainH,TUN,tunY,tunSolid,tunnelAt,solidPx,carHits,tunK,OVP,FWM,laySolid,CIRCUIT_LOOP,LAP}},groundY,carY,get skids(){return decals.filter(d=>d.type==='skid').length},get route(){return {pts:ROUTE.path.length,tiles:ROUTE.tiles}},get modelsVer(){return MODELS.ver},spawn(t,x,y){const c=makeCar(t,x,y,0);c.driver=null;c.mode='parked';return c},get player(){return player},get yaw(){return G3.yaw},snapCam(){const pp=player.car||player;cam.x=pp.x;cam.y=pp.y;G3.yaw=pp.a},get cars(){return cars},get peds(){return peds},get stars(){return stars},tiles,startMission,setStars,get mission(){return mission},get progress(){return progress}};
 })();
 </script>
 </body>
