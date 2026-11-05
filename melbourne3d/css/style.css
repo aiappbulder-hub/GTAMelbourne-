@@ -1433,3 +1433,6 @@ body.touch-enabled .pop-item { min-height: 44px; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Graphics quality button (js/quality.js) */
+.gfx-label { font-size: 12px; font-weight: 650; letter-spacing: 0.02em; white-space: nowrap; }

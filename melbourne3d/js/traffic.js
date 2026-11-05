@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { Q } from './quality.js';
 import { buildRoadNetwork } from './road-network.js';
 import { createPedestrianSystem } from './pedestrian-system.js';
 import { vehicleContact, resolveVehicleContact, sweptVehicleContact } from './vehicle-physics.js';
@@ -29,8 +30,8 @@ import {
 // Cars and buses follow the road graph, obey signals, yield at crossings and react to collisions.
 // Vehicles replenish around the player; pedestrian-system.js manages the nearby walking population.
 
-const NUM_CARS = 200;
-const NUM_BUSES = 12;
+const NUM_CARS = Q.cars; // 200 on high quality (js/quality.js)
+const NUM_BUSES = Q.buses;
 
 // Intelligent Driver Model: max acceleration, comfortable braking, time headway, standstill gap; the sideways
 // acceleration drivers accept in bends, which sets how fast they take each turn or lane shift; and how hard they brake

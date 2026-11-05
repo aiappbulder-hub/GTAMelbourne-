@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { Q } from './quality.js';
 import {
   Fn,
   float,
@@ -187,9 +188,10 @@ class LightingSystem {
     // Two-cascade sunlight points from its position toward the origin; no target object is needed.
     this.sunLight = new SunLight(0xffca92, 5.8);
     this.sunLight.position.copy(TIME_PRESETS.golden.sunDir);
-    this.sunLight.castShadow = true;
+    this.sunLight.castShadow = Q.shadows;
     // Two cascades share a 4096x2048 atlas (2048px tiles), cutting shadow-map texel fill by 56% vs 3072px tiles.
-    const tile = 2048;
+    // (Medium quality halves the tiles; low has no sun shadows: js/quality.js)
+    const tile = Q.shadowTile || 1024;
     this.sunLight.shadow.mapSize.set(tile, tile);
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 220;
@@ -263,8 +265,9 @@ class LightingSystem {
     this.hemiLight.intensity = p.hemiIntensity;
 
     this.scene.fog.color.setHex(p.fogColor);
-    this.scene.fog.density = p.fogDensity;
-    if (this.uFogDensity) this.uFogDensity.value = p.fogDensity;
+    // thicker on lower graphics quality, hiding the shorter draw distance
+    this.scene.fog.density = p.fogDensity * Q.fogScale;
+    if (this.uFogDensity) this.uFogDensity.value = p.fogDensity * Q.fogScale;
 
     // Update physical Preetham SkyMesh uniforms
     this.sky.turbidity.value = p.turbidity;

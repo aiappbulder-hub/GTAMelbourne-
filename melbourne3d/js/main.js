@@ -1,11 +1,12 @@
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, normalView, positionView, metalness, roughness, vec2, smoothstep } from 'three/tsl';
+import { pass, mrt, output, normalView, positionView, metalness, roughness, vec2, vec4, smoothstep } from 'three/tsl';
 import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { createPostProcessing } from './post-processing.js';
 import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
+import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality } from './quality.js';
 // boroughs.js builds New York's surroundings as it loads, so Melbourne never imports it
 const { buildBoroughs } = IS_MELBOURNE ? {} : await import('./boroughs.js');
 import { buildLandmarks } from './landmarks.js';
@@ -89,13 +90,16 @@ async function initApp() {
   const renderer = new THREE.WebGPURenderer({
     // ?webgl forces three's WebGL2 backend (for browsers whose WebGPU is missing or unstable, and for testing)
     forceWebGL: new URLSearchParams(location.search).has('webgl'),
-    antialias: !isFirefox,
+    antialias: !isFirefox && Q.antialias,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true
   });
-  renderer.setPixelRatio(1.0);
+  // Render scale by graphics quality (js/quality.js); adapted to the frame rate as the game runs (see the loop)
+  let pixelRatio = Q.pixelRatio;
+  renderer.setPixelRatio(pixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = Q.shadows;
+  console.info(`[quality] ${QUALITY} (${QUALITY_SOURCE}${GPU_NAME ? `: ${GPU_NAME}` : ''})`);
   renderer.lighting = new ClusteredLighting(256, 32, 28, 48);
   container.appendChild(renderer.domElement);
 
@@ -226,47 +230,67 @@ async function initApp() {
   // 5. TSL RenderPipeline with Half-Res Screen Space Reflections (SSRNode), Bloom & Filmic Toning
   //    Fade out distant and matte surfaces so SSR spends its rays on visible glossy reflections.
   await showLoadingStage('Setting up visual effects, map and interface...', 'ui');
-  const scenePass = pass(scene, cameraSystem.camera);
-  // The multisampled colour attachments (output, normal, metalRough) only need resolving, never storing: discarding
-  // them spares the GPU writing 3 x 4 samples per pixel to memory every frame (transient, memoryless attachments where
-  // the browser supports them). The multisampled depth stays stored: SSR reads it.
-  scenePass.renderTarget.storeMultisampledColorBuffer = false;
-  const ssrFade = smoothstep(360.0, 180.0, positionView.z.negate());
-  const maxSSRRoughness = 0.75;
-  const sceneMRT = mrt({
-    output: output,
-    normal: normalView,
-    metalRough: vec2(roughness.lessThan(maxSSRRoughness).select(metalness.mul(ssrFade), 0), roughness)
-  });
-  sceneMRT.setBlendMode('normal', new THREE.BlendMode(THREE.MaterialBlending));
-  sceneMRT.setBlendMode('metalRough', new THREE.BlendMode(THREE.MaterialBlending));
-  scenePass.setMRT(sceneMRT);
+  // Low quality renders straight to the screen (tone mapping only); medium adds bloom and the grade; high also has the
+  // screen-space reflections
+  let colorGrade, renderPipeline;
+  let compileTarget = null, compileMRT = null; // what precompileShaders() renders into (the scene pass, if any)
+  if (Q.postFX === 'none') {
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    colorGrade = { applyPreset() {} };
+    renderPipeline = { render: () => renderer.render(scene, cameraSystem.camera) };
+  } else if (Q.postFX === 'bloom') {
+    const scenePass = pass(scene, cameraSystem.camera);
+    scenePass.renderTarget.storeMultisampledColorBuffer = false;
+    colorGrade = createPostProcessing(renderer, scenePass.getTextureNode('output'), vec4(0));
+    compileTarget = scenePass.renderTarget;
+    renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);
+  } else {
+    const scenePass = pass(scene, cameraSystem.camera);
+    // The multisampled colour attachments (output, normal, metalRough) only need resolving, never storing: discarding
+    // them spares the GPU writing 3 x 4 samples per pixel to memory every frame (transient, memoryless attachments where
+    // the browser supports them). The multisampled depth stays stored: SSR reads it.
+    scenePass.renderTarget.storeMultisampledColorBuffer = false;
+    const ssrFade = smoothstep(360.0, 180.0, positionView.z.negate());
+    const maxSSRRoughness = 0.75;
+    const sceneMRT = mrt({
+      output: output,
+      normal: normalView,
+      metalRough: vec2(roughness.lessThan(maxSSRRoughness).select(metalness.mul(ssrFade), 0), roughness)
+    });
+    sceneMRT.setBlendMode('normal', new THREE.BlendMode(THREE.MaterialBlending));
+    sceneMRT.setBlendMode('metalRough', new THREE.BlendMode(THREE.MaterialBlending));
+    scenePass.setMRT(sceneMRT);
 
-  const scenePassColor = scenePass.getTextureNode('output');
-  const scenePassDepth = scenePass.getTextureNode('depth');
-  const scenePassNormal = scenePass.getTextureNode('normal');
-  const scenePassMetalRough = scenePass.getTextureNode('metalRough');
+    const scenePassColor = scenePass.getTextureNode('output');
+    const scenePassDepth = scenePass.getTextureNode('depth');
+    const scenePassNormal = scenePass.getTextureNode('normal');
+    const scenePassMetalRough = scenePass.getTextureNode('metalRough');
 
-  const ssrPass = ssr(scenePassColor, scenePassDepth, scenePassNormal, {
-    metalnessNode: scenePassMetalRough.r,
-    roughnessNode: scenePassMetalRough.g,
-    camera: cameraSystem.camera
-  });
-  ssrPass.resolutionScale = 0.5;
-  ssrPass.blurQuality = 1;
-  ssrPass.maxDistance.value = 42;
-  ssrPass.thickness.value = 0.85;
-  // Fewer coarse steps, then refine detected hits to keep reflection edges precise.
-  ssrPass.quality.value = 0.25;
-  ssrPass.binaryRefine = true;
-  ssrPass.intensity.value = 0.50;
-  ssrPass.screenEdgeFadeBlack = true;
+    const ssrPass = ssr(scenePassColor, scenePassDepth, scenePassNormal, {
+      metalnessNode: scenePassMetalRough.r,
+      roughnessNode: scenePassMetalRough.g,
+      camera: cameraSystem.camera
+    });
+    ssrPass.resolutionScale = 0.5;
+    ssrPass.blurQuality = 1;
+    ssrPass.maxDistance.value = 42;
+    ssrPass.thickness.value = 0.85;
+    // Fewer coarse steps, then refine detected hits to keep reflection edges precise.
+    ssrPass.quality.value = 0.25;
+    ssrPass.binaryRefine = true;
+    ssrPass.intensity.value = 0.50;
+    ssrPass.screenEdgeFadeBlack = true;
 
-  // Roughness mip blur must not spread reflections back onto matte or nonreflective surfaces.
-  const reflectionMask = scenePassMetalRough.r.greaterThan(0).select(smoothstep(maxSSRRoughness, 0.55, scenePassMetalRough.g), 0);
-  const reflections = ssrPass.mul(reflectionMask);
-  const colorGrade = createPostProcessing(renderer, scenePassColor, reflections);
-  const renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);
+    // Roughness mip blur must not spread reflections back onto matte or nonreflective surfaces.
+    const reflectionMask = scenePassMetalRough.r.greaterThan(0).select(smoothstep(maxSSRRoughness, 0.55, scenePassMetalRough.g), 0);
+    const reflections = ssrPass.mul(reflectionMask);
+    colorGrade = createPostProcessing(renderer, scenePassColor, reflections);
+    compileTarget = scenePass.renderTarget;
+    compileMRT = sceneMRT;
+    renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);
+  }
+
 
   // Melbourne's teleport destinations replace the New York ones in the popover
   if (IS_MELBOURNE) {
@@ -297,7 +321,17 @@ async function initApp() {
   const modeSwitch = document.getElementById('mode-switch');
   touchControls.onAvailabilityChange = placeModeIndicator;
 
+  // Graphics quality button: Low -> Medium -> High, saved, reloads (js/quality.js)
+  const qualityBtn = document.getElementById('btn-quality');
+  if (qualityBtn) {
+    const label = document.getElementById('quality-label');
+    const names = { low: 'GFX Low', medium: 'GFX Med', high: 'GFX High' };
+    if (label) label.textContent = names[QUALITY];
+    qualityBtn.title = `Graphics: ${QUALITY}${GPU_NAME ? ` (${GPU_NAME})` : ''}. Click for ${QUALITY_LEVELS[(QUALITY_LEVELS.indexOf(QUALITY) + 1) % 3]} (reloads)`;
+    qualityBtn.addEventListener('click', () => setQuality(QUALITY_LEVELS[(QUALITY_LEVELS.indexOf(QUALITY) + 1) % 3]));
+  }
   const elFps = document.getElementById('hud-fps');
+  const fpsWindow = [];
   const elMode = document.getElementById('hud-active-mode');
   const elCamera = document.getElementById('hud-active-camera');
   const elSpeed = document.getElementById('hud-speed');
@@ -679,8 +713,8 @@ async function initApp() {
     });
 
     await showLoadingStage(`Compiling scene shaders... 0 / ${jobs.length} batches`, 'compile', false);
-    renderer.setRenderTarget(scenePass.renderTarget);
-    renderer.setMRT(sceneMRT);
+    renderer.setRenderTarget(compileTarget);
+    renderer.setMRT(compileMRT);
     const compile = async (object) => {
       // Each compile starts in a task of its own: compileAsync() keeps one precompilation state on the renderer,
       // which must not be mid-step for two of them in the same microtask checkpoint
@@ -803,6 +837,17 @@ async function initApp() {
       const currentFps = Math.round(frameCount / fpsTimer);
       frameCount = 0;
       fpsTimer = 0;
+      // Dynamic resolution: every 2 s, scale the render down while the frame rate is under 28 and back up over 48
+      fpsWindow.push(currentFps);
+      if (fpsWindow.length >= 8) {
+        const avg = fpsWindow.reduce((t, v) => t + v, 0) / fpsWindow.length;
+        fpsWindow.length = 0;
+        const next = avg < 28 ? Math.max(Q.minPixelRatio, pixelRatio * 0.85) : avg > 48 ? Math.min(Q.pixelRatio, pixelRatio * 1.1) : pixelRatio;
+        if (Math.abs(next - pixelRatio) > 0.01) {
+          pixelRatio = next;
+          renderer.setPixelRatio(pixelRatio);
+        }
+      }
 
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;

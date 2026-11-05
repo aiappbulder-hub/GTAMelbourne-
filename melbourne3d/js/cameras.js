@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { Q } from './quality.js';
 import { bryantParkLawn } from './landmarks.js';
 import { SCENIC_VIEWS } from './city-config.js';
 
@@ -29,7 +30,7 @@ class CameraSystem {
       56,
       window.innerWidth / window.innerHeight,
       0.35,
-      60000 // at 1:1 the boroughs & harbor run out ~20-40 km to the fogged horizon (reversed float depth keeps precision)
+      Q.cameraFar // (js/quality.js; 60 km on high:) at 1:1 the boroughs & harbor run out ~20-40 km to the fogged horizon (reversed float depth keeps precision)
     );
 
     this.activePresetId = 'chase';

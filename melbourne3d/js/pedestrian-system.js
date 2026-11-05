@@ -1,10 +1,11 @@
 import { blockAt } from './city-config.js';
+import { Q } from './quality.js';
 import { createPedestrianRoutes } from './pedestrian-routes.js';
 import { PersonCrowd, PersonRig, PEDESTRIAN_DIVE_DURATION } from './pedestrians.js';
 
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
-const NUM_PEDS = 340;
+const NUM_PEDS = Q.peds; // 340 on high quality (js/quality.js)
 const PED_RADIUS = 320;
 const NEAR_RADIUS = 350;
 const PED_SPAWN_DISTANCE = 150;

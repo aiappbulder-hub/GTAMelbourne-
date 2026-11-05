@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { Q } from './quality.js';
 
 // Spatial culling for the island-wide static geometry. Most of Manhattan's street furniture and building massing is
 // built as a handful of instanced meshes spanning the whole island (bounding spheres ~7 km across), which three.js can
@@ -13,9 +14,10 @@ import * as THREE from 'three/webgpu';
 
 const SHADOW_PROXY_LAYER = 3;
 // Distance at which an instance of typical size s (m) is culled: about s / d * 1100 px tall on a 1300 px viewport
-const CULL_PER_METRE = 1100;
-const CULL_MIN = 300; // never closer: the shadow cascades reach ~300 m at street level
-const CULL_MAX = 2000; // beyond this the props are kept at any distance
+// (shorter on lower graphics quality: js/quality.js)
+const CULL_PER_METRE = 1100 * Q.cullScale;
+const CULL_MIN = 300 * Q.cullScale; // never closer: the shadow cascades reach ~300 m at street level
+const CULL_MAX = 2000 * Q.cullScale; // beyond this the props are kept at any distance
 const PROXY_CELL = 500; // the far cascade spans ~400 m at street level: a cascade sees a few cells
 const STATIC_CELL = 1000;
 
