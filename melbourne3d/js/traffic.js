@@ -5,6 +5,9 @@ import { createPedestrianSystem } from './pedestrian-system.js';
 import { vehicleContact, resolveVehicleContact, sweptVehicleContact } from './vehicle-physics.js';
 import { signalPhase, walkSignal } from './city-config.js';
 import { IS_MELBOURNE } from './city.js';
+// The turn across oncoming traffic, which gives way to it: left where traffic keeps right (New York), right where it
+// keeps left (Melbourne)
+const ACROSS = IS_MELBOURNE ? 'R' : 'L';
 import { cityUniforms, createContactShadowMaterial, createCarFlareMaterial } from './tsl-materials.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import {
@@ -545,7 +548,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     const f = v.move.to;
     touchNode(e.to).box[e.axisIndex]++;
     if (!v.conn || v.cs < v.half + 2.5) e.to.crossing[e.inSide]++; // until its tail is past the crosswalk on its way in
-    if (v.move.turn !== 'L') touchEdge(e).through++;
+    if (v.move.turn !== ACROSS) touchEdge(e).through++;
     if (!v.yielding) cross(v);
     occupy(f.occ[v.out], v, v.conn ? v.cs - v.conn.len : v.s - e.len - connector(e, v.lane, f, v.out).len);
   }
@@ -553,7 +556,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   // ...and, unless still waiting inside to turn left, the oncoming lanes and the crosswalk on its way out
   function cross(v) {
     const e = v.edge;
-    if (v.move.turn === 'L') touchEdge(e).lefts++;
+    if (v.move.turn === ACROSS) touchEdge(e).lefts++;
     touchNode(e.to).crossing[v.move.to.outSide]++;
     v.yielding = false;
   }
@@ -777,7 +780,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     const red = o.to.signal && phaseOf(o) === 'red';
     for (const list of o.occ) {
       const lead = leadOf(list);
-      if (!lead || (lead.v.edge === o && lead.v.move.turn === 'L')) continue;
+      if (!lead || (lead.v.edge === o && lead.v.move.turn === ACROSS)) continue;
       if (red && !lead.v.isPolice) continue;
       if (!canStop(lead, o, impatient)) return true;
       const u = lead.v;
@@ -859,7 +862,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
 
   // Must v, pulled into the intersection to turn, wait there: for people crossing its way out (`peds`) or, turning
   // left, for oncoming traffic?
-  const holdsOn = (v, peds) => peds || (v.move.turn === 'L' && yieldOncoming(v.edge.opposite, false));
+  const holdsOn = (v, peds) => peds || (v.move.turn === ACROSS && yieldOncoming(v.edge.opposite, false));
 
   // Of two vehicles on the same road headed for the same lane, the one whose front is nearer the line goes first (by
   // the front: a bus waiting at the line goes before the cars that pull up beside it)
@@ -971,9 +974,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     // traffic, short of the oncoming lanes until there is a gap. The light changing stops both for it at the latest.
     const c = connector(e, v.lane, f, j);
     const first = n.signal && (!v.isPolice || phase === 'green') && m.turn !== 'S' && !lead;
-    const across = m.turn === 'L' && !!e.opposite;
+    const across = m.turn === ACROSS && !!e.opposite;
     const wait = first ? (across ? yieldPoint(v, c, e) : c.len - 3 - v.half) : -1; // < 0: no room inside to wait
-    if (m.turn === 'L' ? across && wait < 0 && yieldOncoming(e.opposite, v.wait > 8, v) : e.opposite && e.opposite.lefts > 0) return false;
+    if (m.turn === ACROSS ? across && wait < 0 && yieldOncoming(e.opposite, v.wait > 8, v) : e.opposite && e.opposite.lefts > 0) return false;
     if ((n.signal ? v.isPolice && phase !== 'green' : e.axisIndex !== 0) && yieldToCrossTraffic(v, n)) return false;
     // nobody on the crosswalks while it passes over them, on the way in and on the way out, and a free place to
     // clear the intersection to, taking turns with lanes merging into it

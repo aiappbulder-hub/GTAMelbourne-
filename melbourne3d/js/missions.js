@@ -156,6 +156,8 @@ const CSS = `
 .gm-big { position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%); z-index: 31; text-align: center; pointer-events: none;
   font: 900 clamp(30px, 6vw, 64px)/1 Inter, system-ui, sans-serif; letter-spacing: .04em; text-shadow: 0 4px 18px rgba(0,0,0,.7); transition: opacity .4s; }
 .gm-big small { display: block; margin-top: 10px; font-size: .42em; color: #8ee07a; }
+body.cutscene .gm-cut { bottom: max(10px, calc(11vh - 64px)); width: min(660px, 92vw); z-index: 61; background: rgba(0,0,0,.42); padding: 10px 16px 8px; }
+body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { display: none !important; }
 .gm-cut { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(760px, 94vw); z-index: 32; padding: 14px 18px 12px;
   border-radius: 14px; background: rgba(8, 10, 14, 0.9); color: #fff; font: 500 16px/1.45 Inter, system-ui, sans-serif; cursor: pointer;
   box-shadow: 0 10px 40px rgba(0,0,0,.45); }
@@ -328,9 +330,60 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elSub.textContent = text;
     subT = secs;
   }
+  // A job's cut scene is played out between the player and the giver (Vince or Kaz): letterbox bars, the player walks
+  // up to the giver (on foot), and the camera cuts over the shoulder of whoever is listening to whoever is speaking
   function showCut(lines, done) {
-    cut = { lines, k: 0, done };
+    cut = { lines, k: 0, done, giver: null };
+    const def = mission?.def;
+    if (def && cast) {
+      const at = giverSpot(def);
+      cut.giver = at;
+      const person = controllerManager.entities.person;
+      if (controllerManager.activeMode === 'person') {
+        // stand 1.7 m in front of the giver, facing them
+        const p = playerPos();
+        const d = Math.hypot(p.x - at.x, p.z - at.z) || 1;
+        person.position.set(at.x + ((p.x - at.x) / d) * 1.7, at.y ?? person.position.y, at.z + ((p.z - at.z) / d) * 1.7);
+        person.heading = Math.atan2(at.x - person.position.x, at.z - person.position.z);
+        person.speed = 0;
+      }
+    }
+    document.body.classList.add('cinematic', 'cutscene');
     renderCut();
+  }
+  // The camera for the line being spoken (called after the follow camera each frame; see main.js)
+  const _eye = new THREE.Vector3(), _look = new THREE.Vector3();
+  function applyCamera(dt) {
+    if (!cut || !cut.giver || !cameraSystem) return false;
+    controllerManager.resetInput();
+    const me = controllerManager.getActiveEntity().position, g = cut.giver;
+    const onFoot = controllerManager.activeMode === 'person';
+    const [who] = cut.lines[cut.k];
+    const youSpeak = who === 'You';
+    // from the listener's side, a little to the right of their shoulder, looking at the speaker's face
+    const from = youSpeak ? g : me, to = youSpeak ? me : g;
+    const dx = to.x - from.x, dz = to.z - from.z, d = Math.hypot(dx, dz) || 1;
+    const fx = dx / d, fz = dz / d, rx = -fz, rz = fx;
+    const headTo = (youSpeak ? (onFoot ? me.y : me.y + 0.2) : (g.y ?? 0)) + 1.62;
+    const headFrom = (youSpeak ? (g.y ?? 0) : me.y) + 1.66;
+    _eye.set(from.x - fx * 0.9 + rx * 0.55, headFrom + 0.08, from.z - fz * 0.9 + rz * 0.55);
+    _look.set(to.x, headTo - 0.05, to.z);
+    const cam = cameraSystem.camera;
+    // a straight cut on each new line, then a slow push in (the shot keeps its own state: the follow camera would
+    // pull it back every frame)
+    if (cut.cutTo !== cut.k) {
+      cut.cutTo = cut.k;
+      cut.eye = _eye.clone().addScaledVector(new THREE.Vector3(fx, 0, fz), -0.35);
+      cut.look = _look.clone();
+    }
+    cut.eye.lerp(_eye, Math.min(1, dt * 0.6));
+    cut.look.lerp(_look, Math.min(1, dt * 3));
+    cameraSystem.currentPos.copy(cut.eye);
+    cameraSystem.currentLookAt.copy(cut.look);
+    cam.position.copy(cut.eye);
+    cam.lookAt(cut.look);
+    cam.updateMatrixWorld();
+    return true;
   }
   function renderCut() {
     const [who, line] = cut.lines[cut.k];
@@ -353,6 +406,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const done = cut.done;
       cut = null;
       elCut.hidden = true;
+      document.body.classList.remove('cinematic', 'cutscene');
       voices?.stopStory();
       done();
     } else renderCut();
@@ -439,10 +493,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
     if (cast) {
       const def = mission ? mission.def : MISSIONS[save.progress];
-      const show = def && (!mission || cut) && !document.body.classList.contains('cinematic');
+      const show = def && (!mission || cut) && (cut || !document.body.classList.contains('cinematic'));
       if (show) {
         const at = giverSpot(def);
-        cast.setGiver(def.giver, at, p, !!cut, dt);
+        cast.setGiver(def.giver, at, p, !!cut && cut.lines[cut.k]?.[0] !== 'You', dt); // gesturing while they speak
       } else cast.setGiver(null);
     }
     // the pointer: the objective's marker, or the nearest target, or the next job's
@@ -545,6 +599,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     get progress() { return save.progress; },
     get money() { return save.money; },
     start,
+    applyCamera,
+    get inCut() { return !!cut; },
     /** Start a job now, wherever the player is (the Jobs list) */
     startNow(i) {
       if (mission) fail('You walked off the job.');

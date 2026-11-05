@@ -24,6 +24,10 @@ const Z_MAX = Math.ceil(ISLAND_BOUNDS.maxZ) + 20;
 const LANE_CLEAR = 1.2; // half width each lane keeps free of obstacles
 const CROSSWALK = 2.5; // depth between an intersection box and its stop lines
 const SHORE_MARGIN = 6;
+// Melbourne keeps left: every road's lanes are mirrored across its centreline (New York keeps right). The lane
+// offsets below are written for keeping right; edges flip them when they're made
+const KEEP_LEFT = IS_MELBOURNE;
+const side = (lanes) => (KEEP_LEFT ? lanes.map((o) => -o) : lanes);
 
 function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
   // ?debugroads: the network's inputs and every edge before the connectivity cut, for checking it from tools
@@ -442,6 +446,7 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
   // 5. Directed edges between intersections, keeping only the lanes clear of obstacles node to node
   let edges = [];
   function addEdge(from, to, axis, x0, z0, x1, z1, lanes, half) {
+    lanes = side(lanes);
     const span = Math.hypot(x1 - x0, z1 - z0);
     const dx = (x1 - x0) / span;
     const dz = (z1 - z0) / span;
@@ -490,6 +495,7 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
     return true;
   };
   function addEdgeGeneral(from, to, axis, lanes, half, divided) {
+    lanes = side(lanes);
     const x0 = from.x;
     const z0 = from.z;
     const span = Math.hypot(to.x - x0, to.z - z0);

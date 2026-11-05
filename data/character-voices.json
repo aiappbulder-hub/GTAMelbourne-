@@ -521,6 +521,151 @@
         "heard": "Honestly, the Rotten Fitzroy is getting ridiculous.",
         "score": 0.8
       }
+    },
+    {
+      "id": "vince_hotlap_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/hot-lap",
+      "text": "Their best lap is three and a half minutes. Beat it and they'll know whose town this is.",
+      "file": "dialogue/hot-lap/vince_hotlap_3.mp3",
+      "duration": 5.59,
+      "check": {
+        "heard": "Their best lap is 3 and a half minutes. Beat it, and they'll know whose town this is.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "vince_chop_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/chop-shop",
+      "text": "The Broady boys love their utes. So do the buyers at my chop shop.",
+      "file": "dialogue/chop-shop/vince_chop_1.mp3",
+      "duration": 4.22,
+      "check": {
+        "heard": "The Brody Boys love their utes. So do the buyers at my chop shop.\"",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "vince_chop_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/chop-shop",
+      "text": "Nick one off the street. Walk up, pull the driver out, done. Then get it to North Melbourne.",
+      "file": "dialogue/chop-shop/vince_chop_2.mp3",
+      "duration": 5.71,
+      "check": {
+        "heard": "Nick one off the street, walk up, pull the driver out, done, then get it to North Melbourne.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "vince_chop_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/chop-shop",
+      "text": "Any ute. Just don't bring it back with bullet holes.",
+      "file": "dialogue/chop-shop/vince_chop_3.mp3",
+      "duration": 3.29,
+      "check": {
+        "heard": "Benny Ute, just don't bring it back with bullet holes.",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "vince_word_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who.",
+      "file": "dialogue/word-on-the-street/vince_word_1.mp3",
+      "duration": 5.3,
+      "check": {
+        "heard": "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "vince_word_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Go to Fitzroy and ask around. Locals talk if you ask nicely.",
+      "file": "dialogue/word-on-the-street/vince_word_2.mp3",
+      "duration": 4.7,
+      "check": {
+        "heard": "Go to Fitzroy and ask around, locals talk if you ask nicely.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_informant_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "Some dog in Carlton is singing to Taskforce Kestrel. He records it all on tape.",
+      "file": "dialogue/the-informant/kaz_informant_1.mp3",
+      "duration": 5.45,
+      "check": {
+        "heard": "Some dog in Carlton is singing to Task Force Kestrel. He records it all on tape.",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "kaz_informant_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "Two drops: the phone box by the Exhibition Building, and his flat in East Melbourne. Get the tapes before Kestrel does.",
+      "file": "dialogue/the-informant/kaz_informant_2.mp3",
+      "duration": 6.98,
+      "check": {
+        "heard": "Two drops the phone box by the exhibition building and his flat in East Melbourne. Get the tapes before Kestrel does.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_tobacco_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "You heard about the tobacco war? Every chop shop in town is getting torched.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco_1.mp3",
+      "duration": 4.34,
+      "check": {
+        "heard": "You heard about the tobacco war? Every chop shop in town is getting torched.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_tobacco_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf."
+    },
+    {
+      "id": "kaz_tobacco_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "Set the charge, then get well clear. Make it loud."
+    },
+    {
+      "id": "kaz_harbour_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "Taskforce Kestrel raided the Brighton house. Both crews want you gone now."
+    },
+    {
+      "id": "kaz_harbour_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."
     }
   ]
 }

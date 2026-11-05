@@ -310,7 +310,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     active = false;
     score.stop();
     if (arriving) arrive(false);
-    voices?.stopStory();
+    voices?.stopStory('intro'); // only the intro's own lines, never a cut scene's
     document.body.classList.remove('cinematic');
     line.style.opacity = '0';
     title.style.opacity = '0';
@@ -369,7 +369,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       line.append(document.createTextNode(text));
       line.style.opacity = '1';
       // Vince's call, recorded (down the phone line)
-      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who) });
+      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro' });
     }
     if (s.title) title.style.opacity = t > 0.6 ? '1' : '0';
     // fade to black over the cut

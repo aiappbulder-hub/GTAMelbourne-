@@ -624,6 +624,7 @@ async function initApp() {
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
+  window.__city.audio = audioSystem;
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
@@ -891,6 +892,7 @@ async function initApp() {
     if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
+    missionSystem?.applyCamera(dt); // a job's cut scene takes the camera
     streetDetails.signalClock.value = elapsed;
     trafficSystem.update(
       dt,

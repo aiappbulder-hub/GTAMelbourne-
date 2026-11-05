@@ -172,7 +172,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     active.filter((v) => v.line.character === line.character && v.line.category !== 'chat' && cat !== 'chat').forEach((v) => stop(v));
     note(line);
 
-    const v = { line, ch, channel, prio, follow: opts.at || null, t: 0, dur: line.duration || 3, sub: null, onEnd: opts.onEnd, src: null, gain: null };
+    const v = { line, ch, channel, prio, follow: opts.at || null, t: 0, dur: line.duration || 3, sub: null, onEnd: opts.onEnd, src: null, gain: null,
+      opts, tag: opts.tag || null, starting: false };
     active.push(v);
     if (subtitles && opts.subtitle !== false) {
       const near = !opts.at || !audioSystem.haveListener || Math.hypot(opts.at.x - listener.x, opts.at.z - listener.z) < ch.refDistance * 4;
@@ -192,10 +193,20 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       }
     }
 
+    startSound(v);
+    return { line, duration: v.dur };
+  }
+
+  // The sound of a voice: now if the audio is running, else as soon as it is (the browser only allows sound after the
+  // player's first key or tap, and a cut scene may already be up by then): it then starts where the line has got to
+  function startSound(v) {
     const c = context();
-    if (!c) return { line, duration: v.dur }; // no sound right now: the subtitle still shows for the clip's length
+    if (!c || v.starting || v.src) return;
+    v.starting = true;
+    const { line, ch, channel, opts } = v;
     const t0 = performance.now();
     load(line).then((buffer) => {
+      v.starting = false;
       if (!active.includes(v) || ctx !== c) return;
       // ambient chatter that took too long to load is no longer worth saying
       if (channel === 'ambient' && performance.now() - t0 > 1500) return stop(v, 0);
@@ -227,10 +238,9 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       v.src = src;
       v.gain = gain;
       v.dur = buffer.duration;
-      v.t = 0;
-      src.start();
-    }).catch(() => { /* a missing clip: the subtitle runs out on its own */ });
-    return { line, duration: v.dur };
+      const offset = Math.min(v.t, Math.max(0, buffer.duration - 0.2));
+      src.start(0, offset);
+    }).catch(() => { v.starting = false; /* a missing clip: the subtitle runs out on its own */ });
   }
 
   /** A line by its exact script text (mission cut scenes, the intro); null when it has no clip */
@@ -332,8 +342,10 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
           v.rest.textContent = v.words.slice(n).join(' ');
         }
       }
+      // no sound yet: start it once the audio runs (story lines only, while there's a fair part of the line left)
+      if (!v.src && c && v.prio >= PRIORITY.story && v.t < v.dur - 0.8) startSound(v);
       // no sound (muted, or not started): end on the clip's length
-      if (!v.src && v.t > v.dur + 0.4) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); }
+      if (!v.src && !v.starting && v.t > v.dur + 0.4) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); }
     }
     if (ambient && c && !isCinematic() && !storyOn) {
       nextChat -= dt;
@@ -367,7 +379,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     event,
     update,
     /** End the story line that's playing (a skipped cut scene) */
-    stopStory() { active.filter((v) => v.prio >= PRIORITY.story).forEach((v) => stop(v)); },
+    stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); },
     stopAll() { [...active].forEach((v) => stop(v)); },
     get active() { return active.map((v) => ({ id: v.line.id, channel: v.channel, t: v.t, sound: !!v.src })); },
     get volume() { return volume; },
