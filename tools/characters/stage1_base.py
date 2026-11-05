@@ -51,8 +51,9 @@ CHARACTERS = {
     # the player character, from Trent's reference sheet: 45, 183 cm, 69 kg, lean runner's build
     "trent": dict(
         sex="male", seed=45,
-        targets={"universal-male-young-averagemuscle-minweight": .55, "universal-male-old-averagemuscle-minweight": .25,
-                 "universal-male-young-maxmuscle-minweight": .2, "male-young-averagemuscle-averageweight-maxheight": .15,
+        targets={"universal-male-young-maxmuscle-minweight": .75, "universal-male-young-maxmuscle-averageweight": .7,   # muscular, still lean
+                 "universal-male-old-maxmuscle-minweight": .05,
+                 "male-young-averagemuscle-averageweight-maxheight": .15,
                  "caucasian-male-young": .75, "caucasian-male-old": .25, "male-young-averagemuscle-averageweight-idealproportions": 1},
         skin="#c68a62", lips="#a0614f", brows="#2e2620", hair_col="#2e2620", beard_col="#34291f", eye="#5a4630", stubble=.2, blush=.15,
         hair="bald", beard=.8,
@@ -1396,6 +1397,8 @@ def build(name):
         s_ = 1 if p.x > 0 else -1
         S_, E_, W_ = fit.sh[s_], fit.el[s_], fit.wr[s_]
         tip = W_ + (W_ - E_).normalized() * .21                       # the hand carries on past the wrist
+        if p.z > E_.z:   # the shoulders: no hand is up here, and the skin moves with the arm when it's raised to the T-pose
+            return True
         return min(rig._seg_dist(p, S_, E_), rig._seg_dist(p, E_, W_)) < .1 and p.z > W_.z - .06 or rig._seg_dist(p, W_, tip) < .065
     rig.weight_body(arm, body_lo)
     for o in ghead + gunder + gout:
@@ -1405,6 +1408,12 @@ def build(name):
         for pre, bone in rig.RIGID:
             if o.name.startswith(pre) and not o.name.startswith("backpack_strap"):
                 rig.rigid(o, bone)
+
+    # move onto the animation library's own skeleton (stage 2b): its keyframed clips then play exactly as authored
+    dressed = dup(body_lo, name + "_body_dressed")
+    hide_under(dressed, C["outfit"], fit)
+    import ual_rig
+    arm = ual_rig.convert(arm, [body_lo, dressed] + ghead + gunder + gout, body_lo)
 
     def export(objs, path):
         bpy.ops.object.select_all(action="DESELECT")
@@ -1416,12 +1425,12 @@ def build(name):
                                   export_yup=True, export_image_format="JPEG", export_jpeg_quality=86,
                                   export_skins=True, export_animations=True, export_animation_mode="NLA_TRACKS")
         t = sum(tris(o) for o in objs)
+        import glb_slim
+        glb_slim.slim(path)   # drop the animation channels that never move
         report[os.path.basename(path)] = (t, os.path.getsize(path))
         print("  exported %s: %d tris, %d KB" % (path, t, os.path.getsize(path) // 1024))
 
     export([body_lo] + ghead + gunder, os.path.join(OUT["exports"], name + "_base.glb"))
-    dressed = dup(body_lo, name + "_body_dressed")
-    hide_under(dressed, C["outfit"], fit)
     export([dressed] + ghead + gout, os.path.join(OUT["exports"], name + ".glb"))
     # crowd LOD: a third of the triangles and 512px textures
     small = {}

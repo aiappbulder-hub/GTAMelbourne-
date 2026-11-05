@@ -842,7 +842,7 @@ function makeCar(type,x,y,a,o={}){const T=CARS[type];
     cop:!!T.cop,thr:0,steer:0,hb:false,wreck:false,burning:0,stuckT:0,revT:0,turn:null,nextI:undefined,cruise:rr(200,280),mode:o.mode||'traffic',
     exited:false,siren:false,mission:!!o.mission,lastHit:null,horn:0,id:Math.random()};
   cars.push(c);return c}
-function makePed(x,y,kind='civ',o={}){const bald=kind==='civ'&&R()<.12;const p={bald,male:bald||undefined,kind,x,y,a:R()*TAU,hp:kind==='civ'?40:kind==='cop'?80:70,speed:kind==='civ'?rr(45,65):150,
+function makePed(x,y,kind='civ',o={}){const bald=kind==='civ'&&R()<.12;const p={bald,male:bald||undefined,kind,x,y,a:R()*TAU,hp:kind==='civ'?40:kind==='cop'?80:70,speed:kind==='civ'?rr(17,24):rr(20,26),
   tx:x,ty:y,dir:(R()*4)|0,panic:0,fx:0,fy:0,anim:R()*10,shirt:o.shirt||pick(SHIRTS),skin:pick(SKIN),hair:pick(HAIR),
   stripes:kind==='civ'&&R()<.14,weapon:o.weapon||0,cool:rr(.3,1),alert:false,dead:false,deadT:0,kx:0,ky:0,hitCool:0,
   mission:!!o.mission,car:o.car||null};
@@ -1240,9 +1240,9 @@ function updatePeds(dt){
         if(p.panic<=0){const tx=Math.floor(p.x/TS),ty=Math.floor(p.y/TS);p.tx=(tx+.5)*TS;p.ty=(ty+.5)*TS;p.e=null}}
       else civWalk(p,dt,p.speed)}
     else if(p.kind==='cop'){
-      if(stars===0){if(dp>spawnR*.8){peds.splice(i,1);continue}if(p.car&&!p.car.wreck){const d=chaseMove(p,p.car,110,dt,20);if(d<24){p.car.driver='cop';p.car.mode='traffic';p.car.driver='ai';p.car.exited=false;p.car.e=null;peds.splice(i,1)}}continue}
-      if(player.car&&p.car&&!p.car.wreck&&dp>260&&!p.car.driver){const d=chaseMove(p,p.car,150,dt,20);if(d<24){p.car.driver='cop';p.car.mode='chase';p.car.exited=false;peds.splice(i,1)}continue}
-      const d=chaseMove(p,ptarget,player.car?155:140,dt,player.car?28:16);
+      if(stars===0){if(dp>spawnR*.8){peds.splice(i,1);continue}if(p.car&&!p.car.wreck){const d=chaseMove(p,p.car,80,dt,20);if(d<24){p.car.driver='cop';p.car.mode='traffic';p.car.driver='ai';p.car.exited=false;p.car.e=null;peds.splice(i,1)}}continue}
+      if(player.car&&p.car&&!p.car.wreck&&dp>260&&!p.car.driver){const d=chaseMove(p,p.car,108,dt,20);if(d<24){p.car.driver='cop';p.car.mode='chase';p.car.exited=false;peds.splice(i,1)}continue}
+      const d=chaseMove(p,ptarget,player.car?112:100,dt,player.car?28:16);
       if(stars>=3&&d<230&&d>40&&!player.car&&los(p.x,p.y,player.x,player.y))pedShoot(p,player,dt);
       if(stars>=4&&player.car&&d<200&&los(p.x,p.y,ptarget.x,ptarget.y))pedShoot(p,ptarget,dt);
       const close=player.car?(Math.abs(fwdSpeed(player.car))<25&&d<40):d<22;
@@ -1253,7 +1253,7 @@ function updatePeds(dt){
       if(p.ambient&&!p.alert){civWalk(p,dt,p.speed)
         if(dp>spawnR+500)peds.splice(i,1);continue}
       if(!p.ambient&&!p.alert&&dp<260&&los(p.x,p.y,ptarget.x,ptarget.y))p.alert=true;
-      if(p.alert&&deadT<=0){if(dp>170||!los(p.x,p.y,ptarget.x,ptarget.y))chaseMove(p,ptarget,135,dt,30);else{p.a=Math.atan2(ptarget.y-p.y,ptarget.x-p.x);const s=Math.sin(gameT*1.7+p.anim)*60;moveCircle(p,-Math.sin(p.a)*s*dt,Math.cos(p.a)*s*dt,6);p.anim+=dt*6}
+      if(p.alert&&deadT<=0){if(dp>170||!los(p.x,p.y,ptarget.x,ptarget.y))chaseMove(p,ptarget,97,dt,30);else{p.a=Math.atan2(ptarget.y-p.y,ptarget.x-p.x);const s=Math.sin(gameT*1.7+p.anim)*60;moveCircle(p,-Math.sin(p.a)*s*dt,Math.cos(p.a)*s*dt,6);p.anim+=dt*6}
         if(dp<300&&los(p.x,p.y,ptarget.x,ptarget.y))pedShoot(p,ptarget,dt)}}
     else if(p.kind==='target'){
       if(dp<230)p.alert=true;
@@ -1296,7 +1296,7 @@ function trySpawnPed(near){for(let t=0;t<12;t++){const a=R()*TAU,d=near?rr(100,s
   const r=nearestEdge(player.x+Math.cos(a)*d,player.y+Math.sin(a)*d,220,E=>!E.fw&&!E.ramp&&!E.tun);if(!r)continue;const E=EDGES[r.e],side=R()<.5?1:-1,o=(E.hw+10)*side,x=r.px-r.dy*o,y=r.py+r.dx*o;
   if(solidPx(x,y)||Math.hypot(x-player.x,y-player.y)<(near?90:spawnR*.8))continue;
   const crew=crewAt(x,y);let p;
-  if(crew&&R()<.14&&peds.filter(q=>q.ambient&&!q.dead).length<8){p=makePed(x,y,'gang',{shirt:crew.shirt,weapon:R()<.25?2:1});p.ambient=true;p.crew=crew.id;p.speed=55}
+  if(crew&&R()<.14&&peds.filter(q=>q.ambient&&!q.dead).length<8){p=makePed(x,y,'gang',{shirt:crew.shirt,weapon:R()<.25?2:1});p.ambient=true;p.crew=crew.id;p.speed=24}
   else p=makePed(x,y,'civ');
   p.e=r.e;p.dir=R()<.5?1:-1;p.sd=p.dir>0?r.s:E.len-r.s;p.lside=-p.dir*side;return p}return null}
 // street crews hang out on their own turf and leave you alone until you start something
@@ -1359,7 +1359,7 @@ function updatePlayer(dt,c){
   // jumping: up and over low walls of people, and over a car bonnet if you time it
   if(c.jump&&!(player.z>0)){player.vz=200;SFX.noise(.06,700,.12)}
   if(player.z>0||player.vz>0){player.vz-=600*dt;player.z=Math.max(0,(player.z||0)+player.vz*dt);if(player.z===0){player.vz=0;player.anim+=2}}
-  const sp=(c.sprint?185:125)*(isShallow(player.x,player.y)?.6:1);
+  const sp=(c.sprint?133:90)*(isShallow(player.x,player.y)?.6:1);   // a fast run and a sprint the run cycles can keep up with
   if(c.tank){if(mouse.aim){const f=c.fwd*(c.fwd>0?.7:.55),r=c.turn*.62,ca=Math.cos(player.a),sa=Math.sin(player.a);c.mx=ca*f-sa*r;c.my=sa*f+ca*r}   // aiming down sights: WASD strafes, the mouse turns you
     else{player.a+=c.turn*2.9*dt;if(c.fwd){const k=c.fwd>0?1:-.55;c.mx=Math.cos(player.a)*k;c.my=Math.sin(player.a)*k}}}
   if(G3.ok){G3.footMove=!!(c.mx||c.my||c.turn);G3.tank=!!c.tank}
@@ -2566,7 +2566,7 @@ const PEOPLE={ver:0,tpl:{}};
 const AUS={player:'trent',male:['aussie_bloke','bearded_gaz','tradie_dazza','student_minh','street_kai','old_bruce','gym_jono'],
   female:['aussie_girl','student_amara','old_marg','night_jess','gym_kayla'],gang:['gang_tama'],cop:['cop_vic'],runM:['gym_jono','aussie_bloke','trent'],runF:['gym_kayla','aussie_girl'],bald:['bearded_gaz']};
 const CHAR_EXT='';
-const AUSCLIP={idle:'idle',walk:'walk',run:'run',sprint:'sprint',die:'die',punch:'punch',aim:'aim',shoot:'shoot',runShoot:'runShoot',walkGun:'walkGun',jump:'jump',hit:'hit'};
+const AUSCLIP={idle:'idle',walk:'walk',run:'run',sprint:'sprint',die:'die',punch:'punch',aim:'aimIdle',shoot:'aimIdle',runShoot:'run',walkGun:'walk',jump:'jump',hit:'hit'};   // armed clips get their arms from aimIK()
 // colour variants: half the pedestrians wear their outfit in other colours (garment materials are named Cloth_*)
 const OUTFIT_COLS=['#1d2b45','#3a3d42','#7b9cc4','#2e3b55','#4b5240','#8b7d5a','#c46a3a','#d23b2a','#f2efe8','#141416','#2f6bd8','#6b4a2e','#9a3b5a','#e8b500','#5a6f4a','#b8b2a8'];
 const PCLIP={worker:{idle:'Man_Idle',walk:'Man_Walk',run:'Man_Run',die:'Man_Death',punch:'Man_Punch',jump:'Man_Jump'},
@@ -2613,30 +2613,57 @@ function humanMesh(p,isPl){const T=G3.T,kind=isPl?'pl':p.kind,armed=isPl||kind==
   const mixer=new T.AnimationMixer(m),acts={};for(const[a,clip]of Object.entries(tp.aus?AUSCLIP:PCLIP[key])){const c=tp.clips.find(c=>c.name===clip);if(c)acts[a]=mixer.clipAction(c)}
   if(acts.die){acts.die.setLoop(T.LoopOnce,1);acts.die.clampWhenFinished=true}if(acts.jump){acts.jump.setLoop(T.LoopOnce,1);acts.jump.clampWhenFinished=true}
   if(acts.punch)acts.punch.setLoop(T.LoopOnce,1);if(acts.hit){acts.hit.setLoop(T.LoopOnce,1)}
-  let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^Wrist\.?R$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
+  let hand=null,head=null;m.traverse(o=>{if(o.isBone&&/^(Wrist\.?R|hand_r)$/.test(o.name))hand=o;if(o.isBone&&o.name==='Head')head=o});let gun=null;
   if((p.bald||isPl)&&head&&!tp.aus){g.updateMatrixWorld(true);const ws=new T.Vector3();head.getWorldScale(ws);const b=new T.Mesh(G3.sph,M2(isPl?ME.beard:BEARD[(hash(p.x|0,7,3)*BEARD.length)|0]));
     b.scale.set(1.35/ws.x,1.05/ws.y,1.1/ws.z);b.position.set(0,.55/ws.y,.95/ws.z);b.castShadow=true;head.add(b)}   // a full beard on the jaw
   if(hand&&Object.keys(GUNM).length){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();
     for(const id in GUNM){const c=GUNM[id].clone();c.name=id;c.visible=false;gun.add(c)}gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}
   else if(hand){g.updateMatrixWorld(true);const ws=new T.Vector3();hand.getWorldScale(ws);gun=new T.Group();const body=new T.Mesh(G3.box,M2('#151515'));body.scale.set(1,4.6,1.6);body.position.set(0,2.6,.2);const grip=new T.Mesh(G3.box,M2('#2a2a2a'));grip.scale.set(.9,1.1,2.2);grip.position.set(0,.6,-.6);gun.add(body,grip);
     gun.scale.set(1/ws.x,1/ws.y,1/ws.z);hand.add(gun);gun.visible=false}   // bones point along +y, so the barrel runs out past the fingers
-  g.userData={model:true,aus:!!tp.aus,mixer,acts,cur:null,armed,gun,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
+  const bn={};m.traverse(o=>{if(o.isBone)bn[o.name]=o});
+  const ik=bn.upperarm_r&&bn.lowerarm_r&&bn.hand_r&&bn.upperarm_l&&bn.lowerarm_l&&bn.hand_l?{ur:bn.upperarm_r,lr:bn.lowerarm_r,hr:bn.hand_r,ul:bn.upperarm_l,ll:bn.lowerarm_l,hl:bn.hand_l,w:0}:null;
+  g.userData={model:true,aus:!!tp.aus,mixer,acts,cur:null,armed,gun,ik,ver:PEOPLE.ver,key,px:p.x,py:p.y,spd:0};(acts.idle||Object.values(acts)[0]).play();g.userData.cur=acts.idle;return g}
 let HIDDEN=null;
 const BEARD=['#3a2a1e','#5a4030','#7a6a5a','#2a1b10','#9a8a7a'];
 const M2=c=>G3.mats['h'+c]||(G3.mats['h'+c]=new G3.T.MeshLambertMaterial({color:c}));
 function personMesh(p,isPl){return(PEOPLE.ver&&humanMesh(p,isPl))||pedMesh(isPl?ME.top:p.shirt,isPl?ME.skin:p.skin,isPl?ME.skin:p.hair,isPl?'pl':p.kind,!isPl&&p.stripes)}
 // pick the animation from what the person is doing, cross-fading between them
+// gaits: the speed each clip's feet cover at normal rate (v, game units/s), and the speeds to change up and down
+// (a margin between them, so a person near a threshold doesn't flicker between clips). Measured from the clips.
+const GAIT={v:[0,15,40,56],up:[0,5,32,66],down:[0,3,26,58]},GAIT_OLD={v:[0,45,125,200],up:[0,6,95,170],down:[0,4,85,150]};
 function animPerson(g,p,isPl,dt){const u=g.userData,A=u.acts,d=Math.hypot(p.x-u.px,p.y-u.py);u.px=p.x;u.py=p.y;u.spd=lerp(u.spd,dt>0?d/dt:0,Math.min(1,dt*8));
   const shooting=isPl?gameT-(player.shotT??-99)<.35:p.weapon&&p.alert&&(p.cool||0)>.8*(p.kind==='cop'?1.6:1.1)-.35;
   const aiming=isPl?player.wi>0&&(!!player.aimT||mouse.aim):p.weapon&&(p.alert||p.kind==='cop'&&stars>0);
   const hurt=A.hit&&(isPl?gameT-(player.lastHurt??-99)<.3:p.hp<(u.lastHp??p.hp));u.lastHp=p.hp;if(hurt)u.hitT=.3;u.hitT=(u.hitT||0)-dt;
-  let want=p.dead?A.die:u.hitT>0&&A.hit?A.hit:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:u.spd>170&&A.sprint&&!shooting?A.sprint:u.spd>95?(shooting&&A.runShoot?A.runShoot:A.run):u.spd>6?(shooting&&A.runShoot?A.runShoot:aiming&&A.walkGun?A.walkGun:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
+  const G=u.aus?GAIT:GAIT_OLD,g0=u.gait||0;let gt=0;for(let i=1;i<4;i++)if(u.spd>(i<=g0?G.down[i]:G.up[i]))gt=i;u.gait=gt;   // 0 idle, 1 walk, 2 run, 3 sprint
+  let want=p.dead?A.die:u.hitT>0&&A.hit?A.hit:isPl&&(player.z||0)>3&&A.jump?A.jump:isPl&&player.punchT>0&&A.punch?A.punch:gt===3&&A.sprint&&!shooting?A.sprint:gt>=2?(shooting&&A.runShoot?A.runShoot:A.run):gt===1?(shooting&&A.runShoot?A.runShoot:aiming&&A.walkGun?A.walkGun:A.walk):shooting&&A.shoot?A.shoot:aiming&&A.aim?A.aim:A.idle;
   want=want||A.idle;if(want!==u.cur){want.reset().fadeIn(.18).play();if(u.cur)u.cur.fadeOut(.18);u.cur=want}
-  if(want===A.walk||want===A.walkGun)want.timeScale=clamp(u.spd/(u.aus?45:55),.6,1.8);else if(want===A.run||want===A.runShoot)want.timeScale=clamp(u.spd/(u.aus?125:150),.75,1.6);else if(want===A.sprint)want.timeScale=clamp(u.spd/200,.8,1.4);
+  if(want===A.walk||want===A.walkGun)want.timeScale=clamp(u.spd/G.v[1],.7,1.9);else if(want===A.run||want===A.runShoot)want.timeScale=clamp(u.spd/G.v[2],.75,1.6);else if(want===A.sprint)want.timeScale=clamp(u.spd/G.v[3],.8,1.75);
   if(u.gun){u.gun.visible=!p.dead&&(isPl?player.wi>0:!!p.weapon&&(p.alert||p.kind==='cop'));const wid=isPl?WEAPONS[player.wi].id:(WEAPONS[p.weapon]||WEAPONS[1]).id;
     if(u.gunId!==wid){u.gunId=wid;for(const c of u.gun.children)if(c.name&&GUN_LEN[c.name])c.visible=c.name===wid}}
-  u.mixer.update(dt)}
-function syncPed(g,p,isPl){g.position.set(p.x,pedY(p)+(isPl?p.z||0:0),p.y);g.rotation.y=-p.a;const u=g.userData;
+  u.mixer.update(dt);if(u.ik)aimIK(g,u,p,isPl,!p.dead&&(aiming||shooting)&&!(isPl&&player.punchT>0),dt)}
+// two-bone IK that brings both hands up to hold the gun out in front, over whatever the legs and body are doing
+function ikBone(b,want,w){const T=G3.T,a=b.getWorldPosition(new T.Vector3()),c=b.children.find(x=>x.isBone).getWorldPosition(new T.Vector3()).sub(a).normalize();
+  const q=new T.Quaternion().setFromUnitVectors(c,want.normalize()),bq=b.getWorldQuaternion(new T.Quaternion()),pq=b.parent.getWorldQuaternion(new T.Quaternion());
+  b.quaternion.slerp(pq.invert().multiply(q.multiply(bq)),w);b.updateMatrixWorld(true)}
+function twoBone(up,lo,hd,tgt,pole,w){const T=G3.T,S=up.getWorldPosition(new T.Vector3()),E=lo.getWorldPosition(new T.Vector3()),H=hd.getWorldPosition(new T.Vector3());
+  const a=S.distanceTo(E),b=E.distanceTo(H),D=tgt.clone().sub(S),d=Math.min(D.length(),(a+b)*.999),n=D.normalize(),ca=clamp((a*a+d*d-b*b)/(2*a*d),-1,1);
+  const pp=pole.clone().sub(n.clone().multiplyScalar(pole.dot(n))).normalize(),el=S.clone().addScaledVector(n,a*ca).addScaledVector(pp,a*Math.sqrt(1-ca*ca));
+  ikBone(up,el.clone().sub(S),w);ikBone(lo,S.clone().addScaledVector(n,d).sub(lo.getWorldPosition(E)),w)}
+function aimIK(g,u,p,isPl,on,dt){const k=u.ik,T=G3.T,W=x=>x.getWorldPosition(new T.Vector3());k.w=clamp(k.w+(on?dt*7:-dt*7),0,1);
+  if(k.w<=0&&!(u.gun&&u.gun.visible))return;g.updateMatrixWorld(true);
+  const Sr=W(k.ur),Sl=W(k.ul),mid=Sr.clone().add(Sl).multiplyScalar(.5),side=Sr.clone().sub(Sl).setY(0).normalize(),up=new T.Vector3(0,1,0),fwd=new T.Vector3().crossVectors(side,up).normalize();
+  if(fwd.dot(new T.Vector3(Math.cos(p.a),0,Math.sin(p.a)))<0)fwd.negate();
+  if(k.w>0){const L=Sr.distanceTo(W(k.lr))+W(k.lr).distanceTo(W(k.hr)),wid=isPl?WEAPONS[player.wi].id:(WEAPONS[p.weapon]||WEAPONS[1]).id,long=wid==='shotgun'||wid==='rifle'||wid==='rpg';
+    const kick=isPl?Math.max(0,1-(gameT-(player.shotT??-99))/.12):0;
+    const tr=mid.clone().addScaledVector(fwd,L*(long?.55:.86)-kick*L*.08).addScaledVector(side,long?L*.14:L*.02).addScaledVector(up,(long?-.1:-.04)*L+kick*L*.03);
+    const tl=long?tr.clone().addScaledVector(fwd,L*.42).addScaledVector(side,-L*.12).addScaledVector(up,-.02*L):tr.clone().addScaledVector(fwd,-L*.05).addScaledVector(side,-L*.07).addScaledVector(up,-.03*L);
+    twoBone(k.ur,k.lr,k.hr,tr,side.clone().multiplyScalar(.6).addScaledVector(up,-1),k.w);twoBone(k.ul,k.ll,k.hl,tl,side.clone().multiplyScalar(-.6).addScaledVector(up,-1),k.w)}
+  if(u.gun){const hy=new T.Vector3(0,1,0).transformDirection(k.hr.matrixWorld),bar=k.w>.5?fwd.clone():hy.multiplyScalar(.7).add(fwd).normalize();   // aimed: straight ahead; lowered: along the hand
+    const z=up.clone().addScaledVector(bar,-up.dot(bar)).normalize(),x=new T.Vector3().crossVectors(bar,z),wq=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,bar,z));
+    u.gun.quaternion.copy(k.hr.getWorldQuaternion(new T.Quaternion()).invert().multiply(wq))}}
+function syncPed(g,p,isPl){g.position.set(p.x,pedY(p)+(isPl?p.z||0:0),p.y);const u=g.userData;
+  if(u.model&&!isPl&&!p.dead){u.yaw=u.yaw==null?-p.a:u.yaw+angDiff(-p.a,u.yaw)*Math.min(1,(G3.sdt||.016)*10);g.rotation.y=u.yaw}else g.rotation.y=-p.a;   // people ease round instead of snapping
   if(u.model){const near=Math.abs(p.x-G3.cam.position.x)<1100&&Math.abs(p.y-G3.cam.position.z)<1100;if(near)animPerson(g,p,isPl,G3.sdt||.016);return}
   if(p.dead){u.b.rotation.z=-PI/2;u.b.position.y=3;u.legs[0].rotation.z=u.legs[1].rotation.z=0}
   else{u.b.rotation.z=0;u.b.position.y=0;const s=Math.sin(p.anim||0)*.55;u.legs[0].rotation.z=s;u.legs[1].rotation.z=-s;
@@ -2764,7 +2791,7 @@ function updateTOD(dt,fx,fz){const T=G3.T;TOD.h=TOD.lock!=null?TOD.lock:(TOD.h+d
   if(G3.hemi){G3.hemi.color.copy(L.hs);G3.hemi.groundColor.copy(L.hg);G3.hemi.intensity=L.hI*k}   // sky above, warm bounce off stone and pavement below
   sun.intensity*=1-.8*cl;sun.castShadow=cl<.8;if(G3.hemi){G3.hemi.color.lerp(TC.a.set(day>.3?'#a9b0b8':'#3a404c'),cl*.8);G3.hemi.intensity*=1+.15*cl+(WX.flash>0?4:0)}
   const fog=TC.b.copy(L.fog);fog.lerp(TC.a.set(day>.3?'#7d858d':'#262b34'),cl*.85);G3.sc.fog.color.copy(fog);
-  G3.r.toneMappingExposure=L.exp*LOOKK.exposure;if(G3.bloom){G3.bloom.strength=.18+.12*night;G3.bloom.threshold=lerp(1.35,1,night)/Math.max(.05,G3.r.toneMappingExposure)}   // only what's bright after exposure blooms (lamps, glints, the sun)
+  G3.r.toneMappingExposure=L.exp*LOOKK.exposure;if(G3.bloom){G3.bloom.strength=.18+.12*night;G3.bloom.threshold=lerp(1.8,1.1,night)/Math.max(.05,G3.r.toneMappingExposure)}   // only what's bright after exposure blooms (lamps, glints, the sun)
   if(G3.poolMat){G3.poolMat.opacity=night*.7;G3.poolMat.visible=night>.02}
   if(G3.sky){G3.sky.visible=day>.01&&cl<.55;if(!G3.cloudBg)G3.cloudBg=new T.Color();G3.cloudBg.copy(fog);G3.sky.position.copy(G3.cam.position);G3.sky.material.uniforms.sunPosition.value.copy(sd);{const u=G3.sky.material.uniforms;if(u.time){u.time.value=gameT;u.cloudCoverage.value=.32+.5*cl}if(u.skyExposure){u.skyExposure.value=L.sky*LOOKK.sky;const e=G3.skyEnvSky.material.uniforms.skyExposure;if(e)e.value=u.skyExposure.value}}G3.sc.background=G3.sky.visible?null:cl>=.55?G3.cloudBg:G3.nightBg;
     if(Math.abs(TOD.h-TOD.envH)>.25||Math.abs(cl-(TOD.envCl||0))>.2){if(G3.skyEnvSky)G3.skyEnvSky.material.uniforms.turbidity.value=6.5+12*cl;TOD.envH=TOD.h;G3.skyEnvSky.material.uniforms.sunPosition.value.copy(sd);const old=G3.sc.environment;

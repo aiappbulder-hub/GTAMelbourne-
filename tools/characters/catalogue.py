@@ -21,6 +21,6 @@ for name, C in S.CHARACTERS.items():
                 "tattoo": C.get("tattoo", []), "skin": C["skin"], "eye": C["eye"],
                 "outfit": [{"kind": k, **{kk: vv for kk, vv in o.items() if isinstance(vv, (str, int, float, bool))}} for k, o in C["outfit"]],
                 "files": files})
-json.dump({"characters": out, "clips": ["idle", "walk", "run", "aim", "shoot", "runShoot", "punch", "jump", "die"]},
+json.dump({"characters": out, "clips": ["idle", "walk", "run", "sprint", "crouch", "talk", "aimIdle", "reload", "punch", "jump", "hit", "die"]},
           open(os.path.join(S.ROOT, "catalogue.json"), "w"), indent=1)
 print("catalogue:", len(out), "characters")

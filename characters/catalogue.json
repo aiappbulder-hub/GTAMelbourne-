@@ -32,15 +32,15 @@
    "files": {
     "outfit": {
      "file": "exports/aussie_bloke.glb",
-     "kb": 1164
+     "kb": 1430
     },
     "base": {
      "file": "exports/aussie_bloke_base.glb",
-     "kb": 905
+     "kb": 1171
     },
     "crowd": {
      "file": "exports/aussie_bloke_crowd.glb",
-     "kb": 660
+     "kb": 926
     }
    }
   },
@@ -73,15 +73,15 @@
    "files": {
     "outfit": {
      "file": "exports/bearded_gaz.glb",
-     "kb": 1088
+     "kb": 1357
     },
     "base": {
      "file": "exports/bearded_gaz_base.glb",
-     "kb": 881
+     "kb": 1149
     },
     "crowd": {
      "file": "exports/bearded_gaz_crowd.glb",
-     "kb": 610
+     "kb": 878
     }
    }
   },
@@ -114,15 +114,15 @@
    "files": {
     "outfit": {
      "file": "exports/trent.glb",
-     "kb": 1036
+     "kb": 1300
     },
     "base": {
      "file": "exports/trent_base.glb",
-     "kb": 880
+     "kb": 1148
     },
     "crowd": {
      "file": "exports/trent_crowd.glb",
-     "kb": 559
+     "kb": 825
     }
    }
   },
@@ -165,15 +165,15 @@
    "files": {
     "outfit": {
      "file": "exports/tradie_dazza.glb",
-     "kb": 1217
+     "kb": 1485
     },
     "base": {
      "file": "exports/tradie_dazza_base.glb",
-     "kb": 912
+     "kb": 1180
     },
     "crowd": {
      "file": "exports/tradie_dazza_crowd.glb",
-     "kb": 700
+     "kb": 968
     }
    }
   },
@@ -209,15 +209,15 @@
    "files": {
     "outfit": {
      "file": "exports/student_minh.glb",
-     "kb": 1138
+     "kb": 1406
     },
     "base": {
      "file": "exports/student_minh_base.glb",
-     "kb": 891
+     "kb": 1159
     },
     "crowd": {
      "file": "exports/student_minh_crowd.glb",
-     "kb": 656
+     "kb": 924
     }
    }
   },
@@ -254,15 +254,15 @@
    "files": {
     "outfit": {
      "file": "exports/student_amara.glb",
-     "kb": 1163
+     "kb": 1430
     },
     "base": {
      "file": "exports/student_amara_base.glb",
-     "kb": 941
+     "kb": 1207
     },
     "crowd": {
      "file": "exports/student_amara_crowd.glb",
-     "kb": 683
+     "kb": 949
     }
    }
   },
@@ -297,15 +297,15 @@
    "files": {
     "outfit": {
      "file": "exports/gym_jono.glb",
-     "kb": 1088
+     "kb": 1356
     },
     "base": {
      "file": "exports/gym_jono_base.glb",
-     "kb": 884
+     "kb": 1151
     },
     "crowd": {
      "file": "exports/gym_jono_crowd.glb",
-     "kb": 612
+     "kb": 880
     }
    }
   },
@@ -340,15 +340,15 @@
    "files": {
     "outfit": {
      "file": "exports/gym_kayla.glb",
-     "kb": 1188
+     "kb": 1455
     },
     "base": {
      "file": "exports/gym_kayla_base.glb",
-     "kb": 927
+     "kb": 1193
     },
     "crowd": {
      "file": "exports/gym_kayla_crowd.glb",
-     "kb": 612
+     "kb": 878
     }
    }
   },
@@ -391,15 +391,15 @@
    "files": {
     "outfit": {
      "file": "exports/street_kai.glb",
-     "kb": 1139
+     "kb": 1405
     },
     "base": {
      "file": "exports/street_kai_base.glb",
-     "kb": 902
+     "kb": 1168
     },
     "crowd": {
      "file": "exports/street_kai_crowd.glb",
-     "kb": 643
+     "kb": 908
     }
    }
   },
@@ -443,15 +443,15 @@
    "files": {
     "outfit": {
      "file": "exports/old_bruce.glb",
-     "kb": 1283
+     "kb": 1550
     },
     "base": {
      "file": "exports/old_bruce_base.glb",
-     "kb": 909
+     "kb": 1176
     },
     "crowd": {
      "file": "exports/old_bruce_crowd.glb",
-     "kb": 747
+     "kb": 1014
     }
    }
   },
@@ -484,15 +484,15 @@
    "files": {
     "outfit": {
      "file": "exports/old_marg.glb",
-     "kb": 1076
+     "kb": 1343
     },
     "base": {
      "file": "exports/old_marg_base.glb",
-     "kb": 969
+     "kb": 1236
     },
     "crowd": {
      "file": "exports/old_marg_crowd.glb",
-     "kb": 607
+     "kb": 873
     }
    }
   },
@@ -522,15 +522,15 @@
    "files": {
     "outfit": {
      "file": "exports/night_jess.glb",
-     "kb": 1085
+     "kb": 1352
     },
     "base": {
      "file": "exports/night_jess_base.glb",
-     "kb": 979
+     "kb": 1246
     },
     "crowd": {
      "file": "exports/night_jess_crowd.glb",
-     "kb": 550
+     "kb": 817
     }
    }
   },
@@ -574,15 +574,15 @@
    "files": {
     "outfit": {
      "file": "exports/gang_tama.glb",
-     "kb": 1257
+     "kb": 1524
     },
     "base": {
      "file": "exports/gang_tama_base.glb",
-     "kb": 933
+     "kb": 1199
     },
     "crowd": {
      "file": "exports/gang_tama_crowd.glb",
-     "kb": 665
+     "kb": 931
     }
    }
   },
@@ -626,15 +626,15 @@
    "files": {
     "outfit": {
      "file": "exports/cop_vic.glb",
-     "kb": 1209
+     "kb": 1476
     },
     "base": {
      "file": "exports/cop_vic_base.glb",
-     "kb": 898
+     "kb": 1164
     },
     "crowd": {
      "file": "exports/cop_vic_crowd.glb",
-     "kb": 698
+     "kb": 965
     }
    }
   },
@@ -669,15 +669,15 @@
    "files": {
     "outfit": {
      "file": "exports/aussie_girl.glb",
-     "kb": 1181
+     "kb": 1448
     },
     "base": {
      "file": "exports/aussie_girl_base.glb",
-     "kb": 993
+     "kb": 1260
     },
     "crowd": {
      "file": "exports/aussie_girl_crowd.glb",
-     "kb": 634
+     "kb": 900
     }
    }
   }
@@ -686,11 +686,14 @@
   "idle",
   "walk",
   "run",
-  "aim",
-  "shoot",
-  "runShoot",
+  "sprint",
+  "crouch",
+  "talk",
+  "aimIdle",
+  "reload",
   "punch",
   "jump",
+  "hit",
   "die"
  ]
 }

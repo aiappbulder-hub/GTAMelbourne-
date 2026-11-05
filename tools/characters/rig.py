@@ -170,12 +170,17 @@ def bind(arm, obj, src, on_arm=None):
         p = mwo @ v.co
         n = min((b for b in bones if not on_arm or b[0] not in ARM_BONES or on_arm(p)), key=lambda b: _seg_dist(p, b[1], b[2]))[0]
         obj.vertex_groups[n].add([v.index], 1., "REPLACE")
-    # smooth the weights so no edge spans two bones that move apart (the crotch of shorts between the legs), then normalise
+    # on garments worn over both legs, smooth the weights so no edge spans two bones that move apart (the crotch of
+    # shorts); elsewhere (tops) keep the body's own weights exactly, or skin shows through where the shoulders move
+    legs = [obj.vertex_groups[n].index for n in ("UpperLeg.L", "UpperLeg.R") if n in obj.vertex_groups]
+    on_leg = [sum(1 for v in obj.data.vertices for g in v.groups if g.group == i and g.weight > .3) for i in legs]
+    bottoms = len(on_leg) == 2 and min(on_leg) > .05 * len(obj.data.vertices)
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
-    bpy.ops.object.vertex_group_smooth(group_select_mode="ALL", factor=.6, repeat=4)
+    if bottoms:
+        bpy.ops.object.vertex_group_smooth(group_select_mode="ALL", factor=.5, repeat=2)
     bpy.ops.object.vertex_group_normalize_all(lock_active=False)
     bpy.ops.object.mode_set(mode="OBJECT")
     mw = obj.matrix_world.copy()

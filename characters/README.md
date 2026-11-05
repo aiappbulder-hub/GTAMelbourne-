@@ -12,7 +12,7 @@ character, with a button for each clip and a card per character listing the outf
 | Stage | What | State |
 |---|---|---|
 | 1 | Male and female base characters | Done: Aussie Bloke and Aussie Girl |
-| 2 | Shared humanoid rig and animations | Done: one skeleton, 9 clips, all characters |
+| 2 | Shared humanoid rig and animations | Done: everyone is skinned to the animation library's own skeleton, 14 clips |
 | 3 | Interchangeable clothing | Done: 30 garment and accessory kinds, tattoos, 6 hair styles |
 | 4 | The remaining 10 character types | Done: 15 characters in all, including Victoria Police |
 | 5 | Materials, skins and colour variations | Done: recolourable garments, skin, hair, iris and print textures |
@@ -45,38 +45,65 @@ Each character has three exports in `exports/`:
 - `<name>_crowd.glb`: the crowd LOD. About a third of the triangles and 512 px textures, merged into one skinned mesh so a
   pedestrian costs few draw calls.
 
-All three are rigged and carry all 9 clips. The full exports are 1.0 to 1.5 MB and the crowd versions about 0.6 MB.
+All three are rigged and carry all 14 clips. The full exports are 1.0 to 1.5 MB and the crowd versions about 0.6 MB.
 
-## Stage 2: the rig (`tools/characters/rig.py`)
+## Stage 2: the rig (`tools/characters/rig.py`, `tools/characters/ual_rig.py`)
 
-One skeleton for everyone, built from the joint centres measured on each body:
+The motion is professional keyframed animation from **Quaternius' Universal Animation Library** (CC0). Rather than
+retargeting it onto a skeleton of our own (which bent the clips and made people move stiffly), every character is skinned
+directly to the library's skeleton, so the clips play exactly as their animator made them.
 
-```
-Hips > Spine > Chest > Neck > Head
-               Chest > Shoulder.L > UpperArm.L > LowerArm.L > Wrist.L > Fingers.L   (and .R)
-Hips > UpperLeg.L > LowerLeg.L > Foot.L > Toes.L                                    (and .R)
-```
+How a character gets there:
+1. `rig.py` builds a simple 15-bone rig from the joint centres measured on the body and skins it: automatic (bone heat)
+   weights for the body, weights copied from the nearest point on the body for clothes, hair and beard, and rigid binds
+   for shoes and props.
+2. `ual_rig.py` brings in the library's 65-bone skeleton (Unreal-style names: `pelvis`, `spine_01`–`03`, `neck_01`,
+   `Head`, `clavicle`, `upperarm`, `lowerarm`, `hand`, the fingers, `thigh`, `calf`, `foot`, `ball`) and fits it to this
+   body: it poses our rig into the library's T-pose (only to measure the joints there), and moves each library joint onto
+   ours while keeping the bones' directions and roll.
+3. It then makes an A-pose copy of that skeleton: each bone moved rigidly with the part of ours it sits in, back to the
+   pose the body was built in. The meshes bind in their own shape and are never re-posed, so clothes and skin stay
+   exactly together (re-posing to a T-pose and back loses shape, and clothes and skin lose it differently).
+4. Every clip is baked onto the A-pose skeleton so each bone's posed transform equals the original's. It's exact: the
+   motion is the animator's, frame for frame.
+5. Skin weights carry across by name. Where one of our bones covers two of theirs (the spine), the weight is shared.
+6. `glb_slim.py` drops the ~2,000 animation channels per file that never move (scales, most translations), about 400 KB
+   per file.
 
-How it binds:
-- **Body:** automatic (bone heat) weights.
-- **Everything else** (clothes, hair, beard, eyes, glasses): copies its weights from the nearest point on the body, so it
-  moves with the skin.
-- **Shoes and boots:** bound rigidly to the foot and toes.
-- **Gaps:** any vertex left unweighted takes its nearest bone.
+**Clips:**
 
-**Clips:** most of the motion is professional animation from **Quaternius' Universal Animation Library** (CC0), retargeted
-onto our rig by `tools/characters/retarget.py`. For every body part and every frame, the retarget records the source's
-direction and twist, then rebuilds that pose on each of our characters. That way different rest poses and proportions
-don't matter, and the arms are turned in to suit our slimmer builds. The clips are `idle`, `walk`, `run` (a jog),
-`sprint`, `punch`, `jump`, `die`, `hit` and `crouch`.
-- Aiming and shooting use our own two-handed rifle hold on top of the real legs and body: `aim`, `shoot`, `walkGun` and
-  `runShoot`. The library's pistol stance crosses the arms.
-- `retarget.py` writes `animations/ual_retarget.json`, and `rig.py` bakes it per character.
-- They're authored in world terms: legs and spine as rotations, and arms by the direction they should point.
-- They're baked to every character, so the clips are identical across the cast and interchangeable.
+| Clip | Library clip |
+|---|---|
+| `idle` | `Idle_Loop` |
+| `walk` | `Walk_Loop` |
+| `run` | `Jog_Fwd_Loop` |
+| `sprint` | `Sprint_Loop` |
+| `crouch` | `Crouch_Idle_Loop` |
+| `talk` | `Idle_Talking_Loop` |
+| `aimIdle` | `Pistol_Idle_Loop` |
+| `aim` | `Pistol_Aim_Neutral` |
+| `shoot` | `Pistol_Shoot` |
+| `reload` | `Pistol_Reload` |
+| `punch` | `Punch_Cross` |
+| `jump` | `Jump_Start` |
+| `hit` | `Hit_Chest` |
+| `die` | `Death01` |
 
-**Standalone files:** `rigs/aussie_rig.blend` is the rig with its actions, and `animations/aussie_clips.glb` holds the
-clips alone.
+`characters/source/ual_clips.glb` holds just these clips on the library skeleton, written once by `python tools/characters/ual_rig.py <UAL1.glb>`.
+
+**In the game:** each gait plays at the rate its feet need: the clips' ground speeds were measured (walk about 15,
+jog 40, sprint 56 game units/s, with 25 units = 1.78 m) and people's speeds set to match. There's a margin between the
+speeds where clips change, so nobody flickers between walk and run, and people ease round when they turn rather than
+snapping.
+
+**Holding a gun:** the library's pistol stance holds the gun up by the face, which reads badly from a third-person
+camera. So the game plays the normal idle, walk or run underneath. A small two-bone IK in `index.html` (`aimIK`) then
+brings both hands forward to hold the gun out in front: pistols two-handed at arm's length, long guns at the shoulder
+with the support hand under the barrel. It adds a little recoil kick when firing and eases in and out as you raise and
+lower the weapon. The gun hangs from `hand_r` and is turned in world space, so it always sits upright.
+
+`retarget.py` and `animations/ual_retarget.json` are the earlier retargeting approach. `ual_rig.py` still uses the
+library's rest frames from that file to pose our rig into the T-pose.
 
 ## Stage 3: the wardrobe (`wardrobe()` in `stage1_base.py`)
 
@@ -115,7 +142,7 @@ hi-vis mesh, athletic mesh, satin and lycra.
 - bald pedestrians get Gaz
 - everyone else is drawn from the everyday cast by sex
 
-Guns attach to the `Wrist.R` bone. Until the files load, the older Quaternius people stand in.
+Guns attach to the `hand_r` bone. Until the files load, the older Quaternius people stand in.
 
 ## Making more
 
@@ -159,6 +186,6 @@ A new garment kind is one more branch in `wardrobe()`.
 
 - The MakeHuman base mesh, targets and eye texture are **CC0** (MakeHuman project, `source/LICENSE.ASSETS.md`).
   MakeHuman's AGPL application code is not used.
-- Motion: Quaternius Universal Animation Library, **CC0** (quaternius.com), retargeted.
+- Motion: Quaternius Universal Animation Library, **CC0** (quaternius.com), played on its own skeleton.
 - Everything else is original to this project: the scripts, textures, rig, models and renders.
 - *Southerly Surf Co.*, *Yarra Rats* and *Melbourne Run Club* are fictional brands made for the game. No real logos are used.
