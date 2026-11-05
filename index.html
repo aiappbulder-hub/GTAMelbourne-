@@ -2162,7 +2162,7 @@ function init3D(){
     // whole-map backdrop so unbuilt chunks and the far distance still look like the city, plus open water past the edges
     const mt=new T.CanvasTexture(buildMini(true));
     const base=new T.Mesh(new T.PlaneGeometry(W*TS,H*TS).rotateX(-PI/2),new T.MeshLambertMaterial({map:mt,alphaTest:.5}));base.position.set(W*TS/2,-170,H*TS/2);sc.add(base);   // far backdrop, sunk below the tunnels
-    G3.waterTex=waterNormals();G3.waterTex.repeat.set(7,7);G3.waterMat=pbr(new T.MeshStandardMaterial({color:'#18506f',roughness:.16,metalness:.05,normalMap:G3.waterTex,normalScale:new T.Vector2(.3,.3),envMapIntensity:.75,transparent:true,opacity:.94}));   // glossy: mirrors the sky, sun glints on the ripples
+    G3.waterTex=waterNormals();G3.waterTex.repeat.set(7,7);G3.waterMat=waterDetail(pbr(new T.MeshStandardMaterial({color:'#18506f',roughness:.1,metalness:.05,normalMap:G3.waterTex,normalScale:new T.Vector2(.3,.3),envMapIntensity:.75,transparent:true,opacity:.94})));   // glossy: mirrors the sky, sun glints on the ripples
     const seaTex=G3.waterTex.clone();seaTex.needsUpdate=true;seaTex.repeat.set(140,140);G3.seaTex=seaTex;
     // water surfaces only where there is water (the bay, lakes, rivers, and open sea past the map), so tunnel trenches can dip below water level elsewhere
     {const pos=[],uv=[],Y=-3,tri=(ax,ay,bx,by,cx,cy)=>{if((by-ay)*(cx-ax)-(bx-ax)*(cy-ay)<0){[bx,by,cx,cy]=[cx,cy,bx,by]}pos.push(ax,Y,ay,bx,Y,by,cx,Y,cy);uv.push(ax/420,ay/420,bx/420,by/420,cx/420,cy/420)};
@@ -2174,7 +2174,7 @@ function init3D(){
         for(let i=0;i<f.length;i+=2)for(let k=0;k<10;k++){const a0=k/10*TAU,a1=(k+1)/10*TAU;tri(f[i],f[i+1],f[i]+Math.cos(a0)*30,f[i+1]+Math.sin(a0)*30,f[i]+Math.cos(a1)*30,f[i+1]+Math.sin(a1)*30)}}
       const M=60000;poly([new T.Vector2(-M,-M),new T.Vector2(M,-M),new T.Vector2(M,M),new T.Vector2(-M,M)],[[new T.Vector2(0,0),new T.Vector2(0,MAP.h),new T.Vector2(MAP.w,MAP.h),new T.Vector2(MAP.w,0)]]);
       const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('normal',new T.Float32BufferAttribute(new Float32Array(pos.length).map((v,i)=>i%3===1?1:0),3));
-      const sea=new T.Mesh(g,pbr(new T.MeshStandardMaterial({color:'#164f74',roughness:.14,metalness:.05,normalMap:G3.seaTex,normalScale:new T.Vector2(.4,.4),envMapIntensity:.8})));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
+      const sea=new T.Mesh(g,waterDetail(pbr(new T.MeshStandardMaterial({color:'#164f74',roughness:.09,metalness:.05,normalMap:G3.seaTex,normalScale:new T.Vector2(.4,.4),envMapIntensity:.8}))));sea.receiveShadow=true;sc.add(sea);G3.seaMesh=sea}   // sun glints off the chop
     G3.pm=new T.InstancedMesh(G3.ico,new T.MeshBasicMaterial({color:0xffffff}),900);G3.pm.frustumCulled=false;
     G3.dm=new T.InstancedMesh(G3.disc,new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.75,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),200);G3.dm.frustumCulled=false;
     const wc=new T.Color(1,1,1);for(let i=0;i<900;i++)G3.pm.setColorAt(i,wc);for(let i=0;i<200;i++)G3.dm.setColorAt(i,wc);
@@ -2246,14 +2246,23 @@ const CANYON_GLSL=`{float y=vWPos.y,st=vn(vec2((vWPos.x+vWPos.z)*.35,y*.004));
   diffuseColor.rgb*=mix(.6,1.,smoothstep(0.,380.,y))*(1.-.14*smoothstep(.55,.95,st))*mix(vec3(1.07,.99,.9),vec3(1.),smoothstep(0.,220.,y));}`;
 function canyon(m){const prev=m.onBeforeCompile;m.onBeforeCompile=sh=>{prev(sh);sh.fragmentShader=sh.fragmentShader.replace('void main() {',NOISE_GLSL+'void main() {').replace('#include <map_fragment>','#include <map_fragment>\n'+CANYON_GLSL)};
   m.customProgramCacheKey=()=>'canyon1';return m}
+// water: the ripple map sampled three times, a fine fast chop over the medium ripples over a broad slow swell, each
+// drifting its own way, so the surface keeps moving like real water and the sun glints off the facets
+function waterDetail(m){const T=G3.T;if(!G3.wT)G3.wT={value:0};m.onBeforeCompile=sh=>{sh.uniforms.uWT=G3.wT;const a='vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;',ch=T.ShaderChunk.normal_fragment_maps;
+  if(!ch.includes(a))return;sh.fragmentShader='uniform float uWT;\n'+sh.fragmentShader.replace('#include <normal_fragment_maps>',ch.replace(a,`vec3 mapN=texture2D(normalMap,vNormalMapUv).xyz*2.-1.;
+    vec2 uB=mat2(.799,.602,-.602,.799)*vNormalMapUv*1.73+vec2(uWT*.031,-uWT*.023),uC=mat2(.485,-.875,.875,.485)*vNormalMapUv*.29+vec2(-uWT*.007,uWT*.011);   // each layer turned its own way, so the texture's repeats never line up
+    vec3 nB=texture2D(normalMap,uB).xyz*2.-1.,nC=texture2D(normalMap,uC).xyz*2.-1.;
+    mapN=vec3(mapN.xy*.7+nB.xy*.28+nC.xy*1.1,1.);`))};m.customProgramCacheKey=()=>'water2';return m}
 function occlude(m){m.onBeforeCompile=sh=>{Object.assign(sh.uniforms,G3.occ);
   sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n  #ifdef USE_INSTANCING\n  vWPos=(modelMatrix*instanceMatrix*vec4(transformed,1.0)).xyz;\n  #else\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;\n  #endif');
   sh.fragmentShader='varying vec3 vWPos;\nuniform vec3 uCam;\nuniform vec3 uTarget;\nuniform float uRad;\n'+sh.fragmentShader.replace('void main() {',
     'void main() {\n  vec3 ab=uTarget-uCam;float t=clamp(dot(vWPos-uCam,ab)/dot(ab,ab),0.,1.);\n  if(t<0.985&&vWPos.y>3.&&length(vWPos-(uCam+ab*t))<uRad){vec2 q=mod(floor(gl_FragCoord.xy),2.);if(q.x+q.y>0.5)discard;}')};return m}
-function waterNormals(){const N=128,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d'),im=g.createImageData(N,N),h=(x,y)=>
-  Math.sin(x*TAU*3/N+Math.sin(y*TAU*2/N)*1.3)*.5+Math.sin((x+y)*TAU*5/N)*.3+Math.sin((x*2-y)*TAU*4/N+1.7)*.25+Math.sin(y*TAU*7/N+x*TAU/N)*.2;
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const dx=h(x+1,y)-h(x-1,y),dy=h(x,y+1)-h(x,y-1),l=Math.hypot(dx*2,dy*2,1),i=(y*N+x)*4;
-    im.data[i]=(-dx*2/l*.5+.5)*255;im.data[i+1]=(-dy*2/l*.5+.5)*255;im.data[i+2]=(1/l*.5+.5)*255;im.data[i+3]=255}
+function waterNormals(){   // a tileable ripple field: many waves in random directions (whole-number wave counts, so it still tiles), bigger ones gentler
+  const N=256,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d'),im=g.createImageData(N,N),W=[];let sd=11;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+  while(W.length<28){const kx=Math.round((rnd()*2-1)*9),ky=Math.round((rnd()*2-1)*9),k=Math.hypot(kx,ky);if(k<1.5)continue;W.push([kx*TAU/N,ky*TAU/N,rnd()*TAU,1/k**1.15])}
+  const h=(x,y)=>{let s=0;for(const[a,b,p,m]of W)s+=Math.sin(a*x+b*y+p)*m;return s};
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){let dx=0,dy=0;for(const[a,b,p,m]of W){const cc=Math.cos(a*x+b*y+p)*m;dx+=cc*a;dy+=cc*b}dx*=N*.55;dy*=N*.55;const l=Math.hypot(dx,dy,1),i=(y*N+x)*4;
+    im.data[i]=(-dx/l*.5+.5)*255;im.data[i+1]=(-dy/l*.5+.5)*255;im.data[i+2]=(1/l*.5+.5)*255;im.data[i+3]=255}
   g.putImageData(im,0,0);const t=new G3.T.CanvasTexture(c);t.colorSpace=G3.T.NoColorSpace;t.wrapS=t.wrapT=G3.T.RepeatWrapping;return t}
 function windowTex(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,64,64);
   g.fillStyle='#6b7889';for(let y=0;y<2;y++)for(let x=0;x<2;x++)g.fillRect(6+x*32,9+y*32,20,15);g.fillStyle='rgba(255,255,255,.35)';for(let y=0;y<2;y++)for(let x=0;x<2;x++)g.fillRect(6+x*32,9+y*32,20,3);
@@ -2721,7 +2730,7 @@ function sync3D(){const T=G3.T,fr=++G3.frame;{const now=performance.now();G3.sdt
     c.m3.position.set(c.x,carY(c),c.y);c.m3.rotation.y=-c.a;touch(c.m3);const u=c.m3.userData;
     // suspension: the body rolls out of a corner, dips its nose under brakes and squats when you floor it, on a damped spring
     if(u.body&&!c.tram){const dt=Math.max(.001,G3.sdt||.016),vf=fwdSpeed(c),w=angDiff(c.a,c.pa??c.a)/dt,ac=(vf-(c.pv??vf))/dt;c.pa=c.a;c.pv=vf;
-      const tr=clamp(-vf*w*.00009,-.075,.075),tp=clamp(ac*.00006,-.045,.035),k=Math.min(1,dt*9);c.roll=(c.roll||0)+(tr-(c.roll||0))*k;c.pitch=(c.pitch||0)+(tp-(c.pitch||0))*k;
+      const tr=clamp(-vf*w*.00009,-.075,.075),tp=clamp(ac*.00006,-.045,.035),h=Math.min(dt,.05);c.rv=(c.rv||0)+((tr-(c.roll||0))*95-(c.rv||0)*11)*h;c.roll=(c.roll||0)+c.rv*h;c.pv2=(c.pv2||0)+((tp-(c.pitch||0))*80-(c.pv2||0)*10)*h;c.pitch=(c.pitch||0)+c.pv2*h;   // springs, slightly under-damped: the body rocks back once and settles
       u.body.rotation.x=c.roll;u.body.rotation.z=c.pitch}
     if(u.wheels){const v=fwdSpeed(c)*.016/6;for(const w of u.wheels)if(u.wz)w.rotation.z-=v;else w.rotation.x+=v}
     if(u.lr){const on=c.siren&&Math.floor(gameT*8)%2===0;u.lr.material=on?M('#ff3030','#ff0000'):M('#5a1515');u.lb.material=c.siren&&!on?M('#3a7bff','#1040ff'):M('#152a6a')}}
@@ -2805,7 +2814,7 @@ function cam3D(dt){const c3=G3.cam,pc=player.car,pp=pc||player,spd=pc?Math.hypot
     G3.sc.fog.near=hh*2.4;G3.sc.fog.far=hh*5;G3.focus=[cam.x,cam.y-hh*.2,hh*1.5+250]}
   c3.aspect=asp;c3.updateProjectionMatrix();
   const fx=G3.focus[0],fz=G3.focus[1];if(!TC.a){TC.a=new G3.T.Color();TC.b=new G3.T.Color();TC.c=new G3.T.Color()}updateTOD(dt,fx,fz);
-  if(G3.waterTex){const t=gameT;G3.waterTex.offset.set(t*.018+Math.sin(t*.3)*.01,t*.011);G3.waterTex.rotation=Math.sin(t*.05)*.2;G3.seaTex.offset.set(t*.4,t*.25);G3.seaTex.rotation=-Math.sin(t*.04)*.15;const k=.28+.2*WX.rain+.06*Math.sin(t*.7);G3.waterMat.normalScale.set(k,k)}
+  if(G3.waterTex){const t=gameT;if(G3.wT)G3.wT.value=t;G3.waterTex.offset.set(t*.018+Math.sin(t*.3)*.01,t*.011);G3.waterTex.rotation=Math.sin(t*.05)*.2;G3.seaTex.offset.set(t*.4,t*.25);G3.seaTex.rotation=-Math.sin(t*.04)*.15;const k=.28+.2*WX.rain+.06*Math.sin(t*.7);G3.waterMat.normalScale.set(k,k)}
   G3.occ.uCam.value.copy(c3.position);G3.occ.uTarget.value.set(pp.x,12,pp.y);G3.occ.uRad.value=view==='chase'?38:70}
 // time of day: two real minutes per game hour (Y skips ahead two hours); a Melbourne summer day, sunrise 6am, sunset 8pm. The sun crosses the northern sky (southern
 // hemisphere), the sky, haze, light colours and exposure follow it, and after dusk windows, lamps and car lights come on.
