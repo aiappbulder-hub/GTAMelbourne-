@@ -150,7 +150,7 @@
         <svg class="icon" aria-hidden="true"><use href="#i-map"/></svg><span class="tool-label">Map</span><kbd>M</kbd>
       </button>
       <span class="toolbar-divider" aria-hidden="true"></span>
-      <button id="btn-quality" class="tool-btn" type="button" title="Graphics quality: click to change (the page reloads)" aria-label="Graphics quality"><span class="gfx-label" id="quality-label">GFX</span></button>
+      <button id="btn-quality" class="tool-btn" type="button" popovertarget="quality-popover" title="Graphics quality" aria-label="Graphics quality"><span class="gfx-label" id="quality-label">GFX</span></button>
       <button id="btn-sound" class="tool-btn icon-only" type="button" title="Mute sound [N]" aria-label="Mute sound" aria-pressed="true">
         <svg class="icon" aria-hidden="true"><use href="#i-sound"/></svg>
       </button>
@@ -158,6 +158,15 @@
         <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye"/></svg><svg class="icon icon-show" aria-hidden="true"><use href="#i-eye-off"/></svg>
       </button>
     </div>
+  </div>
+
+  <!-- Graphics quality (js/quality.js): picking one saves it and reloads -->
+  <div id="quality-popover" class="popover" popover data-side="below" data-anchor="hud-toolbar" aria-label="Graphics quality">
+    <div class="pop-title">Graphics</div>
+    <button class="pop-item q-btn" data-quality="high" type="button"><span class="pop-name">High</span><span class="pop-sub">Everything: reflections, bloom, sharp shadows, full traffic</span></button>
+    <button class="pop-item q-btn" data-quality="medium" type="button"><span class="pop-name">Medium</span><span class="pop-sub">Bloom and softer shadows, no reflections, less traffic</span></button>
+    <button class="pop-item q-btn" data-quality="low" type="button"><span class="pop-name">Low</span><span class="pop-sub">For laptops and older phones: no shadows or effects, lower resolution</span></button>
+    <div class="pop-sub q-note" id="quality-note"></div>
   </div>
 
   <!-- Teleport Destinations (native popover: light-dismiss & Esc) -->

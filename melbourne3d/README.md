@@ -58,8 +58,8 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the
   real buildings.
-- **Graphics quality** (`js/quality.js`): low / medium / high, picked from the GPU (or `?quality=`), with a GFX
-  button, plus dynamic resolution.
+- **Graphics quality** (`js/quality.js`): High by default on every device; the GFX menu in the toolbar picks High, Medium or Low (saved), or `?quality=`;
+  dynamic resolution keeps any level playable.
 - **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white
   Australian lane lines, charcoal signals, Australia Post boxes, blue street signs, km/h; no subway entrances, steam
   stacks, hot-dog carts, hydrants, water towers or fire escapes.

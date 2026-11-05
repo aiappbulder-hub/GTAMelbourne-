@@ -326,14 +326,22 @@ async function initApp() {
   const modeSwitch = document.getElementById('mode-switch');
   touchControls.onAvailabilityChange = placeModeIndicator;
 
-  // Graphics quality button: Low -> Medium -> High, saved, reloads (js/quality.js)
-  const qualityBtn = document.getElementById('btn-quality');
-  if (qualityBtn) {
+  // Graphics menu: High / Medium / Low, the current one ticked; picking another saves it and reloads (js/quality.js)
+  {
     const label = document.getElementById('quality-label');
     const names = { low: 'GFX Low', medium: 'GFX Med', high: 'GFX High' };
     if (label) label.textContent = names[QUALITY];
-    qualityBtn.title = `Graphics: ${QUALITY}${GPU_NAME ? ` (${GPU_NAME})` : ''}. Click for ${QUALITY_LEVELS[(QUALITY_LEVELS.indexOf(QUALITY) + 1) % 3]} (reloads)`;
-    qualityBtn.addEventListener('click', () => setQuality(QUALITY_LEVELS[(QUALITY_LEVELS.indexOf(QUALITY) + 1) % 3]));
+    const note = document.getElementById('quality-note');
+    if (note) note.textContent = GPU_NAME ? `Graphics card: ${GPU_NAME}` : '';
+    for (const b of document.querySelectorAll('[data-quality]')) {
+      const level = b.dataset.quality;
+      b.classList.toggle('active', level === QUALITY);
+      b.setAttribute('aria-pressed', String(level === QUALITY));
+      b.addEventListener('click', () => {
+        if (level === QUALITY) { closePopovers(); return; }
+        setQuality(level);
+      });
+    }
   }
   const elFps = document.getElementById('hud-fps');
   const fpsWindow = [];

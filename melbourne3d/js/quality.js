@@ -1,6 +1,6 @@
-// Graphics quality: 'low', 'medium' or 'high', chosen once at start-up from ?quality=, the player's saved choice, or
-// the graphics hardware. Laptop and phone GPUs (integrated Intel, AMD APUs, Mali, Adreno, software renderers) start on
-// Low; discrete NVIDIA / AMD / Intel Arc cards on High; anything else on Medium. Changing it reloads the page.
+// Graphics quality: 'low', 'medium' or 'high': ?quality= or the player's saved choice (the Graphics menu in the
+// toolbar), else High on every device. Changing it reloads the page. Dynamic resolution (main.js) keeps High playable
+// on weaker GPUs; Low and Medium are there to pick when it isn't enough.
 //
 //   low:    60% render scale, no antialiasing, no screen-space reflections, bloom or grade pass (direct render with
 //           tone mapping), no sun shadows, short draw distance, simpler trees sooner, 70 cars and 140 people
@@ -35,12 +35,7 @@ function choose() {
   let saved = null;
   try { saved = localStorage.getItem(KEY); } catch { /* storage unavailable */ }
   if (LEVELS.includes(saved)) return { level: saved, source: 'saved', gpu: '' };
-  const gpu = detectGpu();
-  let level = gpu.level;
-  const mobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-  const memory = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
-  if (mobile || (memory && memory <= 4)) level = 'low';
-  return { level, source: 'detected', gpu: gpu.name };
+  return { level: 'high', source: 'default', gpu: detectGpu().name };
 }
 
 const picked = choose();
