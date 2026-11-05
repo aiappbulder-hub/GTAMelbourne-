@@ -162,7 +162,9 @@ kbd{font-family:var(--body);font-weight:700;color:var(--fg);background:#1d2533;b
   </div>
 </div>
 
-<script src="map/melbourne.js"></script>
+<!-- the map: map/melbourne.js is the whole metro area; ?city loads map/melbourne-city.js, the true-scale CBD and inner
+     suburbs (in progress). Both come from tools/build_map.py (MAP_MODE=metro or city). -->
+<script>document.write('<script src="map/'+(/[?&]city\b/.test(location.search)?'melbourne-city':'melbourne')+'.js"><\/script>')</script>
 <script>
 // Loads three.js, then starts the game (a classic script kept in the text/plain block below).
 // 1. three.js r187 as ES modules from jsdelivr's +esm builds: they import each other by full URL, so no import map is needed
@@ -204,10 +206,18 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const MAP=window.MELB_MAP||{w:4096,h:4096,proj:{lon0:144.9628,lat0:-37.8142,kx:88000,ky:110950,r0:900,rr:1080,ox:2048,oy:2048},names:[''],nodes:[],edges:[],trams:[],rails:[],sea:[],water:[],rivers:[],lakes:{},parks:[],labels:[]};
 const TS=32, W=Math.ceil(MAP.w/TS), H=Math.ceil(MAP.h/TS);
 const PJ=MAP.proj;
-// longitude/latitude to world pixels, with the same fisheye as the map builder
-function proj(lon,lat){const dx=(lon-PJ.lon0)*PJ.kx,dy=(PJ.lat0-lat)*PJ.ky,r=Math.hypot(dx,dy);if(r<1e-9)return[PJ.ox,PJ.oy];const f=2*PJ.rr*(Math.sqrt(1+r/PJ.r0)-1);return[PJ.ox+dx*f/r,PJ.oy+dy*f/r]}
+// metres from the CBD <-> world pixels from the CBD, the same function as the map builder (tools/build_map.py).
+// city map: true scale (PJ.s px a metre, our people's scale) out to PJ.core metres, then easing off as core/r.
+// metro map (map/archive): the old fisheye, distance growing with its square root.
+const CITYMAP=PJ.mode==='city';
+const radialPx=r=>CITYMAP?(r<=PJ.core?PJ.s*r:PJ.s*PJ.core*(1+Math.log(r/PJ.core))):2*PJ.rr*(Math.sqrt(1+r/PJ.r0)-1);
+const unradial=u=>CITYMAP?(u<=PJ.s*PJ.core?u/PJ.s:PJ.core*Math.exp(u/(PJ.s*PJ.core)-1)):PJ.r0*((u/(2*PJ.rr)+1)**2-1);
+// game pixels per real metre here (1 in the true-scale core means a metre is as big as it should be for our people)
+function localScale(x,y){const r=realR(x,y);return CITYMAP?PJ.s*Math.min(1,PJ.core/Math.max(r,1)):PJ.rr/(PJ.r0*Math.sqrt(1+r/PJ.r0))}
+// longitude/latitude to world pixels
+function proj(lon,lat){const dx=(lon-PJ.lon0)*PJ.kx,dy=(PJ.lat0-lat)*PJ.ky,r=Math.hypot(dx,dy);if(r<1e-9)return[PJ.ox,PJ.oy];const f=radialPx(r);return[PJ.ox+dx*f/r,PJ.oy+dy*f/r]}
 // real distance from the CBD in metres, used to zone the city (towers in the middle, houses further out)
-function realR(x,y){const rw=Math.hypot(x-PJ.ox,y-PJ.oy);return PJ.r0*((rw/(2*PJ.rr)+1)**2-1)}
+function realR(x,y){return unradial(Math.hypot(x-PJ.ox,y-PJ.oy))}
 
 const GRASS=0,ROAD=1,WALK=2,BLD=3,WATER=4,SAND=5,IND=6,TREE=7,HOUSE=8,RUNWAY=9,BRIDGE=10,TOWER=11,FWY=12,YARD=13,RIVER=14,CONT=15;
 const LMK=16,TAN=17,CIRCUIT=18,RAIL=19;
@@ -220,7 +230,7 @@ const tiles=new Uint8Array(W*H), shade=new Uint8Array(W*H), flags=new Uint8Array
 const tAt=(tx,ty)=>(tx<0||ty<0||tx>=W||ty>=H)?WATER:tiles[ty*W+tx];
 const tileAtPx=(x,y)=>tAt(Math.floor(x/TS),Math.floor(y/TS));
 // collision runs on a finer 8px grid so walls follow the real shapes of buildings and riverbanks
-const FS=8,SUB=TS/FS,FW=W*SUB,FH=H*SUB;
+const FS=MAP.w>40000?16:8,SUB=TS/FS,FW=W*SUB,FH=H*SUB;   // the fine (collision) grid: 16 px cells on the big true-scale city map, to keep it in memory
 const SOL=new Uint8Array(FW*FH),OCC=new Uint8Array(FW*FH),FWM=new Uint8Array(FW*FH);   // FWM: 1 freeway, 2 ramp, 4 street crossing a freeway   // SOL: solid. OCC: taken (road, footpath, water, park, building) for placing lots
 const solidPx=(x,y)=>{const fx=Math.floor(x/FS),fy=Math.floor(y/FS);return fx<0||fy<0||fx>=FW||fy>=FH||SOL[fy*FW+fx]===1};
 
@@ -229,7 +239,7 @@ const NODES=[],EDGES=[];
 {const nd=MAP.nodes;for(let i=0;i<nd.length;i+=2)NODES.push({x:nd[i],y:nd[i+1],e:[]});
   MAP.edges.forEach((r,id)=>{const[a,b,cls,ni,fl,w,f]=r,n=f.length/2,P=new Float32Array(f),S=new Float32Array(n);
     for(let i=1;i<n;i++)S[i]=S[i-1]+Math.hypot(f[2*i]-f[2*i-2],f[2*i+1]-f[2*i-1]);
-    const fw=!!(fl&1);EDGES.push({id,a,b,cls,name:MAP.names[ni]||'',fw,ramp:cls===6,tun:!!(fl&4),w,hw:w/2,P,S,n,len:S[n-1],t0:0,t1:0});NODES[a].e.push(id);if(b!==a)NODES[b].e.push(id)})}
+    const fw=!!(fl&1);EDGES.push({id,a,b,cls,name:MAP.names[ni]||'',fw,ramp:cls===6,tun:!!(fl&4),w,hw:w/2,P,S,n,len:S[n-1],t0:0,t1:0,walk:fw?26:Math.max(20,Math.round(4.5*localScale(P[(n>>1)*2]??P[0],P[(n>>1)*2+1]??P[1])))});NODES[a].e.push(id);if(b!==a)NODES[b].e.push(id)})}
 // junction clearance at each end, so markings, lots and stop lines keep out of the intersection
 for(const E of EDGES)for(const end of[0,1]){const N=NODES[end?E.b:E.a];let m=0;if(N.e.length>2||N.e.length===2&&EDGES[N.e[0]].name!==EDGES[N.e[1]===E.id?N.e[0]:N.e[1]].name)for(const o of N.e)if(o!==E.id)m=Math.max(m,EDGES[o].hw);
   if(end)E.t1=m?m+6:0;else E.t0=m?m+6:0}
@@ -321,7 +331,7 @@ function generate(){
   for(const f of MAP.rails){strokePoly(f,11,TS,W,H,tile(i=>{if(tiles[i]===GRASS)tiles[i]=RAIL}));strokePoly(f,14,FS,FW,FH,fine(i=>OCC[i]=1))}
   for(const f of MAP.trains||[]){strokePoly(f,24,TS,W,H,tile(i=>{if(tiles[i]===GRASS||tiles[i]===YARD||tiles[i]===IND)tiles[i]=RAIL}));strokePoly(f,52,FS,FW,FH,fine(i=>{OCC[i]=1}))}   // the running lines: a clear corridor for the trains
   // roads: asphalt over everything (a road over water is a bridge), with footpaths alongside
-  for(const E of EDGES){const walk=E.fw?26:20;
+  for(const E of EDGES){const walk=E.walk;
     if(E.tun){for(const[a,b]of tunOpen(E)){const f=subPoly(E,a,b);strokePoly(f,E.hw+walk,FS,FW,FH,fine(i=>OCC[i]=1));strokePoly(f,E.hw+2,FS,FW,FH,fine(i=>SOL[i]=0));
       strokePoly(f,Math.max(E.hw,TS*.75),TS,W,H,tile(i=>{tiles[i]=FWY}))}continue}
     strokePoly(E.P,E.hw+walk,TS,W,H,tile(i=>{if(tiles[i]===GRASS||tiles[i]===RAIL&&!E.fw)tiles[i]=E.fw?GRASS:WALK}));
@@ -424,7 +434,16 @@ function placeStores(){for(const[name,lo,la]of PLUMB_LL){const[x0,y0]=proj(lo,la
 function stadium(cx,cy,a,L,r){const out=[],ca=Math.cos(a),sa=Math.sin(a),P=(u,v)=>out.push(cx+ca*u-sa*v,cy+sa*u+ca*v);
   for(let i=0;i<=16;i++){const t=-PI/2+i/16*PI;P(L/2+Math.cos(t)*r,Math.sin(t)*r)}for(let i=0;i<=16;i++){const t=PI/2+i/16*PI;P(-L/2+Math.cos(t)*r,Math.sin(t)*r)}out.push(out[0],out[1]);return out}
 function placeLots(){
-  const zone=(x,y,E)=>{const r=realR(x,y),port=PORT_POLY.length&&pipF(PORT_POLY,x,y);
+  // city map: sizes in metres (footprints at the local scale, heights at true scale: a storey is 3.3 m, about 46 px)
+  const zoneM=(x,y,E)=>{const r=realR(x,y),ls=localScale(x,y),H=PJ.s,Z=(k,F,D,gap,h,rows,back)=>({k,F:F.map(v=>v*ls),D:D.map(v=>v*ls),gap:gap*ls,h:h.map(v=>v*H),rows,
+      back:back&&{k:back.k,D:back.D.map(v=>v*ls),h:back.h.map(v=>v*H)}});
+    if(PORT_POLY.length&&pipF(PORT_POLY,x,y))return Z('ware',[40,80],[35,60],8,[10,16],2);
+    if(r<1150)return Z('tower',[24,48],[24,44],1.5,[45,230],2);                 // the Hoddle Grid
+    if(r<1600)return Z('tower',[22,40],[22,38],1.5,[30,140],2);
+    if(r<2600)return Z('bld',[16,32],[16,30],1.5,[12,40],2);                     // inner mid-rise
+    if(E.cls<=1)return Z('shop',[8,16],[18,28],.5,[7,12],1,{k:'house',D:[12,18],h:[6,9]});   // shopping strips
+    return Z(E.cls<=3?'model':'house',[6,10],[12,18],1,[6,9],2)};               // Victorian terraces
+  const zone=(x,y,E)=>{if(CITYMAP)return zoneM(x,y,E);const r=realR(x,y),port=PORT_POLY.length&&pipF(PORT_POLY,x,y);
     if(port)return{k:'ware',F:[110,210],D:[90,150],gap:24,h:[34,58],rows:2};
     if(r<1500)return{k:'tower',F:[60,120],D:[56,100],gap:4,h:r<1100?[160,760]:[110,420],rows:3};
     if(r<3800)return{k:'bld',F:[52,96],D:[46,80],gap:4,h:[44,160],rows:3};
@@ -432,17 +451,17 @@ function placeLots(){
     if(r<7000&&E.cls<=3)return{k:'model',F:[54,68],D:[48,60],gap:12,h:[26,32],rows:3};
     return{k:'house',F:[58,74],D:[50,62],gap:16,h:[26,30],rows:3}};
   const put=(b,Z,E,k)=>{b.h=Math.round(lerp(Z.h[0],Z.h[1],hash(E.id,k,43)**(Z.k==='tower'?2.2:1)));b.c=(hash(E.id,k,44)*8)|0;
-    if(b.k==='tower'&&hash(E.id,k,45)<.22){b.k='bld';b.h=Math.round(b.h*.35)+40}if(b.k==='model'&&hash(E.id,k,46)<.55)b.k='house';
+    if(b.k==='tower'&&hash(E.id,k,45)<.22){b.k='bld';b.h=Math.round(b.h*.35)+(CITYMAP?12*PJ.s:40)}if(b.k==='model'&&hash(E.id,k,46)<.55)b.k='house';
     const id=BUILDINGS.length;BUILDINGS.push(b);rectCells(b,Math.max(1,Z.gap*.5-1.5),FS,FW,FH,(x,y)=>{OCC[y*FW+x]=1});rectCells(b,0,FS,FW,FH,(x,y)=>{SOL[y*FW+x]=1});
     rectCells(b,0,TS,W,H,(x,y)=>{bldAt[y*W+x]=id})};
   for(const E of EDGES){if(E.fw||E.ramp)continue;
     for(const side of[1,-1]){const tr=realR(E.P[0],E.P[1])<3800?20:28;let s=E.t0+tr,k=0;const end=E.len-E.t1-tr;
       while(s<end){k++;const p=edgeAt(E,s),Z=zone(p.x,p.y,E),hk=k*2+(side>0?1:0),h1=hash(E.id,hk,41);
         let F=lerp(Z.F[0],Z.F[1],h1);if(s+F>end){if(end-s<Z.F[0]*.8)break;F=end-s}
-        const q=edgeAt(E,s+F/2),nx=-q.dy*side,ny=q.dx*side,a=Math.atan2(q.dy,q.dx);let placed=false,o=E.hw+22+(Z.k==='house'||Z.k==='model'?10:3);
+        const q=edgeAt(E,s+F/2),nx=-q.dy*side,ny=q.dx*side,a=Math.atan2(q.dy,q.dx);let placed=false,o=E.hw+E.walk+2+(Z.k==='house'||Z.k==='model'?(CITYMAP?2*localScale(q.x,q.y):10):3);
         // front row facing the street, then rows behind it (back lots) while the block has room
         for(let row=0;row<Z.rows+(Z.back?2:0);row++){const B=row>=Z.rows&&Z.back?{...Z,...Z.back}:Z,h2=hash(E.id,hk,42+row*7);let got=false;
-          for(const dk of row?[1]:[1,.7,.5]){const D=lerp(B.D[0],B.D[1],h2)*dk;if(D<28)break;const b={x:q.x+nx*(o+D/2),y:q.y+ny*(o+D/2),a,w:F-B.gap,d:D,k:B.k,side,row};
+          for(const dk of row?[1]:[1,.7,.5]){const D=lerp(B.D[0],B.D[1],h2)*dk;if(D<(CITYMAP?Math.min(28,B.D[0]*.6):28))break;const b={x:q.x+nx*(o+D/2),y:q.y+ny*(o+D/2),a,w:F-B.gap,d:D,k:B.k,side,row};
             if(!rectFree(b,1))continue;put(b,B,E,hk*5+row);got=true;o+=D+B.gap+4;break}
           if(!got)break;placed=true}
         s+=placed?F:F*.5}}}}
@@ -710,7 +729,7 @@ function renderChunk(g,cx,cy,for3d){
   const ranges=(E,s0=0,s1=E.len)=>{let r=[[s0,s1]];if(for3d&&E.ovp)for(const[a,b]of E.ovp){const o=[];for(const[p,q]of r){if(b<=p||a>=q){o.push([p,q]);continue}if(a>p)o.push([p,a]);if(b<q)o.push([b,q])}r=o}return r.filter(([p,q])=>q-p>2)};
   const st=(E,o,w,col,s0,s1,dash)=>{g.strokeStyle=col;g.lineWidth=w;if(dash)g.setLineDash(dash);for(const[a,b]of ranges(E,s0,s1)){edgePath(g,E,o,a,b);g.stroke()}if(dash)g.setLineDash([])};
   const walkF=texFill(g,'footpath_concrete',COL.walk),roadF=texFill(g,'road_asphalt',COL.asphalt);
-  for(const E of ES)st(E,0,E.w+40,walkF);
+  for(const E of ES)st(E,0,E.w+2*E.walk,walkF);
   for(const E of ES)st(E,0,E.w+6,COL.kerb);
   for(const E of ES)st(E,0,E.w,roadF);
   const paint=E=>{const s0=E.t0+2,s1=E.len-E.t1-2;if(s1-s0<8)return;

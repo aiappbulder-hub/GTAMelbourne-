@@ -12,7 +12,7 @@ the CBD keeps close to full size and the suburbs are squeezed (distance from the
 with its square root). Streets are then thinned so that parallel streets keep enough room
 between them for footpaths and buildings; freeways and arterials win over side streets.
 """
-import json, math, sys, collections
+import json, math, os, sys, collections
 
 SRC, OUT = sys.argv[1], sys.argv[2]
 DEBUG = sys.argv[3] if len(sys.argv) > 3 else None
@@ -20,9 +20,49 @@ DEBUG = sys.argv[3] if len(sys.argv) > 3 else None
 # ------------------------------------------------------------------ projection
 LON0, LAT0 = 144.9628, -37.8142
 KX, KY = 111320 * math.cos(math.radians(LAT0)), 110950
-R0M, S0 = 1100.0, 1.6           # metres of near-true scale, and px per metre at the centre
+# Two maps (MAP_MODE):
+#   city  (default): the CBD and inner suburbs. True scale for the game's people (a person is 25 px for 1.78 m: 14 px a
+#         metre) out to CORE metres from the centre, then the scale eases off as CORE/r (so the edge stays only mildly
+#         stretched around the city) out to RMAX metres, where the map ends.
+#   metro: the whole metropolitan area in the old fisheye, distance growing with its square root (R0M, RR). Its last
+#         build is kept in map/archive/melbourne-metro.js.
+# The game (index.html, proj() and realR()) reads the same function from the "proj" block written out below.
+MODE = os.environ.get("MAP_MODE", "city")
+R0M, S0 = 1100.0, 1.6           # metro: metres of near-true scale, and px per metre at the centre
 RR = R0M * S0
-BOUNDS = (144.79, -38.0, 145.30, -37.70)
+TRUE_S, CORE, RMAX = 14.0, 1500.0, 3200.0    # city: px per metre, metres at true scale, metres to the edge
+
+
+def radial(r):
+    """Metres from the CBD -> px from the CBD."""
+    if MODE == "metro":
+        return 2 * RR * (math.sqrt(1 + r / R0M) - 1)
+    if r <= CORE:
+        return TRUE_S * r
+    return TRUE_S * CORE * (1 + math.log(r / CORE))
+
+
+def unradial(u):
+    """px from the CBD -> metres from the CBD."""
+    if MODE == "metro":
+        return R0M * ((u / (2 * RR) + 1) ** 2 - 1)
+    if u <= TRUE_S * CORE:
+        return u / TRUE_S
+    return CORE * math.exp(u / (TRUE_S * CORE) - 1)
+
+
+def local_scale(r):
+    """px per metre at r metres from the CBD."""
+    if MODE == "metro":
+        return RR / (R0M * math.sqrt(1 + r / R0M))
+    return TRUE_S * min(1., CORE / max(r, 1.))
+
+
+if MODE == "metro":
+    BOUNDS = (144.79, -38.0, 145.30, -37.70)
+else:
+    _dlo, _dla = RMAX / (111320 * math.cos(math.radians(-37.8142))), RMAX / 110950
+    BOUNDS = (144.9628 - _dlo, -37.8142 - _dla, 144.9628 + _dlo, -37.8142 + _dla)
 MARGIN = 160
 
 
@@ -31,7 +71,7 @@ def warp(lon, lat):
     r = math.hypot(dx, dy)
     if r < 1e-9:
         return 0.0, 0.0
-    f = 2 * RR * (math.sqrt(1 + r / R0M) - 1)
+    f = radial(r)
     return dx * f / r, dy * f / r
 
 
@@ -485,6 +525,7 @@ def near_tram(x, y, r=14):
 # ------------------------------------------------------------------ greedy street selection
 WIDTH = {0: 88, 1: 80, 2: 72, 3: 64, 4: 56, 5: 56, 6: 48}
 GAP = {0: 40, 1: 60, 2: 90, 3: 135, 4: 170, 5: 170, 6: 20}
+REAL_W = {0: 20, 1: 18, 2: 14, 3: 11, 4: 8, 5: 8, 6: 9}   # metres kerb to kerb (Swanston, Collins, Bourke: about 20)
 
 
 def sample(pts, step=10):
@@ -538,7 +579,7 @@ def crosses_river(pts):
 
 def real_r(x, y):
     rw = math.hypot(x - OX, y - OY)
-    return R0M * ((rw / (2 * RR) + 1) ** 2 - 1)
+    return unradial(rw)
 
 
 for c in CHAINS:
@@ -554,6 +595,9 @@ for c in CHAINS:
     if c["attr"][3] and c["len"] < 250:
         c["attr"] = c["attr"][:3] + (False,)     # underpasses too short to bother with stay on the surface
     c["w"] = 112 if fw else max(WIDTH[cls], 72 if c["tram"] else 0)
+    # near the true-scale CBD, the real carriageway width (kerb to kerb) at the local scale, if that's wider
+    ls = local_scale(real_r(*c["pts"][len(c["pts"]) // 2][:2]))
+    c["w"] = max(c["w"], (30 if fw else (REAL_W[cls] + (4 if c["tram"] else 0))) * ls)
     c["gap"] = 30 if fw else GAP[min(cls, 3) if c["tram"] else cls]
     mid = c["pts"][len(c["pts"]) // 2]
     if real_r(*mid) < 2500:
@@ -1588,7 +1632,8 @@ names = sorted({e[2][0] for e in EDGES})
 nid = {n: i for i, n in enumerate(names)}
 out = {
     "v": 1, "w": WPX, "h": HPX,
-    "proj": {"lon0": LON0, "lat0": LAT0, "kx": KX, "ky": KY, "r0": R0M, "rr": RR, "ox": OX, "oy": OY},
+    "proj": {"lon0": LON0, "lat0": LAT0, "kx": KX, "ky": KY, "r0": R0M, "rr": RR, "ox": OX, "oy": OY,
+             "mode": MODE, "s": TRUE_S, "core": CORE, "rmax": RMAX},
     "names": names,
     "nodes": flat(NODES),
     "edges": [[e[0], e[1], e[2][1], nid[e[2][0]], (1 if e[2][2] else 0) | (2 if e[4] else 0) | (4 if e[2][3] else 0), e[3], flat(e[5])] for e in EDGES],
