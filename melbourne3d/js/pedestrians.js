@@ -1188,6 +1188,7 @@ class PersonRig {
    */
   constructor({ seed = 0, scale = 1, female = false, girth = 1, hair = 0.2, armSwing = 1, stride = 1 } = {}) {
     this.seed = seed;
+    this.aim = 0; // 0..1: arms raised in a two-handed gun grip (the player aiming)
     this.s = scale;
     this.female = female ? 1 : 0;
     this.girth = girth;
@@ -1741,16 +1742,17 @@ class PersonRig {
     qY(_qa, yaw + this.headTurn + look).multiply(qX(_q, 0.05 - 0.1 * run));
     this.writeBone(BONE.HEAD, _qa, this.jointFrom(BONE.CHEST, BONE.HEAD, _qChest, _chest, _v));
 
-    // Arms swing against the legs, a little behind them (elbows bend more on the forward swing, ~90 degrees running)
-    const swingAmp = 0.42 * this.armSwing * g * (1 + run * 0.3);
+    // Arms swing against the legs, a little behind them (elbows bend more on the forward swing, ~90 degrees running).
+    // Aiming (this.aim 0..1, the player with a gun drawn) raises both arms forward into a two-handed grip.
+    const swingAmp = 0.42 * this.armSwing * g * (1 + run * 0.3) * (1 - this.aim);
     for (let i = 0; i < 2; i++) {
       const side = SIDES[i];
-      const flex = 0.06 - side * this.arm * swingAmp + idle * 0.02;
-      const abduction = 0.1 + (this.girth - 1) * 0.35 + run * 0.08;
+      const flex = lerp(0.06 - side * this.arm * swingAmp + idle * 0.02, 1.42, this.aim);
+      const abduction = lerp(0.1 + (this.girth - 1) * 0.35 + run * 0.08, -0.22, this.aim);
       this.jointFrom(BONE.CHEST, LIMB.upperArm[i], _qChest, _chest, _shoulder);
       _qUpper.copy(_qChest).multiply(qZ(_q, side * (abduction - ARM_BIND_ABDUCTION))).multiply(qX(_q, -flex));
       this.writeBone(LIMB.upperArm[i], _qUpper, _shoulder);
-      const elbow = 0.2 + 0.55 * Math.max(0, flex) + 0.1 * g + run * 1.05;
+      const elbow = lerp(0.2 + 0.55 * Math.max(0, flex) + 0.1 * g + run * 1.05, 0.12, this.aim);
       this.jointFrom(LIMB.upperArm[i], LIMB.forearm[i], _qUpper, _shoulder, _v);
       this.writeBone(LIMB.forearm[i], _q2.copy(_qUpper).multiply(qX(_q, -elbow)), _v);
     }

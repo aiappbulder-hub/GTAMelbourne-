@@ -142,6 +142,9 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
 
   // Try crosswalks first for crossing pedestrians, then fall back to sidewalks if no suitable crossing fits.
   function spawnPed(p, rMin, rMax, protectView) {
+    p.dead = false;
+    p.fleeUntil = 0;
+    p.talkUntil = 0;
     const rMinSq = rMin * rMin, rMaxSq = rMax * rMax, gapSq = QUEUE_GAP * QUEUE_GAP;
     for (let attempt = 0; attempt < 10; attempt++) {
       const crosswalk = p.crossesStreets && nearSignals.length > 0 && attempt < 5;
@@ -296,6 +299,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   }
 
   function avoidPlayer(p) {
+    if (p.dead) return;
     // Commit to the landing and get-up; steering or walking during this pose would slide across the ground.
     if (clock - p.diveStart < PEDESTRIAN_DIVE_DURATION) return;
     // Stay off the walking line until the approaching vehicle has passed; returning is swept too.
@@ -383,6 +387,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
 
   const walkedNodes = [];
   function walk(p, dt) {
+    if (p.dead) return;
     const avoiding = clock < p.avoidUntil;
     const diving = clock - p.diveStart < PEDESTRIAN_DIVE_DURATION;
     const dodging = p.dodge !== 0 || p.dodgeTarget !== 0;
@@ -406,6 +411,9 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       p.restTime = clock + 35 + Math.random() * 55;
     }
     let vMax = avoiding ? p.avoidSpeed : p.pause > 0 || p.conversation ? 0 : p.speed;
+    // the player's game (js/gameplay.js): running away from gunfire, standing to talk
+    if (clock < p.fleeUntil && !p.node) vMax = Math.max(vMax, p.fleeSpeed);
+    if (clock < p.talkUntil) vMax = 0;
     if (dodging || diving) p.v = vMax = 0;
     if (!p.nextRoute) vMax = Math.min(vMax, Math.sqrt(2 * brake * ahead));
     let room = Infinity;
@@ -593,7 +601,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   // the next leg of their route over its last metre so the body rounds corners instead of swinging about on the spot.
   function renderPed(p, dt) {
     const draw = !hasView || visible(p.x, p.z, 7);
-    const diveTime = clock - p.diveStart;
+    // the dead fall as in a dive and stay down (prone from 0.72 s to 1.15 s of it)
+    const diveTime = p.dead ? Math.min(clock - p.diveStart, 0.9) : clock - p.diveStart;
     const diving = diveTime < PEDESTRIAN_DIVE_DURATION;
     const dx = p.x - focusX, dz = p.z - focusZ;
     const distSq = dx * dx + dz * dz;
@@ -613,7 +622,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         fz += (nz - fz) * w;
       }
     }
-    const heading = diving ? p.diveHeading : partner ? Math.atan2(partner.x - p.x, partner.z - p.z)
+    const heading = diving ? p.diveHeading : clock < p.talkUntil ? Math.atan2(p.talkX - p.x, p.talkZ - p.z)
+      : partner ? Math.atan2(partner.x - p.x, partner.z - p.z)
       : Math.abs(sideStep) > 0.01 ? Math.atan2(p.uz * Math.sign(sideStep), -p.ux * Math.sign(sideStep))
       : Math.atan2(fx, fz);
     p.rig.update(dt, p.x, p.z, heading, pedGround, p, 0, draw, diving ? diveTime : -1);
@@ -647,6 +657,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
       if (p.placed) avoidPlayer(p);
+      // bodies are cleared away after a while (out of sight, the spawner reuses the person)
+      if (p.dead && clock - p.diveStart > 45) { p.placed = false; p.dead = false; }
     }
     meet(dt);
     gatherCurbs();
@@ -660,7 +672,44 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     pedCrowd.end();
   }
 
-  return { peds, meshes: pedCrowd.meshes, update };
+  // --- The player's game (js/gameplay.js) --------------------------------------------------------------------------
+  function leaveConversation(p) {
+    if (p.conversation) endConversation(p.conversation);
+  }
+  /** p is shot: falls (away from the shot) and stays down */
+  function kill(p, fromX, fromZ) {
+    if (p.dead) return;
+    leaveConversation(p);
+    p.dead = true;
+    p.v = 0;
+    p.diveStart = clock;
+    p.diveHeading = Math.atan2(p.x - fromX, p.z - fromZ);
+  }
+  /** Everyone within r of (x, z) runs off along their footpath, away from it */
+  function scare(x, z, r, secs = 9) {
+    const r2 = r * r;
+    for (const p of peds) {
+      if (!p.placed || p.dead) continue;
+      const dx = p.x - x, dz = p.z - z;
+      if (dx * dx + dz * dz > r2) continue;
+      leaveConversation(p);
+      p.talkUntil = 0;
+      p.pause = 0;
+      if (!p.node) p.dir = dx * p.ux + dz * p.uz >= 0 ? 1 : -1;
+      p.fleeUntil = clock + secs * (0.7 + Math.random() * 0.6);
+      p.fleeSpeed = 3.6 + Math.random() * 1.6;
+    }
+  }
+  /** p stops and turns to face (x, z) for secs */
+  function talk(p, x, z, secs) {
+    if (p.dead) return;
+    leaveConversation(p);
+    p.talkUntil = clock + secs;
+    p.talkX = x;
+    p.talkZ = z;
+  }
+
+  return { peds, meshes: pedCrowd.meshes, update, kill, scare, talk };
 }
 
 export { createPedestrianSystem };

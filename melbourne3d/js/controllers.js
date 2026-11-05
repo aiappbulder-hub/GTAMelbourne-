@@ -205,8 +205,14 @@ class ThirdPersonControllerManager {
       left: false,
       right: false,
       up: false,
-      down: false
+      down: false,
+      sprint: false
     };
+    // The follow camera's yaw (main.js sets it every frame): on foot, movement keys are relative to it
+    this.cameraYaw = null;
+    // Gun drawn (js/gameplay.js): the player faces the aim and walks while aiming
+    this.aiming = false;
+    this.aimYaw = 0;
 
     this.entities = {
       person: this.createPersonEntity(),
@@ -256,7 +262,8 @@ class ThirdPersonControllerManager {
       left: ['KeyA', 'ArrowLeft'],
       right: ['KeyD', 'ArrowRight'],
       up: ['Space', 'KeyE'],
-      down: ['KeyQ', 'KeyC']
+      down: ['KeyQ', 'KeyC'],
+      sprint: ['ShiftLeft', 'ShiftRight']
     };
     const actionsByCode = new Map(Object.entries(bindings).flatMap(([action, codes]) => codes.map((code) => [code, action])));
     this._pressedCodes = new Set();
@@ -1014,10 +1021,11 @@ class ThirdPersonControllerManager {
     if (p) {
       const dx = focus ? p.position.x - focus.x : 0;
       const dz = focus ? p.position.z - focus.z : 0;
-      if (this.activeMode === 'person' || dx * dx + dz * dz <= maxDistSq) {
+      if (this.activeMode === 'person') {
         p._charHidden = false;
         if (p.mesh) p.mesh.visible = true;
         const air = p.position.y - this.getGroundHeight(p.position.x, p.position.z, 'person');
+        p.rig.aim += ((this.aiming ? 1 : 0) - p.rig.aim) * Math.min(1, dt * 12);
         p.rig.update(dt, p.position.x, p.position.z, p.heading, personGround, this, air > 0.02 ? air : 0);
         p.crowd.begin();
         p.crowd.add(p.rig, 0);
@@ -1083,14 +1091,13 @@ class ThirdPersonControllerManager {
     if (this.activeMode === 'person') {
       this.updatePerson(dt, elapsed);
     } else {
-      // Keep the sidewalk pedestrian walking naturally when not actively controlled
+      // In a vehicle the player rides along inside it (hidden, see poseCharacters)
       const p = this.entities.person;
-      const walkSpeed = 1.48;
-      p.speed = walkSpeed;
-      p.position.x += Math.sin(p.heading) * walkSpeed * dt;
-      p.position.z += Math.cos(p.heading) * walkSpeed * dt;
-      if (p.position.z < -340) p.heading = 0;
-      else if (p.position.z > 340) p.heading = Math.PI;
+      const v = this.getActiveEntity();
+      p.position.set(v.position.x, Math.max(0, v.position.y), v.position.z);
+      p.heading = v.heading;
+      p.speed = 0;
+      p.verticalVel = 0;
     }
 
     if (this.activeMode === 'car') {
@@ -1126,29 +1133,56 @@ class ThirdPersonControllerManager {
     this.poseCharacters(dt, focusPos);
   }
 
+  // On foot, as in GTA: the movement keys (or the stick) go where the camera looks, jogging; Shift sprints and a light
+  // touch of the stick walks. The body turns smoothly into the direction of travel (quicker when slow), eases up to
+  // speed and slows into stops and sharp turns; with a gun drawn it faces the aim and moves at a walk.
   updatePerson(dt) {
     const p = this.entities.person;
-    const maxSpeed = 8.2;
-    const turnRate = 2.6;
-
+    const WALK = 1.7, JOG = 4.3, SPRINT = 7.6;
+    const fwd = (this.keys.forward || 0) - (this.keys.backward || 0);
+    const side = (this.keys.right || 0) - (this.keys.left || 0);
+    const mag = Math.min(1, Math.hypot(fwd, side));
+    const camYaw = this.cameraYaw ?? p.heading;
     let targetSpeed = 0;
-    if (this.keys.forward) targetSpeed = maxSpeed * this.keys.forward;
-    else if (this.keys.backward) targetSpeed = -maxSpeed * 0.65 * this.keys.backward;
-
-    if (this.keys.left) p.heading += turnRate * dt * this.keys.left;
-    if (this.keys.right) p.heading -= turnRate * dt * this.keys.right;
-
-    const accelerating = Math.abs(targetSpeed) > Math.abs(p.speed) && p.speed * targetSpeed >= 0;
-    const acceleration = accelerating ? 5.5 * Math.abs(targetSpeed) / maxSpeed : 12;
-    p.speed += Math.max(-acceleration * dt, Math.min(acceleration * dt, targetSpeed - p.speed));
-
-    p.position.x += Math.sin(p.heading) * p.speed * dt;
-    p.position.z += Math.cos(p.heading) * p.speed * dt;
-    this.resolveHorizontalCollision(p.position, 0.48);
+    if (mag > 0.05) {
+      // camera-relative direction: forward (sin y, cos y), right (-cos y, sin y) in this frame (z points south)
+      const mx = Math.sin(camYaw) * fwd - Math.cos(camYaw) * side;
+      const mz = Math.cos(camYaw) * fwd + Math.sin(camYaw) * side;
+      const moveYaw = Math.atan2(mx, mz);
+      const gait = this.aiming ? WALK * 1.2 : mag < 0.55 ? WALK : this.keys.sprint ? SPRINT : JOG;
+      targetSpeed = gait * Math.max(mag, 0.35);
+      if (this.aiming) {
+        // strafing: face the aim, move any way (the speed is signed along the facing, sideways steps slide)
+        p._strafeX = mx / (Math.hypot(mx, mz) || 1);
+        p._strafeZ = mz / (Math.hypot(mx, mz) || 1);
+      } else {
+        let d = moveYaw - p.heading;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        const turnRate = 11 - 5 * Math.min(1, Math.abs(p.speed) / SPRINT); // rad/s
+        p.heading += Math.sign(d) * Math.min(Math.abs(d), turnRate * dt);
+        // slow into a sharp turn rather than skating round it
+        if (Math.abs(d) > 1.6) targetSpeed *= 0.35;
+      }
+    }
+    if (this.aiming) {
+      let d = this.aimYaw - p.heading;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      p.heading += Math.sign(d) * Math.min(Math.abs(d), 14 * dt);
+    }
+    const speedUp = targetSpeed > Math.abs(p.speed);
+    const rate = speedUp ? (targetSpeed > JOG + 0.1 ? 6.5 : 9) : 13;
+    const cur = Math.abs(p.speed);
+    const next = cur + Math.max(-rate * dt, Math.min(rate * dt, targetSpeed - cur));
+    p.speed = next;
+    let dirX = Math.sin(p.heading), dirZ = Math.cos(p.heading);
+    if (this.aiming && mag > 0.05) { dirX = p._strafeX; dirZ = p._strafeZ; }
+    p.position.x += dirX * p.speed * dt;
+    p.position.z += dirZ * p.speed * dt;
+    this.resolveHorizontalCollision(p.position, 0.42);
 
     const groundY = this.getGroundHeight(p.position.x, p.position.z, 'person');
-    if (this.keys.up && p.position.y <= groundY + 0.02) {
-      p.verticalVel = 5.2;
+    if (this.keys.up && p.position.y <= groundY + 0.02 && !this.aiming) {
+      p.verticalVel = 4.6;
     }
     p.verticalVel -= 14.5 * dt;
     p.position.y += p.verticalVel * dt;

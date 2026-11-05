@@ -161,6 +161,7 @@ async function initApp() {
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
+  let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
   // Reuse teleport placement so saved players return at rest, close to their last positions.
   try {
     const saved = JSON.parse(localStorage.getItem(PLAYER_STATE_KEY));
@@ -355,8 +356,12 @@ async function initApp() {
 
   // Keyboard guide for each mode: [keys, action]
   const controlHints = {
-    person: [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
-    car: [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['B'], 'Horn'], [['Drag'], 'Orbit']],
+    person: IS_MELBOURNE
+      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['RMB'], 'Aim'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
+      : [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
+    car: IS_MELBOURNE
+      ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['F'], 'Get out'], [['B'], 'Horn'], [['Drag'], 'Orbit']]
+      : [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['B'], 'Horn'], [['Drag'], 'Orbit']],
     cyclist: [[['W', 'S'], 'Pedal / Brake'], [['A', 'D'], 'Lean & Turn'], [['Drag'], 'Orbit']],
     helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend']]
   };
@@ -392,6 +397,8 @@ async function initApp() {
   }
 
   function selectMode(mode) {
+    // Melbourne: getting into and out of cars goes through js/gameplay.js, which keeps taken and parked cars straight
+    if (gameplay && !gameplay.beforeMode(mode)) return;
     controllerManager.setMode(mode);
     touchControls.setMode(controllerManager.activeMode);
     gamepadControls.reset();
@@ -582,6 +589,11 @@ async function initApp() {
 
   // GTA Melbourne's story missions (js/missions.js), and a Jobs list in the teleport menu that takes you to any job
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem }) : null;
+  // Taking cars, guns and talking to people (js/gameplay.js)
+  gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
+    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode
+  }) : null;
+  window.__city.gameplay = gameplay;
   if (missionSystem) {
     window.__city.missions = missionSystem;
     const pop = document.getElementById('teleport-popover');
@@ -799,7 +811,12 @@ async function initApp() {
 
     // Update 3rd-person controllers, camera, signals, traffic & vehicle collisions, building LODs, and dynamic shadow focus
     gamepadControls.update(dt);
+    // the follow camera's yaw: on foot the movement keys are relative to it (controllers.js)
+    if (cameraSystem.initialized) {
+      controllerManager.cameraYaw = Math.atan2(cameraSystem.currentLookAt.x - cameraSystem.currentPos.x, cameraSystem.currentLookAt.z - cameraSystem.currentPos.z);
+    }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
+    if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);
     streetDetails.signalClock.value = elapsed;
     trafficSystem.update(

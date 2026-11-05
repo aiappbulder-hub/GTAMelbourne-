@@ -1358,6 +1358,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
 
   // Move v along and across its path by (dx, dz), as far as the road allows
   function shove(v, dx, dz) {
+    if (!v.edge && !v.conn) { // parked (left by the player, or stalled): it just slides
+      v.x += dx;
+      v.z += dz;
+      return;
+    }
     const along = dx * v.tx + dz * v.tz;
     if (v.conn) v.cs = clamp(v.cs + along, -v.half, v.conn.len - 0.01);
     else v.s = clamp(v.s + along, 0, v.edge.len - v.half);
@@ -1553,6 +1558,49 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     v.nose = v.yawRate = v.steer = v.delta = 0;
     v.move = chooseMove(v, false);
     occupy(e.occ[lane], v, s);
+  }
+
+  // --- Cars the player takes (js/gameplay.js) ----------------------------------------------------------------------
+  // A taken car leaves the traffic and is drawn where the player's car physics puts it (`driven`); left behind, it
+  // stays where it was left (`parked`) until the player is far away, then rejoins the traffic elsewhere.
+  function nearestCar(x, z, r) {
+    let best = null, bd = r;
+    for (const v of cars) {
+      if (v.driven || !(v.edge || v.parked)) continue;
+      const d = Math.hypot(v.x - x, v.z - z);
+      if (d < bd) { bd = d; best = v; }
+    }
+    return best;
+  }
+  function takeCar(v) {
+    v.edge = null;
+    v.move = null;
+    v.conn = null;
+    v.trail = null;
+    v.commit = null;
+    v.claimed = false;
+    v.speed = 0;
+    v.driven = true;
+    v.parked = false;
+    v.hits = 0;
+  }
+  function parkCar(v) {
+    v.driven = false;
+    v.parked = true;
+    v.speed = 0;
+    v.acc = 0;
+  }
+  // A shot traffic car: its driver floors it to get away; enough hits and it stalls where it is
+  function shootCar(v) {
+    v.hits = (v.hits || 0) + 1;
+    v.panicUntil = clock + 6;
+    v.panicAcc = 3.5;
+    if (v.hits >= 8 && v.edge) {
+      v.edge = null;
+      v.parked = true;
+      v.speed = 0;
+      v.acc = 0;
+    }
   }
 
   // Put v in a free lane around the focus. Normal replenishment protects the near view; teleports can fill it.
@@ -1919,6 +1967,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     for (let scanned = 0; scanned < vehicles.length && budget > 0; scanned++) {
       const v = vehicles[vehicleCursor];
       vehicleCursor = (vehicleCursor + 1) % vehicles.length;
+      if (v.driven) continue;
+      if (v.parked) {
+        if (Math.hypot(v.x - focusX, v.z - focusZ) < VEHICLE_RADIUS + 60) continue;
+        v.parked = false; // far behind: back into the traffic
+      }
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
       if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS)) continue;
       budget--;
@@ -1946,12 +1999,27 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       knock(v, dt);
       pose(v, dt);
     }
+    for (const v of cars) {
+      if (!v.driven || !player.entity) continue;
+      const pe = player.entity;
+      v.prevX = v.x;
+      v.prevZ = v.z;
+      v.acc = dt > 0 ? ((pe.speed || 0) - v.speed) / dt : 0;
+      v.speed = pe.speed || 0;
+      v.x = pe.position.x;
+      v.z = pe.position.z;
+      v.yaw = pe.heading;
+      v.yawOffset = 0;
+      v.pitch = pe.chassisPivot ? pe.chassisPivot.rotation.x : 0;
+      v.roll = pe.chassisPivot ? pe.chassisPivot.rotation.z : 0;
+    }
+    for (const v of cars) if (v.parked) { v.prevX = v.x; v.prevZ = v.z; }
     if (player.active) {
-      for (const v of vehicles) if (v.edge) collideWithPlayer(v);
+      for (const v of vehicles) if (v.edge || v.parked) collideWithPlayer(v);
     }
     collideTraffic();
     for (const v of vehicles) {
-      if (!v.edge) continue;
+      if (!v.edge && !v.driven && !v.parked) continue;
       if (v.bus) renderBus(v);
       else renderCar(v);
     }
@@ -2021,6 +2089,13 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     cars,
     buses,
     peds: pedestrianSystem.peds,
+    killPed: pedestrianSystem.kill,
+    scarePeds: pedestrianSystem.scare,
+    talkToPed: pedestrianSystem.talk,
+    nearestCar,
+    takeCar,
+    parkCar,
+    shootCar,
     network
   };
 }

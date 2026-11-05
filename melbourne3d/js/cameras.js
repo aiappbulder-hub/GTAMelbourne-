@@ -189,7 +189,18 @@ class CameraSystem {
     this.smoothedSpeed += (Math.abs(entity.speed) - this.smoothedSpeed) * (1 - Math.exp(-dt * 3.0));
     const speedLag = this.smoothedSpeed * 0.1;
 
-    const totalYaw = entity.heading + this.orbitYawOffset;
+    // On foot the camera swings round behind the player lazily (and not while aiming or standing still), so the
+    // camera-relative movement keys keep their meaning (controllers.js); vehicles keep it locked behind them
+    if (entity.type === 'person') {
+      if (this.personYaw === undefined || !this.initialized) this.personYaw = entity.heading;
+      let d = entity.heading - this.personYaw;
+      d = Math.atan2(Math.sin(d), Math.cos(d));
+      const follow = this.controllerManager.aiming ? 6.0 : Math.min(1, Math.abs(entity.speed) / 3) * 1.6;
+      this.personYaw += d * Math.min(1, follow * dt);
+    } else {
+      this.personYaw = entity.heading;
+    }
+    const totalYaw = (entity.type === 'person' ? this.personYaw : entity.heading) + this.orbitYawOffset;
 
     // A city with its own scenic views (Melbourne) takes them instead of New York's built-in ones below
     const view = SCENIC_VIEWS && SCENIC_VIEWS[this.activePresetId];
@@ -221,10 +232,11 @@ class CameraSystem {
         );
 
         const lookUpBias = entity.type === 'helicopter' ? 0.2 : (entity.type === 'car' ? 0.52 : 1.55);
+        const lookYaw = entity.type === 'person' ? totalYaw : entity.heading;
         desiredLook.set(
-          entity.position.x + Math.sin(entity.heading) * 5.2,
+          entity.position.x + Math.sin(lookYaw) * 5.2,
           entity.position.y + entity.cameraTargetOffset.y + lookUpBias,
-          entity.position.z + Math.cos(entity.heading) * 5.2
+          entity.position.z + Math.cos(lookYaw) * 5.2
         );
         break;
       }

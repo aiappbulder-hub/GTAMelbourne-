@@ -43,6 +43,17 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   GPS route on the map. Cutscene dialogue (Enter or click), timers, cash and progress are saved. The teleport menu's
   Jobs list goes straight to any job. The jobs that needed guns, gangs and police are driving jobs until those move
   across.
+- **On foot and behind the wheel** (`js/gameplay.js`, `js/controllers.js`):
+  - Movement as in GTA: the keys go where the camera looks; jog by default, Shift to sprint, a light touch of the stick
+    walks; the body turns smoothly into the direction of travel and slows into sharp turns; the camera swings round
+    behind lazily.
+  - **F** gets into your taxi or takes any car in the traffic (walking to the driver's door, the right-hand side,
+    from a few metres away), and gets out again. A taken car keeps its own body and paint and stays parked where you
+    leave it.
+  - Guns: pistol, Uzi, shotgun (**Tab** to change, **G** to holster, **R** to reload). Hold the right mouse button to
+    aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot; without aiming, shots lock on to the nearest
+    person or car in front. People fall and stay down a while; everyone nearby runs; shot cars flee, then stall.
+  - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the

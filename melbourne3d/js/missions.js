@@ -361,6 +361,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
 
   return {
     update,
+    sub,
+    addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,
     get progress() { return save.progress; },
     get money() { return save.money; },
