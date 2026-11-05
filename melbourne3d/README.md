@@ -54,6 +54,10 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
     aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot; without aiming, shots lock on to the nearest
     person or car in front. People fall and stay down a while; everyone nearby runs; shot cars flee, then stall.
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
+- **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
+  Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with Trent setting up the story and
+  Vince's phone call, ending on the player at the first job. Plays the first time; Esc / Enter / Skip end it; replay
+  it from the teleport menu or with `?intro`.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the

@@ -602,6 +602,26 @@ async function initApp() {
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode
   }) : null;
   window.__city.gameplay = gameplay;
+  // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
+  const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
+    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo
+  }) : null;
+  window.__city.intro = intro;
+  if (intro) {
+    const pop = document.getElementById('teleport-popover');
+    const b = document.createElement('button');
+    b.className = 'pop-item tp-btn';
+    b.type = 'button';
+    const n = document.createElement('span');
+    n.className = 'pop-name';
+    n.textContent = 'Watch the intro';
+    const sub = document.createElement('span');
+    sub.className = 'pop-sub';
+    sub.textContent = 'Melbourne, 2004: how it starts';
+    b.append(n, sub);
+    b.addEventListener('click', () => { closePopovers(); intro.start(); });
+    pop.prepend(b);
+  }
   if (missionSystem) {
     window.__city.missions = missionSystem;
     const pop = document.getElementById('teleport-popover');
@@ -826,6 +846,7 @@ async function initApp() {
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
     if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);
+    if (intro) intro.apply(dt);
     streetDetails.signalClock.value = elapsed;
     trafficSystem.update(
       dt,
@@ -887,6 +908,7 @@ async function initApp() {
         initTimings = null;
         setLoadingProgress(1);
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        if (intro && intro.shouldAutoplay) intro.start();
         audioSystem.ready = true;
       });
     }
