@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config.js';
 import { circuitPoint } from './race-track.js';
+import { blockAt } from './city-config.js';
 
 // GTA Melbourne's story, moved across from the original game (../index.html) onto the new engine's real-scale map.
 //
@@ -164,7 +165,7 @@ const CSS = `
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -254,6 +255,25 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     m.scale.set(r, 1, r);
     m.visible = true;
   };
+
+  // Where a job's giver stands: on the footpath nearest the job's marker (not out in the road)
+  const giverCache = new Map();
+  function giverSpot(def) {
+    if (giverCache.has(def)) return giverCache.get(def);
+    const st = resolve(def.start);
+    let best = { x: st.x, y: 0, z: st.z };
+    if (!blockAt(st.x, st.z)) {
+      search: for (let r = 2; r <= 24; r += 1.5) {
+        for (let a = 0; a < 16; a++) {
+          const x = st.x + Math.cos((a / 16) * Math.PI * 2) * r, z = st.z + Math.sin((a / 16) * Math.PI * 2) * r;
+          const b = blockAt(x, z);
+          if (b && !(b.park > 0.6)) { best = { x, y: 0.22, z }; break search; }
+        }
+      }
+    } else best.y = 0.22;
+    giverCache.set(def, best);
+    return best;
+  }
 
   const placeCache = new Map();
   function resolve(at) {
@@ -416,6 +436,15 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     startMarker.children[0].material.opacity = pulse;
     goalMarker.children[0].material.opacity = pulse;
     const p = playerPos();
+    // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
+    if (cast) {
+      const def = mission ? mission.def : MISSIONS[save.progress];
+      const show = def && (!mission || cut) && !document.body.classList.contains('cinematic');
+      if (show) {
+        const at = giverSpot(def);
+        cast.setGiver(def.giver, at, p, !!cut, dt);
+      } else cast.setGiver(null);
+    }
     // the pointer: the objective's marker, or the nearest target, or the next job's
     if (cut || document.body.classList.contains('cinematic')) point(null);
     else if (mission && goalMarker.visible) point(goalMarker.position, '#ffd23f');

@@ -3,6 +3,7 @@ import { Q } from './quality.js';
 import { createPedestrianRoutes } from './pedestrian-routes.js';
 import { PersonCrowd, PersonRig, PEDESTRIAN_DIVE_DURATION } from './pedestrians.js';
 import { createMelbourneCharacterRig, MELBOURNE_CHARACTER_PRESETS } from './character-presets.js';
+import { castHook, characterFor, isFemale } from './people.js';
 
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
@@ -34,11 +35,18 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   };
   const peds = [];
   for (let i = 0; i < NUM_PEDS; i++) {
-    const female = hash(i, 1) < 0.48;
+    // a role (a few police and gang members among the locals) and the cast member who plays them up close (js/people.js)
+    const PRESET_ROLES = ['civilian', 'gang', 'civilian', 'gang', 'police'];
+    const role = i < 5 ? PRESET_ROLES[i] : i % 31 === 9 ? 'police' : i % 17 === 5 ? 'gang' : 'civilian';
+    const female = role === 'civilian' && hash(i, 1) < 0.48;
+    const castId = characterFor(i, i < 5 ? MELBOURNE_CHARACTER_PRESETS[i].female && role === 'civilian' : female, role);
     const hairRoll = hash(i, 2);
     peds.push({
       placed: false,
-      female: i < 5 ? MELBOURNE_CHARACTER_PRESETS[i].female : female, // for the voice that answers (js/voice-manager.js)
+      index: i,
+      role,
+      castId,
+      female: isFemale(castId), // for the voice that answers (js/voice-manager.js)
       crossesStreets: i % 6 === 0, // some start near crossings; everyone can use them along their route
       x: 0,
       z: 0,
@@ -613,6 +621,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       p.rig.placed = false;
       return;
     }
+    if (draw && castCandidates) castCandidates.push({ p, d2: distSq });
     const partner = p.conversation && (p.conversation.a === p ? p.conversation.b : p.conversation.a);
     const sideStep = p.dodgeTarget - p.dodge;
     let fx = p.ux * p.dir, fz = p.uz * p.dir;
@@ -629,11 +638,19 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       : partner ? Math.atan2(partner.x - p.x, partner.z - p.z)
       : Math.abs(sideStep) > 0.01 ? Math.atan2(p.uz * Math.sign(sideStep), -p.ux * Math.sign(sideStep))
       : Math.atan2(fx, fz);
+    if (p.actor) {
+      // a cast member plays them (js/people.js): the procedural figure stands down
+      p.rig.placed = false;
+      if (!draw) { castHook.cast.drop(p); return; }
+      castHook.cast.posePed(p, pedGround(p, p.x, p.z), heading, dt, { dead: p.dead, talking: clock < p.talkUntil || !!partner, scared: clock < (p.fleeUntil || 0) });
+      return;
+    }
     p.rig.update(dt, p.x, p.z, heading, pedGround, p, 0, draw, diving ? diveTime : -1);
     if (!draw) return;
     pedCrowd.add(p.rig, Math.sqrt(distSq));
   }
 
+  let castCandidates = null, lastCandidates = null;
   function update(dt, elapsed, x, z, jump, view, activeMode) {
     clock = elapsed;
     focusX = x;
@@ -665,14 +682,19 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     }
     meet(dt);
     gatherCurbs();
+    // the cast: last frame's visible people decide who gets a cast member this frame
+    const cast = castHook.cast;
+    if (cast && lastCandidates) cast.assign(lastCandidates);
+    castCandidates = cast ? [] : null;
     pedCrowd.begin();
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
-      if (!p.placed) continue;
+      if (!p.placed) { if (p.actor) cast?.drop(p); continue; }
       walk(p, dt);
       renderPed(p, dt);
     }
     pedCrowd.end();
+    lastCandidates = castCandidates;
   }
 
   // --- The player's game (js/gameplay.js) --------------------------------------------------------------------------

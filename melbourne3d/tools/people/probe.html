@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>probe</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+const q = new URLSearchParams(location.search);
+const m = new THREE.LoadingManager(); m.setURLModifier((u) => u.replace(/\.tga$/i, (u.includes('opacity') ? '.png' : '.jpg')));
+const L = new FBXLoader(m);
+const out = [];
+const g = await L.loadAsync(q.get('f'));
+g.traverse((o) => { if (o.isMesh) out.push(`MESH ${o.name} skinned=${o.isSkinnedMesh} v=${o.geometry.attributes.position.count} mats=${[].concat(o.material).map((x) => x.name + ':' + (x.map?.name || x.map?.image?.src?.split('/').pop() || '-')).join(',')}`); });
+const bones = []; g.traverse((o) => { if (o.isBone) bones.push(o.name); });
+out.push('BONES ' + bones.length + ' ' + bones.slice(0, 12).join(','));
+out.push('scale ' + g.scale.toArray() + ' anims ' + g.animations.map((a) => a.name + ':' + a.duration.toFixed(2) + ':' + a.tracks.length).join(' '));
+const b = new THREE.Box3().setFromObject(g); out.push('box ' + b.min.toArray().map((v) => v.toFixed(1)) + ' / ' + b.max.toArray().map((v) => v.toFixed(1)));
+if (q.get('a')) { const a = await L.loadAsync(q.get('a')); out.push('ANIM ' + a.animations.map((c) => c.name + ' ' + c.duration.toFixed(2) + 's tracks=' + c.tracks.length + ' ' + c.tracks.slice(0, 4).map((t) => t.name).join(','))); }
+document.body.textContent = out.join('\n'); document.title = 'done';
+</script>

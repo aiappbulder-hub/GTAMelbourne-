@@ -1,0 +1,66 @@
+<!doctype html><meta charset="utf-8"><title>people convert</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+// Converts Microsoft Rocketbox avatars (MIT) for the game: an FBX in centimetres with TGA textures becomes a GLB in
+// metres with JPEG/PNG textures and standard PBR materials; the animation FBXs become compact JSON clips (by bone
+// name, so one set plays on every avatar of that sex), with the ground speed of each gait measured from its feet.
+// Driven by tools/people/convert.cjs, which saves what these functions return.
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const manager = new THREE.LoadingManager();
+manager.setURLModifier((u) => u.replace(/\.tga$/i, u.toLowerCase().includes('opacity') ? '.png' : '.jpg'));
+const fbx = new FBXLoader(manager);
+const texLoader = new THREE.TextureLoader();
+const tex = (url, srgb) => new Promise((ok) => texLoader.load(url, (t) => { t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; ok(t); }, undefined, () => ok(null))); // flipY left as FBX UVs expect: the exporter flips the image for glTF
+
+window.convertAvatar = async (dir, name) => {
+  const g = await fbx.loadAsync(`${dir}/${name}.fbx`);
+  const mesh = []; g.traverse((o) => { if (o.isSkinnedMesh) mesh.push(o); });
+  // textures by the prefix the materials use (m014_body, m014_head, m014_opacity)
+  for (const m of mesh) {
+    const mats = [].concat(m.material).map(async (old) => {
+      const key = old.name; // e.g. m014_body
+      const opacity = /opacity/.test(key);
+      const color = await tex(`${dir}/${key}_color.${opacity ? 'png' : 'jpg'}`, true);
+      const normal = opacity ? null : await tex(`${dir}/${key}_normal.jpg`, false);
+      if (color) color.userData.mimeType = opacity ? 'image/png' : 'image/jpeg';
+      if (normal) normal.userData.mimeType = 'image/jpeg';
+      const mat = new THREE.MeshStandardMaterial({ name: key, map: color, normalMap: normal, roughness: opacity ? 0.75 : 0.62, metalness: 0 });
+      if (opacity) { mat.alphaTest = 0.45; mat.transparent = false; mat.side = THREE.DoubleSide; }
+      return mat;
+    });
+    const out = await Promise.all(mats);
+    m.material = Array.isArray(m.material) ? out : out[0];
+  }
+  g.animations = [];
+  g.scale.setScalar(0.01); // centimetres to metres
+  g.name = name;
+  const glb = await new GLTFExporter().parseAsync(g, { binary: true, onlyVisible: false });
+  const bytes = new Uint8Array(glb);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { b64: btoa(s), verts: mesh.reduce((n, m) => n + m.geometry.attributes.position.count, 0) };
+};
+
+// A clip, trimmed: no footstep helper, no scale tracks, positions only on the hips' root (Bip01) and the pelvis;
+// values rounded. The ground speed of a gait: how fast a planted foot slides back under the body (the clips have the
+// forward motion taken out)
+window.convertClip = async (url, key, gait) => {
+  const a = await fbx.loadAsync(url);
+  let clip = a.animations[0];
+  clip.name = key;
+  // body and hands only (the face's 30-odd bones stay at rest), no scale tracks, positions only on the root and pelvis
+  const FACE = /_M[A-Z]|Mouth|Lip|Jaw|Tongue|Eye|Lid|Brow|Cheek|Nose|Teeth|Ear/;
+  clip.tracks = clip.tracks.filter((t) => !/Footsteps|\.scale$/.test(t.name) && !FACE.test(t.name.split('.')[0])
+    && (!/\.position$/.test(t.name) || /^Bip01(_Pelvis)?\.position$/.test(t.name)));
+  // long idles and talking: the first 12 seconds are plenty (the mixer loops them)
+  if (clip.duration > 12) clip = THREE.AnimationUtils.subclip(clip, key, 0, 12 * 30, 30);
+  for (const t of clip.tracks) for (let i = 0; i < t.values.length; i++) t.values[i] = Math.round(t.values[i] * 1e3) / 1e3;
+  for (const t of clip.tracks) t.optimize();
+  const speed = 0; // ground speeds are set in js/people.js, matched by eye
+  return { json: JSON.stringify(THREE.AnimationClip.toJSON(clip)), duration: clip.duration, speed };
+};
+document.title = 'ready';
+</script>

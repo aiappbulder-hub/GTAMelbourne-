@@ -1029,7 +1029,14 @@ class ThirdPersonControllerManager {
     if (p) {
       const dx = focus ? p.position.x - focus.x : 0;
       const dz = focus ? p.position.z - focus.z : 0;
-      if (this.activeMode === 'person') {
+      if (this.activeMode === 'person' && p.castModel) {
+        // the player's own character plays them (js/people.js): the procedural stand-in draws nothing
+        p._charHidden = false;
+        if (p.mesh) p.mesh.visible = true;
+        p.rig.placed = false;
+        p.crowd.begin();
+        p.crowd.end();
+      } else if (this.activeMode === 'person') {
         p._charHidden = false;
         if (p.mesh) p.mesh.visible = true;
         const air = p.position.y - this.getGroundHeight(p.position.x, p.position.z, 'person');

@@ -230,6 +230,9 @@ async function initApp() {
   ];
   scene.updateMatrixWorld(true);
   scene.matrixWorldAutoUpdate = false;
+  // Everything added to the scene after this (mission markers, gunfire effects, the people, ...) moves: keep its
+  // world matrices up to date every frame too
+  const staticChildren = new Set(scene.children);
   markInit('culling');
 
   // 5. TSL RenderPipeline with Half-Res Screen Space Reflections (SSRNode), Bloom & Filmic Toning
@@ -610,12 +613,18 @@ async function initApp() {
   });
 
   // GTA Melbourne's story missions (js/missions.js), and a Jobs list in the teleport menu that takes you to any job
+  // The cast (js/people.js): the player's character, the nearest pedestrians as realistic Rocketbox people
+  // (MIT), and Vince and Kaz at their jobs
+  const cast = IS_MELBOURNE ? (await import('./people.js')) : null;
+  const castSystem = cast ? cast.createCast({ scene, controllerManager }) : null;
+  if (cast) cast.castHook.cast = castSystem;
+  window.__city.cast = castSystem;
   // Recorded Australian voices for the characters, pedestrians and police (js/voice-manager.js, data/character-voices.json)
   const voices = IS_MELBOURNE ? await (await import('./voice-manager.js')).createVoiceManager({
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices }) : null;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices
@@ -878,6 +887,7 @@ async function initApp() {
       controllerManager.cameraYaw = Math.atan2(cameraSystem.currentLookAt.x - cameraSystem.currentPos.x, cameraSystem.currentLookAt.z - cameraSystem.currentPos.z);
     }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
+    castSystem?.posePlayer(dt);
     if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
@@ -908,6 +918,7 @@ async function initApp() {
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     // Traffic collisions can move the player after controller updates; finalize moving hierarchies here.
     for (const root of dynamicRoots) root.updateMatrixWorld();
+    for (const child of scene.children) if (!staticChildren.has(child) && child.visible) child.updateMatrixWorld();
 
     // Render frame via TSL RenderPipeline (SSR + Bloom)
     if (!warmedUp) {
