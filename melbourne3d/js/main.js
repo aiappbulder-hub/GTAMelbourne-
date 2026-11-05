@@ -121,7 +121,7 @@ async function initApp() {
   await showLoadingStage('Building streets, parks and waterfronts...', 'cityGrid');
   const cityGrid = buildCityGrid(scene);
   markInit('cityGrid');
-  await showLoadingStage('Building bridges and surrounding boroughs...', 'boroughs');
+  await showLoadingStage(IS_MELBOURNE ? 'Loading Melbourne...' : 'Building bridges and surrounding boroughs...', 'boroughs');
   // Melbourne has no boroughs or harbour bridges (and Slop New York's hand-built landmarks are Manhattan's)
   const boroughs = IS_MELBOURNE ? { colliders: [] } : buildBoroughs(scene, { sidewalks: cityGrid.sidewalks });
   markInit('boroughs');
@@ -204,7 +204,7 @@ async function initApp() {
   // Island-wide static geometry: chunk & distance-cull the small props, shadow stand-ins for the big casters
   // (scene-culling.js)
   await showLoadingStage('Preparing scene visibility and shadows...', 'culling');
-  const cullingRoots = ['ManhattanCityGrid', 'ManhattanCityBlocks', 'ManhattanStreetDetails', 'ManhattanLandmarks', 'Boroughs', 'RoadMarkings']
+  const cullingRoots = ['ManhattanCityGrid', 'MelbourneCityGrid', 'ManhattanCityBlocks', 'ManhattanStreetDetails', 'ManhattanLandmarks', 'Boroughs', 'RoadMarkings']
     .map((name) => scene.getObjectByName(name))
     .filter(Boolean);
   setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow);

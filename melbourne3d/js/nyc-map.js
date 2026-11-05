@@ -1,4 +1,5 @@
 import { GEO } from './geodata.js';
+import { IS_MELBOURNE } from './city.js';
 import {
   ROADS,
   BLOCKS,
@@ -72,14 +73,24 @@ const MAP = {
 };
 
 // Landmarks modelled by landmarks.js on their real OpenStreetMap lots (outlined in amber)
-const MODELLED_LANDMARKS = [
+const MODELLED_LANDMARKS = IS_MELBOURNE ? [
+  'Flinders Street Station', 'Federation Square', 'Eureka Tower', "St Paul's Cathedral", 'Melbourne Town Hall', 'State Library Victoria',
+  'Parliament House', 'Royal Exhibition Building', 'Melbourne Cricket Ground', 'Southern Cross Station', 'Queen Victoria Market',
+  'Arts Centre Melbourne', 'Crown Melbourne', 'Marvel Stadium', 'Shrine of Remembrance'
+] : [
   'Empire State Building', 'Chrysler Building', 'One Vanderbilt', 'Grand Central Terminal', 'MetLife Building',
   'Stephen A. Schwarzman Building', 'One Times Square', '30 Rockefeller Plaza', 'Citigroup Center', 'Seagram Building',
   'Flatiron Building', 'One World Trade Center', 'New York Stock Exchange'
 ];
 
 // Borough (0), waterway (1) & neighbourhood (2) names at their real places (world metres)
-const AREA_LABELS = [
+const AREA_LABELS = IS_MELBOURNE ? [
+  ['MELBOURNE', -240, -230, 0],
+  ['YARRA RIVER', 200, 500, 1], ['YARRA RIVER', 980, 1700, 1], ['VICTORIA HARBOUR', -2450, -150, 1], ['MOONEE PONDS CREEK', -2500, -1900, 1],
+  ['SOUTHBANK', -450, 760, 2], ['DOCKLANDS', -1850, -450, 2], ['CARLTON', 150, -1350, 2], ['FITZROY', 1150, -1500, 2],
+  ['EAST MELBOURNE', 1250, -350, 2], ['NORTH MELBOURNE', -1300, -1350, 2], ['SOUTH MELBOURNE', -650, 1600, 2],
+  ['KINGS DOMAIN', 450, 1300, 2], ['YARRA PARK', 1300, 750, 2], ['SOUTH WHARF', -1350, 650, 2], ['WEST MELBOURNE', -2000, -1100, 2]
+] : [
   ['MANHATTAN', 120, -1500, 0], ['NEW JERSEY', -7000, 2000, 0], ['BROOKLYN', 7850, 8780, 0], ['QUEENS', 8810, -1680, 0],
   ['THE BRONX', 1010, -9640, 0], ['STATEN ISLAND', -1800, 19220, 0],
   ['HUDSON RIVER', -2680, -300, 1], ['HUDSON RIVER', -2650, -5600, 1], ['EAST RIVER', 1700, 800, 1],
@@ -216,6 +227,15 @@ function mapLayers() {
   L.islands = new Path2D();
   for (const ring of rings([RANDALLS_ISLAND_POLYGON, ROOSEVELT_ISLAND_POLYGON, GOVERNORS_ISLAND_POLYGON, LIBERTY_ISLAND_POLYGON,
     ELLIS_ISLAND_POLYGON, MILL_ROCK_POLYGON])) addRing(L.islands, ring);
+
+  // Melbourne: land all round the map's edge, and the Yarra, Victoria Harbour, the creek and the lakes
+  if (IS_MELBOURNE) addRing(L.fillers, [{ x: -60000, z: -60000 }, { x: 60000, z: -60000 }, { x: 60000, z: 60000 }, { x: -60000, z: 60000 }]);
+  L.water = new Path2D();
+  for (const w of GEO.water || []) for (const r of w.rings || []) {
+    const pts = [];
+    for (let i = 0; i < r.length; i += 2) pts.push({ x: r[i], z: r[i + 1] });
+    if (pts.length > 2) addRing(L.water, pts);
+  }
 
   // Manhattan inside its bulkhead line, and its piers
   L.manhattan = new Path2D();
@@ -779,6 +799,11 @@ class NYCMapSystem {
     ctx.strokeStyle = MAP.shore;
     ctx.lineWidth = px(isMinimap ? 1.6 : 2.0);
     ctx.stroke(L.manhattan);
+    // Melbourne's rivers, harbour and lakes (islands in them are their holes)
+    ctx.fillStyle = MAP.water;
+    ctx.fill(L.water, 'evenodd');
+    ctx.strokeStyle = MAP.shore;
+    ctx.stroke(L.water);
 
     // 3. Parkland, blocks (curb islands) and park blocks
     ctx.fillStyle = MAP.park;

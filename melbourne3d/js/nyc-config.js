@@ -731,10 +731,13 @@ function walkSignal(time, isAvenue) {
 const SPAWN = { x: 0, z: streetZ(37) };
 // (Melbourne: where the grid alone carries traffic; Manhattan's grid and centreline streets interleave)
 const GRID_ZONE = null;
+// (Melbourne: its own scenic camera positions; New York's are built into cameras.js)
+const SCENIC_VIEWS = null;
 
 export {
   SPAWN,
   GRID_ZONE,
+  SCENIC_VIEWS,
   AVENUES,
   ALL_AVENUES,
   CENTRAL_PARK_BOUNDS,

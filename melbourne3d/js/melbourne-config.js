@@ -295,6 +295,19 @@ const TELEPORT_LOCATIONS = {
 // Spawn on Swanston St between Collins and Bourke, facing south toward Flinders Street Station
 const SPAWN = { x: swan, z: (zOf('Collins Street') + zOf('Bourke Street')) / 2 };
 
+// Fixed scenic cameras (cameras.js): eye and target in world metres, in place of New York's vantage points (the ids
+// are the engine's preset slots)
+const SCENIC_VIEWS = {
+  centralPark: { name: 'Federation Square', pos: [230, 14, 330], look: [-170, 18, 262] },
+  fifthAve: { name: 'Swanston St to Flinders St', pos: [swan, 6.5, zOf('La Trobe Street') + 90], look: [swan, 25, 300] },
+  timesSquare: { name: 'Bourke Street Mall', pos: [swan - 15, 5.5, zOf('Bourke Street')], look: [eliz, 18, zOf('Bourke Street')] },
+  chryslerGCT: { name: 'Collins St · Paris End', pos: [spring - 50, 8, zOf('Collins Street')], look: [swan + 120, 30, zOf('Collins Street')] },
+  observatory: { name: 'Eureka Skydeck', pos: [-381, 288, 585], look: [0, 60, -150] },
+  bryantPark: { name: 'Southbank Promenade', pos: [-450, 4, 432], look: [-50, 30, 330] },
+  waterfront: { name: 'The Yarra & Skyline', pos: [500, 40, 786], look: [-200, 100, 0] },
+  drone: { name: 'Aerial over the CBD', centre: [-150, 160, 150] }
+};
+
 // The old midtown superblocks (NYC landmarks.js): here the grid's blocks between its avenues and main streets
 function getBlockBounds(col, row) {
   const westAve = AVENUES[Math.min(col, AVENUES.length - 2)];
@@ -361,5 +374,5 @@ export {
   ELLIS_ISLAND_POLYGON, MILL_ROCK_POLYGON, EAST_RIVER_BRIDGES, OUTER_BRIDGES, STREETS, ALL_STREETS, ROADS, NYC_LANDMARKS,
   LANDMARK_SITES, TELEPORT_LOCATIONS, ISLAND_BOUNDS, BLOCKS, CUT_Z, SIGNAL_TIMING, streetZ, avenueX, districtAt, blockAt,
   nearestRoads, getBlockBounds, getLocationLabel, fromOldFrame, isTypingInField, signalPhase, walkSignal,
-  WATER, inWater, GRID_ZONE
+  WATER, inWater, GRID_ZONE, SCENIC_VIEWS
 };

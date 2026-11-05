@@ -52,5 +52,6 @@ export const {
   signalPhase,
   walkSignal,
   SPAWN,
-  GRID_ZONE
+  GRID_ZONE,
+  SCENIC_VIEWS
 } = C;

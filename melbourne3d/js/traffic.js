@@ -3,6 +3,7 @@ import { buildRoadNetwork } from './road-network.js';
 import { createPedestrianSystem } from './pedestrian-system.js';
 import { vehicleContact, resolveVehicleContact, sweptVehicleContact } from './vehicle-physics.js';
 import { signalPhase, walkSignal } from './city-config.js';
+import { IS_MELBOURNE } from './city.js';
 import { cityUniforms, createContactShadowMaterial, createCarFlareMaterial } from './tsl-materials.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import {
@@ -260,8 +261,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   };
   // Of every 20 cars: 4 yellow cabs, 5 sedans, 6 SUVs, 2 delivery vans, 2 minivans & a pickup. NYPD cruisers are sedans
   // or Interceptor SUVs, green Boro cabs sedans or SUVs.
-  const FLEET_MIX = ['taxi', 'sedan', 'van', 'sedan', 'suv', 'taxi', 'suv', 'minivan', 'suv', 'pickup',
-    'taxi', 'sedan', 'suv', 'van', 'suv', 'taxi', 'minivan', 'sedan', 'suv', 'sedan'];
+  // (Melbourne: one taxi in twenty rather than one in five, and more utes)
+  const FLEET_MIX = IS_MELBOURNE
+    ? ['sedan', 'suv', 'van', 'sedan', 'suv', 'pickup', 'suv', 'minivan', 'sedan', 'pickup',
+      'taxi', 'sedan', 'suv', 'van', 'suv', 'sedan', 'minivan', 'sedan', 'pickup', 'suv']
+    : ['taxi', 'sedan', 'van', 'sedan', 'suv', 'taxi', 'suv', 'minivan', 'suv', 'pickup',
+      'taxi', 'sedan', 'suv', 'van', 'suv', 'taxi', 'minivan', 'sedan', 'suv', 'sedan'];
 
   const cars = [];
   const counts = Object.fromEntries(Object.keys(CAR_KINDS).map((kind) => [kind, 0]));
@@ -2126,7 +2131,7 @@ function createHighwayTraffic(scene, lanes) {
     for (let u = rand() * 30; u < lane.len - 12; u += 24 + rand() * 50) {
       const h = rand();
       // Fewer vans than in town: commercial vehicles are barred from the parkways
-      const kind = h < 0.2 ? 'taxi' : h < 0.56 ? 'sedan' : h < 0.82 ? 'suv' : h < 0.89 ? 'minivan' : h < 0.95 ? 'pickup' : 'van';
+      const kind = h < (IS_MELBOURNE ? 0.05 : 0.2) ? 'taxi' : h < 0.56 ? 'sedan' : h < 0.82 ? 'suv' : h < 0.89 ? 'minivan' : h < 0.95 ? 'pickup' : 'van';
       const entry = PALETTES[kind][Math.floor(rand() * PALETTES[kind].length)];
       const col = new THREE.Color(entry.hex);
       const spec = BODY_SPECS[kind];

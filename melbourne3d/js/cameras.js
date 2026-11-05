@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { bryantParkLawn } from './landmarks.js';
+import { SCENIC_VIEWS } from './city-config.js';
 
 // Chase, action, cockpit, fixed-location and aerial cameras, with mouse/touch orbit and zoom.
 
@@ -16,6 +17,8 @@ const CAMERA_PRESETS = [
   { id: 'waterfront',  name: 'East River & Skyline',     category: 'scenic', fov: 46 },
   { id: 'drone',       name: 'Auto-Director Aerial',     category: 'scenic', fov: 50 }
 ];
+// A city with its own scenic views (Melbourne) renames the presets
+if (SCENIC_VIEWS) for (const p of CAMERA_PRESETS) if (SCENIC_VIEWS[p.id]) p.name = SCENIC_VIEWS[p.id].name;
 
 class CameraSystem {
   constructor(domElement, controllerManager) {
@@ -187,7 +190,24 @@ class CameraSystem {
 
     const totalYaw = entity.heading + this.orbitYawOffset;
 
-    switch (this.activePresetId) {
+    // A city with its own scenic views (Melbourne) takes them instead of New York's built-in ones below
+    const view = SCENIC_VIEWS && SCENIC_VIEWS[this.activePresetId];
+    switch (view ? 'cityView' : this.activePresetId) {
+      case 'cityView': {
+        if (view.centre) {
+          // circling the centre
+          const [cx, cy, cz] = view.centre;
+          const angle = elapsed * 0.07 + 0.65;
+          const radius = 820.0 + Math.sin(elapsed * 0.23) * 140.0;
+          desiredPos.set(cx + Math.cos(angle) * radius, 330.0 + Math.cos(elapsed * 0.19) * 90.0, cz + Math.sin(angle) * radius);
+          desiredLook.set(cx, cy, cz);
+        } else {
+          const sway = Math.sin(elapsed * 0.22) * 2.5;
+          desiredPos.set(view.pos[0] + sway, view.pos[1], view.pos[2]);
+          desiredLook.set(view.look[0], view.look[1], view.look[2]);
+        }
+        break;
+      }
       case 'chase': {
         const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
         const height = entity.chaseHeight * this.zoomMultiplier + Math.sin(this.orbitPitchOffset) * dist * 0.85;

@@ -156,11 +156,11 @@ function createTaxiDoorDecalTexture() {
   ctx.fillStyle = '#111317';
   ctx.textAlign = 'left';
   ctx.font = '900 26px Inter, Arial, sans-serif';
-  ctx.fillText('NYC TAXI', 112, 42);
+  ctx.fillText('TAXI', 112, 42);
   ctx.font = '700 15px JetBrains Mono, monospace';
-  ctx.fillText('7Y48 · MEDALLION', 112, 68);
+  ctx.fillText('MELBOURNE · VIC', 112, 68);
   ctx.font = '600 13px Inter, Arial, sans-serif';
-  ctx.fillText('$3.00 INITIAL FARE', 112, 90);
+  ctx.fillText('$4.20 FLAGFALL', 112, 90);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   // The decals are mostly seen at grazing angles from the chase camera
@@ -173,19 +173,19 @@ function createNYLicensePlateTexture() {
   c.width = 256;
   c.height = 128;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffb81c';
+  ctx.fillStyle = '#f4f4ef'; // Victorian plate: white, navy lettering
   ctx.fillRect(0, 0, 256, 128);
   ctx.fillStyle = '#0d2244';
   ctx.fillRect(6, 6, 244, 24);
-  ctx.fillStyle = '#ffb81c';
+  ctx.fillStyle = '#ffffff';
   ctx.font = '800 15px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('NEW YORK', 128, 23);
+  ctx.fillText('VICTORIA', 128, 23);
   ctx.fillStyle = '#0d2244';
   ctx.font = '900 48px JetBrains Mono, monospace';
-  ctx.fillText('7Y48A', 128, 82);
+  ctx.fillText('T4821', 128, 82);
   ctx.font = '700 13px Inter, Arial, sans-serif';
-  ctx.fillText('NYC T&LC', 128, 114);
+  ctx.fillText('TAXI', 128, 114);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 16;
@@ -583,7 +583,7 @@ class ThirdPersonControllerManager {
 
     return {
       type: 'car',
-      label: 'NYC Yellow Taxi',
+      label: 'Melbourne Taxi',
       mesh: root,
       chassisPivot,
       carState,
@@ -746,7 +746,7 @@ class ThirdPersonControllerManager {
 
     return {
       type: 'cyclist',
-      label: 'NYC Bike Lane Cyclist',
+      label: 'Cyclist',
       mesh: root,
       leanPivot,
       frontWheel,
