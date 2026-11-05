@@ -790,12 +790,40 @@ def smooth_edges(o, iters):
     bm.free()
 
 
+def snap_hems(o, include, reach=.035):
+    """Move each open-edge vertex outward across the surface to exactly where include() ends, so a hem follows its
+    rule's line instead of the staircase of body faces it was cut from."""
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    moves = {}
+    for v in bm.verts:
+        if not v.is_boundary:
+            continue
+        inner = [e.other_vert(v) for e in v.link_edges if not e.is_boundary]
+        if not inner:
+            continue
+        d = v.co - sum((u.co for u in inner), Vector()) / len(inner)
+        if d.length < 1e-6 or include(v.co + d.normalized() * reach):
+            continue
+        d.normalize()
+        lo, hi = 0., reach
+        for _ in range(12):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if include(v.co + d * mid) else (lo, mid)
+        moves[v] = v.co + d * lo
+    for v, c in moves.items():
+        v.co = c
+    bm.to_mesh(o.data)
+    bm.free()
+
+
 def cut(body, name, include, offset, thick, material, smooth=0, decimate=None, uv_scale=None):
     g = dup(body, name)
     g.data.materials.clear()
     for a in list(g.data.color_attributes):
         g.data.color_attributes.remove(a)
     delete_verts(g, lambda p: not include(p))
+    snap_hems(g, include)
     smooth_edges(g, 30)   # (decimation happens on export copies, so the .blend keeps clean hems)
     normals = [v.normal.copy() for v in g.data.vertices]
     for v in g.data.vertices:
@@ -1311,6 +1339,23 @@ def hide_under(body, garments, fit):
         return False
     delete_verts(body, hidden)
 
+    def covered(p):   # under the outfit at all (no margin)
+        t = fit.arm_t(p)
+        for c in C:
+            if c[0] == "torso" and t < 0 and c[1] < p.z < c[2]:
+                return True
+            if c[0] == "arm" and 0 <= t < c[1]:
+                return True
+            if c[0] == "leg" and t < 0 and p.z < fit.pel and c[1] < fit.leg_t(p) < c[2]:
+                return True
+        return False
+    # the skin left under each hem (so no gap opens) sinks a little, so it stays under the cloth when the body bends
+    mw = body.matrix_world
+    body.data.update()
+    for v in body.data.vertices:
+        if covered(mw @ v.co):
+            v.co = v.co - v.normal * .007
+
 
 def decimate_to(o, target):
     d = o.modifiers.new("dec", "DECIMATE")
@@ -1383,7 +1428,7 @@ def build(name):
         lim = budget.get(k)
         if lod:
             lim = int((lim or tris(c)) * .35)
-        if lim and tris(c) > lim * 1.1:
+        if lim and tris(c) > lim * 1.1 and not os.environ.get("NO_DECIMATE"):
             decimate_to(c, lim)
         return c
 

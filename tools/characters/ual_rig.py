@@ -286,6 +286,36 @@ def _a_pose_copy(U, XT, XA):
     return UA
 
 
+# Posture correction (degrees): the clips put the library mannequin's arms where its body is; ours have their shoulder
+# joints further back in the torso, so the same angles leave the hands behind the hips. Bring the shoulders forward
+# (protraction, about the vertical through each clavicle) and let the arms hang a little further forward.
+PROTRACT = float(os.environ.get("UAL_PROTRACT", 5))
+ARM_FWD = float(os.environ.get("UAL_ARM_FWD", 5))
+
+
+def _subtree(U, root):
+    out, todo = [], [U.data.bones[root]]
+    while todo:
+        b = todo.pop()
+        out.append(b.name)
+        todo.extend(b.children)
+    return out
+
+
+def _posture(U):
+    """[(root bone, rotation in armature space)] applied to each bone subtree every frame (the character faces -Y)."""
+    inv = U.matrix_world.to_3x3().inverted()
+    def rot(deg, axis):   # an axis given in world terms, as a rotation in armature space
+        return Matrix.Rotation(math.radians(deg), 4, (inv @ Vector(axis)).normalized())
+    fix = []
+    for x, sd in (("l", -1), ("r", 1)):
+        if "clavicle_" + x in U.data.bones:
+            fix.append(("clavicle_" + x, rot(PROTRACT * sd, (0, 0, 1))))
+        if "upperarm_" + x in U.data.bones:
+            fix.append(("upperarm_" + x, rot(-ARM_FWD, (1, 0, 0))))
+    return fix
+
+
 def _bake(U, UA, act, name):
     """Bake a clip from the T-pose skeleton onto the A-pose one, so every bone's posed transform is the same."""
     sc = bpy.context.scene
@@ -298,9 +328,15 @@ def _bake(U, UA, act, name):
     bd.action = out
     rest = {b.name: b.matrix_local for b in UA.data.bones}
     f0, f1 = (int(round(v)) for v in act.frame_range)
+    fix = _posture(U)
     for f in range(f0, f1 + 1):
         sc.frame_set(f)
         tgt = {pb.name: pb.matrix.copy() for pb in U.pose.bones}
+        for root, R in fix:   # posture: our shoulder joints sit further back in the torso than the mannequin's
+            p = tgt[root].to_translation()
+            M = Matrix.Translation(p) @ R @ Matrix.Translation(-p)
+            for n in _subtree(U, root):
+                tgt[n] = M @ tgt[n]
         for pb in UA.pose.bones:
             b = pb.bone
             if b.parent:
