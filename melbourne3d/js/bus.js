@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { IS_MELBOURNE } from './city.js';
 import { cityUniforms } from './tsl-materials.js';
 import {
   float,
@@ -487,10 +488,11 @@ function createLoftedBusMaterial() {
 
   // 4. Three Authentic MTA Liveries (Current Blue/Gold, Select Bus Service Cyan/Blue, Legacy White/Blue)
   const shadeY = smoothstep(0.34, 1.25, p.y).mul(0.16).add(0.84);
-  const mtaRoyalBlue = color(0x16358a);
-  const mtaSkyBlue = color(0x1a88e0);
-  const sbsCyan = color(0x1fb8d0);
-  const mtaGold = color(0xf0b21a);
+  // (Melbourne repaints the same layout in the PTV bus colours: white body, orange swoops and belt, grey accents)
+  const mtaRoyalBlue = color(IS_MELBOURNE ? 0xeef0f2 : 0x16358a);
+  const mtaSkyBlue = color(IS_MELBOURNE ? 0xff7f1f : 0x1a88e0);
+  const sbsCyan = color(IS_MELBOURNE ? 0xe8711a : 0x1fb8d0);
+  const mtaGold = color(IS_MELBOURNE ? 0x63666a : 0xf0b21a);
   const mtaWhite = color(0xedf1f6);
 
   // Upper-front gold & sky-blue swoop arc (from z = 0.8..4.55 above the windows); filtered across its slope
@@ -534,12 +536,12 @@ function createLoftedBusMaterial() {
   let modernLivery = mix(mtaRoyalBlue, sbsCyan, isSBS.mul(lowerBelt));
   modernLivery = mix(modernLivery, mix(mtaSkyBlue, sbsCyan, isSBS), max(upperSkyFill, max(midSkyBand, frontSpeedLines)));
   modernLivery = mix(modernLivery, mtaGold, max(max(upperGoldArc, midGoldBand), rearSpeedLines));
-  modernLivery = mix(modernLivery, color(0xeaa818), rear);
+  modernLivery = mix(modernLivery, color(IS_MELBOURNE ? 0xeef0f2 : 0xeaa818), rear);
 
   // Assemble Classic / Legacy White & Blue Stripe livery
   const blueStripe = band(p.y.sub(1.04), 0.145, invY);
   const cyanRibbon = band(p.y.sub(0.8325), 0.0125, invY);
-  const legacyLivery = mix(mix(mtaWhite, color(0x0055b3), blueStripe), color(0x00a4e4), cyanRibbon);
+  const legacyLivery = mix(mix(mtaWhite, color(IS_MELBOURNE ? 0xff7f1f : 0x0055b3), blueStripe), color(IS_MELBOURNE ? 0x63666a : 0x00a4e4), cyanRibbon);
 
   const skirt = covAt(0.415, p.y, invY);
   const livery = mix(mix(modernLivery, legacyLivery, isLegacy), color(0x181c22), skirt).mul(shadeY);
@@ -612,7 +614,7 @@ function createLoftedBusMaterial() {
   body = mix(body, color(0x9e0e16), max(tailLamp, max(highBrake, rearIdLamps)));
   body = mix(body, color(0xd86e18), turnRear);
   body = mix(body, color(0xe8eef4), reverse);
-  body = mix(body, mix(color(0xf2b518), color(0x182648), plateText.mul(0.65)), plate);
+  body = mix(body, mix(color(IS_MELBOURNE ? 0xf2f2ee : 0xf2b518), color(0x182648), plateText.mul(0.65)), plate);
   body = mix(body, glassTint, glass);
 
   const col = mix(mix(body, color(0x191d22), isTrim), color(0xd0d5dc), isPod);

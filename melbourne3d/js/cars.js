@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { IS_MELBOURNE } from './city.js';
 import { cityUniforms } from './tsl-materials.js';
 import {
   Fn,
@@ -1305,7 +1306,13 @@ function carPlateTexture() {
   canvas.width = 128;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
-  const rows = [
+  // Victorian plates in Melbourne (white with navy lettering, 'VICTORIA'); New York's Empire Gold otherwise
+  const rows = IS_MELBOURNE ? [
+    { bg: '#f4f4ef', bar: '#1b2f6b', fg: '#1b2f6b', label: '1XT 4MK' },
+    { bg: '#f4f4ef', bar: '#1b2f6b', fg: '#1b2f6b', label: 'ACD 219' },
+    { bg: '#f4f4ef', bar: '#1b2f6b', fg: '#1b2f6b', label: '2BL 7QR' },
+    { bg: '#f4f4ef', bar: '#1b2f6b', fg: '#1b2f6b', label: 'T 4821' }
+  ] : [
     { bg: '#f2b718', bar: '#14233c', fg: '#14233c', label: 'KBM-4728' },
     { bg: '#e8edf2', bar: '#162b4c', fg: '#162b4c', label: 'JTR-8319' },
     { bg: '#f2b718', bar: '#14233c', fg: '#14233c', label: 'HXL-2506' },
@@ -1322,7 +1329,7 @@ function carPlateTexture() {
     ctx.font = 'bold 9px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('NEW YORK', 64, y0 + 7);
+    ctx.fillText(IS_MELBOURNE ? 'VICTORIA' : 'NEW YORK', 64, y0 + 7);
     ctx.fillStyle = fg;
     ctx.font = 'bold 21px monospace';
     ctx.fillText(label, 64, y0 + 35);
@@ -1595,7 +1602,16 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
             .mul(band(p.y.sub(0.765), 0.042, fwY))
             .mul(band(p.z.sub(doorMid), 0.24, fwZ));
           const polMask = isPolice.mul(isSide).mul(ao);
-          bCol.assign(mix(mix(bCol, color(0x1b3d8a), max(stripe, lettering).mul(polMask)), color(0x6ba5dc), pin.mul(polMask)));
+          if (IS_MELBOURNE) {
+            // Victoria Police: a blue and white chequered (Sillitoe tartan) band along the doors, blue lettering above
+            const band2 = band(p.y.sub(0.57), 0.085, fwY).mul(along);
+            const cells = sin(p.z.mul(22.0)).mul(sin(p.y.sub(0.57).mul(37.0).add(1.5708)));
+            const chequer = mix(float(0.5), step(0.0, cells), fadeFine(max(fwZ, fwY)));
+            bCol.assign(mix(bCol, mix(color(0xf4f6f8), color(0x10326e), chequer), band2.mul(polMask)));
+            bCol.assign(mix(bCol, color(0x10326e), lettering.mul(polMask)));
+          } else {
+            bCol.assign(mix(mix(bCol, color(0x1b3d8a), max(stripe, lettering).mul(polMask)), color(0x6ba5dc), pin.mul(polMask)));
+          }
 
           const hasTaxiBadge = max(float(spec.sign ? 1.0 : 0.0), isBoro).mul(isSide);
           const badge = rrect(vec2(p.z.sub(doorMid), p.y.sub(0.66)), vec2(0.21, 0.052), 0.012, fwZY).mul(hasTaxiBadge);

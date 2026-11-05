@@ -3573,7 +3573,9 @@ function buildMelbourneGrid(scene) {
   group.add(waterMesh);
 
   // 2. Land deck at road level (y = 0) out to the horizon, with every water body cut out of it
-  const waters = GEO.water.map((w) => w.rings.map(toPts)).filter((r) => r[0].length >= 3);
+  // the water bodies merged into separate, non-touching outlines (tools/melbourne/build-geodata.mjs): OSM's own pieces
+  // share edges, which breaks the deck's triangulation when cut out as holes
+  const waters = (GEO.waterOutlines || []).map((r) => [toPts(r)]).filter((r) => r[0].length >= 3);
   const roadMat = createRoadSurfaceMaterial();
   {
     const R = 12000;
@@ -3590,8 +3592,6 @@ function buildMelbourneGrid(scene) {
     const deck = new THREE.Mesh(geo, roadMat);
     deck.receiveShadow = true;
     group.add(deck);
-    // islands inside the water bodies (lake islands) as their own land
-    for (const rings of waters) for (const island of rings.slice(1)) group.add(createFlatPolygonMesh(island, 0.0, roadMat, true));
   }
 
   // Bluestone quay walls round each water body, from the deck down below the water

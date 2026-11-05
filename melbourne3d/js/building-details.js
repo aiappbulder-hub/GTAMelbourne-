@@ -1,4 +1,5 @@
 import { polygonContains, polygonBoxOverlaps } from './building-collision.js';
+import { IS_MELBOURNE } from './city.js';
 
 function boxCorners(x, z, w, d, cs, sn) {
   return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([u, v]) =>
@@ -80,7 +81,7 @@ function addBuildingDetails(b, detail, { masonry, rand, neighbours }) {
     }
     if (masonry && b.height >= 14 && rand() < 0.25) {
       const spot = roofSpot(4, 4);
-      if (spot) detail.waterTowers.push(spot);
+      if (spot && !IS_MELBOURNE) detail.waterTowers.push(spot); // (New York's rooftop water tanks)
     }
     if (rand() < 0.35) {
       const w = 2.4 + rand() * 2.6, d = 2.4 + rand() * 2.6, spot = roofSpot(w, d);

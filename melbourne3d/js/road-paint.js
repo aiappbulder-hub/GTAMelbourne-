@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { CROSSWALK } from './road-network.js';
 import { createRoadPaintMaterial } from './tsl-materials.js';
+import { IS_MELBOURNE } from './city.js';
 
 // Road markings generated from the drivable road network (js/road-network.js), so the paint matches where traffic
 // actually drives and stops: dashed lane lines, double yellow centre lines on two-way roads, stop bars at the stop
@@ -157,8 +158,13 @@ function buildRoadPaint(scene, network, sharedBuilder = null) {
       if (p.dir === q.dir) {
         along(e, mid, 0.13, WHITE, 12, 0.25);
       } else {
-        along(e, mid - 0.12, 0.11, YELLOW);
-        along(e, mid + 0.12, 0.11, YELLOW);
+        if (IS_MELBOURNE) {
+          // Australia: a broken white centre line between opposing lanes
+          along(e, mid, 0.13, WHITE, 12, 0.3);
+        } else {
+          along(e, mid - 0.12, 0.11, YELLOW);
+          along(e, mid + 0.12, 0.11, YELLOW);
+        }
       }
     }
 

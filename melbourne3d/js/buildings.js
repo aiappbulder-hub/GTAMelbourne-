@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { IS_MELBOURNE } from './city.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createFireEscapes } from './fire-escapes.js';
 import { addBuildingDetails } from './building-details.js';
@@ -310,6 +311,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   }
 
   function addSurveyedFireEscapes(b, detail, storey, neighbours) {
+    if (IS_MELBOURNE) return; // (New York's tenement fire escapes)
     if (!b.year || b.year >= 1945 || b.height > 30) return;
     const floors = Math.floor((b.height + 0.22) / storey);
     if (floors < 3) return;

@@ -35,6 +35,24 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   only). `?debugroads` leaves its inputs and edges on `globalThis.__roadInputs` / `__roadEdges` for checking.
 - `window.__city` exposes the scene, controllers, cameras, traffic and `teleportTo` for scripted checks.
 
+## Game
+
+- **Story missions** (`js/missions.js`): the original game's story (the Lygon Street Crew against the Broadmeadows
+  mob, Taskforce Kestrel closing in) with Vince and Kaz's six jobs, set on this map: Laneway Hustle, Hot Lap, Westside
+  Bikies, The Informant, Tobacco Wars and Harbour Run. Pink beam: the next job; yellow beam: the objective, with the
+  GPS route on the map. Cutscene dialogue (Enter or click), timers, cash and progress are saved. The teleport menu's
+  Jobs list goes straight to any job. The jobs that needed guns, gangs and police are driving jobs until those move
+  across.
+- **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
+- **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
+  the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the
+  real buildings.
+- **Graphics quality** (`js/quality.js`): low / medium / high, picked from the GPU (or `?quality=`), with a GFX
+  button, plus dynamic resolution.
+- **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white
+  Australian lane lines, charcoal signals, Australia Post boxes, blue street signs, km/h; no subway entrances, steam
+  stacks, hot-dog carts, hydrants, water towers or fire escapes.
+
 ## Melbourne data
 
 Everything comes from OpenStreetMap (© OpenStreetMap contributors, ODbL) through the OSM API, because Overpass and the

@@ -295,6 +295,19 @@ const TELEPORT_LOCATIONS = {
 // Spawn on Swanston St between Collins and Bourke, facing south toward Flinders Street Station
 const SPAWN = { x: swan, z: (zOf('Collins Street') + zOf('Bourke Street')) / 2 };
 
+// Real coordinates -> world metres (the frame of tools/melbourne/osm.mjs), for missions and places placed by lon/lat
+const fromLonLat = (() => {
+  const { lat0, lon0, bearingDeg } = GEO.frame;
+  const A = 6378137.0, E2 = 6.69437999014e-3, phi = (lat0 * Math.PI) / 180, s0 = Math.sin(phi);
+  const KX = (Math.PI / 180) * (A / Math.sqrt(1 - E2 * s0 * s0)) * Math.cos(phi);
+  const KY = (Math.PI / 180) * ((A * (1 - E2)) / Math.pow(1 - E2 * s0 * s0, 1.5));
+  const t = (bearingDeg * Math.PI) / 180, c = Math.cos(t), sn = Math.sin(t);
+  return (lon, lat) => {
+    const e = (lon - lon0) * KX, n = (lat - lat0) * KY;
+    return { x: e * c - n * sn, z: -(e * sn + n * c) };
+  };
+})();
+
 // Fixed scenic cameras (cameras.js): eye and target in world metres, in place of New York's vantage points (the ids
 // are the engine's preset slots)
 const SCENIC_VIEWS = {
@@ -374,5 +387,5 @@ export {
   ELLIS_ISLAND_POLYGON, MILL_ROCK_POLYGON, EAST_RIVER_BRIDGES, OUTER_BRIDGES, STREETS, ALL_STREETS, ROADS, NYC_LANDMARKS,
   LANDMARK_SITES, TELEPORT_LOCATIONS, ISLAND_BOUNDS, BLOCKS, CUT_Z, SIGNAL_TIMING, streetZ, avenueX, districtAt, blockAt,
   nearestRoads, getBlockBounds, getLocationLabel, fromOldFrame, isTypingInField, signalPhase, walkSignal,
-  WATER, inWater, GRID_ZONE, SCENIC_VIEWS
+  WATER, inWater, GRID_ZONE, SCENIC_VIEWS, fromLonLat
 };

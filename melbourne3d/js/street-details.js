@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { IS_MELBOURNE } from './city.js';
 import { Fn, float, color, positionWorld, uniform, mod, fract, step, smoothstep, mix } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
@@ -123,7 +124,7 @@ function buildStreetDetails(scene, colliders = []) {
     metalness: 0.78
   });
   const signalHousingMat = new THREE.MeshStandardNodeMaterial({
-    color: 0xe6a817, // Authentic NYC DOT school-bus/marigold yellow housing
+    color: IS_MELBOURNE ? 0x26292c : 0xe6a817, // Victoria: charcoal signal housings; New York: NYC DOT marigold yellow
     roughness: 0.38,
     metalness: 0.35,
     side: THREE.DoubleSide // the tunnel visors are open half-tubes
@@ -535,7 +536,7 @@ function buildStreetDetails(scene, colliders = []) {
     { x: -215, y: 40, z: -45,  rotY: 0.35,  rotZ: -0.42 }, // Times Square / Broadway Canyon
     { x: -55,  y: 48, z: -360, rotY: 0.28,  rotZ: -0.46 }  // 59th St / Central Park South Canyon
   ];
-  for (const cs of canyonShafts) {
+  for (const cs of IS_MELBOURNE ? [] : canyonShafts) { // (Manhattan's avenue canyons)
     const shaft = new THREE.Mesh(godRayGeo, godRayMat);
     const at = fromOldFrame(cs.x, cs.z); // (authored on the former compressed grid)
     shaft.position.set(at.x, cs.y, at.z);
@@ -564,6 +565,7 @@ function buildStreetDetails(scene, colliders = []) {
     { x: -212,  z: 1255, windX: 0.95, windZ: -0.20 }  // One WTC / Financial District
   ];
   // (authored on the former compressed grid: carried onto the real streets; the Financial District one by One WTC)
+  if (IS_MELBOURNE) steamLocations.length = 0; // (Con Edison steam: New York only)
   for (const st of steamLocations) {
     const wtc = LANDMARK_SITES['One World Trade Center'];
     const at = st.z > 1000 && wtc ? { x: wtc.x + 48, z: wtc.z - 40 } : fromOldFrame(st.x, st.z);
@@ -694,7 +696,8 @@ function buildStreetDetails(scene, colliders = []) {
   // =========================================================================
   // 4. MTA SUBWAY ENTRANCES WITH GLOWING GREEN GLOBE LAMPS
   // =========================================================================
-  const subwaySites = createSubwayEntrances(colliders, footprints);
+  // (New York's subway: Melbourne has none of these entrances)
+  const subwaySites = IS_MELBOURNE ? [] : createSubwayEntrances(colliders, footprints);
   const subwayMatrices = [];
   const subwayColliders = [];
   for (const { x, y, z, yaw } of subwaySites) {
@@ -759,7 +762,7 @@ function buildStreetDetails(scene, colliders = []) {
   ];
 
   const cartMatrices = [];
-  for (const [ox, oz] of cartLocations) {
+  for (const [ox, oz] of IS_MELBOURNE ? [] : cartLocations) { // (New York's hot-dog carts)
     const raw = fromOldFrame(ox, oz);
     const site = findPropSite(raw.x, raw.z, 3.5, 3.5);
     if (!site) continue;
@@ -783,8 +786,9 @@ function buildStreetDetails(scene, colliders = []) {
       const h1 = [ave.x - ave.width * 0.5 - 0.8, zMid - 16];
       const h2 = [ave.x + ave.width * 0.5 + 0.8, zMid + 16];
       const mb = [ave.x + ave.width * 0.5 + 1.2, zMid - 22];
-      if (isOnSidewalk(h1[0], h1[1], 0.45)) hydrantPositions.push(h1);
-      if (isOnSidewalk(h2[0], h2[1], 0.45)) hydrantPositions.push(h2);
+      // (Melbourne's hydrants are underground: no red pillars)
+      if (!IS_MELBOURNE && isOnSidewalk(h1[0], h1[1], 0.45)) hydrantPositions.push(h1);
+      if (!IS_MELBOURNE && isOnSidewalk(h2[0], h2[1], 0.45)) hydrantPositions.push(h2);
       if (isOnSidewalk(mb[0], mb[1], 0.45)) mailboxPositions.push(mb);
     }
   }
@@ -801,7 +805,8 @@ function buildStreetDetails(scene, colliders = []) {
   hydrantInst.instanceMatrix.needsUpdate = true;
   group.add(hydrantInst);
 
-  const uspsMat = new THREE.MeshStandardNodeMaterial({ color: 0x183c7a, roughness: 0.45, metalness: 0.35 });
+  // Australia Post's red post boxes in Melbourne, USPS blue in New York
+  const uspsMat = new THREE.MeshStandardNodeMaterial({ color: IS_MELBOURNE ? 0xc8102e : 0x183c7a, roughness: 0.45, metalness: 0.35 });
   const mailboxInst = new THREE.InstancedMesh(new THREE.BoxGeometry(0.65, 1.25, 0.65), uspsMat, mailboxPositions.length);
   mailboxPositions.forEach(([mx, mz], i) => {
     dummy.position.set(mx, 0.84, mz);

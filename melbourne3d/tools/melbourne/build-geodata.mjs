@@ -270,6 +270,19 @@ for (const w of ways.values()) {
   if ((t.railway === 'rail' || t.railway === 'light_rail') && !(t.tunnel && t.tunnel !== 'no') && !(t.bridge && t.bridge !== 'no')) addPolyline(wayPts(w, nodes), 6, 'rail');
 }
 const blocks = makeBlocks({ land, roads: cut, sidewalk: SIDEWALK, log });
+
+// --- Water outlines: every water body merged into separate, non-touching rings ---------------------------------------------
+// OSM draws the Yarra as several pieces that share edges; cut straight out of the land deck, touching holes break its
+// triangulation. Rasterised at 1 m over the map (plus a margin) and traced one connected body at a time (makeBlocks with
+// no roads traces the islands of a mask), they come out as clean outlines. Islands inside the water are left out.
+const waterOutlines = (() => {
+  const M = 220;
+  const wr = new Raster(bb.x0 - M, bb.z0 - M, bb.x1 + M, bb.z1 + M, 1);
+  for (const wt of water) wr.fillRing(wt.rings[0], 1);
+  const bodies = makeBlocks({ land: wr, roads: [], sidewalk: 1, log: () => {} });
+  return bodies.filter((b) => b.area > 150).map((b) => rdpRing(b.poly, 0.6));
+})();
+log(`water outlines: ${waterOutlines.length} bodies`);
 // Park share of each block, by the block's centre points sampled on a 4 m lattice
 for (const p of parks) p.bb = bbox(p.rings.flat());
 for (const b of blocks) {
@@ -288,6 +301,78 @@ for (const b of blocks) {
   b.parkName = best && b.park > 0.3 ? best.name : '';
 }
 log(`${blocks.filter((b) => b.park > 0.5).length} blocks mostly park`);
+
+// --- Trams ---------------------------------------------------------------------------------------------------------------------
+// Routes from the route=tram relations (member ways chained in order, split where the extract leaves gaps; depot and
+// short-working variants left out), and every at-grade track for the rails. Inside the Hoddle Grid the lines are moved
+// onto the grid's straightened streets: a track running along a grid street sits 1.75 m to the left of its centreline
+// (trams keep left), so the two directions lie side by side down the middle of the road.
+const TRACK_OFF = 1.75;
+function snapToGrid(pts) {
+  const out = pts.map((p) => p.slice());
+  for (let i = 0; i < out.length; i++) {
+    const [x, z] = pts[i];
+    if (!inZone(x, z)) continue;
+    // direction of travel here (from the neighbouring points)
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
+    if (Math.abs(dx) / L > 0.9) {
+      const st = [...grid.streets, ...grid.little].reduce((m, s) => (Math.abs(s.at - z) < Math.abs(m.at - z) ? s : m));
+      if (Math.abs(st.at - z) < 16) out[i][1] = st.at + (dx > 0 ? -TRACK_OFF : TRACK_OFF);
+    } else if (Math.abs(dz) / L > 0.9) {
+      const av = grid.avenues.reduce((m, s) => (Math.abs(s.at - x) < Math.abs(m.at - x) ? s : m));
+      if (Math.abs(av.at - x) < 16) out[i][0] = av.at + (dz > 0 ? TRACK_OFF : -TRACK_OFF);
+    }
+  }
+  return out;
+}
+const tramRoutes = [];
+for (const r of relations.values()) {
+  const t = r.tags || {};
+  if (t.type !== 'route' || t.route !== 'tram' || !t.ref) continue;
+  if (/Tram \d+[a-z]\b/.test(t.name || '')) continue; // depot runs and short workings
+  const members = r.members.filter((m) => m.type === 'way' && !/platform|stop/.test(m.role));
+  let cur = [];
+  const pieces = [];
+  for (const m of members) {
+    const w = ways.get(m.ref);
+    if (!w) { if (cur.length) pieces.push(cur); cur = []; continue; }
+    let ids = w.nodes.filter((id) => nodes.has(id));
+    if (ids.length < 2) continue;
+    if (cur.length) {
+      const last = cur[cur.length - 1];
+      if (ids[ids.length - 1] === last) ids = ids.slice().reverse();
+      if (ids[0] !== last) {
+        // reversing the previous piece fixes a chain started the wrong way round
+        if (cur.length === w.nodes.length || false) { /* keep */ }
+        const first = cur[0];
+        if ((ids[0] === first || ids[ids.length - 1] === first) && pieces.length === 0 && cur.length > 1) {
+          cur.reverse();
+          if (ids[ids.length - 1] === cur[cur.length - 1]) ids = ids.slice().reverse();
+        }
+      }
+      if (ids[0] === cur[cur.length - 1]) { cur.push(...ids.slice(1)); continue; }
+      pieces.push(cur);
+      cur = ids.slice();
+    } else cur = ids.slice();
+  }
+  if (cur.length) pieces.push(cur);
+  for (const pc of pieces) {
+    const pts = pc.map((id) => toWorld(...nodes.get(id)));
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (len < 400) continue;
+    tramRoutes.push({ ref: t.ref, name: t.name || `Tram ${t.ref}`, len: Math.round(len), pts: snapToGrid(rdp(pts, 0.5)) });
+  }
+}
+const tramTracks = [];
+for (const w of ways.values()) {
+  const t = w.tags || {};
+  if (t.railway !== 'tram' || (t.tunnel && t.tunnel !== 'no')) continue;
+  const pts = wayPts(w, nodes);
+  if (pts.length >= 2) tramTracks.push(snapToGrid(rdp(pts, 0.3)));
+}
+log(`trams: ${tramRoutes.length} route lines (${[...new Set(tramRoutes.map((r) => r.ref))].length} routes), ${tramTracks.length} track pieces`);
 
 // --- Landmarks ------------------------------------------------------------------------------------------------------------------
 const LANDMARKS = ['Flinders Street Station', 'Eureka Tower', 'Federation Square', "St Paul's Cathedral", 'Arts Centre Melbourne', 'Hamer Hall',
@@ -334,6 +419,7 @@ const GEO = {
     minX: q(bb.x0), maxX: q(bb.x1), minZ: q(bb.z0), maxZ: q(bb.z1) },
   bounds: flat(bounds),
   water: water.map((w) => ({ name: w.name, kind: w.kind, rings: w.rings.map((r) => flat(rdpRing(r.slice(0, -1), 0.5))) })),
+  waterOutlines: waterOutlines.map(flat),
   grid,
   roads,
   roadGraph,
@@ -341,6 +427,8 @@ const GEO = {
     b.frames ? b.frames.map(([th, px, pz, rs]) => [Math.round(th * 1e4) / 1e4, q(px), q(pz), rs.map((r) => r.map(q))]) : 0]),
   parks: parks.map((p) => ({ name: p.name, cat: p.cat, acres: p.acres, rings: p.rings.map((r) => flat(rdpRing(r.slice(0, -1), 0.6))) })),
   railYards: railYards.map((y) => ({ name: y.name, ring: flat(rdpRing(y.ring.slice(0, -1), 0.6)) })),
+  trams: tramRoutes.map((r) => ({ ref: r.ref, name: r.name, len: r.len, pts: flat(r.pts) })),
+  tramTracks: tramTracks.map(flat),
   landmarks
 };
 const header = `// js/melbourne-geodata.js: GENERATED by tools/melbourne/build-geodata.mjs, do not edit by hand.

@@ -130,7 +130,8 @@ async function initApp() {
   const boroughs = IS_MELBOURNE ? { colliders: [] } : buildBoroughs(scene, { sidewalks: cityGrid.sidewalks });
   markInit('boroughs');
   await showLoadingStage('Building landmarks...', 'landmarks');
-  const { colliders: landmarkColliders } = IS_MELBOURNE ? { colliders: [] } : buildLandmarks(scene);
+  // Melbourne: the old game's landmark models on their real sites (js/melbourne-landmarks.js)
+  const { colliders: landmarkColliders } = IS_MELBOURNE ? await (await import('./melbourne-landmarks.js')).buildMelbourneLandmarks(scene) : buildLandmarks(scene);
   markInit('landmarks');
   await showLoadingStage('Generating building footprints and facades...', 'blocks');
   const cityBlocks = buildCityBlocks(scene, landmarkColliders);
@@ -151,6 +152,8 @@ async function initApp() {
   ], streetDetails.signalIntersections);
   markInit('traffic');
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
+  // Melbourne's trams on the real routes (js/trams.js)
+  const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
@@ -217,6 +220,7 @@ async function initApp() {
   // Crowd, tree and building-detail animation changes instance/pose buffers, not Object3D transforms.
   const dynamicRoots = [
     trafficSystem.group,
+    ...(tramSystem ? [tramSystem.group] : []),
     highwayTraffic.group,
     scene.getObjectByName('StoreClusteredLights'),
     scene.getObjectByName('StreetClusteredLights'),
@@ -357,7 +361,8 @@ async function initApp() {
     helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend']]
   };
   // Top speeds in mph (controllers.js caps them at 8.2, 36, 19 & 52 m/s): full scale of the speed meter
-  const topSpeedMph = { person: 18, car: 81, cyclist: 43, helicopter: 116 };
+  // (km/h in Melbourne)
+  const topSpeedMph = { person: 30, car: 130, cyclist: 70, helicopter: 187 };
 
   function renderControlHints(mode) {
     if (!elControlsHint) return;
@@ -575,6 +580,36 @@ async function initApp() {
     onTeleport: teleportTo
   });
 
+  // GTA Melbourne's story missions (js/missions.js), and a Jobs list in the teleport menu that takes you to any job
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem }) : null;
+  if (missionSystem) {
+    window.__city.missions = missionSystem;
+    const pop = document.getElementById('teleport-popover');
+    const title = document.createElement('div');
+    title.className = 'pop-title';
+    title.textContent = 'Jobs';
+    pop.append(title);
+    missionSystem.missions.forEach((m, i) => {
+      const b = document.createElement('button');
+      b.className = 'pop-item tp-btn';
+      b.type = 'button';
+      const n = document.createElement('span');
+      n.className = 'pop-name';
+      n.textContent = `${i + 1}. ${m.name}`;
+      const sub = document.createElement('span');
+      sub.className = 'pop-sub';
+      sub.textContent = `${m.giver} · ${m.crew} · $${m.reward.toLocaleString('en-AU')}`;
+      b.append(n, sub);
+      b.addEventListener('click', () => {
+        const p = missionSystem.jumpTo(i);
+        // arrive a few metres short of the job's marker
+        teleportTo(p.x + 9, p.z + 9, Math.atan2(-9, -9));
+        closePopovers();
+      });
+      pop.append(b);
+    });
+  }
+
   teleportButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.getAttribute('data-teleport');
@@ -776,6 +811,7 @@ async function initApp() {
       cameraSystem.camera
     );
     highwayTraffic.update(dt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
+    if (tramSystem) tramSystem.update(dt);
     if (!document.hidden && now >= nextPlayerSave) {
       savePlayerState();
       nextPlayerSave = now + 5000;
@@ -786,6 +822,7 @@ async function initApp() {
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
+    if (missionSystem) missionSystem.update(dt, elapsed);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     // Traffic collisions can move the player after controller updates; finalize moving hierarchies here.
@@ -851,7 +888,7 @@ async function initApp() {
 
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
-      const mph = Math.round(Math.abs(activeEnt.speed) * 2.237);
+      const mph = Math.round(Math.abs(activeEnt.speed) * 3.6); // km/h
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
       if (elFps) {
