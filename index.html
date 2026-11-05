@@ -468,7 +468,20 @@ function placeProps(){const out=[],ok=(x,y)=>{const t=tileAtPx(x,y);return t!==R
   NODES.forEach((N,ni)=>{const es=N.e.map(i=>EDGES[i]).filter(city);if(es.length<3||!es.some(E=>E.cls<=2))return;
     for(const E of es.slice(0,4)){const atA=E.a===ni,s=atA?Math.min(E.len,E.hw+16):Math.max(0,E.len-E.hw-16),q=edgeAt(E,s),ox=atA?q.dx:-q.dx,oy=atA?q.dy:-q.dy;   // (ox,oy) leads away from the corner
       const side=1,o=E.hw+9,x=q.x-oy*o*side,y=q.y+ox*o*side;put('traffic-light',x,y,Math.atan2(oy,ox))}});
+  // street signs (Australian designs, tools/make_signs.py). sign(): on the left kerb (we drive on the left) for traffic
+  // heading along E (from its start if fwd), s along it, facing the oncoming drivers
+  const sign=(E,s,fwd,k,o=E.hw+6)=>{const q=edgeAt(E,s),dx=fwd?q.dx:-q.dx,dy=fwd?q.dy:-q.dy;return put('sign-'+k,q.x+dy*o,q.y-dx*o,Math.atan2(-dy,-dx))};
+  // give way (now and then a stop) where side streets meet without signals: on the least important street's approaches
+  NODES.forEach((N,ni)=>{const es=N.e.map(i=>EDGES[i]).filter(city);if(es.length<3||es.some(E=>E.cls<=2))return;
+    const worst=Math.max(...es.map(E=>E.cls)),minor=es.filter(E=>E.cls===worst).sort((a,b)=>a.len-b.len).slice(0,es.length>3?2:1);
+    for(const E of minor){if(E.len<60)continue;const atA=E.a===ni,s=atA?Math.min(E.len,E.hw+18):Math.max(0,E.len-E.hw-18);sign(E,s,!atA,hash(ni,3,61)<.22?'stop':'giveway')}});
   for(const E of EDGES){if(!city(E)||E.len<120)continue;const r=realR(E.P[0],E.P[1]);
+    // speed limits a little way along longer roads, each way: 60 on the arterials, 50 elsewhere
+    if(E.len>600){const v=E.cls<=1?'60':'50';sign(E,130,true,v);sign(E,E.len-130,false,v)}
+    // kerbside rules in town, a bike lane sign now and then, and kangaroos on the fringe
+    if(r<1600&&E.cls<=3){const KS=['nostanding','2p','1p','buszone','2p','noparking','clearway'];for(let s=150,k=0;s<E.len-150;s+=230,k++){const h=hash(E.id,k,62);if(h<.3)continue;sign(E,s,hash(E.id,k,63)<.5,KS[(h*KS.length*1.43|0)%KS.length],E.hw+4)}}
+    else if(r<5000&&E.cls>=2&&E.cls<=3&&E.len>400&&hash(E.id,1,64)<.18)sign(E,E.len*.4,hash(E.id,2,64)<.5,'bikelane');
+    if(r>9000&&E.cls<=2&&E.len>800&&hash(E.id,1,65)<.12)sign(E,E.len*.5,hash(E.id,2,65)<.5,'kangaroo');
     // lamps on alternate sides along everything but the back streets
     if(E.cls<=3){const step=E.cls<=1?140:170;let k=0;for(let s=60;s<E.len-60;s+=step,k++){const q=edgeAt(E,s),sd=k%2?1:-1,o=E.hw+7,x=q.x-q.dy*o*sd,y=q.y+q.dx*o*sd;put('street-lamp',x,y,Math.atan2(-q.dx*sd,q.dy*sd))}}
     // shelters on the main roads, kerbside clutter on the shopping strips and in town
@@ -2292,7 +2305,8 @@ function facadeTex(F){const im=F.slot&&TEXIMG[F.slot];if(im){const c=document.cr
 // which facade a building wears
 function facadeOf(b){const k=hash(b.x|0,b.y|0,31);if(b.k==='tower')return k<.68?'glass':'office';if(b.k==='house'||b.k==='model')return'house';if(b.k==='ware')return'ware';
   if(b.airport)return'office';if(b.k==='shop')return k<.6?'brick':'stone';return b.h>100?(k<.5?'glass':'office'):k<.4?'brick':k<.65?'stone':'office'}
-const PROPS={ready:false,tpl:{},names:['traffic-light','street-lamp','bus-shelter','street-bin','bench','phone-box','bollard']};
+const SIGN_NAMES=['stop','giveway','60','50','nostanding','2p','1p','buszone','clearway','noparking','kangaroo','bikelane'];   // tools/make_signs.py
+const PROPS={ready:false,tpl:{},names:['traffic-light','street-lamp','bus-shelter','street-bin','bench','phone-box','bollard',...SIGN_NAMES.map(n=>'sign-'+n)]};
 const CITY={ready:false,tpl:{},names:['building-small-a','building-small-b','building-small-c','building-small-d','building-garage']};
 function mkBuf(){const b={p:[],n:[],c:[],uv:[]};
   // sh: optional shade by height, for the darkening where a wall meets the ground
