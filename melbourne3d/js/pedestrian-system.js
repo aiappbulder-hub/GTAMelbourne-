@@ -2,7 +2,7 @@ import { blockAt } from './city-config.js';
 import { Q } from './quality.js';
 import { createPedestrianRoutes } from './pedestrian-routes.js';
 import { PersonCrowd, PersonRig, PEDESTRIAN_DIVE_DURATION } from './pedestrians.js';
-import { createMelbourneCharacterRig } from './character-presets.js';
+import { createMelbourneCharacterRig, MELBOURNE_CHARACTER_PRESETS } from './character-presets.js';
 
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
@@ -38,6 +38,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     const hairRoll = hash(i, 2);
     peds.push({
       placed: false,
+      female: i < 5 ? MELBOURNE_CHARACTER_PRESETS[i].female : female, // for the voice that answers (js/voice-manager.js)
       crossesStreets: i % 6 === 0, // some start near crossings; everyone can use them along their route
       x: 0,
       z: 0,

@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "about": "Voice identities and lines for GTA Melbourne. tools/voices/generate.py turns each line into an MP3 (Orpheus Australian-English TTS, offline) and writes its file, duration and check result back here; melbourne3d/js/voice-manager.js plays them. Paths are relative to /assets/audio/.",
+  "generator": {
+    "engine": "orpheus-australian-en-tts",
+    "model": "ablmontazer/orpheus-australian-en-tts (Apache-2.0), run as mradermacher/orpheus-australian-en-tts-GGUF Q4_K_M with llama.cpp; SNAC 24 kHz decoder (hubertsiuzdak/snac_24khz, MIT)",
+    "format": "mp3, 24 kHz mono, 64 kb/s, loudness-normalised to -18 LUFS"
+  },
+  "characters": {
+    "vince": {
+      "name": "Vince",
+      "role": "mission",
+      "crew": "Lygon Street Crew",
+      "voice": {
+        "speaker": "mason",
+        "gender": "male",
+        "temperature": 0.55,
+        "seed": 11
+      },
+      "gain": 1.0,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "kaz": {
+      "name": "Kaz",
+      "role": "mission",
+      "crew": "Broadmeadows",
+      "voice": {
+        "speaker": "delta",
+        "gender": "female",
+        "temperature": 0.55,
+        "seed": 23
+      },
+      "gain": 1.0,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "police": {
+      "name": "Victoria Police officer",
+      "role": "police",
+      "voice": {
+        "speaker": "matilda",
+        "gender": "female",
+        "temperature": 0.6,
+        "seed": 37
+      },
+      "gain": 1.15,
+      "refDistance": 10,
+      "maxDistance": 90
+    },
+    "local_male": {
+      "name": "Local",
+      "role": "pedestrian",
+      "voice": {
+        "speaker": "flynn",
+        "gender": "male",
+        "temperature": 0.65,
+        "seed": 41
+      },
+      "gain": 0.95,
+      "refDistance": 4,
+      "maxDistance": 35
+    },
+    "local_female": {
+      "name": "Local",
+      "role": "pedestrian",
+      "voice": {
+        "speaker": "ruby",
+        "gender": "female",
+        "temperature": 0.65,
+        "seed": 53
+      },
+      "gain": 0.95,
+      "refDistance": 4,
+      "maxDistance": 35
+    }
+  },
+  "lines": [
+    {
+      "id": "vince_phone_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Heard you were back. I've got work, if you want it.",
+      "file": "dialogue/intro/vince_phone_1.mp3",
+      "duration": 3.29,
+      "check": {
+        "heard": "Heard you were back. I've got work, if you want it.\"",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "vince_phone_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Flinders Lane, off Elizabeth Street. Don't keep me waiting.",
+      "file": "dialogue/intro/vince_phone_2.mp3",
+      "duration": 3.84,
+      "check": {
+        "heard": "Finders Lane, off Elizabeth Street, don't keep me waiting.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "vince_laneway_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "There you are. Six years this war's been going, and the Broadmeadows mob reckon they own the town now.",
+      "file": "dialogue/laneway-hustle/vince_laneway_1.mp3",
+      "duration": 6.46,
+      "check": {
+        "heard": "There you are, six years this war has been going, and the Broadmeadows mob reckon they own the town now.",
+        "score": 0.92
+      }
+    },
+    {
+      "id": "vince_laneway_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "Davo needs a lift. The trams won't cut it. Get your car and don't hang about.",
+      "file": "dialogue/laneway-hustle/vince_laneway_2.mp3",
+      "duration": 5.3,
+      "check": {
+        "heard": "Daevo needs a lift. The trams won't cut it. Get your car and don't hang about.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "vince_hotlap_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/hot-lap",
+      "text": "Every Sunday the Broady boys race their hotted-up cars round the Albert Park circuit.",
+      "file": "dialogue/hot-lap/vince_hotlap_1.mp3",
+      "duration": 5.59,
+      "check": {
+        "heard": "Every Sunday the Brody boys raced their hotted-up cars round the Albert Park circuit.",
+        "score": 0.87
+      }
+    },
+    {
+      "id": "vince_hotlap_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/hot-lap",
+      "text": "One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go."
+    },
+    {
+      "id": "kaz_bikies_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "So you're the one Vince keeps sending round. Forget the Lygon lot."
+    },
+    {
+      "id": "kaz_bikies_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it."
+    },
+    {
+      "id": "kaz_collection_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/collection-day",
+      "text": "Half the corner boys in the city owe us money and think we forgot."
+    },
+    {
+      "id": "kaz_collection_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/collection-day",
+      "text": "Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet."
+    },
+    {
+      "id": "kaz_cleanup_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/clean-up",
+      "text": "Three Nomads are dealing outside Southern Cross like they own the place."
+    },
+    {
+      "id": "kaz_cleanup_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/clean-up",
+      "text": "They don't. Go and make that clear."
+    },
+    {
+      "id": "police_bark_stop",
+      "character": "police",
+      "category": "bark",
+      "folder": "voices/police",
+      "text": "Victoria Police! Stop right there!"
+    },
+    {
+      "id": "police_bark_weapon",
+      "character": "police",
+      "category": "bark",
+      "folder": "voices/police",
+      "text": "Drop the weapon! Get on the ground, now!"
+    },
+    {
+      "id": "police_bark_move",
+      "character": "police",
+      "category": "bark",
+      "folder": "voices/police",
+      "text": "Keep moving, folks. Nothing to see here."
+    },
+    {
+      "id": "radio_shots_cbd",
+      "character": "police",
+      "category": "radio",
+      "folder": "radio",
+      "radio": true,
+      "text": "All units, shots fired in the CBD. Respond code one.",
+      "file": "radio/radio_shots_cbd.mp3",
+      "duration": 5.59,
+      "check": {
+        "heard": "All units, shots fired in the CBD. Respond, code 1.",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "radio_stolen_car",
+      "character": "police",
+      "category": "radio",
+      "folder": "radio",
+      "radio": true,
+      "text": "Dispatch, we have a reported carjacking. Suspect vehicle heading towards Docklands."
+    },
+    {
+      "id": "radio_kestrel",
+      "character": "police",
+      "category": "radio",
+      "folder": "radio",
+      "radio": true,
+      "text": "Taskforce Kestrel to all units, be on the lookout. Suspect is armed."
+    },
+    {
+      "id": "male_talk_1",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "Flinders Street's that way, mate. Under the clocks.",
+      "file": "voices/local-male/male_talk_1.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "Flinders Street's that way, mate. Under the clocks.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "male_talk_2",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "You going to the footy Saturday? Carn the Pies!"
+    },
+    {
+      "id": "male_talk_3",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "Bloody trams. The eighty six never comes when you want it."
+    },
+    {
+      "id": "male_talk_4",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "Lygon Street for a parma, that's my tip."
+    },
+    {
+      "id": "male_talk_5",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "Can't stop, I'm late for work. Again."
+    },
+    {
+      "id": "male_talk_6",
+      "character": "local_male",
+      "category": "talk",
+      "folder": "voices/local-male",
+      "text": "Watch yourself round here. The Broadmeadows lot have been about."
+    },
+    {
+      "id": "male_chat_1",
+      "character": "local_male",
+      "category": "chat",
+      "folder": "voices/local-male",
+      "text": "Did you see the game on the weekend? Absolute shocker."
+    },
+    {
+      "id": "male_chat_2",
+      "character": "local_male",
+      "category": "chat",
+      "folder": "voices/local-male",
+      "text": "Yeah, nah. I reckon we'll still make the finals."
+    },
+    {
+      "id": "female_talk_1",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "Grab a coffee on Degraves. Best in town, I reckon."
+    },
+    {
+      "id": "female_talk_2",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "Four seasons in one day, this city. Brought the wrong jacket again."
+    },
+    {
+      "id": "female_talk_3",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "Have you been to the Queen Vic Market? The doughnut van, mate."
+    },
+    {
+      "id": "female_talk_4",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "Don't touch me, ya weirdo."
+    },
+    {
+      "id": "female_talk_5",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "No worries. Have a good one."
+    },
+    {
+      "id": "female_talk_6",
+      "character": "local_female",
+      "category": "talk",
+      "folder": "voices/local-female",
+      "text": "You lost? Swanston's the one with all the trams."
+    },
+    {
+      "id": "female_chat_1",
+      "character": "local_female",
+      "category": "chat",
+      "folder": "voices/local-female",
+      "text": "Is it me, or are there more cranes than people in this town?"
+    },
+    {
+      "id": "female_chat_2",
+      "character": "local_female",
+      "category": "chat",
+      "folder": "voices/local-female",
+      "text": "Honestly, the rent in Fitzroy is getting ridiculous."
+    }
+  ]
+}

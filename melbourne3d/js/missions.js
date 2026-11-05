@@ -156,7 +156,7 @@ const CSS = `
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, voices = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -286,6 +286,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
     hint.textContent = 'Enter or click: next · Esc: skip';
     elCut.append(b, t, hint);
     elCut.hidden = false;
+    // the line spoken, when it has a recording (the panel already shows the words)
+    voices?.sayText(line, { subtitle: false });
   }
   function advanceCut(skip = false) {
     if (!cut) return;
@@ -294,6 +296,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem }) {
       const done = cut.done;
       cut = null;
       elCut.hidden = true;
+      voices?.stopStory();
       done();
     } else renderCut();
   }

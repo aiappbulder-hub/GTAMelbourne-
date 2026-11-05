@@ -89,7 +89,7 @@ body.touch-enabled .gp-fire.on { display: block; }
 .gp-say small { display: block; color: #a0336b; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 `;
 
-export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode }) {
+export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -283,6 +283,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     missionSystem?.sub?.(sports.def.line, 2.5);
   }
   function enterTrafficCar(v) {
+    voices?.event('carjack', v);
     const wasMoving = v.edge && v.speed > 0.5;
     if (riding !== v) parkCurrent();
     trafficSystem.takeCar(v);
@@ -555,6 +556,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flash.visible = true;
     flashT = 0.05;
     bang(w.sound);
+    voices?.event('gunfire', person.position);
     for (let k = 0; k < w.pellets; k++) {
       const a = yaw + (Math.random() - 0.5) * 2 * w.spread;
       const dx = Math.sin(a), dz = Math.cos(a);
@@ -615,8 +617,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     trafficSystem.talkToPed(q, person.position.x, person.position.z, 7);
     missionSystem?.onTalk?.(false);
-    const line = LINES[Math.floor(Math.random() * LINES.length)];
-    chat = { p: q, lines: [['You', GREETINGS[Math.floor(Math.random() * GREETINGS.length)]], ['Local', line]], k: 0, t: 0 };
+    // a recorded line in their voice when there is one (its length sets the bubble's), else a written one
+    const voiced = voices?.talkLine(q);
+    const line = voiced ? voiced.text : LINES[Math.floor(Math.random() * LINES.length)];
+    chat = { p: q, lines: [['You', GREETINGS[Math.floor(Math.random() * GREETINGS.length)]], ['Local', line, voiced && Math.max(2.6, voiced.duration + 0.6), voiced && voiced.play]], k: 0, t: 0 };
   }
   const _v3 = new THREE.Vector3();
   function placeBubble(x, y, z) {
@@ -776,7 +780,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // chat bubbles over the speaker
     if (chat) {
       chat.t += dt;
-      if (chat.t > 2.6) { chat.k++; chat.t = 0; }
+      if (chat.t > (chat.lines[chat.k]?.[2] || 2.6)) { chat.k++; chat.t = 0; }
+      if (chat.k !== chat.spoken && chat.k < chat.lines.length) { chat.spoken = chat.k; chat.lines[chat.k][3]?.(); }
       if (chat.k >= chat.lines.length) { chat = null; elSay.hidden = true; }
       else {
         const [who, text] = chat.lines[chat.k];

@@ -610,16 +610,21 @@ async function initApp() {
   });
 
   // GTA Melbourne's story missions (js/missions.js), and a Jobs list in the teleport menu that takes you to any job
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem }) : null;
+  // Recorded Australian voices for the characters, pedestrians and police (js/voice-manager.js, data/character-voices.json)
+  const voices = IS_MELBOURNE ? await (await import('./voice-manager.js')).createVoiceManager({
+    audioSystem, cameraSystem, trafficSystem, isCinematic: () => document.body.classList.contains('cinematic')
+  }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
+  window.__city.voices = voices;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, voices }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
-    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode
+    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices
   }) : null;
   window.__city.gameplay = gameplay;
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
-    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo
+    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices
   }) : null;
   window.__city.intro = intro;
   if (intro) {
@@ -898,6 +903,7 @@ async function initApp() {
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
+    voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     // Traffic collisions can move the player after controller updates; finalize moving hierarchies here.
     for (const root of dynamicRoots) root.updateMatrixWorld();

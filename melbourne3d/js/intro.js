@@ -32,7 +32,7 @@ const SHOTS = [
     lines: [['', "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them."]]
   },
   { // down Swanston Street to the station
-    from: [-5, 7, -560], to: [-5, 6, -330], lookFrom: [-5, 16, 262], lookTo: [-5, 14, 262], secs: 9,
+    from: [-5, 7, -560], to: [-5, 6, -330], lookFrom: [-5, 16, 262], lookTo: [-5, 14, 262], secs: 11, // room for Vince's recorded call
     lines: [['Vince (phone)', "Heard you were back. I've got work, if you want it."],
       ['Vince (phone)', "Flinders Lane, off Elizabeth Street. Don't keep me waiting."],
       ['You', 'Fresh off the plane and already working. Typical.']]
@@ -237,7 +237,7 @@ function createScore() {
   return { start, stop };
 }
 
-export function createIntro({ cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo }) {
+export function createIntro({ cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -308,6 +308,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     if (!active) return;
     active = false;
     score.stop();
+    voices?.stopStory();
     document.body.classList.remove('cinematic');
     line.style.opacity = '0';
     title.style.opacity = '0';
@@ -349,6 +350,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       if (who) { const b = document.createElement('b'); b.textContent = who; line.append(b); }
       line.append(document.createTextNode(text));
       line.style.opacity = '1';
+      // Vince's call, recorded (down the phone line)
+      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who) });
     }
     if (s.title) title.style.opacity = t > 0.6 ? '1' : '0';
     // fade to black over the cut

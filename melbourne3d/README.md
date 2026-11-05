@@ -82,6 +82,13 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 - **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white
   Australian lane lines, charcoal signals, Australia Post boxes, blue street signs, km/h; no subway entrances, steam
   stacks, hot-dog carts, hydrants, water towers or fire escapes.
+- **Voices** (`js/voice-manager.js`): recorded Australian-English voices, made offline with the Orpheus Australian
+  TTS (Apache-2.0) from `../data/character-voices.json` into `../assets/audio/`.
+  - The cast: Vince, Kaz, a Victoria Police officer, and male and female locals.
+  - Where they speak: the intro call, mission cut scenes, people you talk to (T), overheard street conversations,
+    police barks and radio after gunfire or a carjacking.
+  - How they play: positional, with word-by-word subtitles, priorities and interruptions, and no repeats.
+  - See `../assets/audio/README.md` for the licences and how to make more.
 
 ## Melbourne data
 
