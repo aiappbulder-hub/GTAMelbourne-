@@ -326,6 +326,20 @@ async function initApp() {
   const modeSwitch = document.getElementById('mode-switch');
   touchControls.onAvailabilityChange = placeModeIndicator;
 
+  // The car and weather buttons: one press, the next one (also X and Y)
+  const carCycleBtn = document.getElementById('btn-car-cycle');
+  const weatherBtn = document.getElementById('btn-weather');
+  const weatherLabel = document.getElementById('weather-label');
+  if (!IS_MELBOURNE) { if (carCycleBtn) carCycleBtn.hidden = true; }
+  const nextWeather = () => { const name = lightingSystem.cycleWeather(); if (weatherLabel) weatherLabel.textContent = name; };
+  if (weatherBtn) weatherBtn.addEventListener('click', nextWeather);
+  if (carCycleBtn) carCycleBtn.addEventListener('click', () => gameplay?.cycleCar());
+  window.addEventListener('keydown', (e) => {
+    if (isTypingInField(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'KeyY') nextWeather();
+    else if (e.code === 'KeyX' && gameplay) gameplay.cycleCar();
+  });
+
   // Graphics menu: High / Medium / Low, the current one ticked; picking another saves it and reloads (js/quality.js)
   {
     const label = document.getElementById('quality-label');
@@ -957,7 +971,7 @@ async function initApp() {
         elFps.className = currentFps >= 50 ? 'fps-ok' : currentFps >= 30 ? 'fps-warn' : 'fps-bad';
       }
       if (elSpeed) elSpeed.textContent = String(mph);
-      const topSpeed = mode === 'car' && gameplay && gameplay.inSports ? 300 : topSpeedMph[mode] || 80; // the sports car's dial
+      const topSpeed = mode === 'car' && gameplay && gameplay.topSpeedKmh ? gameplay.topSpeedKmh : topSpeedMph[mode] || 80; // the car's own scale
       if (elSpeedMeter) elSpeedMeter.style.transform = `scaleX(${Math.min(1, mph / topSpeed)})`;
       if (elAltitude) elAltitude.textContent = altFt.toLocaleString('en-US');
       // The street corner of the player on the follow cameras, of the camera itself on the scenic ones

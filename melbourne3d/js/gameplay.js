@@ -1,6 +1,21 @@
 import * as THREE from 'three/webgpu';
 import { SPORTS_DRIVE } from './controllers.js';
 
+// The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
+const drive = (speed, acceleration, grip, extra = {}) => ({
+  speed, reverseSpeed: 10.5, acceleration, powerSpeed: 16 + acceleration * 1.6,
+  rolling: 0.17, drag: 0.0011 - acceleration * 0.00006, coast: 0.6, brake: 9 + grip * 0.25,
+  wheelbase: 2.76, grip, cornering: grip * 1.05, ...extra
+});
+const CUSTOM_CARS = [
+  { id: 'clubbie', file: 'clubbie', name: 'HSB Clubbie R8', color: 0xd8221d, drive: SPORTS_DRIVE, line: 'HSB Clubbie R8. Try not to wrap it round a tram.' },
+  { id: 'comodo', file: 'comodo', name: 'Holdan Comodo SS', drive: drive(52, 6.5, 11), line: 'The Comodo SS. Every dad in Melbourne wants one.' },
+  { id: 'police', file: 'police', name: 'Victoria Police pursuit car', drive: drive(62, 7.8, 12.5), line: 'A pursuit car. Bold.' },
+  { id: 'strainger', file: 'strainger', name: 'Fjord Strainger ute', drive: drive(46, 5.2, 9.5, { wheelbase: 3.2 }), line: 'The Strainger. Tradie royalty.' },
+  { id: 'barrina', file: 'barrina', name: 'Barrina hatch', drive: drive(47, 5.6, 11.5, { wheelbase: 2.55 }), line: 'The Barrina. Zippy enough.' },
+  { id: 'territorial', file: 'territorial', name: 'Fjord Territorial', drive: drive(45, 5, 9.5), line: 'The Territorial. A school-run tank.' }
+];
+
 // The player's game on foot and behind the wheel (Melbourne):
 // - Cars: F (or the touch CAR prompt) gets in the player's own taxi or any car in the traffic, and out again. From a
 //   few metres away the player walks to the driver's door first (the right-hand side: cars here are right-hand
@@ -61,6 +76,13 @@ const CSS = `
 .gp-fire { position: fixed; right: 26px; bottom: 210px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0;
   background: rgba(220, 40, 40, .82); color: #fff; font: 800 14px/1 Inter, sans-serif; display: none; }
 body.touch-enabled .gp-fire.on { display: block; }
+.gp-speedo { position: fixed; right: 18px; top: 200px; z-index: 30; width: 150px; height: 150px; pointer-events: none; display: none; }
+.gp-speedo.on { display: block; }
+.gp-speedo svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 4px 14px rgba(0,0,0,.45)); }
+.gp-speedo .num { font: 800 30px 'JetBrains Mono', monospace; fill: #fff; }
+.gp-speedo .unit { font: 700 11px Inter, sans-serif; fill: rgba(255,255,255,.7); letter-spacing: .1em; }
+.gp-speedo .tick { font: 600 9px Inter, sans-serif; fill: rgba(255,255,255,.75); }
+@media (max-width: 700px) { .gp-speedo { width: 112px; height: 112px; top: auto; bottom: 150px; right: 10px; } }
 .gp-say { position: fixed; z-index: 30; max-width: 260px; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,.95); color: #111;
   font: 600 14px/1.35 Inter, system-ui, sans-serif; transform: translate(-50%, -100%); pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
 .gp-say::after { content: ''; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: rgba(255,255,255,.95); }
@@ -78,6 +100,55 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   elCross.hidden = true;
   const elSay = div('gp-say');
   elSay.hidden = true;
+  // The speedo: a dial with a needle and the speed in km/h, while driving (its scale from the car's top speed)
+  const speedo = div('gp-speedo');
+  const SVG = 'http://www.w3.org/2000/svg';
+  const svgEl = (tag, attrs, parent) => {
+    const e = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    parent.append(e);
+    return e;
+  };
+  const svg = svgEl('svg', { viewBox: '-75 -75 150 150' }, speedo);
+  svgEl('circle', { r: 70, fill: 'rgba(10,12,16,.82)', stroke: 'rgba(255,255,255,.18)', 'stroke-width': 2 }, svg);
+  const A0 = -225, A1 = 45; // degrees: the dial sweeps 270 from bottom left round to bottom right
+  const arcPt = (deg, r) => [Math.cos((deg * Math.PI) / 180) * r, Math.sin((deg * Math.PI) / 180) * r];
+  const ticks = svgEl('g', {}, svg);
+  let ticksFor = 0;
+  function drawTicks(top) {
+    if (ticksFor === top) return;
+    ticksFor = top;
+    ticks.replaceChildren();
+    const step = top > 200 ? 50 : 20;
+    for (let v = 0; v <= top; v += step / 2) {
+      const a = A0 + ((A1 - A0) * v) / top;
+      const major = v % step === 0;
+      const [x0, y0] = arcPt(a, major ? 54 : 58), [x1, y1] = arcPt(a, 63);
+      svgEl('line', { x1: x0, y1: y0, x2: x1, y2: y1, stroke: v > top * 0.8 ? '#ff4d4d' : 'rgba(255,255,255,.8)', 'stroke-width': major ? 2.2 : 1 }, ticks);
+      if (major) {
+        const [tx, ty] = arcPt(a, 44);
+        const t = svgEl('text', { x: tx, y: ty + 3, 'text-anchor': 'middle', class: 'tick' }, ticks);
+        t.textContent = String(v);
+      }
+    }
+  }
+  const needle = svgEl('line', { x1: 0, y1: 0, x2: 0, y2: -56, stroke: '#ff3b30', 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
+  svgEl('circle', { r: 5, fill: '#ff3b30' }, svg);
+  const num = svgEl('text', { x: 0, y: 34, 'text-anchor': 'middle', class: 'num' }, svg);
+  const unit = svgEl('text', { x: 0, y: 48, 'text-anchor': 'middle', class: 'unit' }, svg);
+  unit.textContent = 'KM/H';
+
+  // Ruts: dark marks the wheels leave in the grass (a ring of instanced strips)
+  const RUTS = 1400;
+  const rutMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.32, 0.9).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicNodeMaterial({ color: 0x3a2a18, transparent: true, opacity: 0.72, depthWrite: false }), RUTS);
+  rutMesh.count = 0;
+  rutMesh.frustumCulled = false;
+  rutMesh.renderOrder = 2;
+  scene.add(rutMesh);
+  let rutNext = 0, rutLastX = 0, rutLastZ = 0;
+  const rutM = new THREE.Matrix4(), rutQ = new THREE.Quaternion(), rutP = new THREE.Vector3(), rutS = new THREE.Vector3(1, 1, 1), UPV = new THREE.Vector3(0, 1, 0);
+
   const fireBtn = document.createElement('button');
   fireBtn.className = 'gp-fire';
   fireBtn.type = 'button';
@@ -106,32 +177,44 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   const ownTaxiParked = () => !(cm.activeMode === 'car' && riding === 'taxi');
   const TAXI_LABEL = car.label;
 
-  // --- The sports car: the old game's HSB Clubbie R8 (models/custom/clubbie.json), with its own handling
-  const sports = { mesh: null, wheels: {}, x: -237, z: 160, heading: 0, y: 0, pitch: 0, roll: 0, ready: false };
-  (async () => {
-    try {
-      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-      const gltf = await new GLTFLoader().loadAsync(new URL('../../models/custom/clubbie.json', import.meta.url).href);
-      const root = new THREE.Group();
-      root.name = 'SportsCar';
-      root.rotation.order = 'YXZ';
-      gltf.scene.traverse((o) => {
-        if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
-        if (o.material && o.material.name === 'Body') o.material.color.setHex(0xd8221d); // Clubbie red
-      });
-      root.add(gltf.scene);
-      for (const n of ['wheel-front-left', 'wheel-front-right', 'wheel-back-left', 'wheel-back-right']) {
-        const w = gltf.scene.getObjectByName(n);
-        if (w) { w.rotation.order = 'YXZ'; sports.wheels[n] = w; }
-      }
-      scene.add(root);
-      sports.mesh = root;
-      sports.ready = true;
-      placeSports();
-    } catch (e) {
-      console.warn('[gameplay] the sports car failed to load', e);
+  // --- The player's own cars: the old game's Blender models (models/custom/*.json), each with its own handling. One of
+  // them is out at a time ('sports' in `riding`, `sports.def` which): the HSB Clubbie R8 to start with, the car
+  // button (cycleCar) swaps through the rest. Models load the first time they're wanted and are kept.
+  const sports = { mesh: null, wheels: {}, x: -237, z: 160, heading: 0, y: 0, pitch: 0, roll: 0, ready: false, def: CUSTOM_CARS[0] };
+  const modelCache = new Map();
+  async function loadCarModel(def) {
+    if (modelCache.has(def.id)) return modelCache.get(def.id);
+    const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+    const gltf = await new GLTFLoader().loadAsync(new URL(`../../models/custom/${def.file}.json`, import.meta.url).href);
+    const root = new THREE.Group();
+    root.name = 'PlayerCar_' + def.id;
+    root.rotation.order = 'YXZ';
+    gltf.scene.traverse((o) => {
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+      if (def.color && o.material && o.material.name === 'Body') o.material.color.setHex(def.color);
+    });
+    root.add(gltf.scene);
+    const wheels = {};
+    for (const n of ['wheel-front-left', 'wheel-front-right', 'wheel-back-left', 'wheel-back-right']) {
+      const w = gltf.scene.getObjectByName(n);
+      if (w) { w.rotation.order = 'YXZ'; wheels[n] = w; }
     }
-  })();
+    const entry = { root, wheels };
+    modelCache.set(def.id, entry);
+    return entry;
+  }
+  /** Make `def` the player's own car (its model in the scene in place of the last one) */
+  async function useCarModel(def) {
+    const entry = await loadCarModel(def);
+    if (sports.mesh && sports.mesh !== entry.root) scene.remove(sports.mesh);
+    sports.def = def;
+    sports.mesh = entry.root;
+    sports.wheels = entry.wheels;
+    if (!sports.mesh.parent) scene.add(sports.mesh);
+    sports.ready = true;
+    placeSports();
+  }
+  useCarModel(CUSTOM_CARS[0]).catch((e) => console.warn('[gameplay] the sports car failed to load', e));
   function placeSports() {
     const m = sports.mesh;
     if (!m) return;
@@ -193,11 +276,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (riding !== 'sports') parkCurrent();
     placeCarEntity(sports.x, sports.z, sports.heading);
     riding = lastRide = 'sports';
-    car.drive = SPORTS_DRIVE;
-    car.label = 'HSB Clubbie R8';
+    car.drive = sports.def.drive;
+    car.label = sports.def.name;
     go('car');
     carMesh.visible = false;
-    missionSystem?.sub?.('HSB Clubbie R8. Try not to wrap it round a tram.', 2.5);
+    missionSystem?.sub?.(sports.def.line, 2.5);
   }
   function enterTrafficCar(v) {
     const wasMoving = v.edge && v.speed > 0.5;
@@ -229,19 +312,70 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     person.heading = car.heading + Math.PI / 2;
     person.speed = 0;
   }
-  /** The sports car, brought round to the kerb beside the player */
-  function summonSports() {
-    if (!sports.ready || riding === 'sports' && cm.activeMode === 'car') return;
+  /** One of the player's cars, brought round to the kerb beside the player ('taxi' or a CUSTOM_CARS id) */
+  async function summon(id = 'clubbie') {
     const p = cm.activeMode === 'person' ? person.position : car.position;
     const h = cm.activeMode === 'person' ? person.heading : car.heading;
     // 3.5 m to the player's left, facing the same way
-    sports.x = p.x + Math.cos(h) * 3.5;
-    sports.z = p.z - Math.sin(h) * 3.5;
+    const x = p.x + Math.cos(h) * 3.5, z = p.z - Math.sin(h) * 3.5;
+    if (id === 'taxi') {
+      if (cm.activeMode === 'car' && riding === 'taxi') return;
+      if (taxiClone) { taxiClone.position.set(x, 0, z); taxiClone.rotation.set(0, h, 0); taxiClone.updateMatrixWorld(true); }
+      else if (riding === 'taxi' || lastRide === 'taxi') { placeCarEntity(x, z, h); carMesh.visible = true; }
+      missionSystem?.sub?.('Your taxi is waiting. Walk up and press F.', 3);
+      return;
+    }
+    const def = CUSTOM_CARS.find((d) => d.id === id) || CUSTOM_CARS[0];
+    if (riding === 'sports' && cm.activeMode === 'car') return;
+    await useCarModel(def);
+    sports.x = x;
+    sports.z = z;
     sports.heading = h;
     sports.y = 0;
     sports.pitch = sports.roll = 0;
     placeSports();
-    missionSystem?.sub?.('Your HSB Clubbie R8 is waiting. Walk up and press F.', 3);
+    missionSystem?.sub?.(`Your ${def.name} is waiting. Walk up and press F.`, 3);
+  }
+  const summonSports = () => summon('clubbie');
+
+  /** The car button: the next of the player's cars. In a car it's a swap on the spot (keeping the speed); on foot the
+   *  next car is brought round beside the player. A car taken from the traffic goes back to the traffic. */
+  let cycling = false;
+  async function cycleCar() {
+    if (cycling) return;
+    cycling = true;
+    try {
+      const order = ['taxi', ...CUSTOM_CARS.map((d) => d.id)];
+      const current = riding === 'sports' ? sports.def.id : riding === 'taxi' ? 'taxi' : lastRide === 'sports' ? sports.def.id : 'taxi';
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      if (cm.activeMode !== 'car') { await summon(next); return; }
+      const speed = car.speed;
+      // what's being driven now gives way
+      if (typeof riding === 'object' && riding) { trafficSystem.parkCar(riding); riding.parked = false; } // back into the traffic
+      if (next === 'taxi') {
+        if (sports.mesh) scene.remove(sports.mesh);
+        sports.ready = false;
+        if (taxiClone) { scene.remove(taxiClone); taxiClone = null; }
+        riding = lastRide = 'taxi';
+        car.drive = null;
+        car.label = TAXI_LABEL;
+        carMesh.visible = true;
+      } else {
+        const def = CUSTOM_CARS.find((d) => d.id === next);
+        if (riding === 'taxi' && taxiClone) { scene.remove(taxiClone); taxiClone = null; }
+        await useCarModel(def);
+        riding = lastRide = 'sports';
+        car.drive = def.drive;
+        car.label = def.name;
+        carMesh.visible = false;
+      }
+      car.speed = speed;
+      const elMode = document.getElementById('hud-active-mode');
+      if (elMode) elMode.textContent = car.label;
+      missionSystem?.sub?.(car.label, 1.5);
+    } finally {
+      cycling = false;
+    }
   }
 
   // the nearest car to get into: [kind, target, distance to its driver's door]
@@ -608,6 +742,32 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       sports.x = car.position.x; sports.z = car.position.z; sports.heading = car.heading;
     }
 
+    // the speedo, while driving
+    const drivingNow = cm.activeMode === 'car';
+    speedo.classList.toggle('on', drivingNow);
+    if (drivingNow) {
+      const top = Math.round((((car.drive && car.drive.speed) || 36) * 3.6) / 20) * 20 + 20;
+      drawTicks(top);
+      const kmh = Math.abs(car.speed) * 3.6;
+      const a = A0 + ((A1 - A0) * Math.min(kmh, top)) / top;
+      needle.setAttribute('transform', `rotate(${a + 90})`);
+      num.textContent = String(Math.round(kmh));
+    }
+    // ruts in the grass behind the rear wheels, every 0.6 m
+    if (drivingNow && car.onGrass && Math.hypot(car.position.x - rutLastX, car.position.z - rutLastZ) > 0.6) {
+      rutLastX = car.position.x;
+      rutLastZ = car.position.z;
+      const fx = Math.sin(car.heading), fz = Math.cos(car.heading), lx = Math.cos(car.heading), lz = -Math.sin(car.heading);
+      rutQ.setFromAxisAngle(UPV, car.heading);
+      for (const side of [0.78, -0.78]) {
+        rutP.set(car.position.x - fx * 1.3 + lx * side, 0.418, car.position.z - fz * 1.3 + lz * side);
+        rutMesh.setMatrixAt(rutNext, rutM.compose(rutP, rutQ, rutS));
+        rutNext = (rutNext + 1) % RUTS;
+        rutMesh.count = Math.min(RUTS, rutMesh.count + 1);
+      }
+      rutMesh.instanceMatrix.needsUpdate = true;
+    }
+
     // effects
     if (flashT > 0) { flashT -= dt; if (flashT <= 0) flash.visible = false; }
     for (const tr of tracers) if (tr.visible) { tr.userData.t -= dt; if (tr.userData.t <= 0) tr.visible = false; }
@@ -634,7 +794,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (onFoot && !approach) {
       const r = nearestRide();
       const q = nearestPed(TALK_REACH);
-      if (r && r.dist < 5) { act = 'enter'; label = r.kind === 'taxi' ? 'Get in your taxi' : r.kind === 'sports' ? 'Drive the HSB Clubbie R8' : 'Take this car'; }
+      if (r && r.dist < 5) { act = 'enter'; label = r.kind === 'taxi' ? 'Get in your taxi' : r.kind === 'sports' ? `Drive the ${sports.def.name}` : 'Take this car'; }
       else if (q && !chat) { act = 'talk'; label = armed && aimHeld ? 'Rob them' : 'Talk'; }
     } else if (cm.activeMode === 'car' && Math.abs(car.speed) < 3) { act = 'exit'; label = 'Get out'; }
     if (elPrompt.dataset.act !== act) {
@@ -683,7 +843,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     update, beforeMode, weapons: WEAPONS,
     get driving() { return driving(); },
     get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
-    summonSports,
+    /** The speedo's full scale for the car being driven (km/h) */
+    get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 36) * 3.6 / 10) * 10 + 20 : 0; },
+    summonSports, summon, cycleCar,
     // for scripted checks
     fire, talk, tryEnter, exitCar,
     get state() { return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode }; }

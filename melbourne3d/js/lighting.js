@@ -25,6 +25,17 @@ import { cityUniforms } from './tsl-materials.js';
 
 // Atmospheric sky, environment lighting, sunlight and time-of-day presets.
 
+// Weather, laid over the time of day (Melbourne: four seasons in one day): how much of the sun gets through, cloud,
+// fog (denser and greyer), wet roads, and rain falling round the camera
+const WEATHER = {
+  clear: { name: 'Clear', sun: 1, hemi: 1, cloud: 0, density: 0, fog: 1, grey: 0, wet: 0, env: 1, rain: false },
+  overcast: { name: 'Overcast', sun: 0.32, hemi: 0.9, cloud: 0.92, density: 0.8, fog: 1.9, grey: 0.55, wet: 0.15, env: 0.8, rain: false },
+  rain: { name: 'Rain', sun: 0.18, hemi: 0.78, cloud: 1, density: 0.95, fog: 2.8, grey: 0.72, wet: 1, env: 0.7, rain: true },
+  fog: { name: 'Fog', sun: 0.4, hemi: 0.95, cloud: 0.6, density: 0.5, fog: 10, grey: 0.85, wet: 0.35, env: 0.85, rain: false }
+};
+const WEATHER_ORDER = ['clear', 'overcast', 'rain', 'fog'];
+const FOG_GREY = new THREE.Color(0xa9aeb4);
+
 const TIME_PRESETS = {
   golden: {
     id: 'golden',
@@ -255,27 +266,28 @@ class LightingSystem {
     }
     this.activePresetId = p.id;
 
+    const w = WEATHER[this.weather || 'clear'];
     this.sunLight.color.setHex(p.sunColor);
-    this.sunLight.intensity = p.sunIntensity;
+    this.sunLight.intensity = p.sunIntensity * w.sun;
     this.sunLight.position.copy(p.sunDir);
     this.sunLight.updateMatrixWorld();
 
     this.hemiLight.color.setHex(p.hemiSky);
     this.hemiLight.groundColor.setHex(p.hemiGround);
-    this.hemiLight.intensity = p.hemiIntensity;
+    this.hemiLight.intensity = p.hemiIntensity * w.hemi;
 
-    this.scene.fog.color.setHex(p.fogColor);
-    // thicker on lower graphics quality, hiding the shorter draw distance
-    this.scene.fog.density = p.fogDensity * Q.fogScale;
-    if (this.uFogDensity) this.uFogDensity.value = p.fogDensity * Q.fogScale;
+    this.scene.fog.color.setHex(p.fogColor).lerp(FOG_GREY, w.grey * (1 - p.nightFactor * 0.7));
+    // thicker on lower graphics quality, hiding the shorter draw distance (and in bad weather)
+    this.scene.fog.density = p.fogDensity * Q.fogScale * w.fog;
+    if (this.uFogDensity) this.uFogDensity.value = p.fogDensity * Q.fogScale * w.fog;
 
     // Update physical Preetham SkyMesh uniforms
     this.sky.turbidity.value = p.turbidity;
     this.sky.rayleigh.value = p.rayleigh;
     this.sky.mieCoefficient.value = p.mieCoefficient;
     this.sky.mieDirectionalG.value = p.mieDirectionalG;
-    this.sky.cloudCoverage.value = p.cloudCoverage;
-    this.sky.cloudDensity.value = p.cloudDensity;
+    this.sky.cloudCoverage.value = Math.max(p.cloudCoverage, w.cloud);
+    this.sky.cloudDensity.value = Math.max(p.cloudDensity, w.density);
     this.sky.sunPosition.value.copy(p.sunDir);
     this.uSkyExposure.value = p.skyExposure;
     this.uNightFactor.value = p.nightFactor;
@@ -285,14 +297,70 @@ class LightingSystem {
     cityUniforms.uSkyHorizonColor.value.setHex(p.skyHorizon);
     cityUniforms.uSkySunDir.value.copy(p.sunDir);
     cityUniforms.uInteriorGlow.value = p.interiorGlow;
-    cityUniforms.uRoadWetness.value = p.roadWetness;
+    cityUniforms.uRoadWetness.value = Math.max(p.roadWetness, w.wet);
     cityUniforms.uCanyonBounce.value = p.canyonBounce;
 
-    this.scene.environmentIntensity = p.envIntensity;
+    this.scene.environmentIntensity = p.envIntensity * w.env;
+    if (this.rain) this.rain.visible = w.rain;
     this.bakeEnvironmentMap();
   }
 
+  /** Weather: 'clear', 'overcast', 'rain' or 'fog' */
+  setWeather(id) {
+    if (!WEATHER[id]) return;
+    this.weather = id;
+    if (WEATHER[id].rain && !this.rain) this.createRain();
+    this.applyPreset(this.activePresetId || 'golden', true);
+  }
+  cycleWeather() {
+    const next = WEATHER_ORDER[(WEATHER_ORDER.indexOf(this.weather || 'clear') + 1) % WEATHER_ORDER.length];
+    this.setWeather(next);
+    return WEATHER[next].name;
+  }
+  get weatherName() { return WEATHER[this.weather || 'clear'].name; }
+
+  // Rain: streaks falling through a box that follows the camera
+  createRain() {
+    const n = Q.cars >= 200 ? 3200 : Q.cars >= 130 ? 2200 : 1200;
+    const pos = new Float32Array(n * 6);
+    this._rainDrops = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      this._rainDrops[i * 3] = (Math.random() - 0.5) * 70;
+      this._rainDrops[i * 3 + 1] = Math.random() * 40;
+      this._rainDrops[i * 3 + 2] = (Math.random() - 0.5) * 70;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.rain = new THREE.LineSegments(geo, new THREE.LineBasicNodeMaterial({ color: 0xc8d4e0, transparent: true, opacity: 0.45, depthWrite: false }));
+    this.rain.frustumCulled = false;
+    this.rain.visible = false;
+    this.rain.name = 'Rain';
+    this.scene.add(this.rain);
+    this._rainLast = performance.now();
+  }
+  updateRain(focusPos) {
+    if (!this.rain || !this.rain.visible || !focusPos) return;
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this._rainLast) / 1000);
+    this._rainLast = now;
+    const d = this._rainDrops, pos = this.rain.geometry.attributes.position.array;
+    const n = d.length / 3;
+    for (let i = 0; i < n; i++) {
+      let y = d[i * 3 + 1] - 19 * dt;
+      if (y < 0) y += 40;
+      d[i * 3 + 1] = y;
+      // wrapped round the camera
+      const x = focusPos.x + ((((d[i * 3] - focusPos.x) % 70) + 105) % 70) - 35;
+      const z = focusPos.z + ((((d[i * 3 + 2] - focusPos.z) % 70) + 105) % 70) - 35;
+      const by = focusPos.y - 12 + y;
+      pos[i * 6] = x; pos[i * 6 + 1] = by; pos[i * 6 + 2] = z;
+      pos[i * 6 + 3] = x + 0.12; pos[i * 6 + 4] = by + 0.9; pos[i * 6 + 5] = z + 0.06;
+    }
+    this.rain.geometry.attributes.position.needsUpdate = true;
+  }
+
   update(focusPos) {
+    this.updateRain(focusPos);
     // SunLightShadow automatically fits & texel-snaps its 2 cascades to the view camera frustum
     // every frame inside SunShadowNode.renderShadow(), splitting [near, far] halfway between a uniform and a
     // logarithmic split (the near cascade ends at ~far / 4). Keep far at 300 m at street level so the near cascade

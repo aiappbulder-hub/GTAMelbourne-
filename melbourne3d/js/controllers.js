@@ -1239,11 +1239,12 @@ class ThirdPersonControllerManager {
       const acceleration = (speed - forward) / step;
       // Braking and cornering share tire grip; air resistance does not use it.
       const tireAcceleration = acceleration + D.drag * forward * Math.abs(forward);
-      const grip = Math.sqrt(Math.max(0, D.grip ** 2 - tireAcceleration ** 2));
+      const gripMax = D.grip * (c.onGrass ? 0.55 : 1); // half the grip on grass
+      const grip = Math.sqrt(Math.max(0, gripMax ** 2 - tireAcceleration ** 2));
       // A handbrake slide preserves steering while reducing lateral grip; fade it out at low speed.
       const handbrake = forward * throttle < 0 ? Math.abs(throttle) * Math.min(1, Math.abs(forward) / 5) : 0;
       const lateralGrip = grip * (1 - 0.7 * handbrake);
-      const steeringGrip = grip + (D.grip - grip) * handbrake;
+      const steeringGrip = grip + (gripMax - grip) * handbrake;
 
       // Full lock at parking speeds, progressively less steering at road speeds.
       const turn = D.wheelbase * D.cornering;
@@ -1285,8 +1286,22 @@ class ThirdPersonControllerManager {
     {
       const SW = ISLAND_BOUNDS.sidewalkHeight;
       const fx = Math.sin(c.heading), fz = Math.cos(c.heading), lx = Math.cos(c.heading), lz = -Math.sin(c.heading);
-      const at = (along, side) => (blockAt(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side) ? SW : 0);
+      // grass (a park's lawn): the wheels sink into the turf (lawn top 0.41 m, 0.1 m down into it)
+      let grass = 0;
+      const at = (along, side) => {
+        const b = blockAt(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side);
+        if (!b) return 0;
+        if (b.park > 0.6 && !b.median) { grass++; return 0.31; }
+        return SW;
+      };
       const fl = at(1.3, 0.78), fr = at(1.3, -0.78), bl = at(-1.3, 0.78), br = at(-1.3, -0.78);
+      // On the grass the car digs in: it loses speed (more the faster it goes), grip drops and it bounces about
+      c.onGrass = grass >= 2;
+      if (c.onGrass && Math.abs(c.speed) > 0.5) {
+        c.speed *= Math.max(0, 1 - dt * (0.35 + 0.012 * Math.abs(c.speed)));
+        c.heaveVel += (Math.random() - 0.5) * Math.min(1.2, Math.abs(c.speed) * 0.05);
+        c.rollVel += (Math.random() - 0.5) * Math.min(0.8, Math.abs(c.speed) * 0.03);
+      }
       const ground = (fl + fr + bl + br) / 4;
       const wheelsUp = (fl > 0) + (fr > 0) + (bl > 0) + (br > 0);
       if (c._wheelsUp !== undefined && wheelsUp !== c._wheelsUp && Math.abs(c.speed) > 1) {

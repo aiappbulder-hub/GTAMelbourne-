@@ -59,12 +59,20 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - The **sports car**: the old game's HSB Clubbie R8 in red, parked on Elizabeth St by the first job ("Get the
     sports car" in the teleport menu brings it beside you). 0-100 km/h in 3 s, 281 km/h flat out, harder brakes, more
     grip; the view widens with speed and the speedo reads to 300.
+  - **Car** button (or **X**): cycles your own cars: the taxi, the HSB Clubbie R8 (281 km/h), the Holdan Comodo SS,
+    a Victoria Police pursuit car, the Fjord Strainger ute, the Barrina hatch and the Fjord Territorial (the old game's
+    Blender models, each with its own handling); in a car it swaps on the spot, on foot it brings the next one round.
+  - **Weather** button (or **Y**): clear, overcast, rain (falling rain, wet roads) and fog, over any time of day.
+  - A speedo dial while driving; on grass the wheels dig in (the car sinks, slows, loses grip, bounces and leaves ruts).
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
 - **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
   Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with the player's own voice setting up the story and
   Vince's phone call, to a synthesised score, ending on the player at the first job. The first time, a title card
   waits for a key or a tap (so the music can play); Esc / Enter / Skip end it; replay it from the teleport menu or
   with `?intro`.
+- **Albert Park**: the Grand Prix circuit (Lakeside Drive, Aughtie Drive) dressed as a race track: red and white kerbs,
+  a chequered start line on the pit straight, a grandstand; a red running track round the lake. Lakes inside park
+  blocks are cut out of the lawn (Albert Park Lake was hidden under the grass).
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the

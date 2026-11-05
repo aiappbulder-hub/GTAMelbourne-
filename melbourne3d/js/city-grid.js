@@ -3649,6 +3649,33 @@ function buildMelbourneGrid(scene) {
     group.add(walls);
   }
 
+  // Water inside a kerb island or park block (Albert Park Lake, the Domain's Ornamental Lake): its outline is a hole in
+  // the island's slabs and lawn (the traced block outline has the outside edge only)
+  const holeRings = waters.map(([ring]) => {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const q of ring) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); }
+    return { ring, x0, x1, z0, z1 };
+  });
+  const holesIn = (b) => holeRings.filter((h) => h.x0 > b.minX - 1 && h.x1 < b.maxX + 1 && h.z0 > b.minZ - 1 && h.z1 < b.maxZ + 1
+    && pointInPolygonXZ(b.poly, h.ring[0].x, h.ring[0].z)).map((h) => h.ring);
+  function extrudeHoles(pts, holes, bottomY, height, material) {
+    if (!holes.length) return createExtrudedPolygonMesh(pts, bottomY, height, material);
+    const shape = createWorldXZShape(pts);
+    for (const ring of holes) {
+      const path = new THREE.Path();
+      ring.forEach((q, i) => (i ? path.lineTo(q.x, -q.z) : path.moveTo(q.x, -q.z)));
+      path.closePath();
+      shape.holes.push(path);
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, bottomY, 0);
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+  const inAnyHole = (holes, x, z) => holes.some((h) => pointInPolygonXZ(h, x, z));
+
   // 3. Raised footpaths & kerbs on every kerb island (as buildCityGrid's section 4)
   const sidewalkMat = createSidewalkMaterial();
   const curbMat = createCurbMaterial();
@@ -3665,9 +3692,10 @@ function buildMelbourneGrid(scene) {
       if (b.median) addFootprint(slab.cx, slab.cz, slab.w, slab.d);
       else roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
     } else {
-      curbGeos.push(createExtrudedPolygonMesh(b.poly, 0.0, 0.18, curbMat).geometry);
+      const bh = holesIn(b);
+      curbGeos.push(extrudeHoles(b.poly, bh, 0.0, 0.18, curbMat).geometry);
       const inner = offsetPolygonInward(b.poly, 0.25);
-      if (inner) slabGeos.push(createExtrudedPolygonMesh(inner, 0.03, SW_TOP - 0.03, sidewalkMat).geometry);
+      if (inner) slabGeos.push(extrudeHoles(inner, bh, 0.03, SW_TOP - 0.03, sidewalkMat).geometry);
       for (const [x0, x1, z0, z1] of b.rects) {
         const r = { minX: x0 - 4.4, maxX: x1 + 4.4, minZ: z0 - 4.4, maxZ: z1 + 4.4 };
         blockSidewalks.push({ cx: (r.minX + r.maxX) * 0.5, cz: (r.minZ + r.maxZ) * 0.5, w: r.maxX - r.minX, d: r.maxZ - r.minZ, block: b, cover: true });
@@ -3720,8 +3748,9 @@ function buildMelbourneGrid(scene) {
   for (const b of BLOCKS) {
     if (!(b.park > 0.6 && !b.median && b.area > 250)) continue;
     const slab = offsetPolygonInward(b.poly, 0.1) || b.poly;
-    parkCurbGeos.push(createExtrudedPolygonMesh(b.poly, 0.0, PARK_Y - 0.04, curbMat).geometry);
-    const top = createExtrudedPolygonMesh(slab, 0.0, PARK_Y, pavingMat).geometry;
+    const holes = holesIn(b);
+    parkCurbGeos.push(extrudeHoles(b.poly, holes, 0.0, PARK_Y - 0.04, curbMat).geometry);
+    const top = extrudeHoles(slab, holes, 0.0, PARK_Y, pavingMat).geometry;
     setPavingStyle(top, 0);
     parkWalkGeos.push(top);
     addStreetGround(slab, PARK_Y);
@@ -3729,9 +3758,9 @@ function buildMelbourneGrid(scene) {
     roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, polygon: { outer: b.poly, holes: [] } });
     const bed = offsetPolygonInward(b.poly, Math.min(4, Math.min(b.maxX - b.minX, b.maxZ - b.minZ) * 0.15));
     if (!bed) continue;
-    parkEdgeGeos.push(createExtrudedPolygonMesh(bed, 0.2, BED_Y - 0.21, graniteMat).geometry);
+    parkEdgeGeos.push(extrudeHoles(bed, holes, 0.2, BED_Y - 0.21, graniteMat).geometry);
     const lawn = offsetPolygonInward(bed, 0.3) || bed;
-    parkLawnGeos.push(createExtrudedPolygonMesh(lawn, 0.3, BED_Y - 0.3, lawnMat).geometry);
+    parkLawnGeos.push(extrudeHoles(lawn, holes, 0.3, BED_Y - 0.3, lawnMat).geometry);
     addStreetGround(lawn, BED_Y);
     // trees on a jittered lattice with glades (big parks get them sparser, the Domain and the Fitzroy and Flagstaff
     // Gardens have their real trees from street-details.js's survey too)
@@ -3740,7 +3769,7 @@ function buildMelbourneGrid(scene) {
       for (let gz = b.minZ + SP * 0.5; gz < b.maxZ; gz += SP) {
         const tx = gx + (prand(gx, gz) - 0.5) * SP * 0.7;
         const tz = gz + (prand(gz, gx, 1) - 0.5) * SP * 0.7;
-        if (prand(tx, tz, 9) < 0.35 || !pointInPolygonXZ(lawn, tx, tz)) continue;
+        if (prand(tx, tz, 9) < 0.35 || !pointInPolygonXZ(lawn, tx, tz) || inAnyHole(holes, tx, tz)) continue;
         const r = prand(tx, tz, 2);
         treeSites.push({ x: tx, y: BED_Y, z: tz, scale: 0.9 + prand(tx, tz, 3) * 0.4, species: r < 0.55 ? 0 : (r < 0.75 ? 1 : 2) });
       }
@@ -3775,6 +3804,122 @@ function buildMelbourneGrid(scene) {
     lampMatrices.forEach((m, i) => poolInst.setMatrixAt(i, poolM.makeScale(14, 1, 14).setPosition(m.elements[12], m.elements[13] + 0.17, m.elements[14])));
     poolInst.computeBoundingSphere();
     group.add(poolInst);
+  }
+
+  // 5. Albert Park: the Grand Prix circuit (Lakeside Drive and Aughtie Drive) dressed as a race track: red and white
+  //    kerbs painted along both edges, a chequered start line across the pit straight (its westernmost stretch) and a
+  //    grandstand behind it; and a red running track round the lake, on the grass (cut where a road crosses it)
+  {
+    const circuit = (GEO.roads || []).filter((r) => r[0] === 'LAKESIDE DRIVE' || r[0] === 'AUGHTIE DRIVE');
+    const pos = [], col = [];
+    const RED = new THREE.Color(0xc8202a), WHITE = new THREE.Color(0xf2f2ee);
+    const quad = (ax, az, bx, bz, cx, cz, dx, dz, y, c) => {
+      pos.push(ax, y, az, cx, y, cz, bx, y, bz, ax, y, az, dx, y, dz, cx, y, cz);
+      for (let k = 0; k < 6; k++) col.push(c.r, c.g, c.b);
+    };
+    let westmost = null;
+    for (const [, w, , , , flat] of circuit) {
+      const P = toPts(flat);
+      const half = Math.max(3, (w || 9) / 2);
+      for (let i = 0; i + 1 < P.length; i++) {
+        const a = P[i], b = P[i + 1];
+        const L = Math.hypot(b.x - a.x, b.z - a.z);
+        if (L < 0.2) continue;
+        const ux = (b.x - a.x) / L, uz = (b.z - a.z) / L, nx = -uz, nz = ux;
+        // 2 m blocks, alternating red and white, on both edges just inside the road
+        for (let s0 = 0; s0 < L; s0 += 2) {
+          const s1 = Math.min(L, s0 + 2);
+          const c = Math.floor(s0 / 2) % 2 ? WHITE : RED;
+          for (const side of [-1, 1]) {
+            const o0 = side * (half - 1.1), o1 = side * (half - 0.15);
+            quad(a.x + ux * s0 + nx * o0, a.z + uz * s0 + nz * o0, a.x + ux * s1 + nx * o0, a.z + uz * s1 + nz * o0,
+              a.x + ux * s1 + nx * o1, a.z + uz * s1 + nz * o1, a.x + ux * s0 + nx * o1, a.z + uz * s0 + nz * o1, 0.016, c);
+          }
+        }
+        for (const q of [a, b]) if (!westmost || q.x < westmost.p.x) westmost = { p: q, ux, uz, half };
+      }
+    }
+    if (westmost) {
+      // the start line: a chequered band 3 m deep across the road, squares of 0.75 m
+      const { p, ux, uz, half } = westmost;
+      const nx = -uz, nz = ux;
+      for (let i = 0; i < 4; i++) for (let j = -Math.ceil(half / 0.75); j < Math.ceil(half / 0.75); j++) {
+        const s0 = -1.5 + i * 0.75, o0 = j * 0.75;
+        const c = (i + j) % 2 === 0 ? WHITE : new THREE.Color(0x111111);
+        quad(p.x + ux * s0 + nx * o0, p.z + uz * s0 + nz * o0, p.x + ux * (s0 + 0.75) + nx * o0, p.z + uz * (s0 + 0.75) + nz * o0,
+          p.x + ux * (s0 + 0.75) + nx * (o0 + 0.75), p.z + uz * (s0 + 0.75) + nz * (o0 + 0.75), p.x + ux * s0 + nx * (o0 + 0.75), p.z + uz * s0 + nz * (o0 + 0.75), 0.02, c);
+      }
+      // the grandstand: on the side of the straight away from the lake, 60 m long, eight tiers
+      const lakeSide = (GEO.water || []).find((w) => w.name === 'Albert Park Lake');
+      let side = 1;
+      if (lakeSide) {
+        const r = lakeSide.rings[0];
+        let cx = 0, cz = 0;
+        for (let k = 0; k < r.length; k += 2) { cx += r[k]; cz += r[k + 1]; }
+        cx /= r.length / 2; cz /= r.length / 2;
+        side = (cx - p.x) * nx + (cz - p.z) * nz > 0 ? -1 : 1;
+      }
+      const standMat = new THREE.MeshStandardNodeMaterial({ color: 0x9aa0a8, roughness: 0.8 });
+      const seatMat = new THREE.MeshStandardNodeMaterial({ color: 0x1f4fa8, roughness: 0.6 });
+      const yaw = Math.atan2(ux, uz);
+      const stand = new THREE.Group();
+      for (let t = 0; t < 8; t++) {
+        const step = new THREE.Mesh(new THREE.BoxGeometry(60, 0.55 * (t + 1), 1.4), t % 2 ? standMat : seatMat);
+        step.position.set(0, 0.275 * (t + 1), side * (half + 4 + t * 1.4));
+        step.castShadow = true;
+        step.receiveShadow = true;
+        stand.add(step);
+      }
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(62, 0.3, 13), new THREE.MeshStandardNodeMaterial({ color: 0xe8e8e4, roughness: 0.5 }));
+      roof.position.set(0, 7.2, side * (half + 9));
+      roof.castShadow = true;
+      stand.add(roof);
+      // stand.z (local) runs across the road: turn so local x runs along the straight
+      stand.rotation.y = yaw - Math.PI / 2;
+      stand.position.set(p.x, 0, p.z);
+      group.add(stand);
+      stand.updateMatrixWorld(true);
+      footprints.push({ minX: p.x - 32, maxX: p.x + 32, minZ: p.z - 32, maxZ: p.z + 32, pedestrianOnly: true });
+    }
+    // the running track round the lake: 4 m wide, from 7 m off the water, on the grass only
+    const lake = (GEO.water || []).find((w) => w.name === 'Albert Park Lake');
+    if (lake) {
+      const L = toPts(lake.rings[0]);
+      // outward normals: the ring's winding decides which side is out
+      let area = 0;
+      for (let i = 0, j = L.length - 1; i < L.length; j = i++) area += L[j].x * L[i].z - L[i].x * L[j].z;
+      const out = area > 0 ? -1 : 1;
+      const offAt = (i, d) => {
+        const a = L[(i - 1 + L.length) % L.length], b = L[(i + 1) % L.length];
+        const tx = b.x - a.x, tz = b.z - a.z, tl = Math.hypot(tx, tz) || 1;
+        return { x: L[i].x + (-tz / tl) * d * out, z: L[i].z + (tx / tl) * d * out };
+      };
+      const TRACK_Y = 0.44;
+      const trackCol = new THREE.Color(0xa8432f), lineCol = new THREE.Color(0xf0eee8);
+      for (let i = 0; i < L.length; i++) {
+        const j = (i + 1) % L.length;
+        const mid = offAt(i, 9);
+        const blk = blockAt(mid.x, mid.z);
+        if (!blk || blk.park < 0.6) continue; // a road crosses here
+        const bands = [[7, 8.6, trackCol], [8.6, 8.75, lineCol], [8.75, 10.35, trackCol], [10.35, 10.5, lineCol], [10.5, 11, trackCol]];
+        for (const [d0, d1, c] of bands) {
+          const a0 = offAt(i, d0), a1 = offAt(i, d1), b0 = offAt(j, d0), b1 = offAt(j, d1);
+          quad(a0.x, a0.z, b0.x, b0.z, b1.x, b1.z, a1.x, a1.z, TRACK_Y, c);
+        }
+      }
+    }
+    if (pos.length) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const n = new Float32Array(pos.length);
+      for (let k = 1; k < n.length; k += 3) n[k] = 1;
+      geo.setAttribute('normal', new THREE.BufferAttribute(n, 3));
+      const paint = new THREE.Mesh(geo, new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.75, side: THREE.DoubleSide }));
+      paint.receiveShadow = true;
+      paint.name = 'AlbertParkCircuit';
+      group.add(paint);
+    }
   }
 
   centralParkClearings = { polygons: [], drives: [], transverseZ: [], rects: [], circles: [], mall: { x: 1e7, z0: 1e7, z1: 1e7 } };
