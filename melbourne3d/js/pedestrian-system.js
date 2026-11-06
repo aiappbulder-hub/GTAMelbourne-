@@ -87,6 +87,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       // from the next, so they don't all walk down the one line through each other
       lineOff: 0.15 + hash(i, 9) * 0.3, // (small: the footpath already has two lines, 1.7 and 2.8 m in from the kerb)
       lineCur: 0,
+      sep: 0, // personal space: a sideways step away from whoever is too close (spread())
+      sepWant: 0,
       diveStart: -Infinity,
       diveHeading: 0,
       diveT: 0,
@@ -529,7 +531,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     // their side of the footpath (not on a crosswalk, which has its own lines), eased across when they turn round
     const lineWant = p.node ? 0 : -p.dir * p.lineOff;
     p.lineCur += clamp(lineWant - p.lineCur, -0.9 * dt, 0.9 * dt);
-    const side = p.dodge + p.lineCur;
+    p.sep += clamp(p.sepWant - p.sep, -0.8 * dt, 0.8 * dt);
+    const side = p.dodge + p.lineCur + p.sep;
     p.x = p.ax + p.ux * t + p.uz * side;
     p.z = p.az + p.uz * t - p.ux * side;
     if (p.node && ((t > KERB && t < p.len - KERB) || (p.waiting && walkOn(p.side)))) {
@@ -658,6 +661,43 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     pedCrowd.add(p.rig, Math.sqrt(distSq));
   }
 
+  // Personal space: people closer than SPACE to someone step sideways (across their footpath) away from them, and ease
+  // back once clear, so a crowd spreads out instead of bunching into one another (waiting at a kerb too)
+  const SPACE = 0.9;
+  const spaceGrid = new Map();
+  const cellKey = (cx, cz) => (cx * 73856093) ^ (cz * 19349663);
+  function spread() {
+    spaceGrid.clear();
+    const R = 90 * 90;
+    for (const p of peds) {
+      if (!p.placed || p.dead) continue;
+      if ((p.x - focusX) ** 2 + (p.z - focusZ) ** 2 > R) { p.sepWant = 0; continue; }
+      const k = cellKey(Math.floor(p.x / 2), Math.floor(p.z / 2));
+      let cell = spaceGrid.get(k);
+      if (!cell) spaceGrid.set(k, (cell = []));
+      cell.push(p);
+    }
+    for (const p of peds) {
+      if (!p.placed || p.dead || (p.x - focusX) ** 2 + (p.z - focusZ) ** 2 > R) continue;
+      let push = 0;
+      const cx = Math.floor(p.x / 2), cz = Math.floor(p.z / 2);
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+          const cell = spaceGrid.get(cellKey(cx + i, cz + j));
+          if (!cell) continue;
+          for (const q of cell) {
+            if (q === p || (p.conversation && (p.conversation.a === q || p.conversation.b === q))) continue;
+            const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+            if (d >= SPACE || d < 1e-4) continue;
+            // which side of p (across its track) q is on: step the other way, harder the closer they are
+            const across = dx * p.uz - dz * p.ux;
+            push -= Math.sign(across || (p.index - q.index)) * (SPACE - d);
+          }
+        }
+      }
+      p.sepWant = clamp(push === 0 ? p.sepWant * 0.9 : p.sepWant + push * 0.8, -0.75, 0.75);
+    }
+  }
   let castCandidates = null, lastCandidates = null;
   function update(dt, elapsed, x, z, jump, view, activeMode) {
     clock = elapsed;
@@ -689,6 +729,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       if (p.dead && clock - p.diveStart > 45) { p.placed = false; p.dead = false; }
     }
     meet(dt);
+    spread();
     gatherCurbs();
     // the cast: last frame's visible people decide who gets a cast member this frame
     const cast = castHook.cast;

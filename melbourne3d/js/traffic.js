@@ -664,12 +664,30 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     v.pSpeed = Math.max(0, player.vx * fx + player.vz * fz);
   }
 
-  // Gap to the player if it is ahead in the lane whose centre is `off` metres to the right of v
+  // Gap to the player if it is ahead in the lane whose centre is `off` metres to the right of v (or to a tram there:
+  // the trams aren't part of the traffic, so they're handed in each frame, setExternals())
   function playerGap(v, off) {
-    if (v.pAhead < 0 || v.pAhead > LOOKAHEAD) return Infinity;
-    if (Math.abs(v.pRight - off) > v.halfWidth + player.halfW + 0.4) return Infinity;
-    return v.pAhead - v.half - player.halfL;
+    let gap = Infinity;
+    if (v.pAhead >= 0 && v.pAhead <= LOOKAHEAD && Math.abs(v.pRight - off) <= v.halfWidth + player.halfW + 0.4) gap = v.pAhead - v.half - player.halfL;
+    if (externals.length) {
+      const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
+      for (const o of externals) {
+        const dx = o.x - v.x, dz = o.z - v.z;
+        if (Math.abs(dx) > LOOKAHEAD + 10 || Math.abs(dz) > LOOKAHEAD + 10) continue;
+        const ahead = dx * fx + dz * fz, right = dz * fx - dx * fz;
+        // its length counts the way it lies to v (a tram across the street is wide to a car crossing its tracks)
+        const ofx = Math.sin(o.yaw), ofz = Math.cos(o.yaw);
+        const along = Math.abs(ofx * fx + ofz * fz), across = Math.sqrt(Math.max(0, 1 - along * along));
+        const halfLen = o.halfL * along + o.halfW * across, halfWid = o.halfW * along + o.halfL * across;
+        if (ahead + halfLen < 0 || ahead - halfLen > LOOKAHEAD) continue;
+        if (Math.abs(right - off) > v.halfWidth + halfWid + 0.4) continue;
+        gap = Math.min(gap, ahead - v.half - halfLen);
+      }
+    }
+    return gap;
   }
+  let externals = [];
+  function setExternals(list) { externals = list || []; }
 
   // =========================================================================
   // 5. DRIVING
@@ -2099,6 +2117,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     scarePeds: pedestrianSystem.scare,
     talkToPed: pedestrianSystem.talk,
     nearestCar,
+    setExternals,
     takeCar,
     parkCar,
     shootCar,

@@ -21,8 +21,9 @@ const STOP_EVERY = 300;
 const DWELL = 7;
 // A tram looks down its track: anyone (or any car) within this far of its front, near the rails, and it brakes to a
 // stop until they're clear
-const FRONT = 12; // from a tram's middle to its nose (m)
-const LOOK = 14;
+const FRONT = 6.6; // from a tram's middle to its nose (m): the model is 12.9 m long
+const LOOK = 16;
+const TRAM_HALF_L = 6.5, TRAM_HALF_W = 1.4;
 const CLEAR = 1.9; // half the width it needs (m)
 
 const toPts = (flat) => {
@@ -167,6 +168,7 @@ export async function createTramSystem(scene) {
     const yaw = Math.atan2(A.x - B.x, A.y - B.y);
     Qn.setFromAxisAngle(UP, yaw);
     POS.set((A.x + B.x) / 2, 0, (A.y + B.y) / 2);
+    t.cx = POS.x; t.cz = POS.z; t.yaw = yaw; // its footprint (for the traffic and the player, footprints())
     M4.compose(POS, Qn, ONE);
     for (const m of meshes) m.setMatrixAt(i, M4);
   }
@@ -178,6 +180,13 @@ export async function createTramSystem(scene) {
   function blockedAhead(t, obs) {
     if (!obs) return Infinity;
     let first = Infinity;
+    // something already in the way of its body (a car stopped across the tracks): stay put
+    if (t.cx !== undefined) {
+      const fx = Math.sin(t.yaw), fz = Math.cos(t.yaw);
+      const inBody = (x, z, w) => { const dx = x - t.cx, dz = z - t.cz, a = dx * fx + dz * fz, s = dx * fz - dz * fx; return Math.abs(a) < TRAM_HALF_L + 0.5 && Math.abs(s) < TRAM_HALF_W + w; };
+      for (const c of obs.cars) if ((c.edge || c.parked) && Math.abs(c.x - t.cx) < 10 && Math.abs(c.z - t.cz) < 10 && inBody(c.x, c.z, c.halfWidth || 0.9)) return FRONT;
+      if (obs.player && inBody(obs.player.x, obs.player.z, 0.9)) return FRONT;
+    }
     for (let d = FRONT; d <= FRONT + LOOK && d < first; d += 2) {
       t.line.sample(Math.min(t.s + d, t.line.length), P);
       const test = (x, z) => (x - P.x) * (x - P.x) + (z - P.y) * (z - P.y) < CLEAR * CLEAR;
@@ -226,5 +235,14 @@ export async function createTramSystem(scene) {
   }
 
   console.info(`[trams] ${lines.length} route lines (${new Set(lines.map((l) => l.ref)).size} routes), ${trams.length} trams, ${tracks.rails} rail pieces`);
-  return { group, update, trams, lines };
+  /** Each tram's footprint (centre, heading, half length and width, speed), near (x, z) */
+  function footprints(x = 0, z = 0, r = Infinity) {
+    const out = [];
+    for (const t of trams) {
+      if (t.cx === undefined || Math.abs(t.cx - x) > r || Math.abs(t.cz - z) > r) continue;
+      out.push({ x: t.cx, z: t.cz, yaw: t.yaw, halfL: TRAM_HALF_L, halfW: TRAM_HALF_W, speed: t.v });
+    }
+    return out;
+  }
+  return { group, update, trams, lines, footprints };
 }

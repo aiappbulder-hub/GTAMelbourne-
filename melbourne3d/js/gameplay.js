@@ -432,7 +432,22 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
   let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
-  let lockTarget = null, cycleTarget = false;
+  let lockTarget = null, cycleTarget = false, freeYaw = null;
+  // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
+  const AIM_SENS = 0.0032; // radians per pixel
+  const canvasEl = renderer.domElement;
+  const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.(); } catch { /* not allowed */ } };
+  const freeMouse = () => { try { if (document.pointerLockElement === canvasEl) document.exitPointerLock(); } catch { /* fine */ } };
+  let lastMouseX = null, aimByMouse = false;
+  const stopMouseAim = () => { if (aimByMouse) { aimByMouse = false; aimHeld = false; freeMouse(); } };
+  window.addEventListener('mousemove', (e) => {
+    if (!aimHeld || cm.activeMode !== 'person') { lastMouseX = null; return; }
+    // captured: the movement; not (yet): how far the pointer went
+    const dx = document.pointerLockElement === canvasEl ? (e.movementX || 0) : lastMouseX === null ? 0 : e.clientX - lastMouseX;
+    lastMouseX = e.clientX;
+    if (freeYaw === null) freeYaw = person.heading;
+    freeYaw -= dx * AIM_SENS;
+  });
   const _lk = new THREE.Vector3();
   // the lock-on marker (over the target) and, on touch screens, a hold-to-aim button
   const elLock = document.createElement('div');
@@ -696,21 +711,24 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   const offUi = (e) => !(e.target instanceof Element && e.target.closest('button, input, select, a, [role=dialog], .pop-item, .gm-cut, .intro-card'));
   window.addEventListener('pointerdown', (e) => {
     if (!offUi(e)) return;
-    if (e.button === 2) { aimHeld = true; e.preventDefault(); return; }
+    if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
     if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
     if (typing(e)) return;
-    if (e.code === 'KeyQ') aimHeld = true;
+    if (e.code === 'KeyQ' && !aimHeld) { aimHeld = true; if (cm.activeMode === 'person') grabMouse(); }
     if (e.code === 'KeyE' && aimHeld && !e.repeat) cycleTarget = true; // the next target
   });
-  window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ') aimHeld = false; });
+  window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { aimHeld = false; freeMouse(); } });
+  window.addEventListener('mouseup', (e) => { if (e.button === 2) stopMouseAim(); });
+  // Esc (or the browser) took the mouse back: stop aiming with it
+  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvasEl) stopMouseAim(); });
   window.addEventListener('pointerup', (e) => {
-    if (e.button === 2) aimHeld = false;
+    if (e.button === 2) stopMouseAim();
     if (e.button === 0 && down) {
       // a click, not a camera drag
-      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && performance.now() - down.t < 350) fire();
+      if (document.pointerLockElement === canvasEl || (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && performance.now() - down.t < 350)) fire();
       down = null;
       triggerHeld = false;
     }
@@ -742,19 +760,18 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
     cm.aiming = onFoot && armed && aimHeld;
     if (cm.aiming) {
-      // soft lock: the nearest person (else car) in a wide cone ahead, held while aiming until they drop, get away or
-      // end up behind; E moves to the next one
-      const look = cm.cameraYaw ?? person.heading;
-      const keep = lockTarget && !(lockTarget.kind === 'ped' && lockTarget.q.dead) && Math.hypot(lockTarget.x - person.position.x, lockTarget.z - person.position.z) < LOCK_RANGE + 5
-        && Math.abs(Math.atan2(Math.sin(Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) - look), Math.cos(Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) - look))) < 1.6;
-      if (!keep) lockTarget = findTarget(look, 0.62, true) || findTarget(look, 0.62);
+      // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
+      // degrees of it draws the aim onto them; E jumps the aim to the next one along
+      if (freeYaw === null) freeYaw = person.heading;
       if (cycleTarget) {
         cycleTarget = false;
         const cur = lockTarget && (lockTarget.q || lockTarget.v);
-        lockTarget = findTarget(look, 1.2, true, cur) || lockTarget;
+        const next = findTarget(freeYaw, 1.4, true, cur);
+        if (next) freeYaw = Math.atan2(next.x - person.position.x, next.z - person.position.z);
       }
-      cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : look;
-    } else lockTarget = null;
+      lockTarget = findTarget(freeYaw, 0.11, true) || findTarget(freeYaw, 0.07);
+      cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : freeYaw;
+    } else { lockTarget = null; freeYaw = null; }
     // the lock marker over the target's head
     if (lockTarget && cm.aiming) {
       _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);
@@ -884,7 +901,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right mouse or Q: aim (locks on, E: next) · Click or J: fire · Tab: change · G: holster` : 'G to draw your gun'));
+      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Hold right mouse or Q: aim, move the mouse to turn · Click or J: fire · E: next target · Tab: change` : 'G to draw your gun'));
     }
   }
 

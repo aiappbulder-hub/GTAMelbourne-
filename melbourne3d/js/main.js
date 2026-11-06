@@ -26,6 +26,20 @@ import { CityAudioSystem } from './audio-system.js';
 // Saved player positions, per city (the frames differ)
 const PLAYER_STATE_KEY = IS_MELBOURNE ? 'melbourne-player-state' : 'nyc-player-state';
 
+// A point (the player on foot, radius r) pushed out of any of the boxes { x, z, yaw, halfL, halfW } it's inside
+function pushOutOfBoxes(p, r, boxes) {
+  for (const b of boxes) {
+    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw);
+    const dx = p.x - b.x, dz = p.z - b.z;
+    const a = dx * fx + dz * fz, s = dx * fz - dz * fx;
+    const pa = b.halfL + r - Math.abs(a), ps = b.halfW + r - Math.abs(s);
+    if (pa <= 0 || ps <= 0) continue;
+    // out along the shallower side
+    if (ps < pa) { const k = Math.sign(s || 1) * ps; p.x += fz * k; p.z -= fx * k; }
+    else { const k = Math.sign(a || 1) * pa; p.x += fx * k; p.z += fz * k; }
+  }
+}
+
 // Application setup, shader warm-up and frame loop.
 
 async function initApp() {
@@ -383,10 +397,10 @@ async function initApp() {
   // Keyboard guide for each mode: [keys, action]
   const controlHints = {
     person: IS_MELBOURNE
-      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['RMB'], 'Aim'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
+      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
       : [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
     car: IS_MELBOURNE
-      ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['F'], 'Get out'], [['B'], 'Horn'], [['Drag'], 'Orbit']]
+      ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Space'], 'Handbrake'], [['F'], 'Get out'], [['B'], 'Horn']]
       : [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['B'], 'Horn'], [['Drag'], 'Orbit']],
     cyclist: [[['W', 'S'], 'Pedal / Brake'], [['A', 'D'], 'Lean & Turn'], [['Drag'], 'Orbit']],
     helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend']]
@@ -909,6 +923,17 @@ async function initApp() {
       controllerManager.cameraYaw = Math.atan2(cameraSystem.currentLookAt.x - cameraSystem.currentPos.x, cameraSystem.currentLookAt.z - cameraSystem.currentPos.z);
     }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
+    // on foot, nobody walks through a car, a bus or a tram: pushed out of its footprint
+    if (IS_MELBOURNE && controllerManager.activeMode === 'person') {
+      const pp = controllerManager.entities.person.position;
+      const boxes = [];
+      for (const v of [...trafficSystem.cars, ...(trafficSystem.buses || [])]) {
+        if (v.driven || !(v.edge || v.parked) || Math.abs(v.x - pp.x) > 9 || Math.abs(v.z - pp.z) > 9) continue;
+        boxes.push({ x: v.x, z: v.z, yaw: Math.atan2(v.tx, v.tz) + (v.yawOffset || 0), halfL: v.halfL || v.half, halfW: v.halfWidth });
+      }
+      if (tramSystem) boxes.push(...tramSystem.footprints(pp.x, pp.z, 12));
+      pushOutOfBoxes(pp, 0.4, boxes);
+    }
     castSystem?.tick(dt);
     castSystem?.posePlayer(dt);
     if (gameplay) gameplay.update(dt);
@@ -927,6 +952,11 @@ async function initApp() {
     highwayTraffic.update(dt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
     // trams stop for people, cars and the player on the track ahead
     if (tramSystem) tramSystem.update(dt, () => ({ peds: trafficSystem.peds, cars: trafficSystem.cars, player: controllerManager.getActiveEntity().position }));
+    // the traffic slows and stops behind trams in its lane
+    if (tramSystem && trafficSystem.setExternals) {
+      const f = controllerManager.getActiveEntity().position;
+      trafficSystem.setExternals(tramSystem.footprints(f.x, f.z, 500));
+    }
     if (!document.hidden && now >= nextPlayerSave) {
       savePlayerState();
       nextPlayerSave = now + 5000;

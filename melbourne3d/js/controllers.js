@@ -1245,14 +1245,18 @@ class ThirdPersonControllerManager {
       const vx = sin * c.speed + c.vx, vz = cos * c.speed + c.vz;
       const forward = vx * sin + vz * cos;
       const sideways = vx * cos - vz * sin;
-      const speed = driveSpeed(forward, throttle, step, D);
+      // Space is the handbrake: the wheels lock, the car scrubs off speed hard (and the tail steps out in a corner)
+      const pulling = !!this.keys.up;
+      let speed = driveSpeed(forward, pulling ? 0 : throttle, step, D);
+      if (pulling) speed = Math.sign(speed) * Math.max(0, Math.abs(speed) - D.brake * 1.15 * step);
       const acceleration = (speed - forward) / step;
       // Braking and cornering share tire grip; air resistance does not use it.
       const tireAcceleration = acceleration + D.drag * forward * Math.abs(forward);
       const gripMax = D.grip * (c.onGrass ? 0.55 : 1); // half the grip on grass
       const grip = Math.sqrt(Math.max(0, gripMax ** 2 - tireAcceleration ** 2));
       // A handbrake slide preserves steering while reducing lateral grip; fade it out at low speed.
-      const handbrake = forward * throttle < 0 ? Math.abs(throttle) * Math.min(1, Math.abs(forward) / 5) : 0;
+      const handbrake = Math.max(forward * throttle < 0 ? Math.abs(throttle) * Math.min(1, Math.abs(forward) / 5) : 0,
+        pulling ? Math.min(1, Math.abs(forward) / 6) : 0);
       const lateralGrip = grip * (1 - 0.7 * handbrake);
       const steeringGrip = grip + (gripMax - grip) * handbrake;
 
