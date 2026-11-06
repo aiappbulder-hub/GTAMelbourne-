@@ -398,6 +398,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     if (you.length && !SHOTS.some((x) => x.youShot)) {
       SHOTS.splice(6, 0, { youShot: true, from: [-5, 7, -560], to: [-5, 6, -420], lookFrom: [-5, 16, 262], lookTo: [-5, 14, 262], secs: 4.5, lines: you });
     }
+    // the extras' models, fetched now (the first shot with them is a quarter of a minute in)
+    cast.preload?.(SHOTS.flatMap((sh) => (sh.actors || []).map((a) => a.id)));
     // each shot long enough for its recorded lines
     for (const sh of SHOTS) {
       const need = sh.lines.reduce((n, [, text]) => n + (voices?.lines?.find((l) => l.text === text)?.duration || 0) + 0.7, 0.4);

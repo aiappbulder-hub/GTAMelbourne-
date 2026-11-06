@@ -3,10 +3,8 @@
 // one for women: idle, walk, run, sprint, talk, phone, crouch).
 //
 //  - The player is played by their own character.
-//  - Pedestrians: the nearest few in view (14 on High graphics, 9 on Medium, 5 on Low) are drawn as these people,
-//    each picked for the person by sex and role (police, gangs, office workers, tradies, everyday locals). People
-//    further off stay the light procedural crowd (js/pedestrians.js). How many different people can be on screen is
-//    capped by graphics level too, to keep graphics memory in check.
+//  - The street crowd is the procedural people of js/pedestrians.js (their walking is generated, with feet planted, and
+//    never loops; they cost little). The code to draw the nearest of them as these people is kept (CROWD), switched off.
 //  - Story characters: Vince and Kaz wait at their jobs (on the phone) and talk through the cut scene.
 // Until the files load (or if they fail) everything stays as it was.
 import * as THREE from 'three/webgpu';
@@ -45,6 +43,9 @@ const ACTIVE = (() => {
   }
   return out;
 })();
+
+// Rocketbox people in the street crowd too (the nearest few)? Off: the procedural crowd moves better and costs less
+const CROWD = false;
 
 // Ground speeds (m/s) the clips' feet are matched to at their normal rate
 const GAIT = { walk: 1.4, run: 3.3, sprint: 5.0 };
@@ -97,7 +98,9 @@ export function createCast({ scene, controllerManager }) {
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER_MODEL)]);
     await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
-    for (const id of [...ACTIVE.police, ...ACTIVE.gang, ...ACTIVE.male, ...ACTIVE.female]) await loadPerson(id);
+    // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
+    // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
+    // load when the scene first wants them, in setActor)
   })();
   // gestures that play once and then hand back to whatever the person was doing
   const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer']);
@@ -237,6 +240,7 @@ export function createCast({ scene, controllerManager }) {
   }
   /** Each frame: the placed, visible people with their squared distance from the focus. The nearest hold actors */
   function assign(candidates) {
+    if (!CROWD) return; // the crowd stays procedural
     if (!templates.size || !clips.m) return;
     candidates.sort((a, b) => a.d2 - b.d2);
     const near = candidates.filter((c) => c.d2 < LEVEL.range * LEVEL.range);
@@ -462,6 +466,7 @@ export function createCast({ scene, controllerManager }) {
   function setActor(key, id, pose, anim = 'idle') {
     let a = extras.get(key);
     if (!pose) { if (a) a.group.visible = false; return; }
+    if (!templates.has(id)) { loadPerson(id); return; } // fetched the first time a scene wants them
     if (!a || a.id !== id) {
       if (a) a.group.visible = false;
       a = makeActor(id, true);
@@ -478,6 +483,8 @@ export function createCast({ scene, controllerManager }) {
 
   return {
     setActor,
+    /** Start fetching people a scene will want soon (the intro's extras) */
+    preload(ids) { for (const id of ids) if (id) loadPerson(id); },
     /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
     setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; },
     /** Where the gun's muzzle is (for the flash and tracers), or null */
