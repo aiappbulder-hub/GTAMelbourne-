@@ -7,7 +7,7 @@ import { castHook, characterFor, isFemale } from './people.js';
 
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
-const NUM_PEDS = Q.peds; // 340 on high quality (js/quality.js)
+const NUM_PEDS = Math.round(Q.peds * 0.75); // 255 on high quality (js/quality.js's 340, thinned so people have room)
 const PED_RADIUS = 320;
 const NEAR_RADIUS = 350;
 const PED_SPAWN_DISTANCE = 150;
@@ -531,7 +531,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     // their side of the footpath (not on a crosswalk, which has its own lines), eased across when they turn round
     const lineWant = p.node ? 0 : -p.dir * p.lineOff;
     p.lineCur += clamp(lineWant - p.lineCur, -0.9 * dt, 0.9 * dt);
-    p.sep += clamp(p.sepWant - p.sep, -0.8 * dt, 0.8 * dt);
+    p.sep += clamp(p.sepWant - p.sep, -0.5 * dt, 0.5 * dt);
     const side = p.dodge + p.lineCur + p.sep;
     p.x = p.ax + p.ux * t + p.uz * side;
     p.z = p.az + p.uz * t - p.ux * side;
@@ -663,7 +663,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
 
   // Personal space: people closer than SPACE to someone step sideways (across their footpath) away from them, and ease
   // back once clear, so a crowd spreads out instead of bunching into one another (waiting at a kerb too)
-  const SPACE = 0.9;
+  const SPACE = 1.5;
   const spaceGrid = new Map();
   const cellKey = (cx, cz) => (cx * 73856093) ^ (cz * 19349663);
   function spread() {
@@ -695,7 +695,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
           }
         }
       }
-      p.sepWant = clamp(push === 0 ? p.sepWant * 0.9 : p.sepWant + push * 0.8, -0.75, 0.75);
+      p.sepWant = clamp(push === 0 ? p.sepWant * 0.985 : p.sepWant + push * 0.35, -1.0, 1.0);
     }
   }
   let castCandidates = null, lastCandidates = null;

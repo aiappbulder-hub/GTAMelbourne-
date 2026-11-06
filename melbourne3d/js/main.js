@@ -932,6 +932,15 @@ async function initApp() {
         boxes.push({ x: v.x, z: v.z, yaw: Math.atan2(v.tx, v.tz) + (v.yawOffset || 0), halfL: v.halfL || v.half, halfW: v.halfWidth });
       }
       if (tramSystem) boxes.push(...tramSystem.footprints(pp.x, pp.z, 12));
+      // the player's own car where they left it, and the race's cars
+      const own = controllerManager.entities.car;
+      if (own && own.mesh && own.mesh.visible && Math.abs(own.position.x - pp.x) < 9 && Math.abs(own.position.z - pp.z) < 9) {
+        boxes.push({ x: own.position.x, z: own.position.z, yaw: own.heading, halfL: 2.25, halfW: 0.92 });
+      }
+      if (race) boxes.push(...race.boxes());
+      // a sports car of the player's own, parked
+      const sp = gameplay?.sportsBox?.();
+      if (sp) boxes.push(sp);
       pushOutOfBoxes(pp, 0.4, boxes);
     }
     castSystem?.tick(dt);

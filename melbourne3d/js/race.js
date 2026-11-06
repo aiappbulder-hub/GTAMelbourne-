@@ -239,6 +239,7 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
       if (after > L * 0.45 && after < L * 0.55) r.half = true;
       if (r.lap >= LAPS && !r.done) { r.done = true; r.finishT = performance.now(); }
     }
+    collide(c, dt);
     placeRivals(dt);
     updateHud(mine);
     if (playerLap >= LAPS) {
@@ -252,6 +253,55 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
   function laneOf(p, i) {
     const tx = X(i + 1) - X(i), tz = Z(i + 1) - Z(i), tl = Math.hypot(tx, tz) || 1;
     return ((p.x - X(i)) * -tz + (p.z - Z(i)) * tx) / tl;
+  }
+  // Contact: the rivals can't pass through each other or the player. Nose to tail, the one behind is held off at the
+  // leader's speed; side by side, they're shoved apart (and the rival steers away)
+  const HL = 2.3, HW = 0.95;
+  function collide(c, dt) {
+    // rival against rival, along the loop
+    const order = [...rivals].sort((a, b) => a.s - b.s);
+    for (let i = 0; i < order.length; i++) {
+      for (let j = 0; j < order.length; j++) {
+        if (i === j) continue;
+        const a = order[i], b = order[j];
+        const gap = (((b.s - a.s) % L) + L) % L; // b ahead of a by this much
+        if (gap > 0 && gap < HL * 2 + 0.3 && Math.abs(a.lane - b.lane) < HW * 2 + 0.2) {
+          a.s = b.s - (HL * 2 + 0.3) - (b.s - a.s - gap); // back to the leader's bumper (same lap)
+          a.v = Math.min(a.v, b.v);
+        }
+      }
+    }
+    // the player's car against each rival, in the rival's frame
+    for (const r of rivals) {
+      const p = at(r.s, r.lane);
+      const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+      const dx = c.position.x - p.x, dz = c.position.z - p.z;
+      const along = dx * fx + dz * fz, side = dx * fz - dz * fx;
+      const pa = HL * 2 - Math.abs(along), ps = HW * 2 - Math.abs(side);
+      if (pa <= 0 || ps <= 0) continue;
+      if (pa < ps * 1.6) {
+        // nose to tail: separate along, and the one behind takes the one in front's speed (a bump)
+        const k = Math.sign(along || 1) * pa;
+        c.position.x += fx * k; c.position.z += fz * k;
+        const mine = c.speed * (Math.sin(c.heading) * fx + Math.cos(c.heading) * fz);
+        if (along < 0) { if (mine > r.v) c.speed = r.v * 0.95; } // the player ran into it
+        else { r.v = Math.min(r.v, Math.max(0, mine) * 0.95); } // it ran into the player
+      } else {
+        // side by side: shoved apart, and the rival moves over
+        const k = Math.sign(side || 1) * ps;
+        c.position.x += fz * k; c.position.z -= fx * k;
+        c.vx = (c.vx || 0) + fz * Math.sign(side || 1) * 1.5;
+        c.vz = (c.vz || 0) - fx * Math.sign(side || 1) * 1.5;
+        r.laneWant = r.lane - Math.sign(side || 1) * 2.5;
+        r.passing = 1.5;
+        c.speed *= 0.97;
+      }
+    }
+  }
+  /** The rivals' footprints (for the player on foot) */
+  function boxes() {
+    if (state === 'idle') return [];
+    return rivals.map((r) => { const p = at(r.s, r.lane); return { x: p.x, z: p.z, yaw: p.heading, halfL: HL, halfW: HW }; });
   }
   function placeRivals(dt) {
     for (const r of rivals) {
@@ -268,5 +318,5 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
     hud.innerHTML = `<span>LAP <b>${Math.max(1, Math.min(LAPS, playerLap + 1))}/${LAPS}</b></span><span>POS <b>${rank}/${rivals.length + 1}</b></span><span>${fmt(secs)}</span>`;
   }
 
-  return { start, update, end, get racing() { return state !== 'idle'; }, marker: mk };
+  return { start, update, end, boxes, get racing() { return state !== 'idle'; }, marker: mk };
 }

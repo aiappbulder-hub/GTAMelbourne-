@@ -173,7 +173,8 @@ export function createCast({ scene, controllerManager }) {
       a.cur = act;
       if (ONCE.has(name)) a.onceUntil = clock + act.getClip().duration / timeScale - fade;
     }
-    act.timeScale = timeScale;
+    // the playback rate eases towards the wanted one (a sudden change makes the feet skip)
+    act.timeScale = a.cur === act && act.timeScale > 0 ? act.timeScale + (timeScale - act.timeScale) * 0.12 : timeScale;
   }
   /** Is this gesture or clip there (the story set loads after the basics)? */
   const has = (a, name) => !!(a.acts[name] || a.set[name]);
@@ -350,7 +351,8 @@ export function createCast({ scene, controllerManager }) {
     muzzleValid = false;
     if (!weapon.armed || !guns[weapon.id]) return;
     weapon.raise += ((weapon.aiming ? 1 : 0) - weapon.raise) * Math.min(1, dt * 14);
-    const dir = _d.set(Math.sin(weapon.yaw), -0.04, Math.cos(weapon.yaw)).normalize().clone();
+    const cp = Math.cos(weapon.pitch || 0);
+    const dir = _d.set(Math.sin(weapon.yaw) * cp, Math.sin(weapon.pitch || 0) - 0.04, Math.cos(weapon.yaw) * cp).normalize().clone();
     if (weapon.raise > 0.02) aimArms(a, dir, weapon.raise, TWO_HANDED[weapon.id] && weapon.id !== 'pistol' || weapon.raise > 0.5);
     const B = bonesOf(a);
     if (!B.R_Hand || !B.R_Forearm) return;
@@ -486,7 +488,7 @@ export function createCast({ scene, controllerManager }) {
     /** Start fetching people a scene will want soon (the intro's extras) */
     preload(ids) { for (const id of ids) if (id) loadPerson(id); },
     /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
-    setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; },
+    setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; weapon.pitch = w.pitch || 0; },
     /** Where the gun's muzzle is (for the flash and tracers), or null */
     muzzle() { return muzzleValid ? muzzle : null; },
     setSeated,

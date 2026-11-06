@@ -227,7 +227,9 @@ class CameraSystem {
           desiredPos.set(entity.position.x - ax * 2.3 + rx * 0.7, entity.position.y + 1.8, entity.position.z - az * 2.3 + rz * 0.7);
           // never inside a wall: pushed back out of any building it ends up in (standing with your back to one)
           this.controllerManager.resolveHorizontalCollision?.(desiredPos, 0.35);
-          desiredLook.set(entity.position.x + ax * 12 + rx * 0.4, entity.position.y + 1.45, entity.position.z + az * 12 + rz * 0.4);
+          // tilted with the aim (up at a balcony, down at someone at your feet)
+          const pitch = this.controllerManager.aimPitch || 0;
+          desiredLook.set(entity.position.x + ax * 12 + rx * 0.4, entity.position.y + 1.45 + Math.tan(pitch) * 12, entity.position.z + az * 12 + rz * 0.4);
           break;
         }
         const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));

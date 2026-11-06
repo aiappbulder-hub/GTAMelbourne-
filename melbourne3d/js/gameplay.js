@@ -432,13 +432,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
   let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
-  let lockTarget = null, cycleTarget = false, freeYaw = null;
+  let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0;
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
   const AIM_SENS = 0.0032; // radians per pixel
   const canvasEl = renderer.domElement;
   const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.(); } catch { /* not allowed */ } };
   const freeMouse = () => { try { if (document.pointerLockElement === canvasEl) document.exitPointerLock(); } catch { /* fine */ } };
-  let lastMouseX = null, aimByMouse = false;
+  let lastMouseX = null, lastMouseY = null, aimByMouse = false;
   const stopMouseAim = () => { if (aimByMouse) { aimByMouse = false; aimHeld = false; freeMouse(); } };
   window.addEventListener('mousemove', (e) => {
     if (!aimHeld || cm.activeMode !== 'person') { lastMouseX = null; return; }
@@ -447,6 +447,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     lastMouseX = e.clientX;
     if (freeYaw === null) freeYaw = person.heading;
     freeYaw -= dx * AIM_SENS;
+    // up and down too
+    const dy = document.pointerLockElement === canvasEl ? (e.movementY || 0) : lastMouseY === null ? 0 : e.clientY - lastMouseY;
+    lastMouseY = e.clientY;
+    freePitch = Math.max(-0.55, Math.min(0.75, freePitch - dy * AIM_SENS));
   });
   const _lk = new THREE.Vector3();
   // the lock-on marker (over the target) and, on touch screens, a hold-to-aim button
@@ -599,20 +603,36 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flashT = 0.05;
     bang(w.sound);
     voices?.event('gunfire', person.position);
+    const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
     for (let k = 0; k < w.pellets; k++) {
       const a = yaw + (Math.random() - 0.5) * 2 * w.spread;
+      const pa = pitch + (Math.random() - 0.5) * 2 * w.spread * 0.6;
       const dx = Math.sin(a), dz = Math.cos(a);
-      const hit = trace(person.position.x, person.position.z, dx, dz, w.range);
+      let hit = trace(person.position.x, person.position.z, dx, dz, w.range);
+      // the height the shot is at where it reaches what it hit: over a person's head or a car's roof, under them into
+      // the road, it misses (and carries on to the range, or the ground)
+      const hd = Math.hypot(hit.x - person.position.x, hit.z - person.position.z);
+      const hy = person.position.y + 1.4 + Math.tan(pa) * hd;
+      if ((hit.kind === 'ped' && (hy < 0 || hy > 2.0)) || (hit.kind === 'car' && (hy < 0 || hy > 1.7))) {
+        hit = { kind: 'none', x: person.position.x + dx * w.range, z: person.position.z + dz * w.range };
+      }
+      const endD = Math.hypot(hit.x - person.position.x, hit.z - person.position.z);
+      let endY = person.position.y + 1.4 + Math.tan(pa) * endD;
+      if (endY < 0) { // into the ground first
+        const g = (person.position.y + 1.4) / Math.max(1e-3, -Math.tan(pa));
+        hit = { kind: 'none', x: person.position.x + dx * g, z: person.position.z + dz * g };
+        endY = 0.02;
+      }
       const tr = tracers[tracerNext++ % tracers.length];
       const pos = tr.geometry.attributes.position;
       pos.setXYZ(0, mx, my, mz);
-      pos.setXYZ(1, hit.x, hit.kind === 'ped' ? my - 0.25 : my - 0.1, hit.z);
+      pos.setXYZ(1, hit.x, endY, hit.z);
       pos.needsUpdate = true;
       tr.visible = true;
       tr.userData.t = 0.06;
       if (hit.kind !== 'none') {
         const sp = sparks[sparkNext++ % sparks.length];
-        sp.position.set(hit.x, hit.kind === 'ped' ? 1.1 : my - 0.1, hit.z);
+        sp.position.set(hit.x, endY, hit.z);
         sp.visible = true;
         sp.userData.t = 0.08;
       }
@@ -771,7 +791,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       }
       lockTarget = findTarget(freeYaw, 0.11, true) || findTarget(freeYaw, 0.07);
       cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : freeYaw;
-    } else { lockTarget = null; freeYaw = null; }
+      // up and down: the mouse's, or, locked on, at the target's chest
+      if (lockTarget) {
+        const d = Math.hypot(lockTarget.x - person.position.x, lockTarget.z - person.position.z) || 1;
+        cm.aimPitch = Math.atan2((lockTarget.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), d);
+      } else cm.aimPitch = freePitch;
+    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; }
     // the lock marker over the target's head
     if (lockTarget && cm.aiming) {
       _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);
@@ -787,7 +812,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
     raisedT = Math.max(0, raisedT - dt);
     cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot, aiming: cm.aiming || raisedT > 0,
-      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading });
+      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0 });
     elCross.classList.toggle('lock', !!lockTarget);
     if (triggerHeld && WEAPONS[wi].auto) fire();
 
@@ -932,6 +957,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     /** The speedo's full scale for the car being driven (km/h) */
     get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 36) * 3.6 / 10) * 10 + 20 : 0; },
     summonSports, summon, cycleCar,
+    /** The player's parked sports car (or the parked taxi), for the player on foot to bump into */
+    sportsBox() {
+      if (riding !== 'sports' && sports.mesh && sports.mesh.visible && sports.mesh.parent) return { x: sports.x, z: sports.z, yaw: sports.heading, halfL: 2.3, halfW: 0.95 };
+      if (taxiClone && taxiClone.visible && taxiClone.parent) return { x: taxiClone.position.x, z: taxiClone.position.z, yaw: taxiClone.rotation.y, halfL: 2.25, halfW: 0.92 };
+      return null;
+    },
     // for scripted checks
     fire, talk, tryEnter, exitCar,
     get state() { return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode }; }
