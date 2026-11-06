@@ -101,6 +101,17 @@ export function createCast({ scene, controllerManager }) {
   })();
   // gestures that play once and then hand back to whatever the person was doing
   const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer']);
+  // Clips that would visibly come round again (idles, talking, listening, sitting: motion capture cut to a length, not
+  // made to loop): just before one ends, the person drifts into another from its group instead
+  const VARIANTS = {
+    idle: ['idle', 'wait', 'look'], wait: ['wait', 'idle', 'look'], look: ['look', 'idle', 'wait'], text: ['text', 'idle', 'look'],
+    phone: ['phone', 'text'], angry_idle: ['angry_idle', 'look', 'idle'], nervous_idle: ['nervous_idle', 'idle', 'look'],
+    talk: ['talk', 'talk_cool', 'talk_assured'], talk_cool: ['talk_cool', 'talk', 'talk_assured'], talk_assured: ['talk_assured', 'talk', 'talk_cool'],
+    talk_angry: ['talk_angry', 'talk_assured'], talk_excited: ['talk_excited', 'talk_cool', 'talk'], talk_nervous: ['talk_nervous', 'talk'],
+    listen: ['listen', 'idle'], listen_angry: ['listen_angry', 'listen'],
+    sit: ['sit', 'sit_listen', 'sit_look'], sit_listen: ['sit_listen', 'sit', 'sit_look'], sit_look: ['sit_look', 'sit_listen', 'sit'],
+    sit_talk: ['sit_talk', 'sit_think'], sit_think: ['sit_think', 'sit_talk']
+  };
   let clock = 0;
 
   // An actor: a clone of a person (sharing their meshes and textures) with its own skeleton and animation mixer
@@ -135,14 +146,25 @@ export function createCast({ scene, controllerManager }) {
   function play(a, name, timeScale = 1, fade = 0.3) {
     // a gesture playing once finishes before anything but a new gesture (or death) takes over
     if (clock < a.onceUntil && !ONCE.has(name)) return;
-    const act = action(a, name) || a.acts.idle;
+    let act;
+    const group = VARIANTS[name];
+    if (group && a.logical === name && a.cur && group.some((n) => a.acts[n] === a.cur)) {
+      // still doing the same thing: keep the clip going, and near its end slip into another of its kind
+      act = a.cur;
+      if (act.time > act.getClip().duration - 1.0) {
+        const opts = group.filter((n) => has(a, n) && action(a, n) !== act);
+        if (opts.length) { act = action(a, opts[Math.floor(Math.random() * opts.length)]); fade = 0.9; }
+      }
+    } else act = action(a, name) || a.acts.idle;
+    a.logical = name;
     if (!act) return;
     if (a.cur !== act || ONCE.has(name) && clock >= a.onceUntil) {
       act.reset();
       act.enabled = true;
       act.setEffectiveWeight(1);
-      // idles and talk start somewhere along, so a crowd doesn't move in step
-      if (!ONCE.has(name) && !['walk', 'run', 'sprint'].includes(name)) act.time = Math.random() * act.getClip().duration;
+      // idles and talk start somewhere in their first half, so a crowd doesn't move in step (and there's time before
+      // the next change)
+      if (!ONCE.has(name) && !['walk', 'run', 'sprint'].includes(name)) act.time = Math.random() * act.getClip().duration * 0.5;
       act.play();
       if (a.cur && a.cur !== act) act.crossFadeFrom(a.cur, fade, false);
       a.cur = act;

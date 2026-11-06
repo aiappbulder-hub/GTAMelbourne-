@@ -1,4 +1,5 @@
 import { createSynthResources, createMotorVoice, setControlRate } from './audio-synthesis.js';
+import { IS_MELBOURNE } from './city.js';
 import { createEventResources, playEvent, createWindVoice } from './audio-events.js';
 import { CityAudioSources } from './audio-sources.js';
 import { CityAcoustics } from './audio-acoustics.js';
@@ -88,6 +89,7 @@ class CityAudioSystem {
     try { this.enabled = localStorage.getItem('nyc-sound') !== 'off'; } catch { /* Private browsing. */ }
     const smallDevice = navigator.hardwareConcurrency <= 4 || matchMedia('(pointer: coarse)').matches;
     this.limits = smallDevice ? { motors: 6, sirens: 1, events: 5 } : { motors: 8, sirens: 2, events: 8 };
+    if (IS_MELBOURNE) this.limits.sirens = 0; // (no police sirens wailing round Melbourne)
     this.motors = new Map();
     this.sirens = new Map();
     this.events = [];

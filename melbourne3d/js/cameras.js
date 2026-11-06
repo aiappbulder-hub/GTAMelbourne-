@@ -221,6 +221,15 @@ class CameraSystem {
         break;
       }
       case 'chase': {
+        if (entity.type === 'person' && this.controllerManager.aiming) {
+          // aiming: in close over the right shoulder, looking down the aim
+          const ax = Math.sin(totalYaw), az = Math.cos(totalYaw), rx = -az, rz = ax;
+          desiredPos.set(entity.position.x - ax * 2.3 + rx * 0.7, entity.position.y + 1.8, entity.position.z - az * 2.3 + rz * 0.7);
+          // never inside a wall: pushed back out of any building it ends up in (standing with your back to one)
+          this.controllerManager.resolveHorizontalCollision?.(desiredPos, 0.35);
+          desiredLook.set(entity.position.x + ax * 12 + rx * 0.4, entity.position.y + 1.45, entity.position.z + az * 12 + rz * 0.4);
+          break;
+        }
         const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
         const height = entity.chaseHeight * this.zoomMultiplier + Math.sin(this.orbitPitchOffset) * dist * 0.85;
         const horizDist = Math.cos(this.orbitPitchOffset) * dist + speedLag;

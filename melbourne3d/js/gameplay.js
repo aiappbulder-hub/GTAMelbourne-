@@ -78,6 +78,13 @@ const CSS = `
 .gp-fire { position: fixed; right: 26px; bottom: 210px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0;
   background: rgba(220, 40, 40, .82); color: #fff; font: 800 14px/1 Inter, sans-serif; display: none; }
 body.touch-enabled .gp-fire.on { display: block; }
+.gp-lock { position: fixed; z-index: 31; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 3px solid #ff3b30; border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255,59,48,.7); pointer-events: none; }
+.gp-lock[hidden] { display: none; }
+.gp-aim { position: fixed; right: 108px; bottom: 150px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; display: none;
+  border: 2px solid rgba(255,255,255,.6); background: rgba(10,12,16,.6); color: #fff; font: 800 15px Inter, sans-serif; touch-action: none; }
+.gp-aim.on { display: block; }
+.gp-aim.held { background: rgba(255,59,48,.75); }
 .gp-speedo { position: fixed; right: 18px; top: 200px; z-index: 30; width: 150px; height: 150px; pointer-events: none; display: none; }
 .gp-speedo.on { display: block; }
 .gp-speedo svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 4px 14px rgba(0,0,0,.45)); }
@@ -425,7 +432,21 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
   let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
-  let lockTarget = null;
+  let lockTarget = null, cycleTarget = false;
+  const _lk = new THREE.Vector3();
+  // the lock-on marker (over the target) and, on touch screens, a hold-to-aim button
+  const elLock = document.createElement('div');
+  elLock.className = 'gp-lock';
+  elLock.hidden = true;
+  document.body.append(elLock);
+  const elAim = document.createElement('button');
+  elAim.className = 'gp-aim';
+  elAim.type = 'button';
+  elAim.textContent = 'AIM';
+  document.body.append(elAim);
+  elAim.addEventListener('pointerdown', (e) => { e.preventDefault(); aimHeld = true; });
+  elAim.addEventListener('pointerup', () => { aimHeld = false; });
+  elAim.addEventListener('pointercancel', () => { aimHeld = false; });
 
   // tracers and muzzle flashes, pooled
   const tracerMat = new THREE.LineBasicNodeMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.9, depthWrite: false });
@@ -523,7 +544,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
 
   // Lock-on: the nearest living person or car within the cone in front of `yaw`
-  function findTarget(yaw, cone) {
+  function findTarget(yaw, cone, pedsOnly = false, skip = null) {
     const p = person.position;
     let best = null, bestScore = Infinity;
     const consider = (x, z, t) => {
@@ -532,11 +553,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       let a = Math.atan2(dx, dz) - yaw;
       a = Math.atan2(Math.sin(a), Math.cos(a));
       if (Math.abs(a) > cone) return;
+      if (skip && t[t.kind === 'ped' ? 'q' : 'v'] === skip) return;
       const score = d * (1 + Math.abs(a) * 2);
       if (score < bestScore) { bestScore = score; best = t; }
     };
     for (const q of trafficSystem.peds) if (q.placed && !q.dead) consider(q.x, q.z, { kind: 'ped', q, get x() { return q.x; }, get z() { return q.z; } });
-    for (const v of trafficSystem.cars) if (!v.driven && (v.edge || v.parked)) consider(v.x, v.z, { kind: 'car', v, get x() { return v.x; }, get z() { return v.z; } });
+    if (!pedsOnly) for (const v of trafficSystem.cars) if (!v.driven && (v.edge || v.parked)) consider(v.x, v.z, { kind: 'car', v, get x() { return v.x; }, get z() { return v.z; } });
     return best;
   }
 
@@ -678,7 +700,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
-  window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !typing(e)) aimHeld = true; });
+  window.addEventListener('keydown', (e) => {
+    if (typing(e)) return;
+    if (e.code === 'KeyQ') aimHeld = true;
+    if (e.code === 'KeyE' && aimHeld && !e.repeat) cycleTarget = true; // the next target
+  });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ') aimHeld = false; });
   window.addEventListener('pointerup', (e) => {
     if (e.button === 2) aimHeld = false;
@@ -715,10 +741,31 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const onFoot = cm.activeMode === 'person';
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
     cm.aiming = onFoot && armed && aimHeld;
-    if (cm.aiming && cm.cameraYaw !== null) {
-      lockTarget = findTarget(cm.cameraYaw, 0.12);
-      cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : cm.cameraYaw;
+    if (cm.aiming) {
+      // soft lock: the nearest person (else car) in a wide cone ahead, held while aiming until they drop, get away or
+      // end up behind; E moves to the next one
+      const look = cm.cameraYaw ?? person.heading;
+      const keep = lockTarget && !(lockTarget.kind === 'ped' && lockTarget.q.dead) && Math.hypot(lockTarget.x - person.position.x, lockTarget.z - person.position.z) < LOCK_RANGE + 5
+        && Math.abs(Math.atan2(Math.sin(Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) - look), Math.cos(Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) - look))) < 1.6;
+      if (!keep) lockTarget = findTarget(look, 0.62, true) || findTarget(look, 0.62);
+      if (cycleTarget) {
+        cycleTarget = false;
+        const cur = lockTarget && (lockTarget.q || lockTarget.v);
+        lockTarget = findTarget(look, 1.2, true, cur) || lockTarget;
+      }
+      cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : look;
     } else lockTarget = null;
+    // the lock marker over the target's head
+    if (lockTarget && cm.aiming) {
+      _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);
+      if (_lk.z < 1) {
+        elLock.style.left = `${((_lk.x + 1) / 2) * window.innerWidth}px`;
+        elLock.style.top = `${((1 - _lk.y) / 2) * window.innerHeight}px`;
+        elLock.hidden = false;
+      } else elLock.hidden = true;
+    } else elLock.hidden = true;
+    elAim.classList.toggle('on', onFoot && armed && document.body.classList.contains('touch-enabled'));
+    elAim.classList.toggle('held', aimHeld);
     elCross.hidden = !cm.aiming;
     // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
     raisedT = Math.max(0, raisedT - dt);
@@ -837,7 +884,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right mouse or Q: aim · Click or J: fire · Tab: change · G: holster` : 'G to draw your gun'));
+      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right mouse or Q: aim (locks on, E: next) · Click or J: fire · Tab: change · G: holster` : 'G to draw your gun'));
     }
   }
 
