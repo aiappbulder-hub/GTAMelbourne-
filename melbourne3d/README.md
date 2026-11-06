@@ -73,6 +73,8 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - **Weather** button (or **Y**): clear, overcast, rain (falling rain, wet roads) and fog, over any time of day.
   - A speedo dial while driving; on grass the wheels dig in (the car sinks, slows, loses grip, bounces and leaves ruts).
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
+- **Title film** (`assets/video/intro.mp4`, 15 s): after the first key or tap it plays full screen, ending on the GTA MELBOURNE
+  title, then hands on to the intro's shots; Esc, Enter, Space or Skip end it, and `?nofilm` leaves it out.
 - **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
   Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with the player's own voice setting up the story and
   Vince's phone call, to a synthesised score, ending on the player at the first job. The first time, a title card

@@ -669,7 +669,7 @@ async function initApp() {
     sub.className = 'pop-sub';
     sub.textContent = 'Melbourne, 2004: how it starts';
     b.append(n, sub);
-    b.addEventListener('click', () => { closePopovers(); intro.start(); });
+    b.addEventListener('click', () => { closePopovers(); intro.play(); });
     pop.prepend(b);
     // your own cars from BeamNG mods (js/car-mods.js): opened in this browser, never uploaded
     const carMods = (await import('./car-mods.js')).createCarMods({ gameplay, trafficSystem, missionSystem });

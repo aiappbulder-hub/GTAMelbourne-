@@ -6,6 +6,8 @@ import { STORY_CAST } from './people.js';
 // over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. Every
 // time the game starts it waits on a title card for a key or a tap (browsers only play sound after one), then plays;
 // ?nointro leaves it out. "Watch the intro" in the teleport menu plays it again. Esc, Enter or Skip end it.
+// Before the shots, the title film (assets/video/intro.mp4, 15 s) plays full screen, ending on the GTA MELBOURNE
+// title; Esc, Enter, Space or Skip end the film and go on to the shots. ?nofilm leaves the film out.
 //
 // Each shot moves the camera from `from` to `to` (eye) while looking from `lookFrom` to `lookTo`, over `secs`, eased.
 // World metres (x = east along Collins St, z = south). 'sun' as a look target points the camera into the sunset.
@@ -71,7 +73,15 @@ body.cinematic .gp-weapon, body.cinematic .gp-fire, body.cinematic .gp-cross, bo
 .intro-skip { position: fixed; right: 18px; top: calc(11vh + 12px); z-index: 62; padding: 7px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
   background: rgba(0,0,0,.45); color: #fff; font: 600 13px/1 Inter, system-ui, sans-serif; cursor: pointer; display: none; }
 body.cinematic .intro-skip { display: block; }
+.intro-film { position: fixed; inset: 0; z-index: 80; background: #000; display: flex; align-items: center; justify-content: center;
+  opacity: 1; transition: opacity .6s ease; }
+.intro-film[hidden] { display: none; }
+.intro-film.out { opacity: 0; }
+.intro-film video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.intro-film button { position: absolute; right: 18px; top: 18px; padding: 7px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
+  background: rgba(0,0,0,.45); color: #fff; font: 600 13px/1 Inter, system-ui, sans-serif; cursor: pointer; }
 `;
+const FILM_URL = 'assets/video/intro.mp4';
 
 const ease = (t) => t * t * (3 - 2 * t);
 
@@ -318,6 +328,53 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   skip.textContent = 'Skip ›';
   document.body.append(skip);
 
+  // The title film: full screen over the city, then hands on to the shots (`then`)
+  const film = div('intro-film');
+  film.hidden = true;
+  let filmDone = null;
+  function endFilm() {
+    if (!filmDone) return;
+    const then = filmDone;
+    filmDone = null;
+    window.removeEventListener('keydown', filmKey, true);
+    film.classList.add('out');
+    setTimeout(() => {
+      film.hidden = true;
+      film.classList.remove('out');
+      const v = film.querySelector('video');
+      if (v) { v.pause(); v.removeAttribute('src'); v.load(); v.remove(); }
+    }, 600);
+    then();
+  }
+  function filmKey(e) {
+    if (['Escape', 'Enter', 'NumpadEnter', 'Space'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); endFilm(); }
+  }
+  function playFilm(then) {
+    if (new URLSearchParams(location.search).has('nofilm')) { then(); return; }
+    filmDone = then;
+    film.textContent = '';
+    const v = document.createElement('video');
+    v.src = FILM_URL;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.addEventListener('ended', endFilm);
+    v.addEventListener('error', endFilm);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Skip ›';
+    b.addEventListener('click', endFilm);
+    film.append(v, b);
+    film.hidden = false;
+    window.addEventListener('keydown', filmKey, true);
+    // (called from a key or a tap, so the browser lets it play with sound; if it still refuses, try it muted)
+    v.play().catch(() => { v.muted = true; return v.play(); }).catch(endFilm);
+  }
+  /** The whole opening: the title film, then the shots */
+  function play() {
+    card.hidden = true;
+    playFilm(start);
+  }
+
   let active = false, shot = 0, t = 0, lineK = -1;
   const A = new THREE.Vector3(), B = new THREE.Vector3(), L1 = new THREE.Vector3(), L2 = new THREE.Vector3();
   const person = controllerManager.entities.person;
@@ -455,6 +512,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
 
   /** Called after the camera system's own update: the intro takes the camera over while it plays */
   function apply(dt) {
+    if (filmDone) controllerManager.resetInput(); // nothing moves under the film
     if (!active) return false;
     controllerManager.resetInput();
     showActors();
@@ -557,7 +615,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
         return;
       }
       window.removeEventListener('keydown', begin, true);
-      start();
+      play();
     };
     window.addEventListener('keydown', begin, true);
     card.addEventListener('pointerdown', begin, { once: true });
@@ -566,6 +624,9 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   return {
     apply,
     start,
+    play,
+    /** Whether the title film is on screen */
+    get filmPlaying() { return !!filmDone; },
     prompt,
     stop,
     get active() { return active; },
