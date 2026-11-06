@@ -888,6 +888,7 @@ async function initApp() {
       controllerManager.cameraYaw = Math.atan2(cameraSystem.currentLookAt.x - cameraSystem.currentPos.x, cameraSystem.currentLookAt.z - cameraSystem.currentPos.z);
     }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
+    castSystem?.tick(dt);
     castSystem?.posePlayer(dt);
     if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);

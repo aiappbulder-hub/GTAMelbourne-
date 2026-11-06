@@ -85,12 +85,23 @@ export function createCast({ scene, controllerManager }) {
       return [a.name, a];
     }));
   }).catch((e) => console.warn('[people] no clips', sex, e));
+  // The story set: moods for talking and listening, gestures and idles (added to each sex's clips once loaded)
+  const loadStory = (sex) => fetch(new URL(`story-${sex}.json`, BASE)).then((r) => r.json()).then((j) => {
+    for (const c of j.clips) {
+      const a = THREE.AnimationClip.parse(c);
+      a.tracks = a.tracks.filter((t) => !t.name.startsWith('MotionExtractionHelper'));
+      clips[sex][a.name] = a;
+    }
+  }).catch((e) => console.warn('[people] no story clips', sex, e));
   // the player and the story first, then the crowd one at a time
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER_MODEL)]);
-    await Promise.all(Object.values(STORY_CAST).map(loadPerson));
+    await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f')]);
     for (const id of [...ACTIVE.police, ...ACTIVE.gang, ...ACTIVE.male, ...ACTIVE.female]) await loadPerson(id);
   })();
+  // gestures that play once and then hand back to whatever the person was doing
+  const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer']);
+  let clock = 0;
 
   // An actor: a clone of a person (sharing their meshes and textures) with its own skeleton and animation mixer
   function makeActor(id, shadow = LEVEL.shadows) {
@@ -112,32 +123,44 @@ export function createCast({ scene, controllerManager }) {
     group.add(root);
     group.visible = false;
     scene.add(group);
-    return { id, group, root, mixer, acts, cur: null, heading: 0, fall: 0, owner: null };
+    return { id, group, root, mixer, acts, set, cur: null, heading: 0, fall: 0, owner: null, onceUntil: 0, still: 0 };
   }
-  function play(a, name, timeScale = 1, fade = 0.25) {
-    const act = a.acts[name] || a.acts.idle;
+  function action(a, name) {
+    if (!a.acts[name] && a.set[name]) {
+      a.acts[name] = a.mixer.clipAction(a.set[name]); // a story clip that arrived after this person was made
+      if (ONCE.has(name)) { a.acts[name].setLoop(THREE.LoopOnce, 1); a.acts[name].clampWhenFinished = true; }
+    }
+    return a.acts[name];
+  }
+  function play(a, name, timeScale = 1, fade = 0.3) {
+    // a gesture playing once finishes before anything but a new gesture (or death) takes over
+    if (clock < a.onceUntil && !ONCE.has(name)) return;
+    const act = action(a, name) || a.acts.idle;
     if (!act) return;
-    if (a.cur !== act) {
+    if (a.cur !== act || ONCE.has(name) && clock >= a.onceUntil) {
       act.reset();
       act.enabled = true;
       act.setEffectiveWeight(1);
       // idles and talk start somewhere along, so a crowd doesn't move in step
-      if (name === 'idle' || name === 'talk' || name === 'phone') act.time = Math.random() * act.getClip().duration;
+      if (!ONCE.has(name) && !['walk', 'run', 'sprint'].includes(name)) act.time = Math.random() * act.getClip().duration;
       act.play();
-      if (a.cur) act.crossFadeFrom(a.cur, fade, false);
+      if (a.cur && a.cur !== act) act.crossFadeFrom(a.cur, fade, false);
       a.cur = act;
+      if (ONCE.has(name)) a.onceUntil = clock + act.getClip().duration / timeScale - fade;
     }
     act.timeScale = timeScale;
   }
+  /** Is this gesture or clip there (the story set loads after the basics)? */
+  const has = (a, name) => !!(a.acts[name] || a.set[name]);
   /** Walk, jog, sprint or stand, at the speed v (m/s), with a margin between gaits so nobody flickers */
-  function gait(a, v) {
+  function gait(a, v, idle = 'idle') {
     const s = Math.abs(v);
     const was = a.cur === a.acts.sprint ? 3 : a.cur === a.acts.run ? 2 : a.cur === a.acts.walk ? 1 : 0;
     const g = s > (was === 3 ? 4.3 : 4.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
     if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / GAIT.sprint, 0.8, 1.7));
     else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / GAIT.run, 0.75, 1.45));
     else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / GAIT.walk, 0.55, 1.6));
-    else play(a, 'idle');
+    else play(a, has(a, idle) ? idle : 'idle');
   }
   function place(a, x, y, z, heading, dt, ease = true) {
     let d = heading - a.heading;
@@ -209,18 +232,35 @@ export function createCast({ scene, controllerManager }) {
       if (a.cur) a.cur.timeScale = Math.max(0, 1 - a.fall * 2); // the motion stops as they go down
     } else {
       a.fall = 0;
-      if (talking) play(a, a.acts.talk ? 'talk' : 'idle');
-      else gait(a, scared ? Math.max(p.v || 0, 3.5) : p.v || 0);
+      if (talking) {
+        // two people talking take turns, every few seconds: one speaks with their hands, the other listens and nods
+        const turn = Math.floor((clock + (p.index % 7)) / 4.5) % 2 === (p.index % 2);
+        if (turn) play(a, pick(p.index, ['talk', 'talk_cool', 'talk_excited', 'talk']).find((n) => has(a, n)) || 'talk');
+        else if (clock >= a.onceUntil && Math.random() < dt * 0.25 && has(a, 'nod')) play(a, 'nod');
+        else play(a, has(a, 'listen') ? 'listen' : 'idle');
+      } else {
+        // standing about, each in their own way: police and gangs look about or glare, others wait, text or look round
+        const idles = p.role === 'police' ? ['look', 'idle'] : p.role === 'gang' ? ['angry_idle', 'text', 'idle']
+          : ['idle', 'wait', 'text', 'look', 'phone', 'idle'];
+        gait(a, scared ? Math.max(p.v || 0, 3.5) : p.v || 0, idles[p.index % idles.length]);
+      }
     }
     p.castHeading = heading;
     place(a, p.x, y, p.z, dead ? a.heading : heading, dt);
     a.mixer.update(dt);
   }
   function drop(p) { release(p); }
+  // a stable pick for person i from a list, rotated so neighbours differ (returned as a list to try in order)
+  const pick = (i, list) => [...list.slice(i % list.length), ...list.slice(0, i % list.length)];
 
   // ---------------------------------------------------------------------------------------------------------------
   // The player
-  let playerActor = null;
+  let playerActor = null, playerAction = null;
+  /** What the player does while standing (a cut scene's listen, talk or nod; a cheer): null hands back to the gait */
+  function setPlayerAction(name) {
+    playerAction = name;
+    if (name && ONCE.has(name) && playerActor) play(playerActor, name);
+  }
   function posePlayer(dt) {
     const p = controllerManager?.entities?.person;
     if (!p) return;
@@ -235,7 +275,13 @@ export function createCast({ scene, controllerManager }) {
     }
     p.castModel = true; // controllers.js stops drawing its procedural stand-in
     const a = playerActor;
-    gait(a, p.speed);
+    a.still = Math.abs(p.speed) < 0.1 ? a.still + dt : 0;
+    if (playerAction && Math.abs(p.speed) < 0.3) play(a, has(a, playerAction) ? playerAction : 'idle');
+    else {
+      if (Math.abs(p.speed) >= 0.3) playerAction = null;
+      // standing a while, they look about, then wait
+      gait(a, p.speed, a.still > 14 ? 'wait' : a.still > 5 ? 'look' : 'idle');
+    }
     place(a, p.position.x, p.position.y, p.position.z, p.heading, dt, false); // the controller already eases the heading
     a.mixer.update(dt);
   }
@@ -243,7 +289,7 @@ export function createCast({ scene, controllerManager }) {
   // ---------------------------------------------------------------------------------------------------------------
   // Story characters at their jobs: on the phone while they wait, talking through the cut scene, facing the player
   const story = {};
-  function setGiver(name, at = null, face = null, talking = false, dt = 0) {
+  function setGiver(name, at = null, face = null, mood = null, dt = 0) {
     for (const [n, a] of Object.entries(story)) if (a && (n !== name || !at)) a.group.visible = false;
     if (!name || !at) return;
     const id = STORY_CAST[name];
@@ -254,7 +300,15 @@ export function createCast({ scene, controllerManager }) {
     }
     const a = story[name];
     const heading = face ? Math.atan2(face.x - at.x, face.z - at.z) : a.heading;
-    play(a, talking ? 'talk' : face && Math.hypot(face.x - at.x, face.z - at.z) < 25 ? 'idle' : 'phone');
+    // waiting: on the phone until the player comes into view, then a wave, then impatient; in the cut scene, the mood
+    // the story gives each line (talking or listening)
+    const near = face && Math.hypot(face.x - at.x, face.z - at.z) < 28;
+    if (mood && mood !== a.mood) a.onceUntil = 0; // a line of the story takes over from a wave at once
+    a.mood = mood;
+    if (mood) play(a, has(a, mood) ? mood : mood.startsWith('talk') ? 'talk' : 'idle');
+    else if (near && !a.waved && has(a, 'wave')) { a.waved = true; play(a, 'wave'); }
+    else play(a, near ? (name === 'Kaz' ? 'angry_idle' : 'wait') : 'phone');
+    if (!near) a.waved = false;
     place(a, at.x, at.y ?? 0, at.z, heading, dt || 0.016);
     a.mixer.update(dt);
   }
@@ -269,7 +323,15 @@ export function createCast({ scene, controllerManager }) {
     drop,
     posePlayer,
     setGiver,
-    get actors() { return live; }
+    get actors() { return live; },
+    setPlayerAction,
+    /** for checks: what the player and the story characters are playing */
+    debug() {
+      const name = (a) => a?.cur?.getClip().name || '-';
+      return { player: name(playerActor), ...Object.fromEntries(Object.entries(story).map(([n, a]) => [n, a.group.visible ? name(a) : 'hidden'])) };
+    },
+    /** advance the cast's clock (gestures time out on it) */
+    tick(dt) { clock += dt; }
   };
 }
 

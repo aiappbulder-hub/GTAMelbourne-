@@ -330,6 +330,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elSub.textContent = text;
     subT = secs;
   }
+  // The body language of a cut-scene line (an optional third entry in the line overrides it): anger at the war and
+  // the betrayals, Vince sure of himself, Kaz cool, the player's questions with a shrug
+  function moodOf(who, text, given) {
+    if (given) return given;
+    const t = text.toLowerCase();
+    if (who === 'You') return /\?$/.test(text.trim()) ? 'shrug' : 'talk_cool';
+    if (/war|torched|burnt|raided|singing|dog|bullet|gone now|loud|forgot/.test(t)) return 'talk_angry';
+    if (/!|go\.|don't keep|bring it home|whose town/.test(t)) return 'talk_excited';
+    return who === 'Kaz' ? 'talk_cool' : 'talk_assured';
+  }
   // A job's cut scene is played out between the player and the giver (Vince or Kaz): letterbox bars, the player walks
   // up to the giver (on foot), and the camera cuts over the shoulder of whoever is listening to whoever is speaking
   function showCut(lines, done) {
@@ -350,6 +360,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     }
     document.body.classList.add('cinematic', 'cutscene');
     renderCut();
+  }
+  // who does what on the current line: the speaker in their mood, the listener listening (a nod on the last line)
+  function cutActions() {
+    const [who, text, given] = cut.lines[cut.k];
+    const last = cut.k === cut.lines.length - 1;
+    const mood = moodOf(who, text, given);
+    if (who === 'You') return { player: mood, giver: /\?$/.test(text.trim()) ? 'listen' : 'nod' };
+    return { player: last ? 'nod' : 'listen', giver: mood };
   }
   // The camera for the line being spoken (called after the follow camera each frame; see main.js)
   const _eye = new THREE.Vector3(), _look = new THREE.Vector3();
@@ -407,6 +425,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       cut = null;
       elCut.hidden = true;
       document.body.classList.remove('cinematic', 'cutscene');
+      cast?.setPlayerAction(null);
       voices?.stopStory();
       done();
     } else renderCut();
@@ -470,6 +489,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       big('MELBOURNE IS YOURS', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
       sub("The war is over and you're the last one standing. The city is yours to roam.", 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
+    // a cheer on passing a job (on foot)
+    if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); setTimeout(() => cast.setPlayerAction(null), 3500); }
   }
   function fail(why) {
     mission = null;
@@ -496,7 +517,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const show = def && (!mission || cut) && (cut || !document.body.classList.contains('cinematic'));
       if (show) {
         const at = giverSpot(def);
-        cast.setGiver(def.giver, at, p, !!cut && cut.lines[cut.k]?.[0] !== 'You', dt); // gesturing while they speak
+        const acts = cut ? cutActions() : null;
+        if (acts && acts.player !== cut.playerAct) { cut.playerAct = acts.player; cast.setPlayerAction(acts.player); }
+        cast.setGiver(def.giver, at, p, acts && acts.giver, dt);
       } else cast.setGiver(null);
     }
     // the pointer: the objective's marker, or the nearest target, or the next job's

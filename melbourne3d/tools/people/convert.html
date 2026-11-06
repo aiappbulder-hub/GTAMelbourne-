@@ -47,7 +47,7 @@ window.convertAvatar = async (dir, name) => {
 // A clip, trimmed: no footstep helper, no scale tracks, positions only on the hips' root (Bip01) and the pelvis;
 // values rounded. The ground speed of a gait: how fast a planted foot slides back under the body (the clips have the
 // forward motion taken out)
-window.convertClip = async (url, key, gait) => {
+window.convertClip = async (url, key, gait, fps = 0) => {
   const a = await fbx.loadAsync(url);
   let clip = a.animations[0];
   clip.name = key;
@@ -57,6 +57,24 @@ window.convertClip = async (url, key, gait) => {
     && (!/\.position$/.test(t.name) || /^Bip01(_Pelvis)?\.position$/.test(t.name)));
   // long idles and talking: the first 12 seconds are plenty (the mixer loops them)
   if (clip.duration > 12) clip = THREE.AnimationUtils.subclip(clip, key, 0, 12 * 30, 30);
+  // fewer keys: at most fps a second (the story set)
+  if (fps) {
+    // only the first joint of each finger moves (the hand still shapes up; the rest follow it rigidly)
+    clip.tracks = clip.tracks.filter((t) => !/Finger\d\d/.test(t.name));
+    const step = 1 / fps;
+    clip.tracks = clip.tracks.map((t) => {
+      const n = t.getValueSize(), times = [], values = [];
+      let next = -1;
+      for (let i = 0; i < t.times.length; i++) {
+        if (t.times[i] + 1e-6 < next && i !== t.times.length - 1) continue;
+        next = t.times[i] + step;
+        times.push(t.times[i]);
+        for (let k = 0; k < n; k++) values.push(t.values[i * n + k]);
+      }
+      return new t.constructor(t.name, times, values);
+    });
+    if (clip.duration > 8) clip = THREE.AnimationUtils.subclip(clip, key, 0, Math.floor(8 * fps), fps);
+  }
   for (const t of clip.tracks) for (let i = 0; i < t.values.length; i++) t.values[i] = Math.round(t.values[i] * 1e3) / 1e3;
   for (const t of clip.tracks) t.optimize();
   const speed = 0; // ground speeds are set in js/people.js, matched by eye
