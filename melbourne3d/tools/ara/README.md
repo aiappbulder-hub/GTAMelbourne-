@@ -13,10 +13,10 @@ Pistol idle/aim/fire, Hit, Death, Get up); everyone else borrows them, scaled to
 | Who | Model id | Look (`LOOK`) |
 |---|---|---|
 | The player | `ara:player` | `Man\|Adult · 35\|Athletic\|Caucasian\|Casual\|Short crop\|Stubble` |
-| Vince (Lygon Street Crew) | `ara:vince` | `Man\|Middle-aged · 52\|Heavy\|Caucasian\|Smart casual\|Short side part\|Short beard\|Gold watch\|Gold signet ring` |
+| Vince (Lygon Street Crew) | `ara:vince` | `Man\|Middle-aged · 52\|Heavy\|Caucasian\|Smart casual\|Short neat\|Goatee\|Gold watch\|Gold signet ring` |
 | Kaz (Broadmeadows) | `ara:kaz` | `Woman\|Adult · 35\|Athletic\|Caucasian\|Smart casual\|Ponytail\|Small hoops` |
 | Mick (Kaz's fence) | `ara:mick` | `Man\|Middle-aged · 52\|Heavy\|Caucasian\|Casual\|Bald\|Mustache & stubble` |
-| Davo (the first job's pickup) | `ara:davo` | `Man\|Young adult · 24\|Slim\|Caucasian\|Sporty\|Buzz cut\|Stubble\|Fine gold chain & pendant` |
+| Davo (the first job's pickup) | `ara:davo` | `Man\|Young adult · 24\|Slim\|Caucasian\|T-shirt & jeans\|Buzz cut\|Stubble\|Fine gold chain & pendant` |
 
 `?classic` in the URL brings back the earlier Rocketbox cast.
 
@@ -29,7 +29,8 @@ Pistol idle/aim/fire, Hit, Death, Get up); everyone else borrows them, scaled to
    ```
 
    `LOOK` is the builder's quick-build buttons in order: sex, age, build, ethnicity, outfit, hair, facial hair.
-   Avoid the Streetwear outfit (heavy, 72k triangles) and the plain T-shirt (it prints a logo).
+   Avoid the Streetwear outfit (heavy, 72k triangles), Sporty (the skin shows through its top) and the long beards (35k
+   vertices of strands).
 2. **Fit it for the game**: textures resized (2048 px → 1024/512/256), the parts split so each carries only its own
    vertices and blend shapes (unsplit, three.js would build ~30 MB of blend-shape texture per part), skin weights as bytes.
    Everyone but the player without clips (`--no-anims`):
