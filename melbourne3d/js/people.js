@@ -464,7 +464,7 @@ export function createCast({ scene, controllerManager }) {
     // (both from the head: on a call the wrist just under and beside the ear; texting, at the height of the lower chest a
     // forearm's length in front, where the eyes look down at it)
     const T = texting ? head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, 0.3).addScaledVector(right, 0.04).add(_e.set(0, -0.3, 0))
-      : head.getWorldPosition(new THREE.Vector3()).addScaledVector(right, 0.08).addScaledVector(fwd, 0.07).add(_e.set(0, -0.13, 0));
+      : head.getWorldPosition(new THREE.Vector3()).addScaledVector(right, 0.08).addScaledVector(fwd, 0.04).add(_e.set(0, -0.13, 0));
     // the elbow: down, out to the side and (texting) back, on the circle the two lengths allow
     const d = Math.min(S.distanceTo(T), L1 + L2 - 1e-3), dir = new THREE.Vector3().subVectors(T, S).normalize();
     const along = (L1 * L1 - L2 * L2 + d * d) / (2 * d), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
