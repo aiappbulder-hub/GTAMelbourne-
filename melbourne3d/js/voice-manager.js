@@ -322,7 +322,11 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     const c = context();
     // story lines push the murmur down
     const storyOn = active.some((v) => v.prio >= PRIORITY.story);
-    if (duck && c) duck.gain.setTargetAtTime(storyOn ? 0.3 : 1, c.currentTime, 0.15);
+    // Under a story line (and through a cut scene) everything else dims: the people chatting go quiet and the city's
+    // sounds (traffic, crowds, wind) drop well down, so the voice-over is clear
+    const hush = storyOn || isCinematic();
+    if (duck && c) duck.gain.setTargetAtTime(hush ? 0 : 1, c.currentTime, 0.15);
+    if (c && audioSystem.mix) audioSystem.mix.gain.setTargetAtTime(storyOn ? 0.15 : hush ? 0.35 : 1, c.currentTime, storyOn ? 0.12 : 0.5);
     for (const v of [...active]) {
       v.t += dt;
       if (v.panner && v.follow) {
@@ -356,7 +360,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       // passers-by: walk close past someone and now and then they say something to you
       nextRemark -= dt;
       const me = controllerManager?.activeMode === 'person' ? controllerManager.entities.person.position : null;
-      if (me && nextRemark <= 0 && trafficSystem?.peds && !active.some((v) => v.channel === 'dialogue')) {
+      if (me && nextRemark <= 0 && trafficSystem?.peds && !hush && !active.some((v) => v.channel === 'dialogue')) {
         for (const q of trafficSystem.peds) {
           if (!q.placed || q.dead) continue;
           if (Math.hypot(q.x - me.x, q.z - me.z) > 2.6 || clock - (remarked.get(q) ?? -1e9) < 120) continue;
@@ -381,6 +385,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     /** End the story line that's playing (a skipped cut scene) */
     stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); },
     stopAll() { [...active].forEach((v) => stop(v)); },
+    /** Whether a story line (a cut scene's or the intro's) is being spoken */
+    get speaking() { return active.some((v) => v.prio >= PRIORITY.story && v.src); },
     get active() { return active.map((v) => ({ id: v.line.id, channel: v.channel, t: v.t, sound: !!v.src })); },
     get volume() { return volume; },
     setVolume(x) {

@@ -77,7 +77,7 @@ const ease = (t) => t * t * (3 - 2 * t);
 // and a plucked arpeggio through a delay from bar 5, drums from bar 9, the last bars held under the title. Every note is
 // scheduled ahead on the audio clock; stop() fades it out.
 function createScore() {
-  let ctx = null, master = null, started = false;
+  let ctx = null, master = null, duckGain = null, started = false;
   const BPM = 84, BEAT = 60 / BPM, BAR = BEAT * 4;
   const CHORDS = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]]; // Am F C G (MIDI)
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -107,7 +107,9 @@ function createScore() {
     const wet = ctx.createGain();
     wet.gain.value = 0.35;
     verb.connect(wet).connect(master);
-    master.connect(ctx.destination);
+    // under a spoken line the music drops away (duck(), see apply())
+    duckGain = ctx.createGain();
+    master.connect(duckGain).connect(ctx.destination);
     const out = (node, dry = 1) => { const g = ctx.createGain(); g.gain.value = dry; node.connect(g); g.connect(master); node.connect(verb); };
     const delay = ctx.createDelay(1);
     delay.delayTime.value = BEAT * 0.75;
@@ -234,7 +236,11 @@ function createScore() {
     ctx = null;
     started = false;
   }
-  return { start, stop };
+  function duck(on) {
+    if (!ctx || !duckGain) return;
+    duckGain.gain.setTargetAtTime(on ? 0.22 : 1, ctx.currentTime, on ? 0.12 : 0.6);
+  }
+  return { start, stop, duck };
 }
 
 // The arrival: fresh from the airport, the taxi comes down Elizabeth Street (southbound, in the left lane) and pulls
@@ -357,6 +363,9 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       car.vx = car.vz = 0;
       car.speed = Math.max(0, v0 * (1 - t / T));
     }
+
+    // the music dips under a recorded line
+    score.duck(!!voices?.speaking);
 
     // lines spread over the shot
     const k = Math.min(s.lines.length - 1, Math.floor((t / s.secs) * s.lines.length));
