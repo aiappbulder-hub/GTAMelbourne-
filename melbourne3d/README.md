@@ -99,6 +99,18 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - Givers phone, wave and wait at their markers.
   - The crowd waits, texts, looks round and takes turns in conversation.
   - The player looks about when idle and cheers on passing a job.
+- **The Albert Park Grand Prix** (`js/race.js`): two laps against five AI cars on the real circuit.
+  - Start it from the Jobs list or the blue marker in the pits. There's a grid and a 3-2-1 countdown.
+  - Rivals follow a curvature speed profile set against your car, pass slower cars and tuck in behind.
+  - The HUD shows lap, position and time; the top three places pay a prize.
+- **Guns in hand**: the player holds the pistol, Uzi or shotgun.
+  - Aiming (right mouse or Q) or firing raises the arms to point it, two-handed for the long guns.
+  - Shots flash from the muzzle.
+- **The intro**:
+  - Narrated in the player's own voice (Orpheus `cooper`, who also speaks your cut-scene lines).
+  - Ground-level shots with the cast: Vince and his crew on Lygon Street, Kaz and her gang in Docklands at sunset,
+    two police officers at Southbank, and Vince making his call.
+- **Trams** brake for anyone, or anything, on the track ahead.
 - **Steering**: more grip and a lock that falls off more gently with speed. The standard car turns a ~26 m circle at
   70 km/h, and both cars corner at about 1–1.4 g.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.

@@ -434,11 +434,28 @@ export function createCast({ scene, controllerManager }) {
   function animateSeated(dt) {
     for (const a of Object.values(story)) if (a && a.seat && a.group.visible) a.mixer.update(dt);
   }
+  // Actors for a scene (the intro's shots): key → one person (by model id) standing at a pose playing a clip; null pose:
+  // gone. Called every frame while wanted (a model still loading just appears a moment later)
+  const extras = new Map();
+  function setActor(key, id, pose, anim = 'idle') {
+    let a = extras.get(key);
+    if (!pose) { if (a) a.group.visible = false; return; }
+    if (!a || a.id !== id) {
+      if (a) a.group.visible = false;
+      a = makeActor(id, true);
+      if (!a) return;
+      extras.set(key, a);
+    }
+    play(a, has(a, anim) ? anim : 'idle');
+    a.heading = pose.heading;
+    place(a, pose.x, pose.y ?? 0, pose.z, pose.heading, 0.016, false);
+  }
   // The player sitting down (a scene): drawn at the seat whatever mode they're in
   let playerSeat = null, playerSeatAnim = 'sit';
   function setPlayerSeat(seat, anim = 'sit') { playerSeat = seat; playerSeatAnim = anim; }
 
   return {
+    setActor,
     /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
     setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; },
     /** Where the gun's muzzle is (for the flash and tracers), or null */
@@ -462,7 +479,7 @@ export function createCast({ scene, controllerManager }) {
       return { player: name(playerActor), ...Object.fromEntries(Object.entries(story).map(([n, a]) => [n, a.group.visible ? name(a) : 'hidden'])) };
     },
     /** advance the cast's clock (gestures time out on it) */
-    tick(dt) { clock += dt; animateSeated(dt); }
+    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) if (a.group.visible) a.mixer.update(dt); }
   };
 }
 

@@ -640,7 +640,7 @@ async function initApp() {
   window.__city.race = race;
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
-    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay
+    cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
   }) : null;
   window.__city.intro = intro;
   if (intro) {

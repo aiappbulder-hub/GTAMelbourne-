@@ -133,7 +133,7 @@ const MISSIONS = [
   {
     name: 'Tobacco Wars', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'King St'] }, reward: 6000,
     cut: [['Kaz', 'You heard about the tobacco war? Every chop shop in town is getting torched.'],
-      ['You', 'Not my fight.'],
+      ['You', "That's not my fight."],
       ['Kaz', "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf."],
       ['Kaz', 'Set the charge, then get well clear. Make it loud.']],
     steps: [

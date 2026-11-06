@@ -17,7 +17,7 @@
         "temperature": 0.55,
         "seed": 11
       },
-      "gain": 1.0,
+      "gain": 1,
       "refDistance": 6,
       "maxDistance": 60
     },
@@ -31,7 +31,7 @@
         "temperature": 0.55,
         "seed": 23
       },
-      "gain": 1.0,
+      "gain": 1,
       "refDistance": 6,
       "maxDistance": 60
     },
@@ -84,7 +84,20 @@
         "temperature": 0.6,
         "seed": 61
       },
-      "gain": 1.0,
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "player": {
+      "name": "You",
+      "role": "player",
+      "voice": {
+        "speaker": "cooper",
+        "gender": "male",
+        "temperature": 0.55,
+        "seed": 71
+      },
+      "gain": 1,
       "refDistance": 6,
       "maxDistance": 60
     }
@@ -100,7 +113,7 @@
       "duration": 3.29,
       "check": {
         "heard": "Heard you were back. I've got work, if you want it.\"",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -178,7 +191,7 @@
       "duration": 3.29,
       "check": {
         "heard": "So you're the one Vince keeps sending round, forget the Lygon lot.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -204,7 +217,7 @@
       "duration": 3.31,
       "check": {
         "heard": "Half the corner boys in the city owe us money and think we forgot.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -256,7 +269,7 @@
       "duration": 2.95,
       "check": {
         "heard": "Victoria police stop right there.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -269,7 +282,7 @@
       "duration": 3.77,
       "check": {
         "heard": "Drop the weapon. Get on the ground. Now.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -282,7 +295,7 @@
       "duration": 2.81,
       "check": {
         "heard": "Keep moving, folks. Nothing to see here.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -310,7 +323,7 @@
       "duration": 5.76,
       "check": {
         "heard": "Dispatch, we have a reported carjacking. Suspect vehicle heading towards Docklands.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -337,7 +350,7 @@
       "duration": 3.6,
       "check": {
         "heard": "Flinders Street's that way, mate. Under the clocks.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -415,7 +428,7 @@
       "duration": 3.07,
       "check": {
         "heard": "Did you see the game on the weekend? Absolute shocker.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -454,7 +467,7 @@
       "duration": 4.42,
       "check": {
         "heard": "Four seasons in one day, this city brought the wrong jacket again.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -494,7 +507,7 @@
       "duration": 2.62,
       "check": {
         "heard": "No worries, have a good one.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -520,7 +533,7 @@
       "duration": 3.53,
       "check": {
         "heard": "Is it me, or are there more cranes than people in this town?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -572,7 +585,7 @@
       "duration": 5.71,
       "check": {
         "heard": "Nick one off the street, walk up, pull the driver out, done, then get it to North Melbourne.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -598,7 +611,7 @@
       "duration": 5.3,
       "check": {
         "heard": "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -611,7 +624,7 @@
       "duration": 4.7,
       "check": {
         "heard": "Go to Fitzroy and ask around, locals talk if you ask nicely.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -637,7 +650,7 @@
       "duration": 6.98,
       "check": {
         "heard": "Two drops the phone box by the exhibition building and his flat in East Melbourne. Get the tapes before Kestrel does.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -650,7 +663,7 @@
       "duration": 4.34,
       "check": {
         "heard": "You heard about the tobacco war? Every chop shop in town is getting torched.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -676,7 +689,7 @@
       "duration": 2.71,
       "check": {
         "heard": "Set the charge then get well clear, make it loud.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -715,7 +728,7 @@
       "duration": 3.07,
       "check": {
         "heard": "Sit down. You're making the locals nervous.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -741,7 +754,7 @@
       "duration": 4.97,
       "check": {
         "heard": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -767,7 +780,7 @@
       "duration": 4.37,
       "check": {
         "heard": "Till tonight, grab it before they do, and we split it three ways.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -780,7 +793,7 @@
       "duration": 2.98,
       "check": {
         "heard": "Bring it back here and don't stop to look at the penguins.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -794,6 +807,162 @@
       "check": {
         "heard": "Gold man, the coffee's on me.",
         "score": 0.83
+      }
+    },
+    {
+      "id": "player_line_1",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "So what do you need?",
+      "file": "voices/player/player_line_1.mp3",
+      "duration": 3.79,
+      "check": {
+        "heard": "So, what do you need? All. All.",
+        "score": 0.83
+      }
+    },
+    {
+      "id": "player_line_2",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "One lap?",
+      "file": "voices/player/player_line_2.mp3",
+      "duration": 4.18,
+      "check": {
+        "heard": "One lap, O, O, Soul.",
+        "score": 0.57
+      }
+    },
+    {
+      "id": "player_line_3",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "Any ute?",
+      "file": "voices/player/player_line_3.mp3",
+      "duration": 0.94,
+      "check": {
+        "heard": "any yout.",
+        "score": 0.5
+      }
+    },
+    {
+      "id": "player_line_4",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "I go where the money is.",
+      "file": "voices/player/player_line_4.mp3",
+      "duration": 3.5,
+      "check": {
+        "heard": "I go where the money is? Read, say.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "player_line_5",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "And the Nomads just leave it lying about?",
+      "file": "voices/player/player_line_5.mp3",
+      "duration": 2.64,
+      "check": {
+        "heard": "And the nomads just leave it lying about.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_line_6",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "That's not my fight.",
+      "duration": 1.32,
+      "check": {
+        "heard": "That's not my fight.",
+        "score": 1.0
+      },
+      "file": "voices/player/player_line_6.mp3"
+    },
+    {
+      "id": "player_line_7",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "Melbourne. Four seasons in one day, and somebody fighting over every one of them.",
+      "file": "voices/player/player_line_7.mp3",
+      "duration": 9.34,
+      "check": {
+        "heard": "wall ball four seasons in one day and somebody fighting over every one of them",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "player_intro_8",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
+      "file": "dialogue/intro/player_intro_8.mp3",
+      "duration": 7.18,
+      "check": {
+        "heard": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_intro_9",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.",
+      "file": "dialogue/intro/player_intro_9.mp3",
+      "duration": 7.56,
+      "check": {
+        "heard": "The Ligon Street crew run Charlton and Fitzroy, old families, old rules, good coffee.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "player_intro_10",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.",
+      "file": "dialogue/intro/player_intro_10.mp3",
+      "duration": 8.86,
+      "check": {
+        "heard": "Out west the Broadmeadows mob want the lot. Six years of worried chop shops torched, tobacco trucks gone.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "player_intro_11",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them.",
+      "file": "dialogue/intro/player_intro_11.mp3",
+      "duration": 7.22,
+      "check": {
+        "heard": "And now Task Force Kestrel, the cop's shiny new toy, is closing in on all of them.",
+        "score": 0.85
+      }
+    },
+    {
+      "id": "player_line_12",
+      "character": "player",
+      "category": "story",
+      "folder": "voices/player",
+      "text": "Fresh off the plane and already working. Typical.",
+      "file": "voices/player/player_line_12.mp3",
+      "duration": 4.9,
+      "check": {
+        "heard": "Fresh off the plane and already working typical.",
+        "score": 1.0
       }
     }
   ]
