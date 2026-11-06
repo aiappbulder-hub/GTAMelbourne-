@@ -16,15 +16,22 @@ const BASE = new URL('../assets/people/', import.meta.url);
 
 // Who plays whom
 export const PLAYER_MODEL = 'Male_Adult_09';
-// Ara 3D Gen characters (tools/ara/, assets/ara/: realistic MakeHuman people, CC0, with motion-captured clips and facial
-// blend shapes in their own files). On test: ?ara puts the player in theirs
+// The cast are Ara 3D Gen characters (tools/ara/, assets/ara/: realistic MakeHuman people, CC0, with motion-captured
+// clips and facial blend shapes in their own files). ?classic brings back the Rocketbox ones
 const ARA_BASE = new URL('../assets/ara/', import.meta.url);
-const PLAYER = typeof location !== 'undefined' && new URLSearchParams(location.search).has('ara') ? 'ara:player' : PLAYER_MODEL;
-// Ara's clip names for the game's (anything not here falls back as the others do: talking moods to Talk, the rest to Idle)
-const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', talk: 'Talk', turn_left: 'Turn left 90°', turn_right: 'Turn right 90°',
-  aim: 'Pistol aim', die: 'Death (fall backward)' };
+const CLASSIC = typeof location !== 'undefined' && new URLSearchParams(location.search).has('classic');
+const PLAYER = CLASSIC ? PLAYER_MODEL : 'ara:player';
+// Ara's clip names for the game's. Several of the game's moods share one capture (all the talking to Talk, all the
+// sitting to the chair idle); anything not here (on the phone, listening, nods) plays the idle
+const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back: 'Walk backwards', strafe_left: 'Strafe left',
+  strafe_right: 'Strafe right', turn_left: 'Turn left 90°', turn_right: 'Turn right 90°',
+  talk: 'Talk', talk_cool: 'Talk', talk_assured: 'Talk', talk_angry: 'Talk', talk_excited: 'Talk', talk_nervous: 'Talk',
+  wave: 'Wave', cheer: 'Cheer', laugh: 'Laugh',
+  sit: 'Sit idle (chair)', sit_listen: 'Sit idle (chair)', sit_look: 'Sit idle (chair)', sit_talk: 'Sit idle (chair)', sit_think: 'Sit idle (chair)',
+  ready: 'Pistol idle (low ready)', aim: 'Pistol aim', fire: 'Pistol fire', hit: 'Hit from front', die: 'Death (fall backward)', getup: 'Get up (from back)' };
 const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
-export const STORY_CAST = { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05' };
+export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10' }
+  : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo' };
 const POOLS = {
   police: ['Police_Male_01', 'Police_Male_03'],
   gang: ['Male_Adult_18', 'Male_Adult_04', 'Male_Adult_10', 'Male_Adult_17'],
@@ -64,7 +71,7 @@ export function characterFor(i, female, role) {
   const pool = role === 'police' || role === 'gang' ? ACTIVE[role] : female ? ACTIVE.female : ACTIVE.male;
   return pool[Math.floor(hash(i, 3) * pool.length) % pool.length];
 }
-export const isFemale = (id) => /Female/.test(id);
+export const isFemale = (id) => /Female/.test(id) || id === 'ara:kaz';
 
 export function createCast({ scene, controllerManager }) {
   const loader = new GLTFLoader();
@@ -76,10 +83,34 @@ export function createCast({ scene, controllerManager }) {
     if (!loading.has(id)) {
       const ara = id.startsWith('ara:');
       const url = ara ? new URL(`${id.slice(4)}${Q.peds < 200 ? '-low' : ''}.glb`, ARA_BASE) : new URL(`${id}.glb`, BASE);
-      loading.set(id, loader.loadAsync(url.href).then((g) => {
-        if (ara) {
+      loading.set(id, loader.loadAsync(url.href).then(async (g) => {
+        if (ara && g.animations.length) {
           const byName = Object.fromEntries(g.animations.map((c) => [c.name, c]));
           ownClips.set(id, Object.fromEntries(Object.entries(ARA_CLIPS).filter(([, n]) => byName[n]).map(([k, n]) => [k, byName[n]])));
+        } else if (ara) {
+          // no clips of their own: the player's (the same rig), the hips' travel scaled to this body's leg length
+          await loadPerson('ara:player');
+          const hipY = (root) => root?.getObjectByName('Hips')?.position.y || 0;
+          const base = templates.get('ara:player'), mine = hipY(g.scene), theirs = hipY(base);
+          const r = mine > 0 && theirs > 0 ? mine / theirs : 1;
+          // the face's track names the player's meshes: these are this body's (the same parts, in the same order)
+          const morphs = (root) => { const out = new Map(); root.traverse((o) => { if (o.morphTargetDictionary && o.material) out.set(o.material.name, o.name); }); return out; };
+          const theirsM = morphs(base), mineM = morphs(g.scene);
+          const rename = new Map([...theirsM].filter(([m]) => mineM.has(m)).map(([m, n]) => [n, mineM.get(m)]));
+          const scaled = new Map();
+          ownClips.set(id, Object.fromEntries(Object.entries(ownClips.get('ara:player') || {}).map(([k, c]) => {
+            if (!scaled.has(c)) {
+              const copy = c.clone();
+              for (const t of copy.tracks) {
+                if (t.name.endsWith('.position')) t.values = t.values.map((v) => v * r);
+                const dot = t.name.indexOf('.morphTargetInfluences');
+                if (dot > 0) t.name = (rename.get(t.name.slice(0, dot)) || '__none') + t.name.slice(dot); // (a part this body hasn't got: unbound)
+              }
+              copy.tracks = copy.tracks.filter((t) => !t.name.startsWith('__none'));
+              scaled.set(c, copy);
+            }
+            return [k, scaled.get(c)];
+          })));
         }
         g.scene.traverse((o) => {
           if (!o.isMesh) return;
@@ -113,7 +144,8 @@ export function createCast({ scene, controllerManager }) {
   // the player and the story first, then the crowd one at a time
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER)]);
-    await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
+    // (Davo is one job's: he loads when it wants him)
+    await Promise.all([...Object.entries(STORY_CAST).filter(([n]) => n !== 'Davo').map(([, id]) => loadPerson(id)), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
     // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
     // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
     // load when the scene first wants them, in setActor)
@@ -170,6 +202,7 @@ export function createCast({ scene, controllerManager }) {
   function play(a, name, timeScale = 1, fade = 0.3) {
     // a gesture playing once finishes before anything but a new gesture (or death) takes over
     if (clock < a.onceUntil && !ONCE.has(name)) return;
+    if (ONCE.has(name) && !has(a, name)) return; // a gesture this person hasn't got (Ara's: no nod or shrug)
     let act;
     const group = VARIANTS[name];
     if (group && a.logical === name && a.cur && group.some((n) => a.acts[n] === a.cur)) {
@@ -351,8 +384,16 @@ export function createCast({ scene, controllerManager }) {
     .map((n) => [n, a.root.getObjectByName(`Bip01_${n}`) || a.root.getObjectByName(MIXAMO[n])])));
   // A face that lives (Ara characters' blend shapes): a blink every 2-6 s, the lids closing and opening over 0.16 s, on top
   // of whatever the clip does with the face
-  function faceLife(a, dt) {
+  let voiceLevel = 0; // the story voices' loudness (main.js passes it each frame)
+  function faceLife(a, dt, speaks = true) {
     if (!a.faces || !a.faces.length) return;
+    // talking (their line playing): the jaw and lips follow the voice's loudness, the mouth shape changing every
+    // ~0.1 s between open vowels and closed consonants
+    const talking = speaks && /^(sit_)?talk/.test(a.logical || '') && voiceLevel > 0.02;
+    const want = talking ? Math.min(1, voiceLevel * 1.6) : 0;
+    a.mouth = (a.mouth || 0) + (want - (a.mouth || 0)) * Math.min(1, dt * 18);
+    a.shapeT = (a.shapeT || 0) - dt;
+    if (a.shapeT <= 0) { a.shapeT = 0.08 + Math.random() * 0.07; a.shape = ['viseme_aa', 'viseme_O', 'viseme_E', 'viseme_I', 'viseme_U', 'viseme_PP', 'viseme_FF', 'viseme_DD'][Math.floor(Math.random() * 8)]; }
     a.blinkAt -= dt;
     if (a.blinkAt <= 0 && a.blinkT < 0) { a.blinkT = 0; a.blinkAt = 2 + Math.random() * 4; }
     let v = 0;
@@ -361,6 +402,12 @@ export function createCast({ scene, controllerManager }) {
     for (const o of a.faces) {
       const d = o.morphTargetDictionary, w = o.morphTargetInfluences;
       for (const k of ['eyeBlinkLeft', 'eyeBlinkRight']) if (d[k] !== undefined) w[d[k]] = Math.max(w[d[k]], v);
+      if (a.mouth > 0.01 || a.mouthWas) {
+        for (const k in d) if (k.startsWith('viseme_')) w[d[k]] = 0;
+        if (d.jawOpen !== undefined) w[d.jawOpen] = a.mouth * 0.45;
+        if (a.shape && d[a.shape] !== undefined) w[d[a.shape]] = a.mouth * 0.8;
+        a.mouthWas = a.mouth > 0.01;
+      }
     }
   }
   function aimArms(a, dir, w, twoHanded) {
@@ -430,6 +477,7 @@ export function createCast({ scene, controllerManager }) {
       play(a, has(a, playerSeatAnim) ? playerSeatAnim : has(a, 'sit') ? 'sit' : 'idle');
       place(a, s.x, s.y, s.z, s.heading, dt, false);
       a.mixer.update(dt);
+      faceLife(a, dt);
       return;
     }
     if (controllerManager.activeMode !== 'person') {
@@ -452,6 +500,13 @@ export function createCast({ scene, controllerManager }) {
     else a.turnT = Math.max(0, a.turnT - dt);
     if (playerAction && standing) play(a, has(a, playerAction) ? playerAction : 'idle');
     else if (standing && weapon.armed && weapon.aiming && has(a, 'aim')) play(a, 'aim'); // the pistol stance (the arms then point it)
+    else if (weapon.aiming && !standing && has(a, 'strafe_left') && p._strafeX !== undefined) {
+      // gun up and moving: step the way they go, still facing the aim (forwards, backwards or sideways)
+      let rel = Math.atan2(p._strafeX, p._strafeZ) - p.heading;
+      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+      const ts = THREE.MathUtils.clamp(Math.abs(p.speed) / 1.3, 0.6, 1.6);
+      play(a, Math.abs(rel) < 0.8 ? 'walk' : Math.abs(rel) > 2.35 ? 'back' : rel > 0 ? 'strafe_left' : 'strafe_right', ts);
+    }
     else if (a.turnT > 0 && Math.abs(p.speed) < 0.9) play(a, turnRate > 0 || (turnRate === 0 && a.cur === a.acts.turn_left) ? 'turn_left' : 'turn_right', THREE.MathUtils.clamp(Math.abs(turnRate) / 1.6, 0.8, 1.8));
     else {
       if (!standing) playerAction = null;
@@ -490,6 +545,7 @@ export function createCast({ scene, controllerManager }) {
     if (!near) a.waved = false;
     place(a, at.x, at.y ?? 0, at.z, heading, dt || 0.016);
     a.mixer.update(dt);
+    faceLife(a, dt);
   }
 
   // Story characters sitting down (the café scene): at a seat { x, y, z, heading } playing a seated clip; null: gone
@@ -508,7 +564,7 @@ export function createCast({ scene, controllerManager }) {
     place(a, seat.x, seat.y, seat.z, seat.heading, 0.016, false);
   }
   function animateSeated(dt) {
-    for (const a of Object.values(story)) if (a && a.seat && a.group.visible) a.mixer.update(dt);
+    for (const a of Object.values(story)) if (a && a.seat && a.group.visible) { a.mixer.update(dt); faceLife(a, dt); }
   }
   // Actors for a scene (the intro's shots): key → one person (by model id) standing at a pose playing a clip; null pose:
   // gone. Called every frame while wanted (a model still loading just appears a moment later)
@@ -542,7 +598,7 @@ export function createCast({ scene, controllerManager }) {
     setSeated,
     setPlayerSeat,
     get ready() { return templates.has(PLAYER) && !!clips.m; },
-    /** which model plays the player (the Ara test character with ?ara) */
+    /** which model plays the player */
     get playerModel() { return PLAYER; },
     get loaded() { return [...templates.keys()]; },
     level: LEVEL,
@@ -559,8 +615,10 @@ export function createCast({ scene, controllerManager }) {
       const name = (a) => a?.cur?.getClip().name || '-';
       return { player: name(playerActor), ...Object.fromEntries(Object.entries(story).map(([n, a]) => [n, a.group.visible ? name(a) : 'hidden'])) };
     },
+    /** how loud the story voices are (0..1): the speaking character's lips follow it */
+    setVoiceLevel(x) { voiceLevel = x; },
     /** advance the cast's clock (gestures time out on it) */
-    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) if (a.group.visible) a.mixer.update(dt); }
+    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) if (a.group.visible) { a.mixer.update(dt); faceLife(a, dt, false); } } // (extras' lips stay still: the voice over them is the narrator's)
   };
 }
 

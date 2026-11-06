@@ -5,7 +5,10 @@ const fs = require('fs');
 
 // the look: the builder's quick-build buttons, in order (default: the test player)
 const LOOK = (process.env.LOOK || 'Man|Adult · 35|Athletic|Caucasian|Casual|Short crop|Stubble').split('|');
-const CLIPS = ['Idle', 'Walk', 'Run', 'Turn left 90°', 'Turn right 90°', 'Talk', 'Pistol aim', 'Death (fall backward)'];
+// the clips the game maps (js/people.js ARA_CLIPS)
+const CLIPS = ['Idle', 'Walk', 'Run', 'Walk backwards', 'Strafe left', 'Strafe right', 'Turn left 90°', 'Turn right 90°', 'Talk',
+  'Wave', 'Cheer', 'Laugh', 'Sit idle (chair)', 'Pistol idle (low ready)', 'Pistol aim', 'Pistol fire', 'Hit from front',
+  'Death (fall backward)', 'Get up (from back)'];
 
 (async () => {
   const out = process.argv[2];

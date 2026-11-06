@@ -85,7 +85,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   document.body.append(subsEl);
 
   // the audio graph: voices → (ambient duck) → bus → the city's master gain
-  let ctx = null, bus = null, duck = null;
+  let ctx = null, bus = null, duck = null, meter = null, meterBuf = null;
   const buffers = new Map(); // file → Promise<AudioBuffer>
   function context() {
     const c = audioSystem.context;
@@ -95,6 +95,11 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       bus = c.createGain();
       bus.gain.value = volume * BOOST;
       bus.connect(audioSystem.master);
+      // how loud the story's voices are right now (the speaking character's mouth follows it)
+      meter = c.createAnalyser();
+      meter.fftSize = 512;
+      meterBuf = new Float32Array(meter.fftSize);
+      bus.connect(meter);
       duck = c.createGain();
       duck.connect(bus);
       buffers.clear();
@@ -387,6 +392,14 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     stopAll() { [...active].forEach((v) => stop(v)); },
     /** Whether a story line (a cut scene's or the intro's) is being spoken */
     get speaking() { return active.some((v) => v.prio >= PRIORITY.story && v.src); },
+    /** The voices' loudness now, 0..1 (for lip movement) */
+    get level() {
+      if (!meter) return 0;
+      meter.getFloatTimeDomainData(meterBuf);
+      let sum = 0;
+      for (let i = 0; i < meterBuf.length; i++) sum += meterBuf[i] * meterBuf[i];
+      return Math.min(1, Math.sqrt(sum / meterBuf.length) * 6);
+    },
     get active() { return active.map((v) => ({ id: v.line.id, channel: v.channel, t: v.t, sound: !!v.src })); },
     get volume() { return volume; },
     setVolume(x) {

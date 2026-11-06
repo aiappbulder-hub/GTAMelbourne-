@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config.js';
 import { circuitPoint } from './race-track.js';
 import { blockAt } from './city-config.js';
+import { STORY_CAST } from './people.js';
 
 // GTA Melbourne's story, moved across from the original game (../index.html) onto the new engine's real-scale map.
 //
@@ -277,9 +278,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
   // Where a job's giver stands: on the footpath nearest the job's marker (not out in the road)
   const giverCache = new Map();
-  function giverSpot(def) {
-    if (giverCache.has(def)) return giverCache.get(def);
-    const st = resolve(def.start);
+  const giverSpot = (def) => kerbSpot(def.start);
+  // the footpath nearest a place (where someone stands waiting: a job's giver, Davo at his pickup)
+  function kerbSpot(at) {
+    if (giverCache.has(at)) return giverCache.get(at);
+    const st = resolve(at);
     let best = { x: st.x, y: 0, z: st.z };
     if (!blockAt(st.x, st.z)) {
       search: for (let r = 2; r <= 24; r += 1.5) {
@@ -290,7 +293,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         }
       }
     } else best.y = 0.22;
-    giverCache.set(def, best);
+    giverCache.set(at, best);
     return best;
   }
 
@@ -565,6 +568,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         if (acts && acts.player !== cut.playerAct) { cut.playerAct = acts.player; cast.setPlayerAction(acts.player); }
         cast.setGiver(def.giver, at, p, acts && acts.giver, dt);
       } else cast.setGiver(null);
+      // Davo on the kerb outside the pub (the first job), waving the player down; picked up, he's in the car
+      const step = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
+      if (step && step.at && /Pick up Davo/.test(step.text)) {
+        const k = kerbSpot(step.at);
+        const near = Math.hypot(p.x - k.x, p.z - k.z) < 45;
+        cast.setActor('davo', STORY_CAST.Davo, { x: k.x, y: k.y, z: k.z, heading: Math.atan2(p.x - k.x, p.z - k.z) }, near ? 'wave' : 'idle');
+      } else cast.setActor('davo', null, null);
     }
     // the pointer: the objective's marker, or the nearest target, or the next job's
     if (cut || document.body.classList.contains('cinematic')) point(null);

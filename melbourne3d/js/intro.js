@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { ROADS, blockAt } from './city-config.js';
+import { STORY_CAST } from './people.js';
 
 // The opening: wide shots of Melbourne at golden hour, letterboxed, with the player's own voice setting up the story
 // over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. The first
@@ -344,7 +345,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     if (castShots || !cast) return;
     castShots = true;
     const A = cast.active || {}, male = A.male || [], gang = A.gang || [], police = A.police || [];
-    const V = 'Male_Adult_03', K = 'Female_Adult_04';
+    const V = STORY_CAST.Vince, K = STORY_CAST.Kaz;
     // Lygon Street, Carlton
     const ly = footpathNear('LYGON STREET', { x: 475, z: -1425 });
     const vince = ly.at(0, 1.3), c1 = ly.at(1.5, 1.7), c2 = ly.at(-1.2, 2.0);

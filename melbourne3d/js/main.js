@@ -943,6 +943,7 @@ async function initApp() {
       if (sp) boxes.push(sp);
       pushOutOfBoxes(pp, 0.4, boxes);
     }
+    if (castSystem && voices) castSystem.setVoiceLevel(voices.level || 0);
     castSystem?.tick(dt);
     castSystem?.posePlayer(dt);
     if (gameplay) gameplay.update(dt);

@@ -24,7 +24,8 @@ const CUSTOM_CARS = [
 //   drive). A car taken from the traffic keeps its own body and paint (traffic.js draws it where the player's car
 //   physics puts it) and stays parked where it's left.
 // - Guns: pistol, Uzi and shotgun (Tab or the wheel to change, G to holster). Hold the right mouse button to aim
-//   where the camera looks; click (or J, or FIRE on touch) to shoot. Without aiming, a shot locks on to the nearest
+//   where the camera looks and shoot (held, it keeps aiming; automatics keep firing); a left click, J or FIRE on touch
+//   shoots too, Q aims without shooting. Without aiming, a shot locks on to the nearest
 //   person or car in front. Shots hit people, cars and walls; people nearby run.
 // - People: T talks to the person in front of you (they stop and turn to you); T with a gun drawn robs them.
 
@@ -731,7 +732,14 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   const offUi = (e) => !(e.target instanceof Element && e.target.closest('button, input, select, a, [role=dialog], .pop-item, .gm-cut, .intro-card'));
   window.addEventListener('pointerdown', (e) => {
     if (!offUi(e)) return;
-    if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
+    // right button: raise the gun and shoot (held: keep aiming, automatics keep firing)
+    if (e.button === 2) {
+      e.preventDefault();
+      // the first shot before the aim is up, so it locks on to whoever is in front, as a quick shot does
+      if (cm.activeMode === 'person') { fire(); triggerHeld = true; grabMouse(); }
+      aimHeld = true; aimByMouse = true;
+      return;
+    }
     if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
@@ -741,11 +749,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (e.code === 'KeyE' && aimHeld && !e.repeat) cycleTarget = true; // the next target
   });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { aimHeld = false; freeMouse(); } });
-  window.addEventListener('mouseup', (e) => { if (e.button === 2) stopMouseAim(); });
+  window.addEventListener('mouseup', (e) => { if (e.button === 2) { triggerHeld = false; stopMouseAim(); } });
   // Esc (or the browser) took the mouse back: stop aiming with it
   document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvasEl) stopMouseAim(); });
   window.addEventListener('pointerup', (e) => {
-    if (e.button === 2) stopMouseAim();
+    if (e.button === 2) { triggerHeld = false; stopMouseAim(); }
     if (e.button === 0 && down) {
       // a click, not a camera drag
       if (document.pointerLockElement === canvasEl || (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && performance.now() - down.t < 350)) fire();
@@ -926,7 +934,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Hold right mouse or Q: aim, move the mouse to turn · Click or J: fire · E: next target · Tab: change` : 'G to draw your gun'));
+      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right click: shoot (hold to keep aiming) · Q: aim · move the mouse to turn · E: next target · Tab: change` : 'G to draw your gun'));
     }
   }
 
