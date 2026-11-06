@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><title>Ara character check</title>
+<style>html,body{margin:0;background:#888}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+<script type="module">
+// An Ara 3D Gen character through the game's renderer (WebGPURenderer, WebGL 2 backend): front mid-walk, three-quarter
+// back, and the face (with a blend-shape expression), in late-afternoon light
+import * as THREE from 'three/webgpu';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const q = new URLSearchParams(location.search);
+const W = 1200, H = 600;
+const r = new THREE.WebGPURenderer({ antialias: true, forceWebGL: true });
+r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.append(r.domElement); await r.init();
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fb4c8);
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.5;
+scene.add(new THREE.HemisphereLight(0xdfeaff, 0x5a5040, 0.9));
+const sun = new THREE.DirectionalLight(0xfff1dd, 2.4); sun.position.set(3, 6, 4); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x8a8d90 })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const g = await new GLTFLoader().loadAsync(q.get('f') || 'test.glb');
+const m = g.scene; scene.add(m);
+const mixer = new THREE.AnimationMixer(m);
+const clip = g.animations.find((c) => c.name === (q.get('clip') || 'Walk')) || g.animations[0];
+mixer.clipAction(clip).play(); mixer.update(clip.duration * +(q.get('t') || 0.3));
+// an expression on the face (the blend shapes)
+const face = []; m.traverse((o) => { if (o.morphTargetDictionary) face.push(o); });
+const expr = { mouthSmile: +(q.get('smile') || 0), browInnerUp: +(q.get('brow') || 0) };
+for (const o of face) for (const [k, v] of Object.entries(expr)) if (o.morphTargetDictionary[k] !== undefined) o.morphTargetInfluences[o.morphTargetDictionary[k]] = v;
+m.updateMatrixWorld(true);
+const head = new THREE.Vector3(); (m.getObjectByName('Head') || m).getWorldPosition(head);
+const bb = new THREE.Box3().setFromObject(m, true);
+console.error('INFO height ' + (bb.max.y - bb.min.y).toFixed(2) + ' head ' + head.toArray().map((v) => v.toFixed(2)) + ' morph meshes ' + face.length + ' clips ' + g.animations.map((c) => c.name + ':' + c.duration.toFixed(1)).join(','));
+const views = [[0, 1.0, 3.6, 0, 0.95, 0, 35], [-2.6, 1.3, -2.6, 0, 0.95, 0, 35], [0.18, head.y + 0.04, head.z + 0.62, head.x, head.y, head.z, 26]];
+const cam = new THREE.PerspectiveCamera(35, (W / 3) / H, 0.05, 50);
+r.setScissorTest(true);
+for (let i = 0; i < 3; i++) {
+  const [x, y, z, lx, ly, lz, fov] = views[i];
+  r.setViewport(i * W / 3, 0, W / 3, H); r.setScissor(i * W / 3, 0, W / 3, H);
+  cam.fov = fov; cam.updateProjectionMatrix(); cam.position.set(x, y, z); cam.lookAt(lx, ly, lz);
+  await r.renderAsync(scene, cam);
+}
+document.title = 'done';
+</script>

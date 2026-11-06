@@ -16,6 +16,14 @@ const BASE = new URL('../assets/people/', import.meta.url);
 
 // Who plays whom
 export const PLAYER_MODEL = 'Male_Adult_09';
+// Ara 3D Gen characters (tools/ara/, assets/ara/: realistic MakeHuman people, CC0, with motion-captured clips and facial
+// blend shapes in their own files). On test: ?ara puts the player in theirs
+const ARA_BASE = new URL('../assets/ara/', import.meta.url);
+const PLAYER = typeof location !== 'undefined' && new URLSearchParams(location.search).has('ara') ? 'ara:player' : PLAYER_MODEL;
+// Ara's clip names for the game's (anything not here falls back as the others do: talking moods to Talk, the rest to Idle)
+const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', talk: 'Talk', turn_left: 'Turn left 90°', turn_right: 'Turn right 90°',
+  aim: 'Pistol aim', die: 'Death (fall backward)' };
+const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
 export const STORY_CAST = { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05' };
 const POOLS = {
   police: ['Police_Male_01', 'Police_Male_03'],
@@ -61,16 +69,24 @@ export const isFemale = (id) => /Female/.test(id);
 export function createCast({ scene, controllerManager }) {
   const loader = new GLTFLoader();
   const templates = new Map(); // id → glTF scene
+  const ownClips = new Map(); // id → its own clips by the game's names (Ara characters)
   const clips = { m: null, f: null }; // name → AnimationClip
   const loading = new Map();
   function loadPerson(id) {
     if (!loading.has(id)) {
-      loading.set(id, loader.loadAsync(new URL(`${id}.glb`, BASE).href).then((g) => {
+      const ara = id.startsWith('ara:');
+      const url = ara ? new URL(`${id.slice(4)}${Q.peds < 200 ? '-low' : ''}.glb`, ARA_BASE) : new URL(`${id}.glb`, BASE);
+      loading.set(id, loader.loadAsync(url.href).then((g) => {
+        if (ara) {
+          const byName = Object.fromEntries(g.animations.map((c) => [c.name, c]));
+          ownClips.set(id, Object.fromEntries(Object.entries(ARA_CLIPS).filter(([, n]) => byName[n]).map(([k, n]) => [k, byName[n]])));
+        }
         g.scene.traverse((o) => {
           if (!o.isMesh) return;
           for (const m of [].concat(o.material)) {
-            if (!LEVEL.normals && m.normalMap && id !== PLAYER_MODEL) { m.normalMap.dispose(); m.normalMap = null; m.needsUpdate = true; }
+            if (!LEVEL.normals && m.normalMap && id !== PLAYER) { m.normalMap.dispose(); m.normalMap = null; m.needsUpdate = true; }
             if (/opacity/.test(m.name)) { m.alphaTest = 0.45; m.side = THREE.DoubleSide; } // hair and lashes
+            if (ara && m.alphaTest > 0) m.alphaToCoverage = true; // Ara's hair cards: soft strand edges with MSAA, not a hard cut
           }
         });
         templates.set(id, g.scene);
@@ -96,7 +112,7 @@ export function createCast({ scene, controllerManager }) {
   }).catch((e) => console.warn('[people] no story clips', sex, e));
   // the player and the story first, then the crowd one at a time
   (async () => {
-    await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER_MODEL)]);
+    await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER)]);
     await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
     // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
     // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
@@ -119,7 +135,7 @@ export function createCast({ scene, controllerManager }) {
 
   // An actor: a clone of a person (sharing their meshes and textures) with its own skeleton and animation mixer
   function makeActor(id, shadow = LEVEL.shadows) {
-    const tpl = templates.get(id), set = clips[isFemale(id) ? 'f' : 'm'];
+    const tpl = templates.get(id), set = ownClips.get(id) || clips[isFemale(id) ? 'f' : 'm'];
     if (!tpl || !set) return null;
     const root = SkeletonUtils.clone(tpl);
     root.traverse((o) => {
@@ -131,13 +147,18 @@ export function createCast({ scene, controllerManager }) {
     const mixer = new THREE.AnimationMixer(root);
     const acts = {};
     for (const [name, clip] of Object.entries(set)) acts[name] = mixer.clipAction(clip);
+    // the face's blend shapes (Ara characters): for blinking
+    const faces = [];
+    root.traverse((o) => { if (o.morphTargetDictionary && o.morphTargetDictionary.eyeBlinkLeft !== undefined) faces.push(o); });
     const group = new THREE.Group();
     group.name = `Person:${id}`;
     group.rotation.order = 'YXZ';
     group.add(root);
     group.visible = false;
     scene.add(group);
-    return { id, group, root, mixer, acts, set, cur: null, heading: 0, fall: 0, owner: null, onceUntil: 0, still: 0 };
+    const ara = ownClips.has(id);
+    return { id, group, root, mixer, acts, set, cur: null, heading: 0, fall: 0, owner: null, onceUntil: 0, still: 0,
+      ara, faces, gaitSpeed: ara ? ARA_GAIT : GAIT, blinkAt: 1 + Math.random() * 3, blinkT: -1, lastHeading: null, turnT: 0 };
   }
   function action(a, name) {
     if (!a.acts[name] && a.set[name]) {
@@ -183,9 +204,10 @@ export function createCast({ scene, controllerManager }) {
     const s = Math.abs(v);
     const was = a.cur === a.acts.sprint ? 3 : a.cur === a.acts.run ? 2 : a.cur === a.acts.walk ? 1 : 0;
     const g = s > (was === 3 ? 4.3 : 4.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
-    if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / GAIT.sprint, 0.8, 1.7));
-    else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / GAIT.run, 0.75, 1.45));
-    else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / GAIT.walk, 0.55, 1.6));
+    const G = a.gaitSpeed || GAIT;
+    if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / G.sprint, 0.8, 2.0));
+    else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / G.run, 0.75, 1.45));
+    else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / G.walk, 0.55, 1.6));
     else play(a, has(a, idle) ? idle : 'idle');
   }
   function place(a, x, y, z, heading, dt, ease = true) {
@@ -324,8 +346,23 @@ export function createCast({ scene, controllerManager }) {
     bone.quaternion.copy(_qp.invert().multiply(_qw));
     bone.updateWorldMatrix(false, true);
   }
+  const MIXAMO = { R_UpperArm: 'RightArm', R_Forearm: 'RightForeArm', R_Hand: 'RightHand', L_UpperArm: 'LeftArm', L_Forearm: 'LeftForeArm', L_Hand: 'LeftHand' };
   const bonesOf = (a) => a.bones || (a.bones = Object.fromEntries(['R_UpperArm', 'R_Forearm', 'R_Hand', 'L_UpperArm', 'L_Forearm', 'L_Hand']
-    .map((n) => [n, a.root.getObjectByName(`Bip01_${n}`)])));
+    .map((n) => [n, a.root.getObjectByName(`Bip01_${n}`) || a.root.getObjectByName(MIXAMO[n])])));
+  // A face that lives (Ara characters' blend shapes): a blink every 2-6 s, the lids closing and opening over 0.16 s, on top
+  // of whatever the clip does with the face
+  function faceLife(a, dt) {
+    if (!a.faces || !a.faces.length) return;
+    a.blinkAt -= dt;
+    if (a.blinkAt <= 0 && a.blinkT < 0) { a.blinkT = 0; a.blinkAt = 2 + Math.random() * 4; }
+    let v = 0;
+    // (the first frame of a blink always shuts the lids, so a slow frame rate never skips it)
+    if (a.blinkT >= 0) { v = a.blinkT === 0 ? 1 : Math.sin(Math.min(1, a.blinkT / 0.16) * Math.PI); a.blinkT += dt; if (a.blinkT >= 0.16) a.blinkT = -1; }
+    for (const o of a.faces) {
+      const d = o.morphTargetDictionary, w = o.morphTargetInfluences;
+      for (const k of ['eyeBlinkLeft', 'eyeBlinkRight']) if (d[k] !== undefined) w[d[k]] = Math.max(w[d[k]], v);
+    }
+  }
   function aimArms(a, dir, w, twoHanded) {
     const B = bonesOf(a);
     if (!B.R_UpperArm || !B.R_Forearm || !B.R_Hand) return;
@@ -384,7 +421,7 @@ export function createCast({ scene, controllerManager }) {
     const p = controllerManager?.entities?.person;
     if (!p) return;
     if (!playerActor) {
-      playerActor = makeActor(PLAYER_MODEL, true);
+      playerActor = makeActor(PLAYER, true);
       if (!playerActor) return;
     }
     if (playerSeat) {
@@ -405,14 +442,25 @@ export function createCast({ scene, controllerManager }) {
     p.castModel = true; // controllers.js stops drawing its procedural stand-in
     const a = playerActor;
     a.still = Math.abs(p.speed) < 0.1 ? a.still + dt : 0;
-    if (playerAction && Math.abs(p.speed) < 0.3) play(a, has(a, playerAction) ? playerAction : 'idle');
+    // turning on the spot (how fast the heading swings while standing): the turn clips, not sliding round on the idle
+    let turnRate = 0;
+    if (a.lastHeading !== null && dt > 0) { let dh = p.heading - a.lastHeading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); turnRate = dh / dt; }
+    a.lastHeading = p.heading;
+    const standing = Math.abs(p.speed) < 0.3;
+    // (a pivot from a standstill: the controller swings the body round before the walk takes over)
+    if (Math.abs(p.speed) < 0.9 && Math.abs(turnRate) > 1.0 && has(a, 'turn_left') && !weapon.aiming) a.turnT = 0.35;
+    else a.turnT = Math.max(0, a.turnT - dt);
+    if (playerAction && standing) play(a, has(a, playerAction) ? playerAction : 'idle');
+    else if (standing && weapon.armed && weapon.aiming && has(a, 'aim')) play(a, 'aim'); // the pistol stance (the arms then point it)
+    else if (a.turnT > 0 && Math.abs(p.speed) < 0.9) play(a, turnRate > 0 || (turnRate === 0 && a.cur === a.acts.turn_left) ? 'turn_left' : 'turn_right', THREE.MathUtils.clamp(Math.abs(turnRate) / 1.6, 0.8, 1.8));
     else {
-      if (Math.abs(p.speed) >= 0.3) playerAction = null;
+      if (!standing) playerAction = null;
       // standing a while, they look about, then wait
       gait(a, p.speed, a.still > 14 ? 'wait' : a.still > 5 ? 'look' : 'idle');
     }
     place(a, p.position.x, p.position.y, p.position.z, p.heading, dt, false); // the controller already eases the heading
     a.mixer.update(dt);
+    faceLife(a, dt);
     a.group.updateMatrixWorld(true);
     poseGun(a, dt);
   }
@@ -493,7 +541,9 @@ export function createCast({ scene, controllerManager }) {
     muzzle() { return muzzleValid ? muzzle : null; },
     setSeated,
     setPlayerSeat,
-    get ready() { return templates.has(PLAYER_MODEL) && !!clips.m; },
+    get ready() { return templates.has(PLAYER) && !!clips.m; },
+    /** which model plays the player (the Ara test character with ?ara) */
+    get playerModel() { return PLAYER; },
     get loaded() { return [...templates.keys()]; },
     level: LEVEL,
     active: ACTIVE,
