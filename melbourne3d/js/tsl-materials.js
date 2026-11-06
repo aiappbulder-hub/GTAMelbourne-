@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { IS_MELBOURNE } from './city.js';
 import { Q } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
 import {
   Fn,
@@ -513,7 +514,7 @@ let _storefrontSignTexture;
 
 function getStorefrontSignTexture() {
   if (_storefrontSignTexture) return _storefrontSignTexture;
-  const labels = ['CORNER MARKET', 'COFFEE & BAKERY', 'BOOKS & RECORDS', 'NEIGHBORHOOD DELI',
+  const labels = ['CORNER MARKET', 'COFFEE & BAKERY', 'BOOKS & RECORDS', IS_MELBOURNE ? 'MILK BAR' : 'NEIGHBORHOOD DELI',
     'CLEANERS', 'FLOWERS', 'HARDWARE', 'PIZZA'];
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 512;
@@ -2454,7 +2455,7 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#ffffff';
     ctx.font = '900 24px Inter, Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('NASDAQ · TIMES SQ MARKETSITE', 18, 31);
+    ctx.fillText(IS_MELBOURNE ? 'ASX · COLLINS STREET' : 'NASDAQ · TIMES SQ MARKETSITE', 18, 31);
     ctx.fillStyle = '#00f5a0';
     ctx.textAlign = 'right';
     ctx.font = '800 20px JetBrains Mono, monospace';
@@ -2491,7 +2492,7 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#38d8ff';
     ctx.font = '800 20px JetBrains Mono, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('NDX 21,490 ▲   SPX 6,145 ▲   DOW 44,880 ▲   NYC 100 ▲', 256, 238);
+    ctx.fillText(IS_MELBOURNE ? 'ASX 200 8,410 ▲   ALL ORDS 8,650 ▲   AUD 0.66 ▲   GOLD ▲' : 'NDX 21,490 ▲   SPX 6,145 ▲   DOW 44,880 ▲   NYC 100 ▲', 256, 238);
   } else if (themeKey === 2) {
     // Theme 2: Gotham Cola / Iconic Red & White Wave Billboard
     const grad = ctx.createLinearGradient(0, 0, 512, 256);
@@ -2514,19 +2515,19 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#ffe082';
     ctx.font = '800 18px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ICE COLD · EST. 1898 · NEW YORK', 256, 48);
+    ctx.fillText(IS_MELBOURNE ? 'ICE COLD · EST. 1898 · MELBOURNE' : 'ICE COLD · EST. 1898 · NEW YORK', 256, 48);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'italic 900 54px Georgia, serif';
-    ctx.fillText('Gotham Cola', 256, 108);
+    ctx.fillText(IS_MELBOURNE ? 'Yarra Cola' : 'Gotham Cola', 256, 108);
 
     ctx.fillStyle = '#fff5cc';
     ctx.font = '800 22px Inter, Arial, sans-serif';
-    ctx.fillText('TASTE THE MANHATTAN SKYLINE', 256, 148);
+    ctx.fillText(IS_MELBOURNE ? 'TASTE THE MELBOURNE SKYLINE' : 'TASTE THE MANHATTAN SKYLINE', 256, 148);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 17px JetBrains Mono, monospace';
-    ctx.fillText('REFRESHING TIMES SQUARE 24 HOURS A DAY', 256, 236);
+    ctx.fillText(IS_MELBOURNE ? 'REFRESHING SWANSTON STREET 24 HOURS A DAY' : 'REFRESHING TIMES SQUARE 24 HOURS A DAY', 256, 236);
   } else if (themeKey === 3) {
     // Theme 3: Fifth Avenue Luxury Watch & Couture ("CHRONO GENÈVE")
     const grad = ctx.createRadialGradient(256, 128, 16, 256, 128, 260);
@@ -2581,11 +2582,11 @@ function createBillboardCanvasTexture(themeKey) {
 
     ctx.fillStyle = '#e5c158';
     ctx.font = '700 22px Inter, Arial, sans-serif';
-    ctx.fillText('FIFTH AVENUE FLAGSHIP', 345, 154);
+    ctx.fillText(IS_MELBOURNE ? 'COLLINS STREET FLAGSHIP' : 'FIFTH AVENUE FLAGSHIP', 345, 154);
 
     ctx.fillStyle = '#c8b89a';
     ctx.font = '600 16px JetBrains Mono, monospace';
-    ctx.fillText('5TH AVE AT 57TH ST · NEW YORK', 345, 202);
+    ctx.fillText(IS_MELBOURNE ? 'COLLINS ST AT SWANSTON ST · MELBOURNE' : '5TH AVE AT 57TH ST · NEW YORK', 345, 202);
   } else if (themeKey === 4) {
     // Theme 4: NY1 Live Skyline News & Weather Broadcast
     const grad = ctx.createLinearGradient(0, 0, 512, 200);
@@ -2600,21 +2601,21 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#38b6ff';
     ctx.font = '900 26px Inter, Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('NY1 NEWS · LIVE MANHATTAN', 18, 33);
+    ctx.fillText(IS_MELBOURNE ? 'MELBOURNE 1 NEWS · LIVE CBD' : 'NY1 NEWS · LIVE MANHATTAN', 18, 33);
 
     ctx.fillStyle = '#ffd15c';
     ctx.textAlign = 'right';
     ctx.font = '800 22px JetBrains Mono, monospace';
-    ctx.fillText('NYC 72°F ☀', 492, 33);
+    ctx.fillText(IS_MELBOURNE ? 'MELB 22°C ☀' : 'NYC 72°F ☀', 492, 33);
 
     // Center headline graphic
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.font = '900 36px Inter, Arial, sans-serif';
-    ctx.fillText('MIDTOWN SKYLINE REPORT', 256, 104);
+    ctx.fillText(IS_MELBOURNE ? 'CBD SKYLINE REPORT' : 'MIDTOWN SKYLINE REPORT', 256, 104);
     ctx.fillStyle = '#a8dcff';
     ctx.font = '700 20px Inter, Arial, sans-serif';
-    ctx.fillText('CLEAR SKIES FROM HARLEM TO BATTERY PARK', 256, 138);
+    ctx.fillText(IS_MELBOURNE ? 'FOUR SEASONS IN ONE DAY, AS USUAL' : 'CLEAR SKIES FROM HARLEM TO BATTERY PARK', 256, 138);
 
     // Red BREAKING NEWS badge
     ctx.fillStyle = '#e6192e';
@@ -2629,10 +2630,10 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#0a192f';
     ctx.font = '900 24px Inter, Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('EXPRESS: 5TH AVE & BROADWAY CLEAR', 20, 220);
+    ctx.fillText(IS_MELBOURNE ? 'WEST GATE: CITY-BOUND DELAYS' : 'EXPRESS: 5TH AVE & BROADWAY CLEAR', 20, 220);
     ctx.fillStyle = '#c8102e';
     ctx.font = '800 16px JetBrains Mono, monospace';
-    ctx.fillText('LIVE HD · EMPIRE STATE · CHRYSLER · ONE WTC · CENTRAL PARK', 20, 244);
+    ctx.fillText(IS_MELBOURNE ? 'LIVE HD · EUREKA · RIALTO · FLINDERS ST · THE MCG' : 'LIVE HD · EMPIRE STATE · CHRYSLER · ONE WTC · CENTRAL PARK', 20, 244);
   } else {
     // Theme 5: Times Square Neon Nights & TKTS Booth
     const grad = ctx.createLinearGradient(0, 0, 512, 256);
@@ -2664,17 +2665,17 @@ function createBillboardCanvasTexture(themeKey) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.font = '900 42px Inter, Arial, sans-serif';
-    ctx.fillText('TIMES SQUARE NYC', 256, 62);
+    ctx.fillText(IS_MELBOURNE ? 'FEDERATION SQUARE' : 'TIMES SQUARE NYC', 256, 62);
 
     ctx.fillStyle = '#ffea70';
     ctx.font = '800 22px Inter, Arial, sans-serif';
-    ctx.fillText('THE CROSSROADS OF THE WORLD', 256, 94);
+    ctx.fillText(IS_MELBOURNE ? 'MELBOURNE\'S MEETING PLACE' : 'THE CROSSROADS OF THE WORLD', 256, 94);
 
     ctx.fillStyle = '#120322';
     ctx.fillRect(0, 198, 512, 58);
     ctx.fillStyle = '#ff4081';
     ctx.font = '900 24px JetBrains Mono, monospace';
-    ctx.fillText('TKTS · 50% OFF BROADWAY SHOWS TONIGHT', 256, 234);
+    ctx.fillText(IS_MELBOURNE ? 'HALF-TIX · 50% OFF SHOWS TONIGHT' : 'TKTS · 50% OFF BROADWAY SHOWS TONIGHT', 256, 234);
   }
 
   const tex = new THREE.CanvasTexture(c);

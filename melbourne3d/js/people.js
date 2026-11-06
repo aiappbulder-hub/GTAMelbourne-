@@ -18,11 +18,11 @@ const BASE = new URL('../assets/people/', import.meta.url);
 
 // Who plays whom
 export const PLAYER_MODEL = 'Male_Adult_09';
-export const STORY_CAST = { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04' };
+export const STORY_CAST = { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05' };
 const POOLS = {
   police: ['Police_Male_01', 'Police_Male_03'],
   gang: ['Male_Adult_18', 'Male_Adult_04', 'Male_Adult_10', 'Male_Adult_17'],
-  male: ['Male_Adult_01', 'Male_Adult_02', 'Male_Adult_05', 'Male_Adult_06', 'Male_Adult_07', 'Male_Adult_08', 'Male_Adult_11',
+  male: ['Male_Adult_01', 'Male_Adult_02', 'Male_Adult_06', 'Male_Adult_07', 'Male_Adult_08', 'Male_Adult_11',
     'Male_Adult_12', 'Male_Adult_14', 'Male_Adult_16', 'Male_Adult_20', 'Business_Male_01', 'Business_Male_02', 'Business_Male_05',
     'Construction_Male_07', 'Construction_Male_08'],
   female: ['Female_Adult_01', 'Female_Adult_02', 'Female_Adult_03', 'Female_Adult_05', 'Female_Adult_06', 'Female_Adult_07',
@@ -86,7 +86,7 @@ export function createCast({ scene, controllerManager }) {
     }));
   }).catch((e) => console.warn('[people] no clips', sex, e));
   // The story set: moods for talking and listening, gestures and idles (added to each sex's clips once loaded)
-  const loadStory = (sex) => fetch(new URL(`story-${sex}.json`, BASE)).then((r) => r.json()).then((j) => {
+  const loadStory = (sex, set = 'story') => fetch(new URL(`${set}-${sex}.json`, BASE)).then((r) => r.json()).then((j) => {
     for (const c of j.clips) {
       const a = THREE.AnimationClip.parse(c);
       a.tracks = a.tracks.filter((t) => !t.name.startsWith('MotionExtractionHelper'));
@@ -96,7 +96,7 @@ export function createCast({ scene, controllerManager }) {
   // the player and the story first, then the crowd one at a time
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER_MODEL)]);
-    await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f')]);
+    await Promise.all([...Object.values(STORY_CAST).map(loadPerson), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
     for (const id of [...ACTIVE.police, ...ACTIVE.gang, ...ACTIVE.male, ...ACTIVE.female]) await loadPerson(id);
   })();
   // gestures that play once and then hand back to whatever the person was doing
@@ -268,6 +268,14 @@ export function createCast({ scene, controllerManager }) {
       playerActor = makeActor(PLAYER_MODEL, true);
       if (!playerActor) return;
     }
+    if (playerSeat) {
+      const a = playerActor, s = playerSeat;
+      p.castModel = controllerManager.activeMode === 'person';
+      play(a, has(a, playerSeatAnim) ? playerSeatAnim : has(a, 'sit') ? 'sit' : 'idle');
+      place(a, s.x, s.y, s.z, s.heading, dt, false);
+      a.mixer.update(dt);
+      return;
+    }
     if (controllerManager.activeMode !== 'person') {
       playerActor.group.visible = false;
       p.castModel = false;
@@ -290,7 +298,7 @@ export function createCast({ scene, controllerManager }) {
   // Story characters at their jobs: on the phone while they wait, talking through the cut scene, facing the player
   const story = {};
   function setGiver(name, at = null, face = null, mood = null, dt = 0) {
-    for (const [n, a] of Object.entries(story)) if (a && (n !== name || !at)) a.group.visible = false;
+    for (const [n, a] of Object.entries(story)) if (a && !a.seat && (n !== name || !at)) a.group.visible = false;
     if (!name || !at) return;
     const id = STORY_CAST[name];
     if (!id) return;
@@ -313,7 +321,31 @@ export function createCast({ scene, controllerManager }) {
     a.mixer.update(dt);
   }
 
+  // Story characters sitting down (the café scene): at a seat { x, y, z, heading } playing a seated clip; null: gone
+  function setSeated(name, seat, anim = 'sit') {
+    const id = STORY_CAST[name];
+    if (!id) return;
+    if (!seat) { if (story[name]) { story[name].seat = null; story[name].group.visible = false; } return; }
+    if (!story[name]) {
+      story[name] = makeActor(id, true);
+      if (!story[name]) return;
+    }
+    const a = story[name];
+    a.seat = seat;
+    play(a, has(a, anim) ? anim : has(a, 'sit') ? 'sit' : 'idle');
+    a.heading = seat.heading;
+    place(a, seat.x, seat.y, seat.z, seat.heading, 0.016, false);
+  }
+  function animateSeated(dt) {
+    for (const a of Object.values(story)) if (a && a.seat && a.group.visible) a.mixer.update(dt);
+  }
+  // The player sitting down (a scene): drawn at the seat whatever mode they're in
+  let playerSeat = null, playerSeatAnim = 'sit';
+  function setPlayerSeat(seat, anim = 'sit') { playerSeat = seat; playerSeatAnim = anim; }
+
   return {
+    setSeated,
+    setPlayerSeat,
     get ready() { return templates.has(PLAYER_MODEL) && !!clips.m; },
     get loaded() { return [...templates.keys()]; },
     level: LEVEL,
@@ -331,7 +363,7 @@ export function createCast({ scene, controllerManager }) {
       return { player: name(playerActor), ...Object.fromEntries(Object.entries(story).map(([n, a]) => [n, a.group.visible ? name(a) : 'hidden'])) };
     },
     /** advance the cast's clock (gestures time out on it) */
-    tick(dt) { clock += dt; }
+    tick(dt) { clock += dt; animateSeated(dt); }
   };
 }
 

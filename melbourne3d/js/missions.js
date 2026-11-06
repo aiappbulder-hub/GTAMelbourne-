@@ -84,6 +84,23 @@ const MISSIONS = [
     ]
   },
   {
+    // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
+    name: 'Short Black', giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 3500,
+    cut: [['Kaz', "Sit down. You're making the locals nervous."],
+      ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
+      ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.'],
+      ['Mick', "There's a bag in a locker at the end of St Kilda Pier. Twenty Rolexes. The Nomads' stash."],
+      ['You', 'And the Nomads just leave it lying about?'],
+      ['Mick', 'Till tonight. Grab it before they do, and we split it three ways.'],
+      ['Kaz', "Bring it back here. And don't stop to look at the penguins."]],
+    outro: ['Mick', "Good man. The coffee's on me."],
+    steps: [
+      { text: 'Get out to the end of St Kilda Pier, by the kiosk.', at: { pier: true }, r: 8 },
+      { text: 'Find the locker and grab the bag. Stay in the marker on foot.', at: { pier: true }, r: 5, wait: 3, foot: true },
+      { text: 'Get the watches back to the café on Acland Street before the Nomads catch on.', at: { cafe: true }, r: 7, time: 150 }
+    ]
+  },
+  {
     name: 'Collection Day', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3500,
     cut: [['Kaz', 'Half the corner boys in the city owe us money and think we forgot.'],
       ['Kaz', 'Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet.']],
@@ -167,7 +184,7 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null, stkilda = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -291,6 +308,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const d = Math.hypot(a.x - b.x, a.z - b.z);
         if (d < best) { best = d; p = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }; }
       }
+    } else if (at.cafe) {
+      p = stkilda ? stkilda.marker() : { x: -985, z: 5470 };
+    } else if (at.pier) {
+      p = stkilda ? stkilda.pierEnd : { x: -1872, z: 5160 };
     } else if (typeof at.circuit === 'number') {
       // a point round the Albert Park Grand Prix circuit, moved `off` metres in towards the middle (a start marker
       // beside the track rather than on the racing line)
@@ -343,9 +364,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // A job's cut scene is played out between the player and the giver (Vince or Kaz): letterbox bars, the player walks
   // up to the giver (on foot), and the camera cuts over the shoulder of whoever is listening to whoever is speaking
   function showCut(lines, done) {
-    cut = { lines, k: 0, done, giver: null };
+    cut = { lines, k: 0, done, giver: null, scene: !!mission?.def?.scene };
     const def = mission?.def;
-    if (def && cast) {
+    if (def && cast && !def.scene) {
       const at = giverSpot(def);
       cut.giver = at;
       const person = controllerManager.entities.person;
@@ -372,6 +393,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // The camera for the line being spoken (called after the follow camera each frame; see main.js)
   const _eye = new THREE.Vector3(), _look = new THREE.Vector3();
   function applyCamera(dt) {
+    if (cut && cut.scene && stkilda && cameraSystem) {
+      controllerManager.resetInput();
+      const shot = stkilda.camera(cut.k, cut.lines[cut.k][0], dt);
+      if (!shot) return false;
+      const cam = cameraSystem.camera;
+      cameraSystem.currentPos.copy(shot.eye);
+      cameraSystem.currentLookAt.copy(shot.look);
+      cam.position.copy(shot.eye);
+      cam.lookAt(shot.look);
+      cam.updateMatrixWorld();
+      return true;
+    }
     if (!cut || !cut.giver || !cameraSystem) return false;
     controllerManager.resetInput();
     const me = controllerManager.getActiveEntity().position, g = cut.giver;
@@ -421,11 +454,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (!cut) return;
     cut.k++;
     if (skip || cut.k >= cut.lines.length) {
-      const done = cut.done;
+      const done = cut.done, cut0 = cut;
       cut = null;
       elCut.hidden = true;
       document.body.classList.remove('cinematic', 'cutscene');
       cast?.setPlayerAction(null);
+      if (cut0.scene) stkilda?.standUp();
       voices?.stopStory();
       done();
     } else renderCut();
@@ -475,6 +509,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   function pass() {
     const def = mission.def;
+    if (def.outro) { voices?.sayText(def.outro[1]); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
     persist();
@@ -514,7 +549,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
     if (cast) {
       const def = mission ? mission.def : MISSIONS[save.progress];
-      const show = def && (!mission || cut) && (cut || !document.body.classList.contains('cinematic'));
+      const inScene = !!(def && def.scene);
+      if (stkilda) {
+        // the café: Kaz and Mick at their table before the job (and when you bring the watches back), all three in it
+        const st = def && inScene ? resolve(def.start) : null;
+        const near = st && Math.hypot(p.x - st.x, p.z - st.z) < 140;
+        const returning = mission && inScene && mission.si === def.steps.length - 1;
+        stkilda.update(dt, inScene && cut ? 'cut' : inScene && near && (!mission || returning) ? 'waiting' : 'off', cut ? cut.lines[cut.k] : null);
+      }
+      const show = def && !inScene && (!mission || cut) && (cut || !document.body.classList.contains('cinematic'));
+      if (inScene) cast.setGiver(null);
       if (show) {
         const at = giverSpot(def);
         const acts = cut ? cutActions() : null;

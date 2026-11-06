@@ -87,6 +87,18 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - The park itself is open grass right up to the kerb: no paved walks and no lamp posts. Lakes inside park blocks are
     cut out of the lawn.
   - Hot Lap is one clockwise lap of it, with five checkpoints.
+- **St Kilda** (`js/stkilda.js`): the job "Short Black" (after Westside Bikies).
+  - Kaz and her fence, Mick, sit at the front table of the Short Black café on Acland Street's café strip. The
+    café has parasols, cups and an A-frame board.
+  - In the cut scene the player sits with them. The camera opens wide on the street, then cuts over the listener's
+    shoulder to each speaker, all in seated animation.
+  - The job sends you out along St Kilda Pier to the kiosk at its end. The pier is built from its real OSM outline
+    and you can walk on it.
+- **Character animation**: Rocketbox motion capture for the story.
+  - Cut-scene lines carry a mood (angry, excited, self-assured, cool), with listening, nods and shrugs.
+  - Givers phone, wave and wait at their markers.
+  - The crowd waits, texts, looks round and takes turns in conversation.
+  - The player looks about when idle and cheers on passing a job.
 - **Steering**: more grip and a lock that falls off more gently with speed. The standard car turns a ~26 m circle at
   70 km/h, and both cars corner at about 1–1.4 g.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.

@@ -615,7 +615,14 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   }
   group.add(awningInst);
 
-  const signThemes = [
+  // shop signs (Melbourne's are made up for the game, after its streets)
+  const signThemes = IS_MELBOURNE ? [
+    { bg: '#161210', border: '#c89d54', text: 'DEGRAVES BISTRO · EST. 1928', color: '#ffe4a8' },
+    { bg: '#0c2244', border: '#38b6ff', text: 'SOUTHBANK CHEMIST · PHARMACY', color: '#ffffff' },
+    { bg: '#142b20', border: '#d4af37', text: 'COLLINS BOOKS & ESPRESSO', color: '#fff2cc' },
+    { bg: '#280a10', border: '#ff5252', text: 'LYGON DELI & GRILL · 24HR', color: '#ffd180' },
+    { bg: '#101318', border: '#e0e6ed', text: 'BOURKE ST WATCHES · MELBOURNE', color: '#f5f9ff' }
+  ] : [
     { bg: '#161210', border: '#c89d54', text: 'FIFTH AVE BISTRO · EST. 1928', color: '#ffe4a8' },
     { bg: '#0c2244', border: '#38b6ff', text: 'DUANE READE · PHARMACY', color: '#ffffff' },
     { bg: '#142b20', border: '#d4af37', text: 'MANHATTAN BOOKS & ESPRESSO', color: '#fff2cc' },

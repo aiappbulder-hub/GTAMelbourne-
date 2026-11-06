@@ -619,13 +619,15 @@ async function initApp() {
   const castSystem = cast ? cast.createCast({ scene, controllerManager }) : null;
   if (cast) cast.castHook.cast = castSystem;
   window.__city.cast = castSystem;
+  // St Kilda: the café on Acland Street and St Kilda Pier (js/stkilda.js)
+  const stkilda = IS_MELBOURNE ? (await import('./stkilda.js')).createStKilda({ scene, cast: castSystem, controllerManager }) : null;
   // Recorded Australian voices for the characters, pedestrians and police (js/voice-manager.js, data/character-voices.json)
   const voices = IS_MELBOURNE ? await (await import('./voice-manager.js')).createVoiceManager({
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem }) : null;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices

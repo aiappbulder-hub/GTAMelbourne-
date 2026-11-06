@@ -73,6 +73,20 @@
       "gain": 0.95,
       "refDistance": 4,
       "maxDistance": 35
+    },
+    "mick": {
+      "name": "Mick",
+      "role": "mission",
+      "crew": "Broadmeadows (a fence)",
+      "voice": {
+        "speaker": "angus",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 61
+      },
+      "gain": 1.0,
+      "refDistance": 6,
+      "maxDistance": 60
     }
   },
   "lines": [
@@ -689,6 +703,97 @@
       "check": {
         "heard": "There's a boat waiting off Harbour Estronade, be on it in two and a half minutes or don't bother.",
         "score": 0.95
+      }
+    },
+    {
+      "id": "kaz_cafe_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Sit down. You're making the locals nervous.",
+      "file": "dialogue/short-black/kaz_cafe_1.mp3",
+      "duration": 3.07,
+      "check": {
+        "heard": "Sit down. You're making the locals nervous.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "mick_cafe_1",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Best flat white south of the river, and you lot want to talk shop.",
+      "file": "dialogue/short-black/mick_cafe_1.mp3",
+      "duration": 4.01,
+      "check": {
+        "heard": "There's flat white south of the river and you lot want to talk shop.",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "kaz_cafe_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.",
+      "file": "dialogue/short-black/kaz_cafe_2.mp3",
+      "duration": 4.97,
+      "check": {
+        "heard": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "mick_cafe_2",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "There's a bag in a locker at the end of St Kilda Pier. Twenty Rolexes. The Nomads' stash.",
+      "file": "dialogue/short-black/mick_cafe_2.mp3",
+      "duration": 6.38,
+      "check": {
+        "heard": "There's a bag and a locker at the end of St. Kilda Pier, 20 Rolexes, the nomads stash.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "mick_cafe_3",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Till tonight. Grab it before they do, and we split it three ways.",
+      "file": "dialogue/short-black/mick_cafe_3.mp3",
+      "duration": 4.37,
+      "check": {
+        "heard": "Till tonight, grab it before they do, and we split it three ways.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_cafe_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Bring it back here. And don't stop to look at the penguins.",
+      "file": "dialogue/short-black/kaz_cafe_3.mp3",
+      "duration": 2.98,
+      "check": {
+        "heard": "Bring it back here and don't stop to look at the penguins.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "mick_cafe_4",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Good man. The coffee's on me.",
+      "file": "dialogue/short-black/mick_cafe_4.mp3",
+      "duration": 3.22,
+      "check": {
+        "heard": "Gold man, the coffee's on me.",
+        "score": 0.83
       }
     }
   ]

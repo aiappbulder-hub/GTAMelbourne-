@@ -21,8 +21,15 @@ const STORY = {
     laugh: 'f_gestic_laugh_low', thoughtful: 'f_gestic_thoughtful_01', wave: 'f_wave_01', cheer: 'f_cheer_01', wait: 'f_idle_waiting_01',
     look: 'f_idle_look_around_01', text: 'f_cell_phone_textmessage', angry_idle: 'f_idle_angry_01', nervous_idle: 'f_idle_nervous_01' }
 };
-const SET = process.env.SET === 'story' ? STORY : CLIPS;
-const PREFIX = process.env.SET === 'story' ? 'story' : 'clips';
+// Sitting at a table (the café scene): idle, talking with a shrug, thinking, listening, looking round
+const SIT = {
+  m: { sit: 'm_sit_table_idle_neutral_01', sit_talk: 'm_sit_table_gestic_shrug_01', sit_think: 'm_sit_table_gestic_thoughtful',
+    sit_listen: 'm_sit_table_breathe_01', sit_look: 'm_sit_table_idle_look_around' },
+  f: { sit: 'f_sit_table_idle_neutral_01', sit_talk: 'f_sit_table_gestic_shrug_01', sit_think: 'f_sit_table_gestic_thoughtful',
+    sit_listen: 'f_sit_table_breathe_01', sit_look: 'f_sit_table_idle_look_around' }
+};
+const SET = { story: STORY, sit: SIT }[process.env.SET] || CLIPS;
+const PREFIX = process.env.SET === 'story' || process.env.SET === 'sit' ? process.env.SET : 'clips';
 (async () => {
   fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch({ args: ['--use-angle=swiftshader'] });
@@ -41,7 +48,7 @@ const PREFIX = process.env.SET === 'story' ? 'story' : 'clips';
       const clips = [], speeds = {};
       for (const [key, file] of Object.entries(SET[sex])) {
         const gait = ['walk', 'run', 'sprint'].includes(key);
-        const r = await p.evaluate(([u, k, g, f]) => window.convertClip(u, k, g, f), [`${rel}/anims/${file}.fbx`, key, gait, process.env.SET === 'story' ? 10 : 0]);
+        const r = await p.evaluate(([u, k, g, f]) => window.convertClip(u, k, g, f), [`${rel}/anims/${file}.fbx`, key, gait, process.env.SET === 'story' || process.env.SET === 'sit' ? 10 : 0]);
         clips.push(JSON.parse(r.json));
         if (gait) speeds[key] = Math.round(r.speed * 100) / 100;
         console.log(sex, key, r.duration.toFixed(2) + 's', gait ? r.speed.toFixed(2) + ' m/s' : '');

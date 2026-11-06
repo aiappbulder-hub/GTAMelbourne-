@@ -876,6 +876,8 @@ class ThirdPersonControllerManager {
   }
 
   getGroundHeight(x, z, mode = 'person') {
+    // extra surfaces other modules lay down (St Kilda Pier's deck, js/stkilda.js)
+    if (this.extraGround) for (const f of this.extraGround) { const y = f(x, z); if (y !== null) return y; }
     // Inside Central Park (5th Ave to Central Park West, 59th St to 110th St)
     const cp = CENTRAL_PARK_BOUNDS;
     if (x > cp.minX && x < cp.maxX && z > cp.minZ && z < cp.maxZ) {
