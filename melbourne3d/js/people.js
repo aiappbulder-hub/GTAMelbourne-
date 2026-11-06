@@ -461,8 +461,10 @@ export function createCast({ scene, controllerManager }) {
     const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0);
     const texting = a.logical === 'text';
     // where the wrist goes: beside the ear (the phone then sits on the cheek), or out in front of the chest
-    const T = texting ? chest.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, 0.3).addScaledVector(right, 0.06).add(_e.set(0, -0.05, 0))
-      : head.getWorldPosition(new THREE.Vector3()).addScaledVector(right, 0.1).addScaledVector(fwd, -0.01).add(_e.set(0, -0.06, 0));
+    // (both from the head: on a call the wrist just under and beside the ear; texting, at the height of the lower chest a
+    // forearm's length in front, where the eyes look down at it)
+    const T = texting ? head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, 0.3).addScaledVector(right, 0.05).add(_e.set(0, -0.38, 0))
+      : head.getWorldPosition(new THREE.Vector3()).addScaledVector(right, 0.085).addScaledVector(fwd, 0.03).add(_e.set(0, -0.02, 0));
     // the elbow: down, out to the side and (texting) back, on the circle the two lengths allow
     const d = Math.min(S.distanceTo(T), L1 + L2 - 1e-3), dir = new THREE.Vector3().subVectors(T, S).normalize();
     const along = (L1 * L1 - L2 * L2 + d * d) / (2 * d), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
@@ -472,14 +474,17 @@ export function createCast({ scene, controllerManager }) {
     pointBone(B.R_UpperArm, B.R_Forearm, elbow.sub(S).normalize(), a.phoneW);
     const E = B.R_Forearm.getWorldPosition(new THREE.Vector3());
     pointBone(B.R_Forearm, B.R_Hand, T.clone().sub(E).normalize(), a.phoneW);
+    // the fingers round the phone: up the side of the head on a call, forwards texting
+    const mid = a.midFinger || (a.midFinger = a.root.getObjectByName('RightHandMiddle1'));
+    if (mid) pointBone(B.R_Hand, mid, (texting ? fwd.clone().add(_e.set(0, 0.25, 0)) : _e.set(0, 1, 0).addScaledVector(fwd, 0.15)).normalize(), a.phoneW);
     B.R_Hand.updateWorldMatrix(true, false);
     if (a.phoneW < 0.6) return;
     // the phone in the palm, screen to the face
     const ph = a.phone || (a.phone = makePhone());
     const hand = B.R_Hand.getWorldPosition(new THREE.Vector3());
-    const handDir = hand.clone().sub(E).normalize();
-    ph.position.copy(hand).addScaledVector(handDir, 0.06);
-    if (texting) ph.position.y += 0.02;
+    const handDir = mid ? mid.getWorldPosition(new THREE.Vector3()).sub(hand).normalize() : hand.clone().sub(E).normalize();
+    ph.position.copy(hand).addScaledVector(handDir, 0.07);
+    if (texting) ph.position.y += 0.025; else ph.position.addScaledVector(right, -0.02); // (on the palm side, against the cheek)
     const face = head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, texting ? 0.05 : 0.04);
     ph.up.copy(texting ? fwd : _u);
     ph.lookAt(face);
