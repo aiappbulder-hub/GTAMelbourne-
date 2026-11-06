@@ -30,9 +30,9 @@ const POOLS = {
     'Female_Adult_15', 'Female_Adult_17', 'Business_Female_01', 'Business_Female_02']
 };
 // How many people can be drawn this way at once, and how many different ones (each brings its own textures)
-const LEVEL = Q.peds >= 300 ? { actors: 14, kinds: 14, normals: true, shadows: true }
-  : Q.peds >= 200 ? { actors: 9, kinds: 9, normals: true, shadows: false }
-    : { actors: 5, kinds: 5, normals: false, shadows: false };
+const LEVEL = Q.peds >= 300 ? { actors: 24, kinds: 16, normals: true, shadows: true, range: 80 }
+  : Q.peds >= 200 ? { actors: 14, kinds: 10, normals: true, shadows: false, range: 65 }
+    : { actors: 7, kinds: 6, normals: false, shadows: false, range: 50 };
 // The pools trimmed to that many kinds: a police officer and a gang member always, then men and women alternately
 const ACTIVE = (() => {
   const want = Math.max(4, LEVEL.kinds);
@@ -206,6 +206,7 @@ export function createCast({ scene, controllerManager }) {
     a.owner = p;
     a.heading = p.castHeading ?? 0;
     a.fall = p.dead ? 1 : 0;
+    a.fresh = true; // the first pose snaps to the person's heading (no spin round from wherever the actor last faced)
     a.cur = null;
     a.mixer.stopAllAction();
     p.actor = a;
@@ -216,7 +217,7 @@ export function createCast({ scene, controllerManager }) {
   function assign(candidates) {
     if (!templates.size || !clips.m) return;
     candidates.sort((a, b) => a.d2 - b.d2);
-    const near = candidates.filter((c) => c.d2 < 60 * 60);
+    const near = candidates.filter((c) => c.d2 < LEVEL.range * LEVEL.range);
     const keep = new Set();
     // those who have one keep it while they're among the nearest few more than fit (no swapping at the cut-off)
     near.slice(0, LEVEL.actors + 3).forEach((c) => { if (c.p.actor && keep.size < LEVEL.actors) keep.add(c.p); });
@@ -246,12 +247,102 @@ export function createCast({ scene, controllerManager }) {
       }
     }
     p.castHeading = heading;
-    place(a, p.x, y, p.z, dead ? a.heading : heading, dt);
+    place(a, p.x, y, p.z, dead ? a.heading : heading, dt, !a.fresh);
+    a.fresh = false;
     a.mixer.update(dt);
   }
   function drop(p) { release(p); }
   // a stable pick for person i from a list, rotated so neighbours differ (returned as a list to try in order)
   const pick = (i, list) => [...list.slice(i % list.length), ...list.slice(0, i % list.length)];
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // Guns in the player's hands: simple models of the three weapons (built pointing down +z), placed each frame at the
+  // right hand, and the arms raised to point them when aiming or firing (a two-bone aim for each arm, after the clip)
+  const gunMetal = new THREE.MeshStandardNodeMaterial({ color: 0x1b1c1e, roughness: 0.35, metalness: 0.8 });
+  const gunGrip = new THREE.MeshStandardNodeMaterial({ color: 0x2b2420, roughness: 0.7 });
+  const box = (w, h, d, x, y, z, m = gunMetal) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; return b; };
+  const GUNS = {
+    pistol: [box(0.03, 0.035, 0.19, 0, 0.02, 0.06), box(0.028, 0.1, 0.035, 0, -0.04, -0.01, gunGrip), box(0.02, 0.015, 0.03, 0, -0.01, 0.03)],
+    uzi: [box(0.045, 0.06, 0.24, 0, 0.02, 0.05), box(0.012, 0.012, 0.08, 0, 0.03, 0.2), box(0.03, 0.14, 0.03, 0, -0.06, 0.04), box(0.03, 0.09, 0.03, 0, -0.04, -0.05, gunGrip)],
+    shotgun: [box(0.035, 0.035, 0.72, 0, 0.03, 0.22), box(0.03, 0.03, 0.4, 0, 0.0, 0.28, gunGrip), box(0.04, 0.09, 0.3, 0, -0.03, -0.2, gunGrip)]
+  };
+  const TWO_HANDED = { pistol: true, uzi: true, shotgun: true };
+  const guns = {};
+  for (const [id, parts] of Object.entries(GUNS)) {
+    const g = new THREE.Group();
+    g.name = `Gun:${id}`;
+    parts.forEach((p) => g.add(p));
+    g.visible = false;
+    scene.add(g);
+    guns[id] = g;
+  }
+  const muzzleAt = { pistol: 0.17, uzi: 0.25, shotgun: 0.58 };
+  let weapon = { id: 'pistol', armed: false, aiming: false, yaw: 0, raise: 0 };
+  const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
+  const _q = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qw = new THREE.Quaternion();
+  const muzzle = new THREE.Vector3();
+  let muzzleValid = false;
+  // turn bone so the direction to child points along dir (world), by w (0..1)
+  function pointBone(bone, child, dir, w) {
+    bone.updateWorldMatrix(true, false);
+    child.updateWorldMatrix(false, false);
+    bone.getWorldPosition(_a);
+    child.getWorldPosition(_b);
+    _c.subVectors(_b, _a).normalize();
+    _q.setFromUnitVectors(_c, dir);
+    if (w < 1) _q.slerp(_qw.identity(), 1 - w);
+    bone.getWorldQuaternion(_qw);
+    _qw.premultiply(_q);
+    bone.parent.getWorldQuaternion(_qp);
+    bone.quaternion.copy(_qp.invert().multiply(_qw));
+    bone.updateWorldMatrix(false, true);
+  }
+  const bonesOf = (a) => a.bones || (a.bones = Object.fromEntries(['R_UpperArm', 'R_Forearm', 'R_Hand', 'L_UpperArm', 'L_Forearm', 'L_Hand']
+    .map((n) => [n, a.root.getObjectByName(`Bip01_${n}`)])));
+  function aimArms(a, dir, w, twoHanded) {
+    const B = bonesOf(a);
+    if (!B.R_UpperArm || !B.R_Forearm || !B.R_Hand) return;
+    // the right arm straight out along the aim, a touch down
+    pointBone(B.R_UpperArm, B.R_Forearm, dir, w);
+    pointBone(B.R_Forearm, B.R_Hand, dir, w);
+    if (twoHanded && B.L_UpperArm && B.L_Forearm && B.L_Hand) {
+      // the left hand comes across to the gun: its upper arm towards a point short of the right hand, its forearm
+      // onto the gun just ahead of the right hand
+      B.R_Hand.getWorldPosition(_d);
+      B.L_UpperArm.getWorldPosition(_a);
+      const grip = _d.clone().addScaledVector(dir, 0.1);
+      const elbowAim = _b.subVectors(grip, _a).normalize().clone();
+      elbowAim.y -= 0.35;
+      elbowAim.normalize();
+      pointBone(B.L_UpperArm, B.L_Forearm, elbowAim, w);
+      B.L_Forearm.getWorldPosition(_a);
+      pointBone(B.L_Forearm, B.L_Hand, _c.subVectors(grip, _a).normalize().clone(), w);
+    }
+  }
+  function poseGun(a, dt) {
+    for (const g of Object.values(guns)) g.visible = false;
+    muzzleValid = false;
+    if (!weapon.armed || !guns[weapon.id]) return;
+    weapon.raise += ((weapon.aiming ? 1 : 0) - weapon.raise) * Math.min(1, dt * 14);
+    const dir = _d.set(Math.sin(weapon.yaw), -0.04, Math.cos(weapon.yaw)).normalize().clone();
+    if (weapon.raise > 0.02) aimArms(a, dir, weapon.raise, TWO_HANDED[weapon.id] && weapon.id !== 'pistol' || weapon.raise > 0.5);
+    const B = bonesOf(a);
+    if (!B.R_Hand || !B.R_Forearm) return;
+    B.R_Hand.updateWorldMatrix(true, false);
+    B.R_Hand.getWorldPosition(_a);
+    B.R_Forearm.getWorldPosition(_b);
+    // lowered: along the forearm, hanging; raised: along the aim
+    const along = _c.subVectors(_a, _b).normalize();
+    const look = along.lerp(dir, weapon.raise).normalize();
+    const g = guns[weapon.id];
+    g.position.copy(_a).addScaledVector(look, 0.07);
+    g.position.y -= 0.02;
+    g.lookAt(_b.copy(g.position).add(look));
+    g.visible = true;
+    g.updateMatrixWorld(true);
+    muzzle.copy(g.position).addScaledVector(look, muzzleAt[weapon.id]);
+    muzzleValid = true;
+  }
 
   // ---------------------------------------------------------------------------------------------------------------
   // The player
@@ -279,6 +370,8 @@ export function createCast({ scene, controllerManager }) {
     if (controllerManager.activeMode !== 'person') {
       playerActor.group.visible = false;
       p.castModel = false;
+      for (const g of Object.values(guns)) g.visible = false;
+      muzzleValid = false;
       return;
     }
     p.castModel = true; // controllers.js stops drawing its procedural stand-in
@@ -292,6 +385,8 @@ export function createCast({ scene, controllerManager }) {
     }
     place(a, p.position.x, p.position.y, p.position.z, p.heading, dt, false); // the controller already eases the heading
     a.mixer.update(dt);
+    a.group.updateMatrixWorld(true);
+    poseGun(a, dt);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -344,6 +439,10 @@ export function createCast({ scene, controllerManager }) {
   function setPlayerSeat(seat, anim = 'sit') { playerSeat = seat; playerSeatAnim = anim; }
 
   return {
+    /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
+    setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; },
+    /** Where the gun's muzzle is (for the flash and tracers), or null */
+    muzzle() { return muzzleValid ? muzzle : null; },
     setSeated,
     setPlayerSeat,
     get ready() { return templates.has(PLAYER_MODEL) && !!clips.m; },

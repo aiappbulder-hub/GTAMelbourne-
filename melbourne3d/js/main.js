@@ -162,6 +162,7 @@ async function initApp() {
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
+  let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
   try {
     const saved = JSON.parse(localStorage.getItem(PLAYER_STATE_KEY));
@@ -630,10 +631,13 @@ async function initApp() {
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
-    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices
+    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem
   }) : null;
   window.__city.gameplay = gameplay;
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
+  // the Albert Park Grand Prix
+  race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
+  window.__city.race = race;
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay
@@ -674,6 +678,21 @@ async function initApp() {
     title.className = 'pop-title';
     title.textContent = 'Jobs';
     pop.append(title);
+    // the Albert Park Grand Prix (js/race.js): a race against five AI cars, any time
+    if (race) {
+      const rb = document.createElement('button');
+      rb.className = 'pop-item tp-btn';
+      rb.type = 'button';
+      const rn = document.createElement('span');
+      rn.className = 'pop-name';
+      rn.textContent = 'Race: Albert Park Grand Prix';
+      const rs = document.createElement('span');
+      rs.className = 'pop-sub';
+      rs.textContent = 'Two laps against five cars · $5,000 to win';
+      rb.append(rn, rs);
+      rb.addEventListener('click', () => { closePopovers(); race.start(); });
+      pop.append(rb);
+    }
     missionSystem.missions.forEach((m, i) => {
       const b = document.createElement('button');
       b.className = 'pop-item tp-btn';
@@ -906,7 +925,8 @@ async function initApp() {
       cameraSystem.camera
     );
     highwayTraffic.update(dt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
-    if (tramSystem) tramSystem.update(dt);
+    // trams stop for people, cars and the player on the track ahead
+    if (tramSystem) tramSystem.update(dt, () => ({ peds: trafficSystem.peds, cars: trafficSystem.cars, player: controllerManager.getActiveEntity().position }));
     if (!document.hidden && now >= nextPlayerSave) {
       savePlayerState();
       nextPlayerSave = now + 5000;
@@ -918,6 +938,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
+    race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk

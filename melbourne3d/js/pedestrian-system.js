@@ -83,6 +83,10 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       resumeDir: 0,
       dodge: 0,
       dodgeTarget: 0,
+      // on a footpath, people keep to one side for their direction (left, as Melbourne walks), each a little apart
+      // from the next, so they don't all walk down the one line through each other
+      lineOff: 0.15 + hash(i, 9) * 0.3, // (small: the footpath already has two lines, 1.7 and 2.8 m in from the kerb)
+      lineCur: 0,
       diveStart: -Infinity,
       diveHeading: 0,
       diveT: 0,
@@ -522,8 +526,12 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     p.t = t;
     const dodgeStep = (diving || p.dodgeTarget ? PED_DODGE_SPEED : 1.8) * dt;
     p.dodge += clamp(p.dodgeTarget - p.dodge, -dodgeStep, dodgeStep);
-    p.x = p.ax + p.ux * t + p.uz * p.dodge;
-    p.z = p.az + p.uz * t - p.ux * p.dodge;
+    // their side of the footpath (not on a crosswalk, which has its own lines), eased across when they turn round
+    const lineWant = p.node ? 0 : -p.dir * p.lineOff;
+    p.lineCur += clamp(lineWant - p.lineCur, -0.9 * dt, 0.9 * dt);
+    const side = p.dodge + p.lineCur;
+    p.x = p.ax + p.ux * t + p.uz * side;
+    p.z = p.az + p.uz * t - p.ux * side;
     if (p.node && ((t > KERB && t < p.len - KERB) || (p.waiting && walkOn(p.side)))) {
       p.coord = p.side >= 2 ? p.x : p.z;
       if (!p.node.walkers.length) walkedNodes.push(p.node);

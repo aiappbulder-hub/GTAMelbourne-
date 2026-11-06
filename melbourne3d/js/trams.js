@@ -19,6 +19,11 @@ const CRUISE = 11; // m/s (40 km/h)
 const ACCEL = 1.1;
 const STOP_EVERY = 300;
 const DWELL = 7;
+// A tram looks down its track: anyone (or any car) within this far of its front, near the rails, and it brakes to a
+// stop until they're clear
+const FRONT = 12; // from a tram's middle to its nose (m)
+const LOOK = 14;
+const CLEAR = 1.9; // half the width it needs (m)
 
 const toPts = (flat) => {
   const out = [];
@@ -168,17 +173,38 @@ export async function createTramSystem(scene) {
   trams.forEach((t, i) => place(i, t));
   for (const m of meshes) m.instanceMatrix.needsUpdate = true;
 
-  function update(dt) {
+  // Is there someone or something on the track in the next LOOK metres ahead of tram t? Returns the distance, or Infinity
+  const P = new THREE.Vector2();
+  function blockedAhead(t, obs) {
+    if (!obs) return Infinity;
+    let first = Infinity;
+    for (let d = FRONT; d <= FRONT + LOOK && d < first; d += 2) {
+      t.line.sample(Math.min(t.s + d, t.line.length), P);
+      const test = (x, z) => (x - P.x) * (x - P.x) + (z - P.y) * (z - P.y) < CLEAR * CLEAR;
+      for (const q of obs.peds) if (q.placed && !q.dead && Math.abs(q.x - P.x) < 3 && Math.abs(q.z - P.y) < 3 && test(q.x, q.z)) { first = d; break; }
+      if (first < Infinity) break;
+      for (const c of obs.cars) if ((c.edge || c.parked) && Math.abs(c.x - P.x) < 4 && Math.abs(c.z - P.y) < 4 && test(c.x, c.z)) { first = d; break; }
+      if (first < Infinity) break;
+      if (obs.player && test(obs.player.x, obs.player.z)) first = d;
+    }
+    return first;
+  }
+
+  function update(dt, obstacles = null) {
     if (!meshes.length) return;
     dt = Math.min(dt, 0.1);
+    const obs = obstacles ? obstacles() : null;
     trams.forEach((t, i) => {
       if (t.dwell > 0) {
         t.dwell -= dt;
       } else {
-        // brake for the next stop, dwell there, then pull away
+        // brake for the next stop (and for anyone on the track ahead), dwell there, then pull away
         const nextStop = (Math.floor(t.s / STOP_EVERY) + 1) * STOP_EVERY;
         const toStop = Math.min(nextStop, t.line.length) - t.s;
-        const vMax = Math.min(CRUISE, Math.sqrt(2 * ACCEL * Math.max(0, toStop)) + 0.3);
+        const ahead = (t.check = (t.check || 0) - dt) <= 0 ? (t.check = 0.25, t.ahead = blockedAhead(t, obs)) : t.ahead ?? Infinity;
+        const room = Math.max(0, ahead - FRONT - 2.5);
+        const vMax = Math.min(CRUISE, Math.sqrt(2 * ACCEL * Math.max(0, toStop)) + 0.3, ahead < Infinity ? Math.sqrt(2 * 2.5 * room) : Infinity);
+        if (t.v > vMax) t.v = Math.max(vMax, t.v - 3.5 * dt); // the brakes are firmer than the pull-away
         t.v = Math.min(vMax, t.v + ACCEL * dt);
         t.s += t.v * dt;
         if (toStop < 0.4 && t.s < t.line.length - 1) {

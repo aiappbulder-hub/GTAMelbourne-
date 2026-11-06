@@ -91,7 +91,7 @@ body.touch-enabled .gp-fire.on { display: block; }
 .gp-say small { display: block; color: #a0336b; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 `;
 
-export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null }) {
+export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null, cast = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -424,7 +424,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let armed = true;
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
-  let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false;
+  let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
   let lockTarget = null;
 
   // tracers and muzzle flashes, pooled
@@ -552,8 +552,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const t = lockTarget || (!aimHeld && findTarget(person.heading, LOCK_CONE));
     if (t) yaw = Math.atan2(t.x - person.position.x, t.z - person.position.z);
     person.heading = yaw;
-    const mx = person.position.x + Math.sin(yaw) * 0.55, mz = person.position.z + Math.cos(yaw) * 0.55;
-    const my = person.position.y + 1.38;
+    let mx = person.position.x + Math.sin(yaw) * 0.55, mz = person.position.z + Math.cos(yaw) * 0.55;
+    let my = person.position.y + 1.38;
+    raisedT = 0.7; // the gun comes up to fire, and stays up a moment
+    const mz0 = cast?.muzzle();
+    if (mz0) { mx = mz0.x; my = mz0.y; mz = mz0.z; }
     flash.position.set(mx, my, mz);
     flash.visible = true;
     flashT = 0.05;
@@ -666,10 +669,17 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; });
   const canvas = renderer.domElement;
   let down = null;
-  canvas.addEventListener('pointerdown', (e) => {
+  // aim with the right mouse button anywhere off the menus (the camera's own handlers can take the canvas's events),
+  // or hold Q (touchpads); fire with a left click or J
+  const offUi = (e) => !(e.target instanceof Element && e.target.closest('button, input, select, a, [role=dialog], .pop-item, .gm-cut, .intro-card'));
+  window.addEventListener('pointerdown', (e) => {
+    if (!offUi(e)) return;
     if (e.button === 2) { aimHeld = true; e.preventDefault(); return; }
     if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
-  });
+  }, true);
+  window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
+  window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !typing(e)) aimHeld = true; });
+  window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ') aimHeld = false; });
   window.addEventListener('pointerup', (e) => {
     if (e.button === 2) aimHeld = false;
     if (e.button === 0 && down) {
@@ -710,6 +720,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : cm.cameraYaw;
     } else lockTarget = null;
     elCross.hidden = !cm.aiming;
+    // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
+    raisedT = Math.max(0, raisedT - dt);
+    cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot, aiming: cm.aiming || raisedT > 0,
+      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading });
     elCross.classList.toggle('lock', !!lockTarget);
     if (triggerHeld && WEAPONS[wi].auto) fire();
 
@@ -823,7 +837,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Tab to change · G holster` : 'G to draw'));
+      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right mouse or Q: aim · Click or J: fire · Tab: change · G: holster` : 'G to draw your gun'));
     }
   }
 
