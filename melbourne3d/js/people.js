@@ -636,7 +636,7 @@ export function createCast({ scene, controllerManager }) {
       if (!a) return;
       extras.set(key, a);
     }
-    play(a, has(a, anim) ? anim : 'idle');
+    play(a, anim); // (a mood they've no clip for plays the idle, but stays their mood: the phone comes out for 'phone')
     a.heading = pose.heading;
     place(a, pose.x, pose.y ?? 0, pose.z, pose.heading, 0.016, false);
   }

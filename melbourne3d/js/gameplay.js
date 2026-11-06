@@ -743,8 +743,22 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { aimHeld = false; freeMouse(); } });
   window.addEventListener('mouseup', (e) => { if (e.button === 2) stopMouseAim(); });
+  // a left click while the right button is held (aiming): browsers send no pointerdown for a second button, only the
+  // mouse events, so the shot is taken here
+  window.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !(e.buttons & 2) || !offUi(e)) return;
+    down = null;
+    fire();
+    if (WEAPONS[wi].auto) triggerHeld = true;
+  }, true);
+  window.addEventListener('mouseup', (e) => { if (e.button === 0 && (e.buttons & 2)) triggerHeld = false; }, true);
   // Esc (or the browser) took the mouse back: stop aiming with it
-  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvasEl) stopMouseAim(); });
+  // (only when the right button is up too: a lock the browser drops by itself, or never really gives, leaves the aim on
+  // while the button's held, turned by the pointer's movement instead)
+  let rightDown = false;
+  window.addEventListener('mousedown', (e) => { if (e.button === 2) rightDown = true; }, true);
+  window.addEventListener('mouseup', (e) => { if (e.button === 2) rightDown = false; }, true);
+  document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement !== canvasEl && !rightDown) stopMouseAim(); });
   window.addEventListener('pointerup', (e) => {
     if (e.button === 2) stopMouseAim();
     if (e.button === 0 && down) {
