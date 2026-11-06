@@ -816,7 +816,7 @@
       "folder": "voices/player",
       "text": "So what do you need?",
       "file": "voices/player/player_line_1.mp3",
-      "duration": 3.79,
+      "duration": 2.16,
       "check": {
         "heard": "So, what do you need? All. All.",
         "score": 0.83
@@ -829,7 +829,7 @@
       "folder": "voices/player",
       "text": "One lap?",
       "file": "voices/player/player_line_2.mp3",
-      "duration": 4.18,
+      "duration": 1.06,
       "check": {
         "heard": "One lap, O, O, Soul.",
         "score": 0.57
@@ -855,7 +855,7 @@
       "folder": "voices/player",
       "text": "I go where the money is.",
       "file": "voices/player/player_line_4.mp3",
-      "duration": 3.5,
+      "duration": 2.16,
       "check": {
         "heard": "I go where the money is? Read, say.",
         "score": 0.86
@@ -868,7 +868,7 @@
       "folder": "voices/player",
       "text": "And the Nomads just leave it lying about?",
       "file": "voices/player/player_line_5.mp3",
-      "duration": 2.64,
+      "duration": 2.71,
       "check": {
         "heard": "And the nomads just leave it lying about.",
         "score": 1.0
@@ -880,7 +880,7 @@
       "category": "story",
       "folder": "voices/player",
       "text": "That's not my fight.",
-      "duration": 1.32,
+      "duration": 1.42,
       "check": {
         "heard": "That's not my fight.",
         "score": 1.0
@@ -894,7 +894,7 @@
       "folder": "voices/player",
       "text": "Melbourne. Four seasons in one day, and somebody fighting over every one of them.",
       "file": "voices/player/player_line_7.mp3",
-      "duration": 9.34,
+      "duration": 6.55,
       "check": {
         "heard": "wall ball four seasons in one day and somebody fighting over every one of them",
         "score": 0.9
@@ -907,7 +907,7 @@
       "folder": "dialogue/intro",
       "text": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
       "file": "dialogue/intro/player_intro_8.mp3",
-      "duration": 7.18,
+      "duration": 5.74,
       "check": {
         "heard": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
         "score": 1.0
@@ -920,7 +920,7 @@
       "folder": "dialogue/intro",
       "text": "The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.",
       "file": "dialogue/intro/player_intro_9.mp3",
-      "duration": 7.56,
+      "duration": 5.38,
       "check": {
         "heard": "The Ligon Street crew run Charlton and Fitzroy, old families, old rules, good coffee.",
         "score": 0.86
@@ -933,7 +933,7 @@
       "folder": "dialogue/intro",
       "text": "Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.",
       "file": "dialogue/intro/player_intro_10.mp3",
-      "duration": 8.86,
+      "duration": 6.84,
       "check": {
         "heard": "Out west the Broadmeadows mob want the lot. Six years of worried chop shops torched, tobacco trucks gone.",
         "score": 0.94
@@ -946,7 +946,7 @@
       "folder": "dialogue/intro",
       "text": "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them.",
       "file": "dialogue/intro/player_intro_11.mp3",
-      "duration": 7.22,
+      "duration": 6.1,
       "check": {
         "heard": "And now Task Force Kestrel, the cop's shiny new toy, is closing in on all of them.",
         "score": 0.85
@@ -959,7 +959,7 @@
       "folder": "voices/player",
       "text": "Fresh off the plane and already working. Typical.",
       "file": "voices/player/player_line_12.mp3",
-      "duration": 4.9,
+      "duration": 3.48,
       "check": {
         "heard": "Fresh off the plane and already working typical.",
         "score": 1.0
