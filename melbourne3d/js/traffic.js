@@ -265,10 +265,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   };
   // Of every 20 cars: 4 yellow cabs, 5 sedans, 6 SUVs, 2 delivery vans, 2 minivans & a pickup. NYPD cruisers are sedans
   // or Interceptor SUVs, green Boro cabs sedans or SUVs.
-  // (Melbourne: one taxi in twenty rather than one in five, and more utes)
+  // (Melbourne: one taxi in twenty rather than one in five, more utes, and Commodores everywhere: 8 sedans in 20, drawn
+  // as the Holdan Comodo near the camera)
   const FLEET_MIX = IS_MELBOURNE
-    ? ['sedan', 'suv', 'van', 'sedan', 'suv', 'pickup', 'suv', 'minivan', 'sedan', 'pickup',
-      'taxi', 'sedan', 'suv', 'van', 'suv', 'sedan', 'minivan', 'sedan', 'pickup', 'suv']
+    ? ['sedan', 'suv', 'van', 'sedan', 'sedan', 'pickup', 'suv', 'minivan', 'sedan', 'pickup',
+      'taxi', 'sedan', 'suv', 'sedan', 'suv', 'sedan', 'minivan', 'sedan', 'pickup', 'van']
     : ['taxi', 'sedan', 'van', 'sedan', 'suv', 'taxi', 'suv', 'minivan', 'suv', 'pickup',
       'taxi', 'sedan', 'suv', 'van', 'suv', 'taxi', 'minivan', 'sedan', 'suv', 'sedan'];
 
@@ -390,6 +391,64 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     sparkInst,
     ...policeLightbarMeshes
   );
+
+  // Commodores: near the camera the street's sedans (police cars too) are the Holdan Comodo, the old game's Blender
+  // model (models/custom/comodo.json), fitted onto the sedan's wheels (2.8 m wheelbase, 0.35 m wheels: the traffic
+  // draws those) and painted per car from the paintColor attribute; further off they keep the lofted stand-in
+  if (IS_MELBOURNE) swapInComodo().catch((e) => console.warn('[traffic] Comodo model', e));
+  async function swapInComodo() {
+    const [{ GLTFLoader }, { mergeGeometries }, { attribute, vec3, float }] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/BufferGeometryUtils.js'), import('three/tsl')]);
+    const gltf = await new GLTFLoader().loadAsync(new URL('../../models/custom/comodo.json', import.meta.url).href);
+    gltf.scene.updateMatrixWorld(true);
+    // its wheels: 1.5 m in front of and 1.45 m behind the middle, 0.34 m up; the sedan's: 1.4 m each way, 0.35 m up
+    const S = 2.8 / 2.95;
+    const fit = new THREE.Matrix4().makeTranslation(0, 0.35 - 0.34 * S, -0.025 * S).multiply(new THREE.Matrix4().makeScale(S, S, S));
+    const parts = new Map(); // material → geometries
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh || /^wheel-/i.test(o.name) || /^wheel-/i.test(o.parent?.name || '')) return;
+      const m = o.material;
+      if (!m || /^(Tyre|Brake|Rim)/i.test(m.name) || /^Interior/.test(m.name)) return; // (the traffic's own wheels; nobody sees inside)
+      const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(fit, o.matrixWorld));
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]);
+      if (!parts.has(m)) parts.set(m, []);
+      parts.get(m).push(g);
+    });
+    const mats = [], geos = [];
+    for (const [m, list] of parts) {
+      geos.push(mergeGeometries(list));
+      let mat = m;
+      if (m.name === 'Body') {
+        // the car's own paint, clear-coated
+        mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.32, metalness: 0.45 });
+        mat.colorNode = attribute('paintColor', 'vec3');
+      } else if (m.name === 'TailLight') {
+        // brighter when braking (carState.x)
+        mat = new THREE.MeshStandardNodeMaterial({ color: 0x5a0606, roughness: 0.3 });
+        mat.emissiveNode = vec3(0.9, 0.05, 0.03).mul(float(0.25).add(attribute('carState', 'vec4').x.mul(1.6)));
+      }
+      mats.push(mat);
+    }
+    const geo = mergeGeometries(geos, true);
+    const old = bodies.sedan.near;
+    const n = old.instanceMatrix.count;
+    geo.setAttribute('paintColor', new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3));
+    geo.setAttribute('carState', new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4));
+    const inst = new THREE.InstancedMesh(geo, mats, n);
+    inst.name = 'TrafficComodo';
+    inst.count = 0;
+    inst.frustumCulled = false;
+    inst.castShadow = old.castShadow;
+    inst.receiveShadow = old.receiveShadow;
+    // (paint already handed out is copied over, so cars keep their colours)
+    geo.attributes.paintColor.array.set(old.geometry.attributes.paintColor.array);
+    old.parent?.add(inst);
+    old.parent?.remove(old);
+    bodies.sedan.near = inst;
+    for (const list of [bodyMeshes, carInstances]) { const i = list.indexOf(old); if (i >= 0) list[i] = inst; }
+  }
 
   // =========================================================================
   // 2. CITY BUSES
