@@ -3,9 +3,9 @@ import { ROADS, blockAt } from './city-config.js';
 import { STORY_CAST } from './people.js';
 
 // The opening: wide shots of Melbourne at golden hour, letterboxed, with the player's own voice setting up the story
-// over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. The first
-// time the game starts it waits on a title card for a key or a tap (browsers only play sound after one); it also plays
-// with ?intro, or "Watch the intro" in the teleport menu. Esc, Enter or Skip end it.
+// over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. Every
+// time the game starts it waits on a title card for a key or a tap (browsers only play sound after one), then plays;
+// ?nointro leaves it out. "Watch the intro" in the teleport menu plays it again. Esc, Enter or Skip end it.
 //
 // Each shot moves the camera from `from` to `to` (eye) while looking from `lookFrom` to `lookTo`, over `secs`, eased.
 // World metres (x = east along Collins St, z = south). 'sun' as a look target points the camera into the sunset.
@@ -344,7 +344,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   function buildCastShots() {
     if (castShots || !cast) return;
     castShots = true;
-    const A = cast.active || {}, male = A.male || [], gang = A.gang || [], police = A.police || [];
+    const A = cast.active || {}, police = A.police || [];
     const V = STORY_CAST.Vince, K = STORY_CAST.Kaz;
     // Lygon Street, Carlton
     const ly = footpathNear('LYGON STREET', { x: 475, z: -1425 });
@@ -355,8 +355,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       from: [camA.x, 1.8, camA.z], to: [camB.x, 1.65, camB.z], lookFrom: [vince.x, 1.75, vince.z], lookTo: [vince.x, 1.7, vince.z],
       actors: [
         { key: 'vince', id: V, pose: { ...vince, heading: face(vince, { x: (c1.x + c2.x) / 2, z: (c1.z + c2.z) / 2 }) }, anim: 'talk_assured' },
-        { key: 'crew1', id: male[0], pose: { ...c1, heading: face(c1, vince) }, anim: 'listen' },
-        { key: 'crew2', id: male[1] || male[0], pose: { ...c2, heading: face(c2, vince) }, anim: 'laugh' }
+        // (only the story's own people: Davo is Vince's driver)
+        { key: 'crew1', id: STORY_CAST.Davo, pose: { ...c1, heading: face(c1, vince) }, anim: 'laugh' }
       ]
     });
     // Docklands at sunset: they stand between the camera and the sun
@@ -369,8 +369,8 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       lookFrom: [D.x + sx * 30, 3, D.z + sz * 30], lookTo: [D.x + sx * 30, 2.4, D.z + sz * 30],
       actors: [
         { key: 'kaz', id: K, pose: kaz, anim: 'angry_idle' },
-        { key: 'gang1', id: gang[0], pose: { x: D.x + side.x * 1.3 + sx * 0.6, y: D.y, z: D.z + side.z * 1.3 + sz * 0.6, heading: kaz.heading + 0.25 }, anim: 'text' },
-        { key: 'gang2', id: gang[1] || gang[0], pose: { x: D.x - side.x * 1.4 + sx * 0.5, y: D.y, z: D.z - side.z * 1.4 + sz * 0.5, heading: kaz.heading - 0.2 }, anim: 'look' }
+        // (Mick, her fence, beside her)
+        { key: 'gang1', id: STORY_CAST.Mick, pose: { x: D.x + side.x * 1.3 + sx * 0.6, y: D.y, z: D.z + side.z * 1.3 + sz * 0.6, heading: kaz.heading + 0.25 }, anim: 'phone' }
       ]
     });
     // Southbank: two officers in the foreground, then up the tower
@@ -544,8 +544,6 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     missionSystem?.sub?.("Fresh off the plane. Vince's job is just up the road: the pink marker.", 6);
   }
 
-  let seen = false;
-  try { seen = localStorage.getItem(KEY) === '1'; } catch { /* storage unavailable */ }
   const forced = new URLSearchParams(location.search).has('intro');
   /** The title card: waits for a key or a tap, then plays (with sound: the gesture lets the browser start audio) */
   function prompt() {
@@ -574,6 +572,6 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     /** For checking a shot: show shot i, a little way in */
     jump(i, at = 2) { if (!active) start(); shot = Math.max(0, Math.min(SHOTS.length - 1, i)); t = at; lineK = -1; },
     /** Whether to play it once the city is on screen */
-    shouldAutoplay: forced || !seen
+    shouldAutoplay: forced || !new URLSearchParams(location.search).has('nointro')
   };
 }

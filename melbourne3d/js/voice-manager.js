@@ -68,7 +68,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   }
 
   // settings
-  let volume = 1, subtitles = true, ambient = true;
+  // (no chatter of their own: people only speak when you talk to them, T)
+  let volume = 1, subtitles = true, ambient = false;
   try {
     const v = parseFloat(localStorage.getItem(VOLUME_KEY));
     if (Number.isFinite(v)) volume = Math.min(1, Math.max(0, v));

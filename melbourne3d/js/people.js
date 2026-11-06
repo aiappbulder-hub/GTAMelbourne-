@@ -430,6 +430,62 @@ export function createCast({ scene, controllerManager }) {
       pointBone(B.L_Forearm, B.L_Hand, _c.subVectors(grip, _a).normalize().clone(), w);
     }
   }
+  // A mobile phone: on a call (the hand at the ear) or texting (held in front of the chest, screen up). Ara people have no
+  // phone capture, so the right arm is solved to it over whatever the clip does (two bones: shoulder to elbow to hand)
+  const phoneBody = new THREE.MeshStandardNodeMaterial({ color: 0x15161a, roughness: 0.3, metalness: 0.6 });
+  const phoneGlass = new THREE.MeshStandardNodeMaterial({ color: 0x0b1424, roughness: 0.08, metalness: 0.1, emissive: 0x1d3150, emissiveIntensity: 0.6 });
+  function makePhone() {
+    const g = new THREE.Group();
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.15, 0.009), phoneBody);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(0.064, 0.138), phoneGlass);
+    sc.position.z = 0.0047;
+    g.add(b, sc);
+    g.name = 'Phone';
+    g.visible = false;
+    scene.add(g);
+    return g;
+  }
+  const _e = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(0, 1, 0);
+  function posePhone(a, dt) {
+    const want = a.ara && (a.logical === 'phone' || a.logical === 'text') ? 1 : 0;
+    a.phoneW = (a.phoneW || 0) + (want - (a.phoneW || 0)) * Math.min(1, dt * 6);
+    if (a.phone) a.phone.visible = false;
+    if (a.phoneW < 0.02) return;
+    const B = bonesOf(a);
+    const head = a.head || (a.head = a.root.getObjectByName('Head'));
+    const chest = a.chest || (a.chest = a.root.getObjectByName('Spine2') || a.root.getObjectByName('Spine1'));
+    if (!B.R_UpperArm || !B.R_Forearm || !B.R_Hand || !head || !chest) return;
+    a.group.updateMatrixWorld(true);
+    const h = a.heading, fwd = _f.set(Math.sin(h), 0, Math.cos(h)), right = _r.set(-Math.cos(h), 0, Math.sin(h));
+    const S = B.R_UpperArm.getWorldPosition(new THREE.Vector3()), E0 = B.R_Forearm.getWorldPosition(new THREE.Vector3()), H0 = B.R_Hand.getWorldPosition(new THREE.Vector3());
+    const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0);
+    const texting = a.logical === 'text';
+    // where the wrist goes: beside the ear (the phone then sits on the cheek), or out in front of the chest
+    const T = texting ? chest.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, 0.3).addScaledVector(right, 0.06).add(_e.set(0, -0.05, 0))
+      : head.getWorldPosition(new THREE.Vector3()).addScaledVector(right, 0.1).addScaledVector(fwd, -0.01).add(_e.set(0, -0.06, 0));
+    // the elbow: down, out to the side and (texting) back, on the circle the two lengths allow
+    const d = Math.min(S.distanceTo(T), L1 + L2 - 1e-3), dir = new THREE.Vector3().subVectors(T, S).normalize();
+    const along = (L1 * L1 - L2 * L2 + d * d) / (2 * d), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
+    const pole = new THREE.Vector3(0, -1, 0).addScaledVector(right, texting ? 0.35 : 0.9).addScaledVector(fwd, texting ? -0.3 : 0.15);
+    pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+    const elbow = S.clone().addScaledVector(dir, along).addScaledVector(pole, up);
+    pointBone(B.R_UpperArm, B.R_Forearm, elbow.sub(S).normalize(), a.phoneW);
+    const E = B.R_Forearm.getWorldPosition(new THREE.Vector3());
+    pointBone(B.R_Forearm, B.R_Hand, T.clone().sub(E).normalize(), a.phoneW);
+    B.R_Hand.updateWorldMatrix(true, false);
+    if (a.phoneW < 0.6) return;
+    // the phone in the palm, screen to the face
+    const ph = a.phone || (a.phone = makePhone());
+    const hand = B.R_Hand.getWorldPosition(new THREE.Vector3());
+    const handDir = hand.clone().sub(E).normalize();
+    ph.position.copy(hand).addScaledVector(handDir, 0.06);
+    if (texting) ph.position.y += 0.02;
+    const face = head.getWorldPosition(new THREE.Vector3()).addScaledVector(fwd, texting ? 0.05 : 0.04);
+    ph.up.copy(texting ? fwd : _u);
+    ph.lookAt(face);
+    ph.visible = a.group.visible;
+    ph.updateMatrixWorld(true);
+  }
   function poseGun(a, dt) {
     for (const g of Object.values(guns)) g.visible = false;
     muzzleValid = false;
@@ -524,7 +580,7 @@ export function createCast({ scene, controllerManager }) {
   // Story characters at their jobs: on the phone while they wait, talking through the cut scene, facing the player
   const story = {};
   function setGiver(name, at = null, face = null, mood = null, dt = 0) {
-    for (const [n, a] of Object.entries(story)) if (a && !a.seat && (n !== name || !at)) a.group.visible = false;
+    for (const [n, a] of Object.entries(story)) if (a && !a.seat && (n !== name || !at)) { a.group.visible = false; if (a.phone) a.phone.visible = false; }
     if (!name || !at) return;
     const id = STORY_CAST[name];
     if (!id) return;
@@ -546,6 +602,7 @@ export function createCast({ scene, controllerManager }) {
     place(a, at.x, at.y ?? 0, at.z, heading, dt || 0.016);
     a.mixer.update(dt);
     faceLife(a, dt);
+    posePhone(a, dt || 0.016);
   }
 
   // Story characters sitting down (the café scene): at a seat { x, y, z, heading } playing a seated clip; null: gone
@@ -618,7 +675,7 @@ export function createCast({ scene, controllerManager }) {
     /** how loud the story voices are (0..1): the speaking character's lips follow it */
     setVoiceLevel(x) { voiceLevel = x; },
     /** advance the cast's clock (gestures time out on it) */
-    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) if (a.group.visible) { a.mixer.update(dt); faceLife(a, dt, false); } } // (extras' lips stay still: the voice over them is the narrator's)
+    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) { if (a.group.visible) { a.mixer.update(dt); faceLife(a, dt, false); } posePhone(a, dt); } } // (extras' lips stay still: the voice over them is the narrator's)
   };
 }
 
