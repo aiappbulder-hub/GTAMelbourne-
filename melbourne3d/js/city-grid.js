@@ -60,7 +60,7 @@ import { createRoadPaintChunkBuilder } from './road-paint.js';
 import { GEO } from './geodata.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q } from './quality.js';
-import { buildRaceTrack, trackHeight, ALBERT_PARK } from './race-track.js';
+import { buildRaceTrack, trackHeight, ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 
 // Live construction data consumed by the building and street-detail builders after buildCityGrid().
 let centralParkClearings;
@@ -3739,7 +3739,7 @@ function buildMelbourneGrid(scene) {
   const pavingMat = createParkPavingMaterial();
   const graniteMat = new THREE.MeshStandardNodeMaterial({ color: 0x86837c, roughness: 0.8 });
   const lawnMat = createParkLawnMaterial(false);
-  const PARK_Y = 0.26, BED_Y = 0.41;
+  const PARK_Y = 0.26, BED_Y = 0.41, OPEN_PARK_Y = OPEN_PARK_LAWN_Y;
   const treeSites = [];
   const lampMatrices = [];
   const pavedRects = [];
@@ -3750,23 +3750,28 @@ function buildMelbourneGrid(scene) {
     if (!(b.park > 0.6 && !b.median && b.area > 250)) continue;
     const slab = offsetPolygonInward(b.poly, 0.1) || b.poly;
     const holes = holesIn(b);
-    parkCurbGeos.push(extrudeHoles(b.poly, holes, 0.0, PARK_Y - 0.04, curbMat).geometry);
-    const top = extrudeHoles(slab, holes, 0.0, PARK_Y, pavingMat).geometry;
-    setPavingStyle(top, 0);
-    parkWalkGeos.push(top);
-    addStreetGround(slab, PARK_Y);
-    pavedRects.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
-    roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, polygon: { outer: b.poly, holes: [] } });
-    // Albert Park is open parkland: grass right up to the kerb, no paved walk or granite edge, and no lamps
+    // Albert Park is open parkland, level with its roads as the real one is: grass right up to the road at its own
+    // level (so the Grand Prix track, laid over the roads and across the grass, always sits on top of it), with no
+    // kerb, paved walk or granite edge, and no lamps
     const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
     const openPark = cx > ALBERT_PARK.minX && cx < ALBERT_PARK.maxX && cz > ALBERT_PARK.minZ && cz < ALBERT_PARK.maxZ;
-    const bed = openPark ? offsetPolygonInward(b.poly, 0.12) || b.poly
+    if (!openPark) {
+      parkCurbGeos.push(extrudeHoles(b.poly, holes, 0.0, PARK_Y - 0.04, curbMat).geometry);
+      const top = extrudeHoles(slab, holes, 0.0, PARK_Y, pavingMat).geometry;
+      setPavingStyle(top, 0);
+      parkWalkGeos.push(top);
+      addStreetGround(slab, PARK_Y);
+    }
+    pavedRects.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ });
+    roadSidewalks.push({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, polygon: { outer: b.poly, holes: [] } });
+    const bed = openPark ? b.poly
       : offsetPolygonInward(b.poly, Math.min(4, Math.min(b.maxX - b.minX, b.maxZ - b.minZ) * 0.15));
     if (!bed) continue;
     if (!openPark) parkEdgeGeos.push(extrudeHoles(bed, holes, 0.2, BED_Y - 0.21, graniteMat).geometry);
     const lawn = openPark ? bed : offsetPolygonInward(bed, 0.3) || bed;
-    parkLawnGeos.push(extrudeHoles(lawn, holes, 0.3, BED_Y - 0.3, lawnMat).geometry);
-    addStreetGround(lawn, BED_Y);
+    const lawnY = openPark ? OPEN_PARK_Y : BED_Y;
+    parkLawnGeos.push((openPark ? extrudeHoles(lawn, holes, 0.0, OPEN_PARK_Y, lawnMat) : extrudeHoles(lawn, holes, 0.3, BED_Y - 0.3, lawnMat)).geometry);
+    addStreetGround(lawn, lawnY);
     // trees on a jittered lattice with glades (big parks get them sparser, the Domain and the Fitzroy and Flagstaff
     // Gardens have their real trees from street-details.js's survey too)
     const SP = (b.area > 40000 ? 16 : 11) * (Q.treeDist < 0.5 ? 1.5 : 1); // sparser on low graphics quality
@@ -3777,7 +3782,7 @@ function buildMelbourneGrid(scene) {
         if (prand(tx, tz, 9) < 0.35 || !pointInPolygonXZ(lawn, tx, tz) || inAnyHole(holes, tx, tz)) continue;
         if (openPark && trackHeight(tx, tz, 6) !== null) continue; // clear of the race track
         const r = prand(tx, tz, 2);
-        treeSites.push({ x: tx, y: BED_Y, z: tz, scale: 0.9 + prand(tx, tz, 3) * 0.4, species: r < 0.55 ? 0 : (r < 0.75 ? 1 : 2) });
+        treeSites.push({ x: tx, y: lawnY, z: tz, scale: 0.9 + prand(tx, tz, 3) * 0.4, species: r < 0.55 ? 0 : (r < 0.75 ? 1 : 2) });
       }
     }
     for (let i = 0; i < slab.length && !openPark; i++) {

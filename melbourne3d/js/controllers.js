@@ -28,7 +28,7 @@ import { PersonCrowd, PersonRig } from './pedestrians.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { bryantParkLawn } from './landmarks.js';
 import { polygonContact } from './building-collision.js';
-import { trackHeight } from './race-track.js';
+import { trackHeight, ALBERT_PARK } from './race-track.js';
 
 // Player models, animation and movement for walking, driving, cycling and flying.
 
@@ -1304,9 +1304,10 @@ class ThirdPersonControllerManager {
         const track = trackHeight(wx, wz, 1.3);
         const b = blockAt(wx, wz);
         // (where the real road is narrower than the track, its edge wheels ride up on the kerb, but never count as grass)
-        if (track !== null) return Math.max(track, !b ? 0 : b.park > 0.6 && !b.median ? 0.31 : SW);
+        const openPark = wx > ALBERT_PARK.minX && wx < ALBERT_PARK.maxX && wz > ALBERT_PARK.minZ && wz < ALBERT_PARK.maxZ;
+        if (track !== null) return Math.max(track, !b ? 0 : b.park > 0.6 && !b.median ? (openPark ? 0 : 0.31) : SW);
         if (!b) return 0;
-        if (b.park > 0.6 && !b.median) { grass++; return 0.31; }
+        if (b.park > 0.6 && !b.median) { grass++; return openPark ? 0 : 0.31; } // Albert Park's grass is level with the road
         return SW;
       };
       const fl = at(1.3, 0.78), fr = at(1.3, -0.78), bl = at(-1.3, 0.78), br = at(-1.3, -0.78);

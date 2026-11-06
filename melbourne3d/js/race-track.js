@@ -4,9 +4,10 @@
 // straight. trackHeight() tells the car physics where the track is (asphalt, not grass) and how high it is.
 import * as THREE from 'three/webgpu';
 import { CIRCUIT, CIRCUIT_LENGTH } from './albert-park-circuit.js';
-import { blockAt } from './city-config.js';
 
 export const TRACK_HALF = 5.5;
+/** Albert Park's grass: level with the roads, just under the track (js/city-grid.js; the car physics) */
+export const OPEN_PARK_LAWN_Y = 0.01;
 const N = CIRCUIT.length / 2;
 const px = (i) => CIRCUIT[((i % N + N) % N) * 2];
 const pz = (i) => CIRCUIT[((i % N + N) % N) * 2 + 1];
@@ -18,14 +19,13 @@ let heights = null;
 function surfaceHeights() {
   if (heights) return heights;
   for (let i = 0; i < N; i++) {
-    const b = blockAt(px(i), pz(i));
-    raw[i] = b && b.park > 0.6 && !b.median ? 0.43 : 0.02;
+    raw[i] = 0.025; // the park is level with its roads: one height all round, just over the grass
   }
   heights = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     let s = 0;
     for (let k = -4; k <= 4; k++) s += raw[((i + k) % N + N) % N];
-    heights[i] = Math.max(raw[i] > 0.2 ? 0.43 : 0.02, s / 9);
+    heights[i] = s / 9;
   }
   return heights;
 }

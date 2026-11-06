@@ -1,5 +1,7 @@
 import * as THREE from 'three/webgpu';
+import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 import { SPORTS_DRIVE } from './controllers.js';
+const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
 // The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
 const drive = (speed, acceleration, grip, extra = {}) => ({
@@ -764,7 +766,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       const fx = Math.sin(car.heading), fz = Math.cos(car.heading), lx = Math.cos(car.heading), lz = -Math.sin(car.heading);
       rutQ.setFromAxisAngle(UPV, car.heading);
       for (const side of [0.78, -0.78]) {
-        rutP.set(car.position.x - fx * 1.3 + lx * side, 0.418, car.position.z - fz * 1.3 + lz * side);
+        const rx = car.position.x - fx * 1.3 + lx * side, rz = car.position.z - fz * 1.3 + lz * side;
+        rutP.set(rx, inAlbertPark(rx, rz) ? OPEN_PARK_LAWN_Y + 0.012 : 0.418, rz); // on the grass: level ground in Albert Park, a raised lawn elsewhere
         rutMesh.setMatrixAt(rutNext, rutM.compose(rutP, rutQ, rutS));
         rutNext = (rutNext + 1) % RUTS;
         rutMesh.count = Math.min(RUTS, rutMesh.count + 1);
