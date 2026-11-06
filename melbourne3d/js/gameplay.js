@@ -193,6 +193,16 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   const modelCache = new Map();
   async function loadCarModel(def) {
     if (modelCache.has(def.id)) return modelCache.get(def.id);
+    if (def.root) {
+      // a car built elsewhere (a BeamNG mod, js/car-mods.js): its body as it is, no wheels to turn
+      const root = new THREE.Group();
+      root.name = 'PlayerCar_' + def.id;
+      root.rotation.order = 'YXZ';
+      root.add(def.root);
+      const entry = { root, wheels: {} };
+      modelCache.set(def.id, entry);
+      return entry;
+    }
     const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
     const gltf = await new GLTFLoader().loadAsync(new URL(`../../models/custom/${def.file}.json`, import.meta.url).href);
     const root = new THREE.Group();
@@ -972,6 +982,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     /** The speedo's full scale for the car being driven (km/h) */
     get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 36) * 3.6 / 10) * 10 + 20 : 0; },
     summonSports, summon, cycleCar,
+    /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
+    addCar(def) {
+      CUSTOM_CARS.push({ id: def.id, name: def.name, root: def.root, drive: drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), line: def.line || `Your ${def.name}.` });
+    },
     /** The player's parked sports car (or the parked taxi), for the player on foot to bump into */
     sportsBox() {
       if (riding !== 'sports' && sports.mesh && sports.mesh.visible && sports.mesh.parent) return { x: sports.x, z: sports.z, yaw: sports.heading, halfL: 2.3, halfW: 0.95 };

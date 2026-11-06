@@ -671,6 +671,21 @@ async function initApp() {
     b.append(n, sub);
     b.addEventListener('click', () => { closePopovers(); intro.start(); });
     pop.prepend(b);
+    // your own cars from BeamNG mods (js/car-mods.js): opened in this browser, never uploaded
+    const carMods = (await import('./car-mods.js')).createCarMods({ gameplay, missionSystem });
+    window.__city.carMods = carMods;
+    const cm = document.createElement('button');
+    cm.className = 'pop-item tp-btn';
+    cm.type = 'button';
+    const cmn = document.createElement('span');
+    cmn.className = 'pop-name';
+    cmn.textContent = 'Load a car mod';
+    const cms = document.createElement('span');
+    cms.className = 'pop-sub';
+    cms.textContent = 'A BeamNG .zip from your computer (or drop it on the game)';
+    cm.append(cmn, cms);
+    cm.addEventListener('click', () => { closePopovers(); carMods.pick(); });
+    pop.prepend(cm);
     // the sports car, brought round beside the player
     const sc = document.createElement('button');
     sc.className = 'pop-item tp-btn';
