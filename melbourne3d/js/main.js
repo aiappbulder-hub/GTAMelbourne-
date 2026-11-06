@@ -672,7 +672,7 @@ async function initApp() {
     b.addEventListener('click', () => { closePopovers(); intro.start(); });
     pop.prepend(b);
     // your own cars from BeamNG mods (js/car-mods.js): opened in this browser, never uploaded
-    const carMods = (await import('./car-mods.js')).createCarMods({ gameplay, missionSystem });
+    const carMods = (await import('./car-mods.js')).createCarMods({ gameplay, trafficSystem, missionSystem });
     window.__city.carMods = carMods;
     const cm = document.createElement('button');
     cm.className = 'pop-item tp-btn';

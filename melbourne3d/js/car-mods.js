@@ -189,13 +189,19 @@ async function build(name, buf) {
   return { root, name: label, tris: Math.round(tris), length: Math.max(len.x, len.z) };
 }
 
-export function createCarMods({ gameplay, missionSystem = null, onMenu = null }) {
+export function createCarMods({ gameplay, trafficSystem = null, missionSystem = null }) {
   const say = (t, s = 4) => (missionSystem?.sub ? missionSystem.sub(t, s) : console.log('[car mods]', t));
   let n = 0;
   async function add(name, buf, store = true, bringIt = true) {
     say(`Opening ${name}...`, 3);
     const car = await build(name, buf);
     const id = 'mod_' + (++n);
+    // the street's sedans become this car too (the latest one loaded), a lighter copy where it's heavy
+    if (trafficSystem?.useSedanModel) {
+      trafficSystem.useSedanModel(car.root.clone()).then((r) => {
+        if (r) console.log(`[car mods] ${car.name} in the traffic: ${r.tris} triangles${r.kept < r.tris ? `, ${r.kept} in its street copy` : ''}`);
+      }).catch((e) => console.warn('[car mods] traffic copy', e));
+    }
     gameplay.addCar({ id, name: car.name, root: car.root, line: `Your ${car.name}.`, wheelbase: Math.min(3.4, Math.max(2.3, car.length * 0.6)) });
     if (store) saveZip(name, buf);
     if (bringIt) await gameplay.summon(id);

@@ -392,42 +392,73 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     ...policeLightbarMeshes
   );
 
-  // Commodores: near the camera the street's sedans (police cars too) are the Holdan Comodo, the old game's Blender
-  // model (models/custom/comodo.json), fitted onto the sedan's wheels (2.8 m wheelbase, 0.35 m wheels: the traffic
-  // draws those) and painted per car from the paintColor attribute; further off they keep the lofted stand-in
-  if (IS_MELBOURNE) swapInComodo().catch((e) => console.warn('[traffic] Comodo model', e));
-  async function swapInComodo() {
-    const [{ GLTFLoader }, { mergeGeometries }, { attribute, vec3, float }] = await Promise.all([
-      import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/BufferGeometryUtils.js'), import('three/tsl')]);
-    const gltf = await new GLTFLoader().loadAsync(new URL('../../models/custom/comodo.json', import.meta.url).href);
-    gltf.scene.updateMatrixWorld(true);
-    // its wheels: 1.5 m in front of and 1.45 m behind the middle, 0.34 m up; the sedan's: 1.4 m each way, 0.35 m up
-    const S = 2.8 / 2.95;
-    const fit = new THREE.Matrix4().makeTranslation(0, 0.35 - 0.34 * S, -0.025 * S).multiply(new THREE.Matrix4().makeScale(S, S, S));
+  // Your own cars in the traffic: a car loaded from a mod (js/car-mods.js, kept in your browser) becomes the street's
+  // sedans near the camera (police cars too), fitted onto the sedan's wheels (2.8 m wheelbase, 0.35 m wheels: the
+  // traffic draws those, so the model's own are left out) and painted per car; further off, the lofted stand-in.
+  // Heavy models are simplified for this (meshoptimizer), down to about `budget` triangles.
+  const MESHOPT = 'https://cdn.jsdelivr.net/npm/meshoptimizer@0.22.0/meshopt_simplifier.module.js';
+  const WHEELISH = /tire|tyre|wheel|rim|hub|brake|caliper|rotor|disc/i;
+  async function useSedanModel(src, { budget = 70000 } = {}) {
+    const [{ mergeGeometries }, { attribute }] = await Promise.all([import('three/addons/utils/BufferGeometryUtils.js'), import('three/tsl')]);
+    src.updateMatrixWorld(true);
+    const meshes = [];
+    src.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    // the axles, from the model's wheels where it has them (else its length)
+    const wheelBox = new THREE.Box3(), all = new THREE.Box3().setFromObject(src);
+    for (const o of meshes) if (WHEELISH.test(o.name) || [].concat(o.material).some((m) => WHEELISH.test(m.name))) wheelBox.expandByObject(o);
+    let S, cz;
+    const len = all.max.z - all.min.z;
+    if (!wheelBox.isEmpty() && wheelBox.max.z - wheelBox.min.z > 1.5) {
+      const r = (wheelBox.max.y - wheelBox.min.y) / 2, wb = wheelBox.max.z - wheelBox.min.z - 2 * r;
+      S = wb > 1.8 && wb < 4 ? 2.8 / wb : 4.5 / len;
+      cz = (wheelBox.max.z + wheelBox.min.z) / 2;
+    } else { S = 4.5 / len; cz = (all.max.z + all.min.z) / 2; }
+    const fit = new THREE.Matrix4().makeScale(S, S, S).multiply(new THREE.Matrix4().makeTranslation(-(all.max.x + all.min.x) / 2, -all.min.y, -cz));
     const parts = new Map(); // material → geometries
-    gltf.scene.traverse((o) => {
-      if (!o.isMesh || /^wheel-/i.test(o.name) || /^wheel-/i.test(o.parent?.name || '')) return;
-      const m = o.material;
-      if (!m || /^(Tyre|Brake|Rim)/i.test(m.name) || /^Interior/.test(m.name)) return; // (the traffic's own wheels; nobody sees inside)
-      const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(fit, o.matrixWorld));
-      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
-      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-      if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]);
-      if (!parts.has(m)) parts.set(m, []);
-      parts.get(m).push(g);
-    });
+    let tris = 0;
+    for (const o of meshes) {
+      const ms = [].concat(o.material);
+      if (WHEELISH.test(o.name) || ms.every((m) => WHEELISH.test(m.name))) continue;
+      const base = o.geometry.index ? o.geometry : o.geometry.clone().setIndex([...Array(o.geometry.attributes.position.count).keys()]);
+      const groups = base.groups.length ? base.groups : [{ start: 0, count: base.index.count, materialIndex: 0 }];
+      for (const gr of groups) {
+        const m = ms[gr.materialIndex ?? 0] || ms[0];
+        if (!m || WHEELISH.test(m.name) || /interior|seat|dash|engine|steer/i.test(m.name)) continue;
+        const g = new THREE.BufferGeometry();
+        for (const k of ['position', 'normal', 'uv']) if (base.attributes[k]) g.setAttribute(k, base.attributes[k]);
+        if (!g.attributes.normal) continue;
+        if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+        g.setIndex(Array.from(base.index.array.slice(gr.start, gr.start + gr.count)));
+        const part = g;
+        part.applyMatrix4(new THREE.Matrix4().multiplyMatrices(fit, o.matrixWorld));
+        tris += gr.count / 3;
+        if (!parts.has(m)) parts.set(m, []);
+        parts.get(m).push(part);
+      }
+    }
+    if (!parts.size) throw new Error('nothing to draw');
+    // too heavy for a street full of them: simplified, each part keeping its share
+    let simplify = null;
+    if (tris > budget) {
+      try { const { MeshoptSimplifier } = await import(MESHOPT); await MeshoptSimplifier.ready; simplify = MeshoptSimplifier; } catch (e) { console.warn('[traffic] no simplifier', e); }
+    }
     const mats = [], geos = [];
+    let kept = 0;
     for (const [m, list] of parts) {
-      geos.push(mergeGeometries(list));
+      let g = mergeGeometries(list.map((x) => x.index ? x.toNonIndexed() : x));
+      g = (await import('three/addons/utils/BufferGeometryUtils.js')).mergeVertices(g, 1e-5);
+      if (simplify && g.index.count > 300) {
+        const want = Math.max(60, Math.floor(g.index.count * budget / tris / 3) * 3);
+        const [idx] = simplify.simplify(new Uint32Array(g.index.array), new Float32Array(g.attributes.position.array), 3, want, 0.02, ['LockBorder']);
+        g.setIndex(Array.from(idx));
+      }
+      kept += g.index.count / 3;
+      geos.push(g);
       let mat = m;
-      if (m.name === 'Body') {
-        // the car's own paint, clear-coated
-        mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.32, metalness: 0.45 });
+      if (/paint|body|carpaint/i.test(m.name) || (m.color && m.metalness > 0.3 && !m.transparent && !m.map)) {
+        // each car its own paint, over the model's own paint texture where it has one
+        mat = new THREE.MeshStandardNodeMaterial({ roughness: m.roughness ?? 0.3, metalness: m.metalness ?? 0.45, map: m.map || null, normalMap: m.normalMap || null });
         mat.colorNode = attribute('paintColor', 'vec3');
-      } else if (m.name === 'TailLight') {
-        // brighter when braking (carState.x)
-        mat = new THREE.MeshStandardNodeMaterial({ color: 0x5a0606, roughness: 0.3 });
-        mat.emissiveNode = vec3(0.9, 0.05, 0.03).mul(float(0.25).add(attribute('carState', 'vec4').x.mul(1.6)));
       }
       mats.push(mat);
     }
@@ -436,18 +467,19 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     const n = old.instanceMatrix.count;
     geo.setAttribute('paintColor', new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3));
     geo.setAttribute('carState', new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4));
+    geo.attributes.paintColor.array.set(old.geometry.attributes.paintColor.array); // (cars keep their colours)
     const inst = new THREE.InstancedMesh(geo, mats, n);
-    inst.name = 'TrafficComodo';
+    inst.name = 'TrafficSedanModel';
     inst.count = 0;
     inst.frustumCulled = false;
     inst.castShadow = old.castShadow;
     inst.receiveShadow = old.receiveShadow;
-    // (paint already handed out is copied over, so cars keep their colours)
-    geo.attributes.paintColor.array.set(old.geometry.attributes.paintColor.array);
     old.parent?.add(inst);
     old.parent?.remove(old);
+    if (old.name === 'TrafficSedanModel') { old.geometry.dispose(); }
     bodies.sedan.near = inst;
-    for (const list of [bodyMeshes, carInstances]) { const i = list.indexOf(old); if (i >= 0) list[i] = inst; }
+    for (const list of [bodyMeshes, carInstances]) { const k = list.indexOf(old); if (k >= 0) list[k] = inst; }
+    return { tris: Math.round(tris), kept: Math.round(kept) };
   }
 
   // =========================================================================
@@ -2177,6 +2209,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     talkToPed: pedestrianSystem.talk,
     nearestCar,
     setExternals,
+    /** A car model (a THREE object, +Z forward, metres) for the street's sedans near the camera */
+    useSedanModel,
     takeCar,
     parkCar,
     shootCar,
