@@ -3,6 +3,8 @@ import { getLocationLabel, ROADS, ALL_AVENUES, ALL_STREETS } from './city-config
 import { circuitPoint } from './race-track.js';
 import { blockAt } from './city-config.js';
 import { STORY_CAST } from './people.js';
+import { PLACES } from './story/places.js';
+import { createPursuer } from './pursuit.js';
 
 // GTA Melbourne's story, moved across from the original game (../index.html) onto the new engine's real-scale map.
 //
@@ -138,8 +140,8 @@ const MISSIONS = [
       ['Kaz', "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf."],
       ['Kaz', 'Set the charge, then get well clear. Make it loud.']],
     steps: [
-      { text: 'Get to the Nomads\' warehouse on South Wharf Drive.', at: { road: 'SOUTH WHARF DRIVE' }, r: 16, time: 90 },
-      { text: 'Set the charge: stay in the marker on foot.', at: { road: 'SOUTH WHARF DRIVE' }, r: 7, wait: 5, foot: true },
+      { text: 'Get to the Nomads\' warehouse on the South Wharf, by the Polly Woodside.', at: { place: 'POLLY_WOODSIDE' }, r: 16, time: 90 },
+      { text: 'Set the charge: stay in the marker on foot.', at: { place: 'POLLY_WOODSIDE' }, r: 7, wait: 5, foot: true },
       { text: 'It\'s going to blow! Get 250 m clear.', away: 250, time: 25 }
     ]
   },
@@ -150,10 +152,51 @@ const MISSIONS = [
     steps: [
       { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
     ]
+  },
+  // ---------------------------------------------------------------------------------------------------------------
+  // ACT I: LOW TIDE (docs/story/EMPIRE_DESIGN.md). Twenty-two years after Harbour Run, the Ferryman comes back.
+  // ---------------------------------------------------------------------------------------------------------------
+  {
+    id: 'M1', act: 'Act I', name: 'Low Tide', giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
+    begin: { card: ['TWENTY-TWO YEARS LATER', 'Docklands · tonight'], car: { id: 'comodo', place: 'M1_CAR', heading: Math.PI } },
+    cut: [['You', "Twenty-two years. The skyline's taller. The river's the same colour."],
+      ['Davo', 'You got old.'],
+      ['You', 'You got sober.'],
+      ['Davo', "Someone had to. Car's up the end, by Bourke Street. Don't walk up the esplanade."],
+      ['You', 'Why not?'],
+      ['Davo', "Grey Comodo, two up, parked there since Tuesday. Coppers or real estate. Can't tell anymore."],
+      ['You', 'Both.'],
+      ['Davo', "Go round by the water. Mind the sheila walking the park. I'll be at the car."]],
+    outro: ['You', 'Every empire starts with a lease nobody else wants.'],
+    steps: [
+      { text: "Get to Davo's car and get in (F) without being seen. Go round by the water: the esplanade is watched.",
+        at: { place: 'M1_CAR' }, r: 7, car: true,
+        tail: { place: 'M1_SEDAN', heading: Math.PI },
+        watch: [
+          { key: 'kestrel_a', model: 'Male_Adult_14', at: { place: 'M1_WATCH_A' }, heading: -Math.PI / 2, fov: 70, range: 50, sweep: 40, period: 7 },
+          { key: 'kestrel_b', model: 'Female_Adult_09', patrol: [{ place: 'M1_PATROL_S' }, { place: 'M1_PATROL_N' }], speed: 1.3, fov: 80, range: 20 }
+        ],
+        actors: [{ key: 'm_davo', who: 'Davo', at: { place: 'M1_CAR' }, off: [3.6, 0.8], face: 'player', anim: 'text' }] },
+      { text: 'They\'re pulling out. Lose the tail: get 200 m clear of the grey Comodo and stay clear.', evade: { lose: 200, hold: 8, speed: 29 }, time: 150,
+        lines: [[1, 'Davo', "Don't look now. They're on us."], [9, 'Davo', 'Take the city. Plenty of lights, plenty of trams.'],
+          [24, 'Davo', 'Still there. Lose them, mate.'], [60, 'Davo', "They'll run out of petrol before patience. You won't."]],
+        say: 'Davo: "Gone. Nice driving, for an old bloke."' },
+      { text: 'Take Davo to the Quiet Room: Flinders Lane at Elizabeth St.', at: { place: 'HQ' }, r: 16, car: true,
+        lines: [[2, 'Davo', "Your bar. Well, it's a bar. Gus wants out. You'll see."], [20, 'Davo', 'Thirty years his dad ran it. Smells like it, too.']] },
+      { text: 'Get out and walk to the door of the Quiet Room.', at: { place: 'HQ', kerb: true }, r: 3, foot: true,
+        actors: [{ key: 'm_davo', who: 'Davo', near: 'player', anim: 'idle' }] },
+      { text: 'Davo has a question.', choice: { who: 'Davo', text: 'That car. Want me to find out whose it was?',
+        options: [
+          { label: 'Yes. Quietly.', set: { davo_tails_kestrel: true }, reply: "I know a bloke who used to be a copper. Leave it with me." },
+          { label: 'No. Let them watch.', set: { davo_tails_kestrel: false }, reply: "Your call. I'll put the kettle on." }
+        ] },
+        actors: [{ key: 'm_davo', who: 'Davo', near: 'player', anim: 'talk_cool' }] }
+    ]
   }
 ];
 
-const SAVE_KEY = 'gta-melbourne3d-save-v1';
+const SAVE_KEY = 'gta-melbourne3d-save-v2';
+const SAVE_KEY_V1 = 'gta-melbourne3d-save-v1';
 
 const CSS = `
 .gm-pointer { position: fixed; left: 0; top: 0; z-index: 31; pointer-events: none; display: none; transform: translate(-50%, -50%);
@@ -181,6 +224,19 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   box-shadow: 0 10px 40px rgba(0,0,0,.45); }
 .gm-cut b { display: block; color: #ff4fa3; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .gm-cut i { display: block; margin-top: 8px; color: rgba(255,255,255,.55); font-size: 12px; font-style: normal; text-align: right; }
+.gm-black { position: fixed; inset: 0; z-index: 70; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; opacity: 0; pointer-events: none; transition: opacity .7s ease; }
+.gm-black.on { opacity: 1; pointer-events: auto; }
+.gm-black b { font: 900 clamp(28px, 6vw, 64px)/1 Inter, system-ui, sans-serif; letter-spacing: .08em; }
+.gm-black small { margin-top: 14px; font: 600 13px/1 Inter, system-ui, sans-serif; letter-spacing: .3em; color: #ffcf6e; text-transform: uppercase; }
+.gm-choice { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); width: min(620px, 94vw); z-index: 33; padding: 14px 18px;
+  border-radius: 14px; background: rgba(8, 10, 14, 0.92); color: #fff; font: 500 16px/1.45 Inter, system-ui, sans-serif; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+.gm-choice[hidden] { display: none; }
+.gm-choice b { display: block; color: #ff4fa3; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+.gm-choice button { display: block; width: 100%; margin-top: 8px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.25); border-radius: 10px;
+  background: rgba(255,255,255,.06); color: #fff; font: 600 15px/1.3 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; }
+.gm-choice button:hover, .gm-choice button:focus-visible { background: rgba(255,79,163,.22); border-color: #ff4fa3; outline: none; }
+.gm-choice button i { font-style: normal; color: #ffd23f; margin-right: 8px; }
 .gm-sub { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); z-index: 30; max-width: 80vw; color: #fff; text-align: center;
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
@@ -202,6 +258,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   const elBig = el('gm-big');
   const elSub = el('gm-sub');
   const elCut = el('gm-cut');
+  const elBlack = el('gm-black');
+  const elChoice = el('gm-choice');
+  elChoice.hidden = true;
   // A pointer to the marker that matters (the next job, or the objective): over it when it's on screen, pinned to
   // the screen's edge and turned towards it when it isn't
   const elPointer = el('gm-pointer');
@@ -239,12 +298,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   elCut.hidden = true;
 
   // Save: cash and how far through the story
-  let save = { money: 500, progress: 0 };
-  try {
-    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-    if (s && typeof s.money === 'number') save = s;
-  } catch { /* storage unavailable */ }
+  // Save v2: { version: 2, money, progress, flags } (story choices in flags). A v1 save (money, progress) is carried
+  // over; anything unreadable starts a new game.
+  const clean = (s) => ({
+    version: 2,
+    money: Number.isFinite(s?.money) ? s.money : 500,
+    progress: Number.isInteger(s?.progress) ? Math.max(0, Math.min(MISSIONS.length, s.progress)) : 0,
+    flags: s && typeof s.flags === 'object' && s.flags && !Array.isArray(s.flags) ? s.flags : {}
+  });
+  const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+  let save = clean(read(SAVE_KEY) || read(SAVE_KEY_V1));
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
+  persist();
   const showMoney = () => { elMoney.textContent = `$${save.money.toLocaleString('en-AU')}`; };
   showMoney();
 
@@ -267,6 +332,112 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   const goalMarker = makeMarker(0xffd23f);
   const targetMarkers = Array.from({ length: 4 }, () => makeMarker(0xff2a2a));
 
+  // --- Act I machinery: watchers with view cones, the tail, story actors, choices -----------------------------------
+  const pursuer = createPursuer({ scene, controllerManager, traffic: () => traffic });
+  if (cast) cast.preload([STORY_CAST.Davo]);
+  const D2R = Math.PI / 180;
+  // a watcher's view cone on the ground: a fan of `fov` degrees out to `range` metres, facing +z (turned by heading)
+  const coneMat = new THREE.MeshBasicNodeMaterial({ color: 0xff3030, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
+  const cones = new Map();
+  function cone(key, fov, range) {
+    if (cones.has(key)) return cones.get(key);
+    const n = 24, pos = [0, 0, 0];
+    for (let i = 0; i <= n; i++) {
+      const a = (-fov / 2 + (fov * i) / n) * D2R;
+      pos.push(Math.sin(a) * range, 0, Math.cos(a) * range);
+    }
+    const idx = [];
+    for (let i = 1; i <= n; i++) idx.push(0, i, i + 1);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    const mesh = new THREE.Mesh(g, coneMat.clone());
+    mesh.renderOrder = 9;
+    mesh.visible = false;
+    scene.add(mesh);
+    cones.set(key, mesh);
+    return mesh;
+  }
+  let shownActors = new Set();
+  // the actors a step wants this frame (watchers, Davo), the rest put away
+  function showActors(list) {
+    const want = new Set(list.map((a) => a.key));
+    for (const k of shownActors) if (!want.has(k)) cast?.setActor(k, null, null);
+    for (const a of list) cast?.setActor(a.key, a.id, a.pose, a.anim);
+    shownActors = want;
+  }
+  // where a watcher stands and looks now (sweeping, or walking its patrol and pausing at each end)
+  function watcherPose(w, m) {
+    const st = (m.watchState ||= {});
+    const ws = (st[w.key] ||= { t: 0, leg: 0, pause: 0, x: 0, z: 0 });
+    if (w.patrol) {
+      const a = resolve(w.patrol[ws.leg % 2]), b = resolve(w.patrol[(ws.leg + 1) % 2]);
+      const L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      if (!ws.started) { ws.started = true; ws.x = a.x; ws.z = a.z; }
+      const heading = Math.atan2(b.x - a.x, b.z - a.z);
+      if (ws.pause > 0) {
+        // at the end of the leg: a look back the way it came, then on
+        return { x: ws.x, z: ws.z, heading: heading + Math.PI + Math.sin(ws.pause * 1.6) * 0.9, anim: 'look' };
+      }
+      return { x: ws.x, z: ws.z, heading, anim: 'walk', a, b, L };
+    }
+    const at = resolve(w.at);
+    return { x: at.x, z: at.z, heading: w.heading + (w.sweep || 0) * D2R * Math.sin((ws.t / (w.period || 6)) * Math.PI * 2), anim: 'look' };
+  }
+  function stepWatchers(w, m, dt) {
+    const ws = m.watchState[w.key];
+    ws.t += dt;
+    if (!w.patrol) return;
+    if (ws.pause > 0) { ws.pause -= dt; if (ws.pause <= 0) ws.leg++; return; }
+    const a = resolve(w.patrol[ws.leg % 2]), b = resolve(w.patrol[(ws.leg + 1) % 2]);
+    const dx = b.x - ws.x, dz = b.z - ws.z, d = Math.hypot(dx, dz);
+    const step = (w.speed || 1.3) * dt;
+    if (d <= step) { ws.x = b.x; ws.z = b.z; ws.pause = 2.5; } else { ws.x += (dx / d) * step; ws.z += (dz / d) * step; }
+    void a;
+  }
+  function hideWatchers() { for (const c of cones.values()) c.visible = false; }
+  // the choice panel: buttons, or keys 1-3
+  let choiceOpen = null; // { def, pick(i) }
+  function openChoice(c, onPick) {
+    elChoice.innerHTML = '';
+    const b = document.createElement('b');
+    b.textContent = c.who;
+    const t = document.createElement('div');
+    t.textContent = c.text;
+    elChoice.append(b, t);
+    const pick = (i) => {
+      if (!choiceOpen) return;
+      choiceOpen = null;
+      elChoice.hidden = true;
+      onPick(c.options[i]);
+    };
+    c.options.forEach((o, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const k = document.createElement('i');
+      k.textContent = String(i + 1);
+      btn.append(k, document.createTextNode(o.label));
+      btn.addEventListener('click', () => pick(i));
+      elChoice.append(btn);
+    });
+    elChoice.hidden = false;
+    choiceOpen = { def: c, pick };
+    voices?.sayText(c.text, { subtitle: false });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (!choiceOpen) return;
+    const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
+    if (i >= 0 && i < choiceOpen.def.options.length) { e.preventDefault(); e.stopPropagation(); choiceOpen.pick(i); }
+  }, true);
+  // everything a job set out in the world, put away (on a pass, a fail or a restart)
+  function cleanup() {
+    pursuer.stop();
+    hideWatchers();
+    showActors([]);
+    if (choiceOpen) { choiceOpen = null; elChoice.hidden = true; }
+    elBlack.classList.remove('on');
+  }
+
   // the player's game (js/gameplay.js) and the traffic (people, cars), attached once they exist
   let gameplay = null, traffic = null;
   const counters = { talk: 0, rob: 0 };
@@ -282,7 +453,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // the footpath nearest a place (where someone stands waiting: a job's giver, Davo at his pickup)
   function kerbSpot(at) {
     if (giverCache.has(at)) return giverCache.get(at);
-    const st = resolve(at);
+    const best = footpathNear(resolve(at));
+    giverCache.set(at, best);
+    return best;
+  }
+  function footpathNear(st) {
     let best = { x: st.x, y: 0, z: st.z };
     if (!blockAt(st.x, st.z)) {
       search: for (let r = 2; r <= 24; r += 1.5) {
@@ -293,7 +468,6 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         }
       }
     } else best.y = 0.22;
-    giverCache.set(at, best);
     return best;
   }
 
@@ -326,8 +500,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else if (at.road) {
       const pts = ROADS.filter((r) => r.raw === at.road).flatMap((r) => r.pts);
       if (pts.length) p = pts[pts.length >> 1];
+    } else if (at.place) {
+      const q = PLACES[at.place];
+      if (q) p = { x: q.x, z: q.z };
     } else if (typeof at.x === 'number') p = at;
     if (!p) { console.warn('[missions] no such place', at); p = { x: 0, z: 0 }; }
+    if (at.kerb) p = footpathNear(p);
     placeCache.set(at, p);
     return p;
   }
@@ -477,12 +655,36 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   function start(i) {
     const def = MISSIONS[i];
     if (!def) return;
+    cleanup();
     mission = { def, i, si: -1, timer: 0, data: {} };
     startMarker.visible = false;
-    big(def.name, '#ff4fa3', 2.5, `${def.giver} · ${def.crew}`);
-    const go = () => { if (mission && mission.def === def) nextStep(); };
-    if (def.cut) showCut(def.cut, go);
-    else go();
+    const m = mission;
+    const open = () => {
+      if (mission !== m) return;
+      big(def.name, '#ff4fa3', 2.5, `${def.act ? def.act + ' · ' : ''}${def.giver} · ${def.crew}`);
+      const go = () => { if (mission === m) nextStep(); };
+      if (def.cut) showCut(def.cut, go);
+      else go();
+    };
+    const b = def.begin;
+    if (!b) return open();
+    // a black card while the scene is set: out of any car, the job's car parked where it waits
+    m.blackout = true;
+    elBlack.innerHTML = '';
+    const t = document.createElement('b');
+    t.textContent = b.card ? b.card[0] : def.name;
+    const sm = document.createElement('small');
+    sm.textContent = b.card ? b.card[1] || '' : '';
+    elBlack.append(t, sm);
+    elBlack.classList.add('on');
+    gameplay?.leaveCarNow?.();
+    if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
+    setTimeout(() => {
+      if (mission !== m) return;
+      m.blackout = false;
+      elBlack.classList.remove('on');
+      open();
+    }, 3200);
   }
   function nextStep() {
     const m = mission;
@@ -501,6 +703,29 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       m.targets = traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
+    m.stepT = 0;
+    m.said = 0;
+    m.clear = 0;
+    m.seen = 0;
+    if (s.tail && !pursuer.active) {
+      const t = resolve({ place: s.tail.place });
+      pursuer.start({ x: t.x, z: t.z, heading: s.tail.heading || 0, wait: true, speed: 29 });
+    }
+    if (s.evade) {
+      if (!pursuer.active) { const p = playerPos(); pursuer.start({ x: p.x - 30, z: p.z, heading: 0, speed: s.evade.speed || 29 }); }
+      pursuer.release();
+      hideWatchers();
+    }
+    if (!s.watch) hideWatchers();
+    if (s.choice) {
+      openChoice(s.choice, (o) => {
+        if (mission !== m) return;
+        Object.assign(save.flags, o.set || {});
+        persist();
+        if (o.reply) { sub(`${s.choice.who}: ${o.reply}`, 5); voices?.sayText(o.reply); }
+        nextStep();
+      });
+    }
     elObjective.textContent = s.text;
     if (s.at) {
       const p = resolve(s.at);
@@ -512,6 +737,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   function pass() {
     const def = mission.def;
+    cleanup();
     if (def.outro) { voices?.sayText(def.outro[1]); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
@@ -524,13 +750,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
     if (save.progress >= MISSIONS.length) {
-      big('MELBOURNE IS YOURS', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
-      sub("The war is over and you're the last one standing. The city is yours to roam.", 7);
+      big('MISSION PASSED', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
+      sub("The Ferryman is back. Act I continues in the next update; the city is yours to roam.", 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); setTimeout(() => cast.setPlayerAction(null), 3500); }
   }
   function fail(why) {
+    cleanup();
     mission = null;
     elObjective.textContent = '';
     elTimer.hidden = true;
@@ -592,7 +819,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
-        if (!cut && d < 8) start(save.progress);
+        if (!cut && d < 8 && bigT <= 0) start(save.progress);
         else if (!cut) {
           // say where the next job is, and put it on the map
           const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -607,8 +834,57 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       } else startMarker.visible = false;
       return;
     }
-    if (cut || mission.si < 0) return;
+    if (mission.blackout) return;
+    if (cut || mission.si < 0) { if (!cut) showActors([]); return; }
     const m = mission, s = m.def.steps[m.si];
+    m.stepT += dt;
+    // story actors and watchers for this step
+    const acts = [];
+    for (const a of s.actors || []) {
+      let pose;
+      if (a.near === 'player') {
+        const pp = playerPos(), ph = controllerManager.getActiveEntity().heading || 0;
+        const x = pp.x + Math.sin(ph) * 1.6 + Math.cos(ph) * 0.5, z = pp.z + Math.cos(ph) * 1.6 - Math.sin(ph) * 0.5;
+        pose = { x, y: pp.y, z, heading: Math.atan2(pp.x - x, pp.z - z) };
+      } else {
+        const at = resolve(a.at), x = at.x + (a.off ? a.off[0] : 0), z = at.z + (a.off ? a.off[1] : 0);
+        pose = { x, y: 0, z, heading: a.face === 'player' ? Math.atan2(p.x - x, p.z - z) : a.heading || 0 };
+      }
+      if (a.who === 'Davo' && driving()) continue; // in the car with you
+      acts.push({ key: a.key, id: a.who ? STORY_CAST[a.who] : a.model, pose, anim: a.anim || 'idle' });
+    }
+    let seenNow = false;
+    for (const w of s.watch || []) {
+      const wp = watcherPose(w, m);
+      stepWatchers(w, m, dt);
+      acts.push({ key: w.key, id: w.model, pose: { x: wp.x, y: 0, z: wp.z, heading: wp.heading }, anim: wp.anim });
+      const c = cone(w.key, w.fov, w.range);
+      c.visible = true;
+      c.position.set(wp.x, 0.26, wp.z);
+      c.rotation.set(0, wp.heading, 0);
+      const dx = p.x - wp.x, dz = p.z - wp.z, d = Math.hypot(dx, dz);
+      const off = Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - wp.heading), Math.cos(Math.atan2(dx, dz) - wp.heading)));
+      const sees = d < w.range && off < (w.fov / 2) * D2R;
+      c.material.opacity = sees ? 0.42 : 0.2;
+      if (sees) { seenNow = true; m.seen += dt * (1.4 - (0.9 * d) / w.range); }
+    }
+    if (s.watch) {
+      if (!seenNow) m.seen = Math.max(0, m.seen - dt * 0.3);
+      if (m.seen >= 1) return fail('Kestrel made you. They know you\'re back.');
+    }
+    showActors(acts);
+    // timed lines (Davo talking in the car)
+    while (s.lines && m.said < s.lines.length && m.stepT >= s.lines[m.said][0]) {
+      const [, who, text] = s.lines[m.said++];
+      sub(`${who}: ${text}`, 4.5);
+      voices?.sayText(text, { subtitle: false });
+    }
+    pursuer.update(dt);
+    if (pursuer.active && !pursuer.parked) {
+      placeMarker(targetMarkers[0], pursuer.position, 1.2);
+      for (let k = 1; k < targetMarkers.length; k++) targetMarkers[k].visible = false;
+    }
+    if (choiceOpen) { controllerManager.resetInput(); return; }
     if (m.timer > 0) {
       m.timer -= dt;
       elTimer.hidden = false;
@@ -618,6 +894,24 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else elTimer.hidden = true;
 
     let done = false;
+    if (s.evade) {
+      const d = pursuer.distance();
+      if (d > s.evade.lose) m.clear += dt; else m.clear = Math.max(0, m.clear - dt * 2);
+      elObjective.textContent = m.clear > 0 ? `${s.text} Clear: ${m.clear.toFixed(1)} / ${s.evade.hold} s` : `${s.text} (${Math.round(d)} m)`;
+      if (m.clear >= s.evade.hold) {
+        for (const t of targetMarkers) t.visible = false;
+        pursuer.stop();
+        if (s.say) sub(s.say, 5);
+        return nextStep();
+      }
+      return;
+    }
+    if (s.choice) return;
+    if (s.watch && m.seen > 0.05) {
+      const n = Math.min(5, Math.ceil(m.seen * 5));
+      const meter = `  SEEN ${'■'.repeat(n)}${'□'.repeat(5 - n)}`;
+      if (!elObjective.textContent.endsWith(meter)) elObjective.textContent = s.text + meter;
+    } else if (s.watch && elObjective.textContent !== s.text && !/Get out/.test(elObjective.textContent)) elObjective.textContent = s.text;
     const stealOk = !s.steal || (gameplay && gameplay.driving && (s.steal === 'any' || gameplay.driving.bodyType === s.steal));
     if (s.targets && m.targets) {
       const left = m.targets.filter((q) => !q.dead);
@@ -674,6 +968,21 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,
     get progress() { return save.progress; },
+    /** Story choices made so far (saved) */
+    get flags() { return { ...save.flags }; },
+    /** The tail's footprint (for the player on foot), or null */
+    pursuerBox() { return pursuer.box(); },
+    /** For scripted checks: where the job is up to */
+    debug() {
+      return { mission: mission ? mission.def.name : null, step: mission ? mission.si : -1, seen: mission ? mission.seen || 0 : 0,
+        clear: mission ? mission.clear || 0 : 0, tail: pursuer.active ? { ...pursuer.position, parked: pursuer.parked, dist: pursuer.distance() } : null,
+        choice: !!choiceOpen, inCut: !!cut, blackout: !!(mission && mission.blackout),
+        goal: goalMarker.visible ? { x: goalMarker.position.x, z: goalMarker.position.z } : null };
+    },
+    /** Pick option i of the open choice (scripted checks; players use the buttons or 1-3) */
+    choose(i) { choiceOpen?.pick(i); },
+    /** Skip the cut scene that's playing (scripted checks) */
+    skipCut() { if (cut) advanceCut(true); },
     get money() { return save.money; },
     start,
     applyCamera,

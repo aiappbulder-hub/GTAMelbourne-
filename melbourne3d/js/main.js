@@ -669,7 +669,7 @@ async function initApp() {
     sub.className = 'pop-sub';
     sub.textContent = 'Melbourne, 2004: how it starts';
     b.append(n, sub);
-    b.addEventListener('click', () => { closePopovers(); intro.start(); });
+    b.addEventListener('click', () => { closePopovers(); intro.play(); });
     pop.prepend(b);
     // your own cars from BeamNG mods (js/car-mods.js): opened in this browser, never uploaded
     const carMods = (await import('./car-mods.js')).createCarMods({ gameplay, trafficSystem, missionSystem });
@@ -686,6 +686,19 @@ async function initApp() {
     cm.append(cmn, cms);
     cm.addEventListener('click', () => { closePopovers(); carMods.pick(); });
     pop.prepend(cm);
+    // and to be rid of them (a mod that draws wrongly would otherwise come back every start)
+    const cf = document.createElement('button');
+    cf.className = 'pop-item tp-btn';
+    cf.type = 'button';
+    const cfn = document.createElement('span');
+    cfn.className = 'pop-name';
+    cfn.textContent = 'Remove my car mods';
+    const cfs = document.createElement('span');
+    cfs.className = 'pop-sub';
+    cfs.textContent = 'Forget the mods kept in this browser (from the next start)';
+    cf.append(cfn, cfs);
+    cf.addEventListener('click', () => { closePopovers(); carMods.clear(); });
+    cm.after(cf);
     // the sports car, brought round beside the player
     const sc = document.createElement('button');
     sc.className = 'pop-item tp-btn';
@@ -953,6 +966,8 @@ async function initApp() {
         boxes.push({ x: own.position.x, z: own.position.z, yaw: own.heading, halfL: 2.25, halfW: 0.92 });
       }
       if (race) boxes.push(...race.boxes());
+      const tail = missionSystem?.pursuerBox?.();
+      if (tail) boxes.push(tail);
       // a sports car of the player's own, parked
       const sp = gameplay?.sportsBox?.();
       if (sp) boxes.push(sp);

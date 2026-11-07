@@ -111,6 +111,47 @@ async function texture(files, path, srgb) {
 
 // BeamNG's material files are JSON with comments and trailing commas allowed
 const relaxed = (s) => JSON.parse(s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:"])\/\/.*$/gm, '$1').replace(/,(\s*[}\]])/g, '$1'));
+// .jbeam files go further: commas between values are often left out too
+function jbeam(s) {
+  s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:"\\])\/\/.*$/gm, '$1');
+  s = s.replace(/([}\]"\d]|\btrue\b|\bfalse\b|\bnull\b)(\s+)(?=["{[\-\d]|true\b|false\b|null\b)/g, '$1,$2');
+  s = s.replace(/,(\s*,)+/g, ',').replace(/,(\s*[}\]])/g, '$1');
+  return JSON.parse(s);
+}
+const meshKey = (n) => String(n || '').toLowerCase().replace(/(-mesh|_mesh|-node)$/, '').replace(/\.\d+$/, '');
+// The meshes the car really shows. A mod's .dae holds every optional part (frames, other bumpers, engines, interiors);
+// the .jbeam parts say which meshes each part draws ("flexbodies", "props") and which parts fit which slots, and the
+// default configuration (.pc) picks a part for each slot. Walk that from the main part. null: couldn't tell.
+function shownMeshes(files) {
+  const parts = {};
+  for (const f of files.all.filter((x) => /\.jbeam$/i.test(x.path))) {
+    try { Object.assign(parts, jbeam(new TextDecoder().decode(f.data))); } catch (e) { console.warn('[car mods] jbeam', f.path, e.message); }
+  }
+  if (!Object.keys(parts).length) return null;
+  const pcs = files.all.filter((x) => /\.pc$/i.test(x.path));
+  let want = null;
+  for (const f of files.all.filter((x) => /info[^/]*\.json$/i.test(x.path))) {
+    try { const j = relaxed(new TextDecoder().decode(f.data)); if (j.default_pc) want = String(j.default_pc).toLowerCase(); } catch { /* fine */ }
+  }
+  const pcFile = (want && pcs.find((f) => f.path.toLowerCase().endsWith(`/${want}.pc`))) || pcs[0];
+  let pc = {};
+  try { if (pcFile) pc = relaxed(new TextDecoder().decode(pcFile.data)) || {}; } catch { pc = {}; }
+  const chosen = pc.parts || {};
+  const main = (pc.mainPartName && parts[pc.mainPartName] && pc.mainPartName) || Object.keys(parts).find((k) => parts[k] && parts[k].slotType === 'main');
+  if (!main) return null;
+  const names = new Set(), seen = new Set();
+  const rows = (t) => (Array.isArray(t) ? t.filter((r) => Array.isArray(r)) : []);
+  (function walk(name) {
+    const part = parts[name];
+    if (!part || seen.has(name)) return;
+    seen.add(name);
+    for (const r of rows(part.flexbodies)) if (typeof r[0] === 'string' && r[0] !== 'mesh') names.add(meshKey(r[0]));
+    for (const r of rows(part.props)) if (typeof r[1] === 'string' && r[1] !== 'mesh' && !/^(SPOT|POINT)LIGHT$/i.test(r[1])) names.add(meshKey(r[1]));
+    for (const r of rows(part.slots)) if (typeof r[0] === 'string' && r[0] !== 'type') { const c = r[0] in chosen ? chosen[r[0]] : r[1]; if (c) walk(c); }
+    for (const r of rows(part.slots2)) if (typeof r[0] === 'string' && r[0] !== 'name') { const c = r[0] in chosen ? chosen[r[0]] : r[3]; if (c) walk(c); }
+  })(main);
+  return names.size ? names : null;
+}
 
 // --- a mod's zip to a car --------------------------------------------------------------------------------------------
 async function build(name, buf) {
@@ -155,12 +196,22 @@ async function build(name, buf) {
     return m;
   }
   let tris = 0;
+  const all = [];
   for (const f of daes) {
     let col;
     try { col = loader.parse(new TextDecoder().decode(f.data), ''); } catch (e) { console.warn('[car mods] model', f.path, e); continue; }
     col.scene.updateMatrixWorld(true);
-    const meshes = [];
-    col.scene.traverse((o) => { if (o.isMesh && !SKIP.test(o.name) && !(o.parent && SKIP.test(o.parent.name))) meshes.push(o); });
+    col.scene.traverse((o) => { if (o.isMesh && !SKIP.test(o.name) && !(o.parent && SKIP.test(o.parent.name))) all.push(o); });
+  }
+  // only the parts the car's default configuration uses (all of them if the parts list can't be read)
+  const shown = shownMeshes(files);
+  let meshes = all;
+  if (shown) {
+    const picked = all.filter((o) => shown.has(meshKey(o.name)) || (o.parent && shown.has(meshKey(o.parent.name))));
+    if (picked.length >= 3) meshes = picked;
+    console.log(`[car mods] ${name}: ${picked.length} of ${all.length} meshes in the default configuration${picked.length >= 3 ? '' : ' (too few: drawing them all)'}`);
+  }
+  {
     for (const o of meshes) {
       const g = o.geometry.clone().applyMatrix4(o.matrixWorld);
       const srcMats = [].concat(o.material);

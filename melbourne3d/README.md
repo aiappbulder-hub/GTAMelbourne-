@@ -49,6 +49,19 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
     or the nearest target (red). It sits over the marker, or at the screen's edge pointing towards it.
   - The marker beams are 140 m tall, to show over the buildings.
   - The minimap and its GPS route stay on phones and touch screens, small and top left.
+- **Act I, "The Ferryman"** (design: `docs/story/EMPIRE_DESIGN.md`, milestones and acceptance tests:
+  `docs/story/MILESTONES.md`). After Harbour Run, job 12 is **Low Tide**, set twenty-two years later on Harbour
+  Esplanade:
+  - It opens on a black card. Davo meets you.
+  - Get to his car past two Kestrel watchers (red view cones on the ground; a SEEN meter fails the job when full).
+  - Lose the grey Comodo that tails you (it follows the route you actually drive; stay 200 m clear for 8 s).
+  - Drive Davo to the Quiet Room (Flinders Lane × Elizabeth St), then choose what to do about the tail (buttons or
+    keys 1–2).
+- **Save** (`gta-melbourne3d-save-v2`): cash, progress and story choices (`flags`). An old v1 save carries over;
+  an unreadable one starts a new game.
+- **Story places** (`js/story/places.js`): missions use `{ place: 'ID' }`.
+  `node tools/melbourne/check-places.mjs` fails on any place off the map, near its edge or on water, and prints each
+  place's neighbourhood (`districtAt`, now along the real boundaries: the Yarra, Victoria Pde, Nicholson St, Punt Rd).
 - **The start**: a new story begins with the taxi ride in from the airport. In the intro's last shot the taxi rolls
   down Elizabeth Street to the kerb by Flinders Lane, and you step out by Vince's first job. Skipping the intro
   still drops you there. Walk or drive into the pink marker to start. Cutscene dialogue is advanced with Enter
@@ -73,6 +86,8 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - **Weather** button (or **Y**): clear, overcast, rain (falling rain, wet roads) and fog, over any time of day.
   - A speedo dial while driving; on grass the wheels dig in (the car sinks, slows, loses grip, bounces and leaves ruts).
   - **T** talks to the person in front of you (they stop, turn and answer); **T** while aiming robs them.
+- **Title film** (`assets/video/intro.mp4`, 15 s): after the first key or tap it plays full screen, ending on the GTA MELBOURNE
+  title, then hands on to the intro's shots; Esc, Enter, Space or Skip end it, and `?nofilm` leaves it out.
 - **Intro** (`js/intro.js`): golden-hour wide shots (the skyline over Yarra Park, Flinders Street Station, Lygon
   Street, Docklands into the sunset, Eureka, down Swanston Street) letterboxed, with the player's own voice setting up the story and
   Vince's phone call, to a synthesised score, ending on the player at the first job. The first time, a title card
