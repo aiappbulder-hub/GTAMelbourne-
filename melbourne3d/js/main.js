@@ -953,6 +953,8 @@ async function initApp() {
         boxes.push({ x: own.position.x, z: own.position.z, yaw: own.heading, halfL: 2.25, halfW: 0.92 });
       }
       if (race) boxes.push(...race.boxes());
+      const tail = missionSystem?.pursuerBox?.();
+      if (tail) boxes.push(tail);
       // a sports car of the player's own, parked
       const sp = gameplay?.sportsBox?.();
       if (sp) boxes.push(sp);

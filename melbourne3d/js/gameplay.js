@@ -345,16 +345,28 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       missionSystem?.sub?.('Your taxi is waiting. Walk up and press F.', 3);
       return;
     }
-    const def = CUSTOM_CARS.find((d) => d.id === id) || CUSTOM_CARS[0];
     if (riding === 'sports' && cm.activeMode === 'car') return;
+    const def = await placeCar(id, x, z, h);
+    missionSystem?.sub?.(`Your ${def.name} is waiting. Walk up and press F.`, 3);
+  }
+  /** One of the player's own cars, parked at (x, z) facing `heading` (a mission's car waiting at the kerb) */
+  async function placeCar(id, x, z, heading) {
+    const def = CUSTOM_CARS.find((d) => d.id === id) || CUSTOM_CARS[0];
     await useCarModel(def);
     sports.x = x;
     sports.z = z;
-    sports.heading = h;
+    sports.heading = heading;
     sports.y = 0;
     sports.pitch = sports.roll = 0;
     placeSports();
-    missionSystem?.sub?.(`Your ${def.name} is waiting. Walk up and press F.`, 3);
+    return def;
+  }
+  /** Out of the car at once, wherever it is (a mission taking over): it stops where it stands */
+  function leaveCarNow() {
+    if (cm.activeMode !== 'car') return;
+    car.speed = 0;
+    car.vx = car.vz = 0;
+    exitCar();
   }
   const summonSports = () => summon('clubbie');
 
@@ -981,7 +993,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
     /** The speedo's full scale for the car being driven (km/h) */
     get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 36) * 3.6 / 10) * 10 + 20 : 0; },
-    summonSports, summon, cycleCar,
+    summonSports, summon, cycleCar, placeCar, leaveCarNow,
     /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
     addCar(def) {
       CUSTOM_CARS.push({ id: def.id, name: def.name, root: def.root, drive: drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), line: def.line || `Your ${def.name}.` });

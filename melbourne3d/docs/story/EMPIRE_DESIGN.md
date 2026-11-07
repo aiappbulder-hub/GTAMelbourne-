@@ -970,6 +970,10 @@ twist.
 
 ## 6. Lieutenant management design
 
+> **Superseded in part (after review):** the loyalty, income and independent-action rules are simplified and made
+> event-driven, and the mole is chosen by logged events rather than a hidden score. See `MILESTONES.md`, milestones 3
+> and 4. Boats, trucks, interiors and the helicopter escape are deferred; restaged missions are listed there too.
+
 ### 6.1 Attributes (0–100)
 
 | Attribute | Effect |

@@ -222,44 +222,64 @@ function blockAt(x, z) {
 // ---------------------------------------------------------------------------------------------------------------------
 const WATER = GEO.water.map((w) => ({ name: w.name, ring: toPts(w.rings[0]), holes: w.rings.slice(1).map(toPts) }));
 const inWater = (x, z) => WATER.some((w) => pointInPoly(w.ring, x, z) && !w.holes.some((h) => pointInPoly(h, x, z)));
-// The Yarra's line at x (its northern bank), for telling Southbank from the city
-const yarraNorthZ = (() => {
-  const rings = WATER.filter((w) => w.name === 'Yarra River').map((w) => w.ring);
-  return (x) => {
-    let best = Infinity;
-    for (const r of rings) {
-      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-        const a = r[j], b = r[i];
-        if ((a.x > x) === (b.x > x)) continue;
-        best = Math.min(best, a.z + ((x - a.x) * (b.z - a.z)) / (b.x - a.x));
-      }
+// The Yarra's northern bank at x, ignoring Moonee Ponds Creek (the same ring, running north past z = -900)
+// (west of Docklands the river is unnamed water in the data: there, the bank line traced from the map)
+const WEST_BANK = [[-3200, -500], [-2850, -260], [-2400, 50], [-2000, 350], [-1700, 400]];
+const riverZ = (x) => {
+  if (x < -1700) {
+    for (let i = 0; i + 1 < WEST_BANK.length; i++) {
+      const [ax, az] = WEST_BANK[i], [bx, bz] = WEST_BANK[i + 1];
+      if (x <= bx) return x < ax ? az : az + ((x - ax) * (bz - az)) / (bx - ax);
     }
-    return best === Infinity ? 600 : best;
-  };
-})();
+  }
+  let best = Infinity;
+  for (const r of WATER.filter((w) => w.name === 'Yarra River').map((w) => w.ring)) {
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const a = r[j], b = r[i];
+      if ((a.x > x) === (b.x > x)) continue;
+      const zc = a.z + ((x - a.x) * (b.z - a.z)) / (b.x - a.x);
+      if (zc > -900) best = Math.min(best, zc);
+    }
+  }
+  return best === Infinity ? 600 : best;
+};
+// Neighbourhoods along their real boundaries: the Yarra, Victoria St / Victoria Pde, Nicholson St, Smith St, Punt Rd,
+// Elizabeth St and the Docklands rail line
 function districtAt(x, z) {
   const m = 12;
   if (x > EXT.minX - m && x < EXT.maxX + m && z > EXT.minZ - m && z < EXT.maxZ + m) return 'cbd';
+  if (z < riverZ(x)) {
+    // north of the river
+    if (x > EXT.maxX) {
+      const vicPde = x < 1560 ? -690 + ((x - 780) * 486) / 780 : -204;
+      if (z < vicPde) {
+        const nicholson = z > -853 ? 780 + ((-690 - z) * 185) / 163 : 965 + ((-853 - z) * 187) / 406;
+        if (x < nicholson) return 'carlton';
+        return x > 1650 ? 'collingwood' : 'fitzroy';
+      }
+      return x > 1865 - (z - 889) * 0.5 ? 'richmond' : 'east_melbourne'; // Punt Rd / Hoddle St
+    }
+    if (x < EXT.minX - 120 && z > -1000) return 'docklands';
+    if (z < EXT.minZ) return x < -242 ? 'north_melbourne' : 'carlton';
+    return x < EXT.minX ? 'docklands' : 'cbd';
+  }
   // south of the river, from the bay side round to St Kilda Road (the map runs to Albert Park and St Kilda's edge)
   if (z > 4600) return 'st_kilda';
   if (z > 2250 && x > -1450 && x < -150) return 'albert_park';
   if (z > 2500 && x <= -1450) return 'middle_park';
-  if (z > 2500 && x >= -150) return 'st_kilda_road';
+  if (z > 2500 && x >= -150) return x > 600 ? 'south_yarra' : 'st_kilda_road';
+  if (x > 600 && z > 1500) return 'south_yarra';
   if (z > 900 && x > -200) return 'domain';
   if (z > 900 && x < -2300) return 'port_melbourne';
+  if (x < -1900) return z > 900 ? 'port_melbourne' : 'fishermans_bend';
   if (z > 900) return 'south_melbourne';
-  if (x < EXT.minX - 120 && z > -700 && z < yarraNorthZ(x)) return 'docklands';
-  if (z > yarraNorthZ(x)) return x > 900 ? 'domain' : x < -1100 ? 'south_wharf' : 'southbank';
-  if (x > EXT.maxX + 400 && z > -300) return 'richmond';
-  if (x > EXT.maxX) return z < -900 ? 'fitzroy' : 'east_melbourne';
-  if (z < EXT.minZ) return x < -700 ? 'north_melbourne' : 'carlton';
-  return 'cbd';
+  return x > 900 ? 'domain' : x < -1100 ? 'south_wharf' : 'southbank';
 }
 for (const b of BLOCKS) b.district = districtAt(b.cx, b.cz);
 const DISTRICT_NAMES = {
   cbd: 'Melbourne CBD', docklands: 'Docklands', southbank: 'Southbank', south_wharf: 'South Wharf', domain: 'Kings Domain',
   richmond: 'Richmond', fitzroy: 'Fitzroy', east_melbourne: 'East Melbourne', north_melbourne: 'North Melbourne', carlton: 'Carlton',
-  st_kilda: 'St Kilda', albert_park: 'Albert Park', middle_park: 'Middle Park', st_kilda_road: 'St Kilda Road',
+  st_kilda: 'St Kilda', albert_park: 'Albert Park', middle_park: 'Middle Park', st_kilda_road: 'St Kilda Road', collingwood: 'Collingwood', fishermans_bend: 'Fishermans Bend', south_yarra: 'South Yarra',
   port_melbourne: 'Port Melbourne', south_melbourne: 'South Melbourne'
 };
 
