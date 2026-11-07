@@ -686,6 +686,19 @@ async function initApp() {
     cm.append(cmn, cms);
     cm.addEventListener('click', () => { closePopovers(); carMods.pick(); });
     pop.prepend(cm);
+    // and to be rid of them (a mod that draws wrongly would otherwise come back every start)
+    const cf = document.createElement('button');
+    cf.className = 'pop-item tp-btn';
+    cf.type = 'button';
+    const cfn = document.createElement('span');
+    cfn.className = 'pop-name';
+    cfn.textContent = 'Remove my car mods';
+    const cfs = document.createElement('span');
+    cfs.className = 'pop-sub';
+    cfs.textContent = 'Forget the mods kept in this browser (from the next start)';
+    cf.append(cfn, cfs);
+    cf.addEventListener('click', () => { closePopovers(); carMods.clear(); });
+    cm.after(cf);
     // the sports car, brought round beside the player
     const sc = document.createElement('button');
     sc.className = 'pop-item tp-btn';
