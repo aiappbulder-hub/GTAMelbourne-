@@ -44,3 +44,7 @@ Gameplay and AI programmer agents fixed the items below; each was checked by a t
 **Not checked by a test, and still to be judged by eye:** the look of the shot crumple, the smooth turns, the gesture
 changes (G5, G6), crosswalk flight during gunfire (G9), walkers steering round bodies (G16), the pistol HUD position,
 and everything not listed. Fixed in code but not seen on screen.
+
+**Seen by eye:** the pistol panel (ammo and weapon name) now sits clear of the minimap, the speed panel and the toolbar
+(the first version of the fix overlapped the speed panel; found in a screenshot and corrected). The shot pedestrian was not
+in frame in either screenshot, so how the crumple looks is still unjudged.

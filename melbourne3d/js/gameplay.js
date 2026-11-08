@@ -66,10 +66,13 @@ const CSS = `
   background: rgba(10,12,16,.78); color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; pointer-events: auto; cursor: pointer; white-space: nowrap; }
 .gp-prompt:empty { display: none; }
 .gp-prompt kbd { display: inline-block; min-width: 18px; margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #ffd23f; color: #111; font: 800 12px/1.2 Inter, sans-serif; text-align: center; }
-.gp-weapon { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); max-width: 92vw; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
+.gp-weapon { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(300px, 92vw); z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
   color: #fff; font: 700 13px/1.3 Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
 .gp-weapon b { display: block; font: 800 20px/1 'JetBrains Mono', monospace; color: #ffd23f; }
 .gp-weapon[hidden] { display: none; }
+.gp-hint { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; opacity: .85; }
+@media (max-width: 960px) { .gp-hint { display: none; } }
+body.touch-enabled .gp-hint { display: none; }
 .gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
   border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
@@ -964,7 +967,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right click (hold) or Q: aim · Left click or J: shoot · move the mouse to turn · E: next target · Tab: change` : 'G to draw your gun'));
+      if (armed) {
+        const hint = document.createElement('span');
+        hint.className = 'gp-hint';
+        hint.textContent = 'Right click or Q: aim · Left click or J: shoot · E: next target · Tab: change';
+        elWeapon.append(b, document.createTextNode(w.name), hint);
+      } else elWeapon.append(b, document.createTextNode('G to draw your gun'));
     }
   }
 
