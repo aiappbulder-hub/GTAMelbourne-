@@ -2133,6 +2133,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       v.roll = (pe.chassisPivot ? pe.chassisPivot.rotation.z : 0) + (pe.kerbRoll || 0);
       v.y = pe.position.y + (pe.heaveY || 0); // up on the footpath
     }
+    // a moving car that reaches a pedestrian knocks them down (pedestrian-system.js carContact)
+    for (const v of vehicles) if ((v.edge || v.driven) && !v.parked && (v.speed > 3 || v.speed < -3)) pedestrianSystem.carContact(v.x, v.z, v.yaw + (v.yawOffset || 0), v.speed, v.halfWidth, v.halfL ?? v.half, dt, !!v.driven);
     for (const v of vehicles) {
       if (!v.edge && !v.driven && !v.parked) continue;
       if (v.bus) renderBus(v);
@@ -2207,6 +2209,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     killPed: pedestrianSystem.kill,
     scarePeds: pedestrianSystem.scare,
     talkToPed: pedestrianSystem.talk,
+    /** fn(ped, byPlayersCar, speed) is called when a car knocks a pedestrian down */
+    setPedHitListener: pedestrianSystem.setHitListener,
     nearestCar,
     setExternals,
     /** A car model (a THREE object, +Z forward, metres) for the street's sedans near the camera */

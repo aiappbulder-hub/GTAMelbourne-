@@ -376,10 +376,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (!ws.started) { ws.started = true; ws.x = a.x; ws.z = a.z; }
       const heading = Math.atan2(b.x - a.x, b.z - a.z);
       if (ws.pause > 0) {
-        // at the end of the leg: a look back the way it came, then on
-        return { x: ws.x, z: ws.z, heading: heading + Math.PI + Math.sin(ws.pause * 1.6) * 0.9, anim: 'look' };
+        // at the end of the leg: a look back the way it came (turning round over ~0.8 s), then on
+        ws.want = heading + Math.PI + Math.sin(ws.pause * 1.6) * 0.9;
+        return { x: ws.x, z: ws.z, heading: ws.h ?? (ws.h = ws.want), anim: 'look' };
       }
-      return { x: ws.x, z: ws.z, heading, anim: 'walk', a, b, L };
+      ws.want = heading;
+      return { x: ws.x, z: ws.z, heading: ws.h ?? (ws.h = ws.want), anim: 'walk', a, b, L };
     }
     const at = resolve(w.at);
     return { x: at.x, z: at.z, heading: w.heading + (w.sweep || 0) * D2R * Math.sin((ws.t / (w.period || 6)) * Math.PI * 2), anim: 'look' };
@@ -388,6 +390,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const ws = m.watchState[w.key];
     ws.t += dt;
     if (!w.patrol) return;
+    if (ws.h !== undefined) { const d = Math.atan2(Math.sin(ws.want - ws.h), Math.cos(ws.want - ws.h)); ws.h += Math.max(-4 * dt, Math.min(4 * dt, d)); } // never more than 4 rad/s round
     if (ws.pause > 0) { ws.pause -= dt; if (ws.pause <= 0) ws.leg++; return; }
     const a = resolve(w.patrol[ws.leg % 2]), b = resolve(w.patrol[(ws.leg + 1) % 2]);
     const dx = b.x - ws.x, dz = b.z - ws.z, d = Math.hypot(dx, dz);
@@ -841,23 +844,46 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // story actors and watchers for this step
     const acts = [];
     for (const a of s.actors || []) {
+      if (a.who === 'Davo' && driving()) continue; // in the car with you
       let pose;
       if (a.near === 'player') {
+        // walks to a spot picked once per step (beside the door, or where he already stands), then stays put
         const pp = playerPos(), ph = controllerManager.getActiveEntity().heading || 0;
-        const x = pp.x + Math.sin(ph) * 1.6 + Math.cos(ph) * 0.5, z = pp.z + Math.cos(ph) * 1.6 - Math.sin(ph) * 0.5;
-        pose = { x, y: pp.y, z, heading: Math.atan2(pp.x - x, pp.z - z) };
+        const ws = ((m.walkers ||= {})[a.key] ||= {});
+        if (ws.si !== m.si) {
+          ws.si = m.si;
+          if (ws.x === undefined) { ws.x = pp.x + Math.cos(ph) * 1.6 - Math.sin(ph) * 0.8; ws.z = pp.z - Math.sin(ph) * 1.6 - Math.cos(ph) * 0.8; } // out of the car beside you
+          ws.tx = ws.x; ws.tz = ws.z;
+          if (s.at) {
+            const g = resolve(s.at), gx = g.x - pp.x, gz = g.z - pp.z, L = Math.hypot(gx, gz) || 1;
+            const spot = (k) => ({ x: g.x + (gz / L) * 2.2 * k + (gx / L) * 0.8, z: g.z - (gx / L) * 2.2 * k + (gz / L) * 0.8 });
+            const sp = [spot(1), spot(-1)].find((q) => blockAt(q.x, q.z)) || spot(1);
+            ws.tx = sp.x; ws.tz = sp.z;
+          } else if (Math.hypot(pp.x - ws.x, pp.z - ws.z) < 1.4) {
+            const ax = ws.x - pp.x || 0.01, az = ws.z - pp.z, L = Math.hypot(ax, az); // the player stopped on top of him: a step aside
+            ws.tx = pp.x + (ax / L) * 2; ws.tz = pp.z + (az / L) * 2;
+          }
+        }
+        const dx = ws.tx - ws.x, dz = ws.tz - ws.z, d = Math.hypot(dx, dz);
+        let v = 0, heading = Math.atan2(pp.x - ws.x, pp.z - ws.z);
+        if (d > 0.15) {
+          v = d > 6 ? 2.4 : 1.7;
+          const st = Math.min(d, v * dt);
+          ws.x += (dx / d) * st; ws.z += (dz / d) * st;
+          heading = Math.atan2(dx, dz);
+        }
+        pose = { x: ws.x, y: controllerManager.getGroundHeight(ws.x, ws.z, 'person'), z: ws.z, heading, speed: v, ease: 7 };
       } else {
         const at = resolve(a.at), x = at.x + (a.off ? a.off[0] : 0), z = at.z + (a.off ? a.off[1] : 0);
-        pose = { x, y: 0, z, heading: a.face === 'player' ? Math.atan2(p.x - x, p.z - z) : a.heading || 0 };
+        pose = { x, y: controllerManager.getGroundHeight(x, z, 'person'), z, heading: a.face === 'player' ? Math.atan2(p.x - x, p.z - z) : a.heading || 0, ease: 7 };
       }
-      if (a.who === 'Davo' && driving()) continue; // in the car with you
       acts.push({ key: a.key, id: a.who ? STORY_CAST[a.who] : a.model, pose, anim: a.anim || 'idle' });
     }
     let seenNow = false;
     for (const w of s.watch || []) {
       const wp = watcherPose(w, m);
       stepWatchers(w, m, dt);
-      acts.push({ key: w.key, id: w.model, pose: { x: wp.x, y: 0, z: wp.z, heading: wp.heading }, anim: wp.anim });
+      acts.push({ key: w.key, id: w.model, pose: { x: wp.x, y: controllerManager.getGroundHeight(wp.x, wp.z, 'person'), z: wp.z, heading: wp.heading }, anim: wp.anim });
       const c = cone(w.key, w.fov, w.range);
       c.visible = true;
       c.position.set(wp.x, 0.26, wp.z);
@@ -964,6 +990,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     sub,
     /** gameplay.js and the traffic, once they exist; gameplay reports talks and hold-ups here */
     attach(g, t) { gameplay = g; traffic = t; },
+    /** The player fired (gameplay.js): shots during a stealth step blow the job */
+    onGunfire() {
+      const st = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
+      if (st && st.watch) fail('Kestrel made you. They heard the shots.');
+    },
     onTalk(robbed) { if (robbed) counters.rob++; else counters.talk++; },
     addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,

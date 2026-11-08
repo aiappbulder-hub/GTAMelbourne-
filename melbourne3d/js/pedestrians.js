@@ -1083,6 +1083,16 @@ const DIVE_POSES = [
   [PEDESTRIAN_DIVE_DURATION, 0.957, 0.035, 0.05, 0.05, 0.82, 0.03, 0.23, 0.08, 0, 0.08, 0, 0]
 ];
 
+// The shot or run-over go down in place: knees give, the body folds forward and lies still (no hands catching, no rise).
+// Same columns as DIVE_POSES; the last row is held.
+const CRUMPLE_POSES = [
+  DIVE_POSES[0],
+  [0.15, 0.80,  0.25,  0.30, 0.20, 0.70, 0.05, 0.25, 0.08, -0.02, 0.10,  0.05, 0.05],
+  [0.35, 0.45,  0.90,  1.00, 0.70, 0.30, 0.25, 0.35, 0.10, -0.35, 0.14, -0.15, 0.7],
+  [0.60, 0.135, 1.49,  1.45, 1.00, 0.08, 0.20, 0.38, 0.19, -0.80, 0.16, -0.62, 1.4],
+  [60,   0.135, 1.49,  1.45, 1.00, 0.08, 0.20, 0.38, 0.19, -0.80, 0.16, -0.62, 1.4]
+];
+
 const wrap = (a) => a - Math.round(a / (Math.PI * 2)) * Math.PI * 2;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const clampAbs = (x, m) => (x < -m ? -m : x > m ? m : x);
@@ -1224,6 +1234,7 @@ class PersonRig {
     this.leanAt = this.time + IDLE.minHold * hash01(seed + 0.5);
     this.diving = false;
     this.diveGround = 0;
+    this.crumple = false; // the owner is dead: going down, not diving
     this.feet = [makeFoot(1), makeFoot(-1)];
     this.pose = new Float32Array(STRIDE * 4);
     this.pose.set([seed, this.female, girth, hair], (STRIDE - 1) * 4);
@@ -1301,6 +1312,7 @@ class PersonRig {
       // Travel ends before .55 s; settle exactly onto the surface by the prone pose at .72 s.
       this.diveGround += (ground(owner, x, z) - this.diveGround) * (diveTime >= 0.72 ? 1 : ease(dt, 0.06));
       this.diving = true;
+      this.crumple = !!(owner && owner.dead);
       this.x = x;
       this.z = z;
       this.yaw = wrap(this.yaw + clampAbs(wrap(heading - this.yaw), 10 * dt));
@@ -1674,10 +1686,11 @@ class PersonRig {
   // Grounded escape animation, independent of the walking gait and evaluated only for visible people.
   solveDive(time, groundY) {
     const s = this.s;
+    const poses = this.crumple ? CRUMPLE_POSES : DIVE_POSES;
     let frame = 0;
-    while (frame < DIVE_POSES.length - 2 && time > DIVE_POSES[frame + 1][0]) frame++;
-    const a = DIVE_POSES[frame];
-    const b = DIVE_POSES[frame + 1];
+    while (frame < poses.length - 2 && time > poses[frame + 1][0]) frame++;
+    const a = poses[frame];
+    const b = poses[frame + 1];
     const t = smooth(a[0], b[0], time);
     const key = (k) => lerp(a[k], b[k], t);
     const pitch = key(2);

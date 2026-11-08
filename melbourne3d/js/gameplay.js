@@ -66,8 +66,8 @@ const CSS = `
   background: rgba(10,12,16,.78); color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; pointer-events: auto; cursor: pointer; white-space: nowrap; }
 .gp-prompt:empty { display: none; }
 .gp-prompt kbd { display: inline-block; min-width: 18px; margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #ffd23f; color: #111; font: 800 12px/1.2 Inter, sans-serif; text-align: center; }
-.gp-weapon { position: fixed; right: 18px; top: 160px; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
-  color: #fff; font: 700 14px/1.3 Inter, system-ui, sans-serif; text-align: right; pointer-events: none; }
+.gp-weapon { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); max-width: 92vw; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
+  color: #fff; font: 700 13px/1.3 Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
 .gp-weapon b { display: block; font: 800 20px/1 'JetBrains Mono', monospace; color: #ffd23f; }
 .gp-weapon[hidden] { display: none; }
 .gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
@@ -625,6 +625,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flashT = 0.05;
     bang(w.sound);
     voices?.event('gunfire', person.position);
+    missionSystem?.onGunfire?.();
     const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
     for (let k = 0; k < w.pellets; k++) {
       const a = yaw + (Math.random() - 0.5) * 2 * w.spread;

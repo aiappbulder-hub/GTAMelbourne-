@@ -178,7 +178,10 @@ export function createCast({ scene, controllerManager }) {
     });
     const mixer = new THREE.AnimationMixer(root);
     const acts = {};
-    for (const [name, clip] of Object.entries(set)) acts[name] = mixer.clipAction(clip);
+    for (const [name, clip] of Object.entries(set)) {
+      acts[name] = mixer.clipAction(clip);
+      if (ONCE.has(name)) { acts[name].setLoop(THREE.LoopOnce, 1); acts[name].clampWhenFinished = true; } // a gesture plays once
+    }
     // the face's blend shapes (Ara characters): for blinking
     const faces = [];
     root.traverse((o) => { if (o.morphTargetDictionary && o.morphTargetDictionary.eyeBlinkLeft !== undefined) faces.push(o); });
@@ -200,7 +203,9 @@ export function createCast({ scene, controllerManager }) {
     return a.acts[name];
   }
   function play(a, name, timeScale = 1, fade = 0.3) {
-    // a gesture playing once finishes before anything but a new gesture (or death) takes over
+    // a gesture playing once finishes before anything but a new gesture (or death) takes over; walking cuts it short
+    const moving = name === 'walk' || name === 'run' || name === 'sprint';
+    if (moving) a.onceUntil = 0;
     if (clock < a.onceUntil && !ONCE.has(name)) return;
     if (ONCE.has(name) && !has(a, name)) return; // a gesture this person hasn't got (Ara's: no nod or shrug)
     let act;
@@ -213,9 +218,10 @@ export function createCast({ scene, controllerManager }) {
         if (opts.length) { act = action(a, opts[Math.floor(Math.random() * opts.length)]); fade = 0.9; }
       }
     } else act = action(a, name) || a.acts.idle;
+    const again = a.logical === name; // (a gesture still being asked for after it ended stays at its last frame, no restart)
     a.logical = name;
     if (!act) return;
-    if (a.cur !== act || ONCE.has(name) && clock >= a.onceUntil) {
+    if (a.cur !== act || ONCE.has(name) && clock >= a.onceUntil && !again) {
       act.reset();
       act.enabled = true;
       act.setEffectiveWeight(1);
@@ -641,9 +647,16 @@ export function createCast({ scene, controllerManager }) {
       if (!a) return;
       extras.set(key, a);
     }
-    play(a, anim); // (a mood they've no clip for plays the idle, but stays their mood: the phone comes out for 'phone')
-    a.heading = pose.heading;
-    place(a, pose.x, pose.y ?? 0, pose.z, pose.heading, 0.016, false);
+    // pose.speed (m/s): a walker, stepping at the pace they really move and standing in `anim` once they arrive.
+    // pose.ease (rad/s): the heading turns towards pose.heading at most that fast (and settles) instead of snapping
+    if (pose.speed !== undefined) gait(a, pose.speed, anim); else play(a, anim); // (a mood they've no clip for plays the idle, but stays their mood: the phone comes out for 'phone')
+    if (pose.ease && a.group.visible) {
+      const dt = Math.min(0.1, Math.max(0, clock - (a.poseT ?? clock)));
+      const d = Math.atan2(Math.sin(pose.heading - a.heading), Math.cos(pose.heading - a.heading));
+      a.heading += THREE.MathUtils.clamp(d * Math.min(1, dt * 8), -pose.ease * dt, pose.ease * dt);
+    } else a.heading = pose.heading;
+    a.poseT = clock;
+    place(a, pose.x, pose.y ?? 0, pose.z, a.heading, 0.016, false);
   }
   // The player sitting down (a scene): drawn at the seat whatever mode they're in
   let playerSeat = null, playerSeatAnim = 'sit';
