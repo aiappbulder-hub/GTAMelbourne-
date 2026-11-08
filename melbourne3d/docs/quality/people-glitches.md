@@ -28,3 +28,19 @@ Everything else in `people-bar.md` is still a hypothesis, including the two P0 i
   Esplanade). Its text runs across the minimap's right edge. This is a UI glitch, not a people glitch.
 - The player's white T-shirt in the cut scene carries a circular logo with text. If it resembles a real brand it must
   be replaced (the project forbids real brands). Not verified.
+
+## After the fixes (verified in the running game)
+
+Gameplay and AI programmer agents fixed the items below; each was checked by a test in `tools/melbourne/`.
+
+| ID | Fix | Check |
+|---|---|---|
+| G1 | Davo walks once to a spot beside the door, then stays | `test-m1.cjs`: he moved 0.00 m while the player turned through three headings |
+| G4 | Watchers and Davo use the same ground height as the player | `test-m1.cjs`: every actor's feet within 0.06 m of the ground (watcher A now at 0.22 m, was 0) |
+| G11 | Gunfire in the stealth step fails the job | `test-m1.cjs` |
+| G2 | A fast car that reaches a pedestrian knocks them down | `test-people-hit.cjs`. The first version only covered AI cars and taken cars. The player's own car (taxi, sports car, mod cars) was missed, and testing found it. It is covered now. |
+| G3, G8 | A shot pedestrian goes down; the body stays on screen | `test-people-shot.cjs` (state only, not how it looks) |
+
+**Not checked by a test, and still to be judged by eye:** the look of the shot crumple, the smooth turns, the gesture
+changes (G5, G6), crosswalk flight during gunfire (G9), walkers steering round bodies (G16), the pistol HUD position,
+and everything not listed. Fixed in code but not seen on screen.

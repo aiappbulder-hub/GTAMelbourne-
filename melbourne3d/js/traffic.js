@@ -2135,6 +2135,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     }
     // a moving car that reaches a pedestrian knocks them down (pedestrian-system.js carContact)
     for (const v of vehicles) if ((v.edge || v.driven) && !v.parked && (v.speed > 3 || v.speed < -3)) pedestrianSystem.carContact(v.x, v.z, v.yaw + (v.yawOffset || 0), v.speed, v.halfWidth, v.halfL ?? v.half, dt, !!v.driven);
+    // the player's own car (the taxi, the sports car, a mod car) isn't one of the vehicles: it hits people too
+    if (activeMode === 'car' && playerEntity && Math.abs(playerEntity.speed || 0) > 3 && !cars.some((v) => v.driven)) {
+      pedestrianSystem.carContact(playerEntity.position.x, playerEntity.position.z, playerEntity.heading || 0, playerEntity.speed, player.halfW, player.halfL, dt, true);
+    }
     for (const v of vehicles) {
       if (!v.edge && !v.driven && !v.parked) continue;
       if (v.bus) renderBus(v);
