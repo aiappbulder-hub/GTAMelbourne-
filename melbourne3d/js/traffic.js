@@ -1720,6 +1720,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     for (let attempt = 0; attempt < 12; attempt++) {
       const e = nearEdges[Math.floor(Math.random() * nearEdges.length)];
       if (!e || (v.bus && e.axis !== 'ave') || e.len < 2 * v.half + 10) continue;
+      if (e.len < 80 && Math.random() > e.len / 80) continue; // short pieces (at junctions) get fewer cars, so they don't clump
       const lane = Math.floor(Math.random() * e.lanes.length);
       const along = (focusX - e.sx) * e.dx + (focusZ - e.sz) * e.dz;
       const minS = Math.max(v.half + 5, along - rMax);
@@ -1731,7 +1732,15 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (protectView && nearView(x, z, v.half + 4, VEHICLE_SPAWN_DISTANCE))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
-      if (!laneClear(e.occ[lane], s, v.half + 8)) continue;
+      if (!laneClear(e.occ[lane], s, v.half + 12)) continue;
+      // and not into a bunch: no more than two other cars within 25 m, in any lane or street
+      let near = 0;
+      for (const o of vehicles) {
+        if (o === v || !(o.edge || o.parked)) continue;
+        const ex = o.x - x, ez = o.z - z;
+        if (ex * ex + ez * ez < 625 && ++near > 2) break;
+      }
+      if (near > 2) continue;
       place(v, e, lane, s);
       return true;
     }

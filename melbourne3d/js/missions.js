@@ -425,7 +425,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     });
     elChoice.hidden = false;
     choiceOpen = { def: c, pick };
-    voices?.sayText(c.text, { subtitle: false });
+    voices?.sayText(c.text, { subtitle: false, who: c.who });
   }
   window.addEventListener('keydown', (e) => {
     if (!choiceOpen) return;
@@ -632,7 +632,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elCut.append(b, t, hint);
     elCut.hidden = false;
     // the line spoken, when it has a recording (the panel already shows the words)
-    voices?.sayText(line, { subtitle: false });
+    voices?.sayText(line, { subtitle: false, who });
   }
   function advanceCut(skip = false) {
     if (!cut) return;
@@ -725,7 +725,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         if (mission !== m) return;
         Object.assign(save.flags, o.set || {});
         persist();
-        if (o.reply) { sub(`${s.choice.who}: ${o.reply}`, 5); voices?.sayText(o.reply); }
+        if (o.reply) { sub(`${s.choice.who}: ${o.reply}`, 5); voices?.sayText(o.reply, { who: s.choice.who }); }
         nextStep();
       });
     }
@@ -741,7 +741,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   function pass() {
     const def = mission.def;
     cleanup();
-    if (def.outro) { voices?.sayText(def.outro[1]); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
+    if (def.outro) { voices?.sayText(def.outro[1], { who: def.outro[0] }); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
     persist();
@@ -903,7 +903,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     while (s.lines && m.said < s.lines.length && m.stepT >= s.lines[m.said][0]) {
       const [, who, text] = s.lines[m.said++];
       sub(`${who}: ${text}`, 4.5);
-      voices?.sayText(text, { subtitle: false });
+      voices?.sayText(text, { subtitle: false, who });
     }
     pursuer.update(dt);
     if (pursuer.active && !pursuer.parked) {
@@ -1014,6 +1014,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     choose(i) { choiceOpen?.pick(i); },
     /** Skip the cut scene that's playing (scripted checks) */
     skipCut() { if (cut) advanceCut(true); },
+    /** Next line of the cut scene (scripted checks) */
+    nextCutLine() { if (cut) advanceCut(); },
     get money() { return save.money; },
     start,
     applyCamera,

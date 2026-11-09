@@ -169,6 +169,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         ? crosswalkTrack(nearSignals[Math.floor(Math.random() * nearSignals.length)])
         : nearEdges.length > 0 && sidewalkTrack(nearEdges[Math.floor(Math.random() * nearEdges.length)]);
       if (!ok) continue;
+      // short sidewalk pieces (corners) must not get as many people as long ones: that is where the crowd clumped
+      if (!crosswalk && track.len < 40 && Math.random() > track.len / 40) continue;
       const along = (focusX - track.ax) * track.ux + (focusZ - track.az) * track.uz;
       const minT = Math.max(0, along - rMax), maxT = Math.min(track.len, along + rMax);
       if (minT > maxT) continue;
@@ -179,6 +181,16 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       const d2 = dx * dx + dz * dz;
       if (d2 < rMinSq || d2 > rMaxSq || (protectView && nearView(x, z, 2, PED_SPAWN_DISTANCE))) continue;
       if (player.active && (x - player.x) * (x - player.x) + (z - player.z) * (z - player.z) < 100) continue;
+      // not into a crowd: nobody within 3 m, and no more than two others within 10 m
+      let crowd = 0;
+      for (let i = 0; i < peds.length; i++) {
+        const q = peds[i];
+        if (q === p || !q.placed) continue;
+        const ex = q.x - x, ez = q.z - z, dd = ex * ex + ez * ez;
+        if (dd < 9) { crowd = 9; break; }
+        if (dd < 100) crowd++;
+      }
+      if (crowd > 2) continue;
       if (crosswalk) {
         let crowded = false;
         const curb = track.node.curb;
