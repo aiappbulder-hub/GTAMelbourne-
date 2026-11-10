@@ -27,6 +27,7 @@ for (const m of MISSIONS) {
   for (const [who, text] of m.cut || []) add(who, text, f);
   if (m.outro) add(m.outro[0], m.outro[1], f);
   if (m.after?.line) add(m.after.line[0], m.after.line[1], f);
+  if (m.after?.lineIf) { add(m.after.lineIf.yes[0], m.after.lineIf.yes[1], f); add(m.after.lineIf.no[0], m.after.lineIf.no[1], f); }
   for (const st of m.steps || []) {
     for (const [, who, text] of st.lines || []) add(who, text, f);
     const sm = /^(\w+): "(.*)"$/.exec(st.say || ''); if (sm) add(sm[1], sm[2].replace(/\\'/g, "'"), f); // 'Davo: "..."' on a step is spoken too

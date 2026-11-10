@@ -560,7 +560,7 @@
       "duration": 2.04,
       "check": {
         "heard": "You got sober?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -573,7 +573,7 @@
       "duration": 3.65,
       "check": {
         "heard": "Someone had to. Vince asks about you every day. He hasn't got long.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -586,7 +586,7 @@
       "duration": 3.07,
       "check": {
         "heard": "Where is the car?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -612,7 +612,7 @@
       "duration": 0.55,
       "check": {
         "heard": "BOTH!",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -638,7 +638,7 @@
       "duration": 4.3,
       "check": {
         "heard": "Every empire starts with a lease nobody else wants.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -651,7 +651,7 @@
       "duration": 4.87,
       "check": {
         "heard": "It started in 2004 with a phone call from Vince Lombardo.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -664,7 +664,7 @@
       "duration": 2.78,
       "check": {
         "heard": "Don't look now. They're on us.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -677,7 +677,7 @@
       "duration": 3.05,
       "check": {
         "heard": "Take the city. Plenty of lights, plenty of trams.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -690,7 +690,7 @@
       "duration": 2.5,
       "check": {
         "heard": "still there lose them mate",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -716,7 +716,7 @@
       "duration": 4.39,
       "check": {
         "heard": "Your bar? Well, it's a bar. Gus wants out. You'll see.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -729,7 +729,7 @@
       "duration": 3.48,
       "check": {
         "heard": "Thirty years his dad ran it, smells like it too.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -755,7 +755,7 @@
       "duration": 3.77,
       "check": {
         "heard": "I know a bloke who used to be a copper. Leave it with me.\"",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -768,7 +768,7 @@
       "duration": 2.86,
       "check": {
         "heard": "Your call. I'll put the kettle on.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -781,7 +781,7 @@
       "duration": 6.19,
       "check": {
         "heard": "There you are, six years this war's been going, and the Broadmeadows' firm reckon they own the town now.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -820,7 +820,7 @@
       "duration": 6.43,
       "check": {
         "heard": "The pages are still going missing. Somebody is talking to the firm or to Kestrel. I want a name.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -859,7 +859,7 @@
       "duration": 4.61,
       "check": {
         "heard": "You're the one asking questions about Vince's pages, sit down, it isn't me you want.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -885,7 +885,7 @@
       "duration": 2.78,
       "check": {
         "heard": "Why would I do that for you?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -898,7 +898,7 @@
       "duration": 3.7,
       "check": {
         "heard": "Because Vince never paid you what you're worth, I will.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -911,7 +911,7 @@
       "duration": 4.54,
       "check": {
         "heard": "The tapes say who sold Vince's pages. The Westside Nomads bought them.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -924,7 +924,7 @@
       "duration": 0.62,
       "check": {
         "heard": "And?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -950,7 +950,7 @@
       "duration": 3.36,
       "check": {
         "heard": "The nomads know it was us. They burnt our shop last night.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -976,7 +976,7 @@
       "duration": 3.96,
       "check": {
         "heard": "Set the charge, grab the pages, then get well clear. Make it loud.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1002,7 +1002,7 @@
       "duration": 6.48,
       "check": {
         "heard": "There's an envelope in a locker at the end of St Kilda Pier, the last pages of Vince's book, and a photograph.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1015,7 +1015,7 @@
       "duration": 1.1,
       "check": {
         "heard": "Of what?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1054,7 +1054,7 @@
       "duration": 3.12,
       "check": {
         "heard": "That's how long it takes a book like that to get heavy.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1119,7 +1119,7 @@
       "duration": 3.94,
       "check": {
         "heard": "So you're back. I haven't got long, and there's something we never finished.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1158,7 +1158,7 @@
       "duration": 4.99,
       "check": {
         "heard": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1171,7 +1171,7 @@
       "duration": 2.95,
       "check": {
         "heard": "Gone. Nice driving for an old bloke.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1185,6 +1185,32 @@
       "check": {
         "heard": "Carlton mate the Brody boys are cutting in on our patch step on it",
         "score": 0.93
+      }
+    },
+    {
+      "id": "player_harbour-run_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "Davo's friend rang while I was remembering. The grey Comodo was Kestrel's. It always is.",
+      "file": "dialogue/harbour-run/player_harbour-run_2.mp3",
+      "duration": 6.91,
+      "check": {
+        "heard": "Davo's friend rang while I was remembering. The grey Komodo was Kestrels. It always is.",
+        "score": 0.87
+      }
+    },
+    {
+      "id": "player_harbour-run_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "I let Kestrel watch. After twenty-two years, they could wait one more night.",
+      "file": "dialogue/harbour-run/player_harbour-run_3.mp3",
+      "duration": 5.78,
+      "check": {
+        "heard": "I let Kestrel watch. After 22 years, they could wait one more night.",
+        "score": 0.89
       }
     }
   ]

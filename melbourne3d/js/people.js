@@ -32,15 +32,12 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
 const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
 export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10' }
   : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo' };
+// (the Rocketbox people still in assets/people: the rest were never fetched and were removed, see assets/people/README.md)
 const POOLS = {
   police: ['Police_Male_01', 'Police_Male_03'],
-  gang: ['Male_Adult_18', 'Male_Adult_04', 'Male_Adult_10', 'Male_Adult_17'],
-  male: ['Male_Adult_01', 'Male_Adult_02', 'Male_Adult_06', 'Male_Adult_07', 'Male_Adult_08', 'Male_Adult_11',
-    'Male_Adult_12', 'Male_Adult_14', 'Male_Adult_16', 'Male_Adult_20', 'Business_Male_01', 'Business_Male_02', 'Business_Male_05',
-    'Construction_Male_07', 'Construction_Male_08'],
-  female: ['Female_Adult_01', 'Female_Adult_02', 'Female_Adult_03', 'Female_Adult_05', 'Female_Adult_06', 'Female_Adult_07',
-    'Female_Adult_08', 'Female_Adult_09', 'Female_Adult_11', 'Female_Adult_12', 'Female_Adult_13', 'Female_Adult_14',
-    'Female_Adult_15', 'Female_Adult_17', 'Business_Female_01', 'Business_Female_02']
+  gang: ['Male_Adult_04', 'Male_Adult_10'],
+  male: ['Male_Adult_03', 'Male_Adult_05', 'Male_Adult_09', 'Male_Adult_14'],
+  female: ['Female_Adult_04', 'Female_Adult_09']
 };
 // How many people can be drawn this way at once, and how many different ones (each brings its own textures)
 const LEVEL = Q.peds >= 300 ? { actors: 24, kinds: 16, normals: true, shadows: true, range: 80 }

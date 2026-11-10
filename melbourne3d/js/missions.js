@@ -150,7 +150,11 @@ const MISSIONS = [
     steps: [
       { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
     ],
-    after: { card: ['2026', 'Twenty-two years later'], line: ['You', "That's how long it takes a book like that to get heavy."] }
+    // back in the present, and the choice Davo asked about at the Quiet Room door has its answer
+    after: { card: ['2026', 'Twenty-two years later'],
+      lineIf: { flag: 'davo_tails_kestrel',
+        yes: ['You', "Davo's friend rang while I was remembering. The grey Comodo was Kestrel's. It always is."],
+        no: ['You', 'I let Kestrel watch. After twenty-two years, they could wait one more night.'] } }
   }
 ];
 
@@ -480,6 +484,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let mission = null; // { def, i, si, timer, data }
   let cut = null; // { lines, k, done }
   let bigT = 0, subT = 0;
+  // Delays on game time, not the wall clock: they hold while the tab is hidden and stretch when the game runs slowly
+  const timers = []; // { t, fn }
+  const later = (secs, fn) => timers.push({ t: secs, fn });
+  let lastCard = null; // what the last chapter card showed (for scripted checks)
 
   function big(text, color, secs, small = '') {
     elBig.innerHTML = '';
@@ -644,12 +652,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elBlack.classList.add('on');
     gameplay?.leaveCarNow?.();
     if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
-    setTimeout(() => {
+    later(3.2, () => {
       if (mission !== m) return;
       m.blackout = false;
       elBlack.classList.remove('on');
       open();
-    }, 3200);
+    });
   }
   function nextStep() {
     const m = mission;
@@ -704,23 +712,26 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let cardUp = false;
   function chapterCard(after) {
     cardUp = true;
-    setTimeout(() => {
+    // a line that depends on a choice the player made (a saved flag), else the one line
+    const line = after.lineIf ? (save.flags[after.lineIf.flag] ? after.lineIf.yes : after.lineIf.no) : after.line;
+    later(2.8, () => {
       elBlack.innerHTML = '';
       const t = document.createElement('b');
       t.textContent = after.card[0];
       const sm = document.createElement('small');
       sm.textContent = after.card[1] || '';
       elBlack.append(t, sm);
-      if (after.line) {
+      lastCard = { card: after.card, line: line ? line[1] : null };
+      if (line) {
         const v = document.createElement('i');
-        v.textContent = after.line[1];
+        v.textContent = line[1];
         v.style.cssText = 'margin-top:26px;font:italic 500 17px/1.4 Inter,system-ui,sans-serif;opacity:.85;max-width:min(560px,86vw)';
         elBlack.append(v);
-        voices?.sayText(after.line[1], { subtitle: false, who: after.line[0] });
+        voices?.sayText(line[1], { subtitle: false, who: line[0] });
       }
       elBlack.classList.add('on');
-      setTimeout(() => { elBlack.classList.remove('on'); cardUp = false; }, 6500);
-    }, 2800);
+      later(6.5, () => { elBlack.classList.remove('on'); cardUp = false; });
+    });
   }
   function pass() {
     const def = mission.def;
@@ -742,7 +753,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       sub("The Ferryman is back. Act I continues in the next update; the city is yours to roam.", 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
     // a cheer on passing a job (on foot)
-    if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); setTimeout(() => cast.setPlayerAction(null), 3500); }
+    if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
   function fail(why) {
     cleanup();
@@ -757,6 +768,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
 
   function update(dt, elapsed) {
+    if (timers.length) { // the delays that have run out (callbacks may start new ones)
+      const due = [];
+      for (let i = 0; i < timers.length;) { timers[i].t -= dt; if (timers[i].t <= 0) due.push(...timers.splice(i, 1)); else i++; }
+      for (const x of due) x.fn();
+    }
     if (bigT > 0) { bigT -= dt; if (bigT <= 0) elBig.style.opacity = '0'; }
     if (subT > 0) { subT -= dt; if (subT <= 0) elSub.textContent = ''; }
     // markers pulse
@@ -999,6 +1015,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         choice: !!choiceOpen, inCut: !!cut, blackout: !!(mission && mission.blackout),
         goal: goalMarker.visible ? { x: goalMarker.position.x, z: goalMarker.position.z } : null };
     },
+    /** What the last chapter card showed, and a way to run one now (scripted checks) */
+    get lastCard() { return lastCard; },
+    showChapter(i) { const a = MISSIONS[i]?.after; if (a) chapterCard(a); },
+    setFlag(k, v) { save.flags[k] = v; persist(); },
     /** Pick option i of the open choice (scripted checks; players use the buttons or 1-3) */
     choose(i) { choiceOpen?.pick(i); },
     /** Skip the cut scene that's playing (scripted checks) */
