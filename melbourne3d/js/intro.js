@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { ROADS, blockAt } from './city-config.js';
 import { STORY_CAST } from './people.js';
+import { PLACES } from './story/places.js';
 
 // The opening: wide shots of Melbourne at golden hour, letterboxed, with the player's own voice setting up the story
 // over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. Every
@@ -21,29 +22,29 @@ const SHOTS = [
   },
   { // Flinders Street Station from over the Yarra
     from: [-30, 42, 390], to: [10, 34, 360], lookFrom: [-180, 16, 262], lookTo: [-165, 14, 262], secs: 7,
-    lines: [['', "It's 2004. I've been gone three years. The city's grown up. So have the crooks."]]
+    lines: [['', 'Twenty-two years ago I left this city by boat, with a book that two gangs and the police would have killed for.']]
   },
   { // Lygon Street, Carlton
     from: [700, 120, -880], to: [575, 85, -1060], lookFrom: [470, 0, -1420], lookTo: [480, 0, -1430], secs: 7,
-    lines: [['', 'The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.']]
+    lines: [['', 'Vince Lombardo kept that book. His Lygon Street Crew ran Carlton and Fitzroy. Old families, old rules, good coffee.']]
   },
   { // Docklands, into the sunset
     from: [-1750, 32, -180], to: [-1900, 38, -360], lookFrom: 'sun', lookTo: 'sun', secs: 7.5,
-    lines: [['', 'Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.']]
+    lines: [['', 'Out west, the Broadmeadows firm wanted the lot. Six years of war: chop shops torched, tobacco trucks gone.']]
   },
   { // up at Eureka from the river
     from: [-260, 5, 430], to: [-300, 7, 455], lookFrom: [-381, 120, 597], lookTo: [-381, 230, 597], secs: 6.5,
-    lines: [['', "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them."]]
+    lines: [['', 'And Taskforce Kestrel was closing in on all of them.']]
   },
   { // down Swanston Street to the station
     from: [-5, 7, -560], to: [-5, 6, -330], lookFrom: [-5, 16, 262], lookTo: [-5, 14, 262], secs: 11, // room for Vince's recorded call
-    lines: [['Vince (phone)', "Heard you were back. I've got work, if you want it."],
-      ['Vince (phone)', "Flinders Lane, off Elizabeth Street. Don't keep me waiting."],
-      ['You', 'Fresh off the plane and already working. Typical.']]
+    lines: [['Vince (phone)', "So you're back. I haven't got long, and there's something we never finished."],
+      ['Vince (phone)', "Davo will meet you at the water. Don't be seen."],
+      ['You', 'Twenty-two years, and he still tells me where to stand.']]
   },
   { // down onto the player at the job
     from: 'player-high', to: 'player-chase', lookFrom: 'player', lookTo: 'player', secs: 5.5, title: true,
-    lines: [['', 'Walk to the pink marker to meet Vince.']]
+    lines: [['', 'Davo is waiting on Harbour Esplanade. Walk to the pink marker.']]
   }
 ];
 
@@ -255,9 +256,8 @@ function createScore() {
   return { start, stop, duck };
 }
 
-// The arrival: fresh from the airport, the taxi comes down Elizabeth Street (southbound, in the left lane) and pulls
-// up at the kerb short of Flinders Lane, where Vince's first job is; then the player gets out
-const ARRIVE = { x: -224 + 9, z0: 66, z1: 100, heading: 0 }; // heading 0 = facing +z (grid south)
+// The arrival: tonight, on foot on Harbour Esplanade in Docklands, where the first job (Low Tide) starts
+const ARRIVE = { x: PLACES.M1_PLAYER.x, z: PLACES.M1_PLAYER.z, heading: Math.PI }; // facing grid north, towards Davo's car
 
 // --- The people in the intro's ground-level shots -------------------------------------------------------------------
 // the footpath beside a named street nearest a point: the street's direction (ux, uz), the way from the road into the
@@ -309,14 +309,14 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   const title = div('intro-title');
   title.textContent = 'GTA MELBOURNE';
   const sm = document.createElement('small');
-  sm.textContent = 'MELBOURNE · 2004';
+  sm.textContent = 'MELBOURNE · TONIGHT';
   title.append(sm);
   const card = div('intro-card');
   card.hidden = true;
   const h1 = document.createElement('h1');
   h1.textContent = 'GTA MELBOURNE';
   const cp = document.createElement('p');
-  cp.textContent = 'MELBOURNE · 2004';
+  cp.textContent = 'MELBOURNE · TONIGHT';
   const go = document.createElement('span');
   go.textContent = 'Press any key or tap to start';
   card.append(h1, cp, go);
@@ -407,7 +407,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     const ly = footpathNear('LYGON STREET', { x: 475, z: -1425 });
     const vince = ly.at(0, 1.3), c1 = ly.at(1.5, 1.7), c2 = ly.at(-1.2, 2.0);
     const toRoad = { x: -ly.nx, z: -ly.nz };
-    const camA = ly.at(7, -5), camB = ly.at(3.8, -3);
+    const camA = ly.at(5.4, -3.6), camB = ly.at(3.4, -2.6); // (close: medium shots, not specks)
     Object.assign(SHOTS[2], {
       from: [camA.x, 1.8, camA.z], to: [camB.x, 1.65, camB.z], lookFrom: [vince.x, 1.75, vince.z], lookTo: [vince.x, 1.7, vince.z],
       actors: [
@@ -422,7 +422,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     const kaz = { ...D, heading: Math.atan2(-sx, -sz) };
     const side = { x: -sz, z: sx };
     Object.assign(SHOTS[3], {
-      from: [D.x - sx * 9 + side.x * 1.5, 1.5, D.z - sz * 9 + side.z * 1.5], to: [D.x - sx * 6.5 + side.x * 0.8, 1.55, D.z - sz * 6.5 + side.z * 0.8],
+      from: [D.x - sx * 6.4 + side.x * 1.4, 1.5, D.z - sz * 6.4 + side.z * 1.4], to: [D.x - sx * 4.4 + side.x * 0.8, 1.55, D.z - sz * 4.4 + side.z * 0.8],
       lookFrom: [D.x + sx * 30, 3, D.z + sz * 30], lookTo: [D.x + sx * 30, 2.4, D.z + sz * 30],
       actors: [
         { key: 'kaz', id: K, pose: kaz, anim: 'angry_idle' },
@@ -433,7 +433,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     // Southbank: two officers in the foreground, then up the tower
     const c0 = { x: -260, z: 430 }, top = { x: -381, z: 597 };
     const ux = top.x - c0.x, uz = top.z - c0.z, ul = Math.hypot(ux, uz), dx = ux / ul, dz = uz / ul;
-    const cops = landNear(c0.x + dx * 8, c0.z + dz * 8);
+    const cops = landNear(c0.x + dx * 5.5, c0.z + dz * 5.5);
     const p1 = { x: cops.x - dz * 0.8, y: cops.y, z: cops.z + dx * 0.8 }, p2 = { x: cops.x + dz * 0.9, y: cops.y, z: cops.z - dx * 0.9 };
     Object.assign(SHOTS[4], {
       from: [c0.x, 1.7, c0.z], to: [c0.x - dx * 2, 2.6, c0.z - dz * 2], lookFrom: [cops.x, 1.6, cops.z], lookTo: [top.x, 230, top.z],
@@ -450,7 +450,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       from: [e0.x, 1.8, e0.z], to: [e1.x, 1.78, e1.z], lookFrom: [vince.x, 1.78, vince.z], lookTo: [vince.x, 1.76, vince.z],
       actors: [{ key: 'vince', id: V, pose: vp, anim: 'phone' }]
     });
-    // the player's line goes over the city, a shot of its own before the taxi
+    // the player's line goes over the city, a shot of its own before the last one
     const you = SHOTS[5].lines.filter((l) => l[0] === 'You');
     SHOTS[5].lines = SHOTS[5].lines.filter((l) => l[0] !== 'You');
     if (you.length && !SHOTS.some((x) => x.youShot)) {
@@ -484,7 +484,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     t = 0;
     lineK = -1;
     selectTime('golden');
-    // a new story starts with the taxi ride in from the airport (the last shot); further along, where you are
+    // a new story ends the intro with the player on Harbour Esplanade (the last shot); further along, where you are
     arriving = !!(missionSystem && missionSystem.progress === 0);
     document.body.classList.add('cinematic');
     fade.style.opacity = '1';
@@ -531,20 +531,11 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     cameraSystem.camera.lookAt(look);
     cameraSystem.camera.updateMatrixWorld();
 
-    // the taxi ride: placed as the last shot begins, then rolling to a stop at the kerb
-    if (arriving && s.title) {
-      const car = controllerManager.entities.car;
-      if (!rolling) {
-        rolling = true;
-        selectMode('car');
-        teleportTo(ARRIVE.x, ARRIVE.z0, ARRIVE.heading);
-      }
-      // speed falling linearly to nothing over the shot covers z1 - z0
-      const T = s.secs - 0.8, v0 = (2 * (ARRIVE.z1 - ARRIVE.z0)) / T;
-      car.heading = ARRIVE.heading;
-      car.angularVel = 0;
-      car.vx = car.vz = 0;
-      car.speed = Math.max(0, v0 * (1 - t / T));
+    // the last shot finds the player on the esplanade, tonight (placed as it begins)
+    if (arriving && s.title && !rolling) {
+      rolling = true;
+      selectMode('person');
+      teleportTo(ARRIVE.x, ARRIVE.z, ARRIVE.heading);
     }
 
     // the music dips under a recorded line
@@ -561,7 +552,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       line.append(document.createTextNode(text));
       line.style.opacity = '1';
       // Vince's call, recorded (down the phone line)
-      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro' });
+      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro', who: /^vince/i.test(who) ? 'Vince' : 'You' });
     }
     if (s.title) title.style.opacity = t > 0.6 ? '1' : '0';
     // fade to black over the cut
@@ -576,30 +567,17 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     return true;
   }
 
-  // The arrival's end state: the taxi at the kerb on Elizabeth Street and the player out of it, on the footpath.
-  // fromSkip: nothing drove it there (the intro was skipped), so put the taxi there first
+  // The arrival's end state: the player on foot on Harbour Esplanade, by the first job's marker.
+  // fromSkip: nothing placed them there (the intro was skipped), so do it now
   let arriving = false, rolling = false;
   function arrive(fromSkip) {
     arriving = false;
     if (fromSkip || !rolling) {
-      selectMode('car');
-      teleportTo(ARRIVE.x, ARRIVE.z1, ARRIVE.heading);
+      selectMode('person');
+      teleportTo(ARRIVE.x, ARRIVE.z, ARRIVE.heading);
     }
     rolling = false;
-    const car = controllerManager.entities.car;
-    car.speed = 0;
-    car.vx = car.vz = 0;
-    if (gameplay) {
-      setTimeout(() => {
-        if (controllerManager.activeMode !== 'car') return;
-        gameplay.exitCar();
-        // a passenger: out on the kerb side (the left), facing up the street towards the job
-        const h = car.heading, person = controllerManager.entities.person;
-        person.position.set(car.position.x + Math.cos(h) * 2.6, person.position.y, car.position.z - Math.sin(h) * 2.6);
-        person.heading = h;
-      }, 50);
-    }
-    missionSystem?.sub?.("Fresh off the plane. Vince's job is just up the road: the pink marker.", 6);
+    missionSystem?.sub?.("Tonight. Davo is waiting on Harbour Esplanade: the pink marker.", 6);
   }
 
   const forced = new URLSearchParams(location.search).has('intro');
@@ -611,7 +589,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       if (e && e.type === 'keydown' && e.code === 'Escape') {
         card.hidden = true;
         try { localStorage.setItem(KEY, '1'); } catch { /* storage unavailable */ }
-        if (missionSystem && missionSystem.progress === 0) arrive(true); // still dropped off by the taxi
+        if (missionSystem && missionSystem.progress === 0) arrive(true); // still put on the esplanade
         return;
       }
       window.removeEventListener('keydown', begin, true);

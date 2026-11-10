@@ -62,9 +62,10 @@ const CAR_KINDS = {
 
 // Retire distant actors even when looking their way: keeping them indefinitely starves upcoming streets.
 // Replacements may enter the far view, but nearby visible roads and sidewalks are protected from pop-in.
-const VEHICLE_RADIUS = 380;
-const NEAR_RADIUS = 350;
-const VEHICLE_SPAWN_DISTANCE = 250;
+// (the same cars kept nearer the player: a smaller area, so busier streets; they were spread over 380 m)
+const VEHICLE_RADIUS = 280;
+const NEAR_RADIUS = 270;
+const VEHICLE_SPAWN_DISTANCE = 200;
 
 // 8-row LED destination sign atlas (route badge + destination) aligned with the 4-slot bus livery cycle
 // (slots 0/2 = Current MTA Blue/Gold, slot 1 = Select Bus Service, slot 3 = Classic White/Blue)
@@ -278,7 +279,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   const policeCounts = { sedan: 0, suv: 0 };
 
   for (let i = 0; i < NUM_CARS; i++) {
-    const isPolice = (i % 50) === 6 || (i % 100) === 56;
+    const isPolice = (i % 25) === 6 || (i % 100) === 56; // (twice the police on the street: a patrol is never far)
     const isBoroTaxi = !isPolice && (i % 25) === 3;
     let bodyType = FLEET_MIX[i % FLEET_MIX.length];
     if (isPolice) bodyType = (i % 100) === 56 ? 'suv' : 'sedan';
@@ -1720,6 +1721,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     for (let attempt = 0; attempt < 12; attempt++) {
       const e = nearEdges[Math.floor(Math.random() * nearEdges.length)];
       if (!e || (v.bus && e.axis !== 'ave') || e.len < 2 * v.half + 10) continue;
+      if (e.len < 80 && Math.random() > e.len / 80) continue; // short pieces (at junctions) get fewer cars, so they don't clump
       const lane = Math.floor(Math.random() * e.lanes.length);
       const along = (focusX - e.sx) * e.dx + (focusZ - e.sz) * e.dz;
       const minS = Math.max(v.half + 5, along - rMax);
@@ -1731,7 +1733,15 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (protectView && nearView(x, z, v.half + 4, VEHICLE_SPAWN_DISTANCE))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
-      if (!laneClear(e.occ[lane], s, v.half + 8)) continue;
+      if (!laneClear(e.occ[lane], s, v.half + 12)) continue;
+      // and not into a bunch: no more than two other cars within 25 m, in any lane or street
+      let near = 0;
+      for (const o of vehicles) {
+        if (o === v || !(o.edge || o.parked)) continue;
+        const ex = o.x - x, ez = o.z - z;
+        if (ex * ex + ez * ez < 625 && ++near > 2) break;
+      }
+      if (near > 2) continue;
       place(v, e, lane, s);
       return true;
     }
@@ -2133,6 +2143,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       v.roll = (pe.chassisPivot ? pe.chassisPivot.rotation.z : 0) + (pe.kerbRoll || 0);
       v.y = pe.position.y + (pe.heaveY || 0); // up on the footpath
     }
+    // a moving car that reaches a pedestrian knocks them down (pedestrian-system.js carContact)
+    for (const v of vehicles) if ((v.edge || v.driven) && !v.parked && (v.speed > 3 || v.speed < -3)) pedestrianSystem.carContact(v.x, v.z, v.yaw + (v.yawOffset || 0), v.speed, v.halfWidth, v.halfL ?? v.half, dt, !!v.driven);
+    // the player's own car (the taxi, the sports car, a mod car) isn't one of the vehicles: it hits people too
+    if (activeMode === 'car' && playerEntity && Math.abs(playerEntity.speed || 0) > 3 && !cars.some((v) => v.driven)) {
+      pedestrianSystem.carContact(playerEntity.position.x, playerEntity.position.z, playerEntity.heading || 0, playerEntity.speed, player.halfW, player.halfL, dt, true);
+    }
     for (const v of vehicles) {
       if (!v.edge && !v.driven && !v.parked) continue;
       if (v.bus) renderBus(v);
@@ -2207,6 +2223,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     killPed: pedestrianSystem.kill,
     scarePeds: pedestrianSystem.scare,
     talkToPed: pedestrianSystem.talk,
+    /** fn(ped, byPlayersCar, speed) is called when a car knocks a pedestrian down */
+    setPedHitListener: pedestrianSystem.setHitListener,
     nearestCar,
     setExternals,
     /** A car model (a THREE object, +Z forward, metres) for the street's sedans near the camera */

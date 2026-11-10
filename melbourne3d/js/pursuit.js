@@ -37,9 +37,11 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   let pos = { x: 0, y: 0, z: 0 }, heading = 0, v = 0, vMax = 30;
   let token = 0;
   let parked = false; // waiting at the kerb until release()
+  let info = null;
+  let gapStop = STOP; // this one's own closest following distance (police units keep different gaps)
 
   /** Start tailing from (x, z, heading): a dark sedan by default */
-  async function start({ x, z, heading: h = 0, file = 'comodo', color = 0x2b2f33, speed = 30, wait = false }) {
+  async function start({ x, z, heading: h = 0, file = 'comodo', color = 0x2b2f33, speed = 30, wait = false, stopGap = STOP, seed = null }) {
     const my = ++token;
     active = true;
     parked = wait;
@@ -47,7 +49,9 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     heading = h;
     v = 0;
     vMax = speed;
-    trail = [];
+    trail = seed ? seed.map((q) => ({ x: q.x, y: q.y || 0, z: q.z })) : []; // (a unit starts on the route the player drove)
+    gapStop = stopGap;
+    if (seed && seed.length > 1) heading = Math.atan2(seed[1].x - seed[0].x, seed[1].z - seed[0].z);
     if (!car || car.file !== file) {
       if (car) scene.remove(car.root);
       const m = await loadModel(file, color);
@@ -102,7 +106,8 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   /** A parked pursuer pulls out: it starts following from here */
   function release() { parked = false; trail = []; v = 0; }
   function update(dt) {
-    if (!active || parked) return;
+    if (!active) return;
+    if (parked) { collide(); return; } // waiting at the kerb: still solid
     // drop a trail point wherever the player has got to
     const p = player().position;
     const last = trail.length ? trail[trail.length - 1] : pos;
@@ -114,15 +119,16 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     const gap = trailLength();
     const mine = Math.abs(controllerManager.activeMode === 'car' ? player().speed || 0 : 0);
     // brake in time to stop STOP metres behind the player, and match their speed once in the gap
-    want = Math.min(want, mine + Math.sqrt(2 * 8 * Math.max(0, gap - STOP)));
-    if (gap < GAP) want = Math.min(want, gap < (GAP + STOP) / 2 ? Math.min(mine, 2) : mine);
+    want = Math.min(want, mine + Math.sqrt(2 * 8 * Math.max(0, gap - gapStop)));
+    if (gap < GAP) want = Math.min(want, gap < (GAP + gapStop) / 2 ? Math.min(mine, 2) : mine);
     // and for a car in front: brake to stop 6 m behind it
     const ahead = carAhead();
     if (ahead < Infinity) want = Math.min(want, Math.sqrt(2 * 8 * Math.max(0, ahead - 6)));
+    info = { want: +want.toFixed(1), ahead: ahead === Infinity ? null : +ahead.toFixed(1), gap: +gap.toFixed(1), bend: +bend.toFixed(2), trail: trail.length, dt: +dt.toFixed(3) };
     v += Math.max(-11 * dt, Math.min(5.5 * dt, want - v));
     v = Math.max(0, v);
     // drive along the trail
-    let move = Math.min(v * dt, Math.max(0, gap - STOP), Math.max(0, ahead - 5));
+    let move = Math.min(v * dt, Math.max(0, gap - gapStop), Math.max(0, ahead - 5));
     while (move > 0 && trail.length) {
       const b = trail[0], d = Math.hypot(b.x - pos.x, b.z - pos.z);
       if (d <= move) { pos = { x: b.x, y: b.y, z: b.z }; trail.shift(); move -= d; continue; }
@@ -136,6 +142,36 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
       heading += Math.atan2(Math.sin(h - heading), Math.cos(h - heading)) * Math.min(1, dt * 6);
     }
     place(dt);
+    collide();
+  }
+  // The pursuer is solid: the player's car can't drive through it. Two oriented boxes; if they overlap, the player is
+  // pushed out along the axis of least overlap and loses speed in the hit (the pursuer just keeps to its trail)
+  const PH = { L: 2.3, W: 0.95 }; // the pursuer's half length and width
+  function collide() {
+    if (!active || !car || !car.root.visible || controllerManager.activeMode !== 'car') return;
+    const pe = player();
+    const dx = pe.position.x - pos.x, dz = pe.position.z - pos.z;
+    if (Math.abs(dx) > 7 || Math.abs(dz) > 7) return;
+    const ph = pe.heading || 0, PL = 2.25, PW = 0.95;
+    const axes = [[Math.sin(heading), Math.cos(heading)], [Math.cos(heading), -Math.sin(heading)], [Math.sin(ph), Math.cos(ph)], [Math.cos(ph), -Math.sin(ph)]];
+    let best = Infinity, nx = 0, nz = 0;
+    for (let i = 0; i < 4; i++) {
+      const [ax, az] = axes[i];
+      const rA = PH.L * Math.abs(ax * axes[0][0] + az * axes[0][1]) + PH.W * Math.abs(ax * axes[1][0] + az * axes[1][1]);
+      const rB = PL * Math.abs(ax * axes[2][0] + az * axes[2][1]) + PW * Math.abs(ax * axes[3][0] + az * axes[3][1]);
+      const d = dx * ax + dz * az, overlap = rA + rB - Math.abs(d);
+      if (overlap <= 0) return; // a separating axis: no contact
+      if (overlap < best) { best = overlap; const sg = d >= 0 ? 1 : -1; nx = ax * sg; nz = az * sg; }
+    }
+    pe.position.x += nx * best;
+    pe.position.z += nz * best;
+    if (pe.mesh) pe.mesh.position.copy(pe.position);
+    // the part of the player's velocity going into the pursuer is lost (a bump, not a wall)
+    const fx = Math.sin(ph), fz = Math.cos(ph);
+    const into = -(nx * fx + nz * fz) * (pe.speed || 0);
+    if (into > 0.5) pe.speed = (pe.speed || 0) * 0.55;
+    pe.vx = (pe.vx || 0) + nx * Math.min(3, best * 4);
+    pe.vz = (pe.vz || 0) + nz * Math.min(3, best * 4);
   }
   function place(dt) {
     if (!car) return;
@@ -153,6 +189,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     get active() { return active; },
     get position() { return pos; },
     get speed() { return v; },
+    get info() { return info; },
     get heading() { return heading; },
     /** Straight-line distance to the player */
     distance() { const p = player().position; return Math.hypot(p.x - pos.x, p.z - pos.z); },

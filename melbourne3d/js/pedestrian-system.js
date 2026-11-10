@@ -8,8 +8,9 @@ import { castHook, characterFor, isFemale } from './people.js';
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
 const NUM_PEDS = Math.round(Q.peds * 0.75); // 255 on high quality (js/quality.js's 340, thinned so people have room)
-const PED_RADIUS = 320;
-const NEAR_RADIUS = 350;
+// (the same people kept nearer the player: a smaller area, so a busier street; they were spread over 320 m)
+const PED_RADIUS = 220;
+const NEAR_RADIUS = 260;
 const PED_SPAWN_DISTANCE = 150;
 const PED_AVOID_INTERVAL = 0.12;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -169,6 +170,8 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         ? crosswalkTrack(nearSignals[Math.floor(Math.random() * nearSignals.length)])
         : nearEdges.length > 0 && sidewalkTrack(nearEdges[Math.floor(Math.random() * nearEdges.length)]);
       if (!ok) continue;
+      // short sidewalk pieces (corners) must not get as many people as long ones: that is where the crowd clumped
+      if (!crosswalk && track.len < 40 && Math.random() > track.len / 40) continue;
       const along = (focusX - track.ax) * track.ux + (focusZ - track.az) * track.uz;
       const minT = Math.max(0, along - rMax), maxT = Math.min(track.len, along + rMax);
       if (minT > maxT) continue;
@@ -179,6 +182,16 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       const d2 = dx * dx + dz * dz;
       if (d2 < rMinSq || d2 > rMaxSq || (protectView && nearView(x, z, 2, PED_SPAWN_DISTANCE))) continue;
       if (player.active && (x - player.x) * (x - player.x) + (z - player.z) * (z - player.z) < 100) continue;
+      // not into a crowd: nobody within 3 m, and no more than two others within 10 m
+      let crowd = 0;
+      for (let i = 0; i < peds.length; i++) {
+        const q = peds[i];
+        if (q === p || !q.placed) continue;
+        const ex = q.x - x, ez = q.z - z, dd = ex * ex + ez * ez;
+        if (dd < 9) { crowd = 9; break; }
+        if (dd < 100) crowd++;
+      }
+      if (crowd > 2) continue;
       if (crosswalk) {
         let crowded = false;
         const curb = track.node.curb;
@@ -429,7 +442,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     }
     let vMax = avoiding ? p.avoidSpeed : p.pause > 0 || p.conversation ? 0 : p.speed;
     // the player's game (js/gameplay.js): running away from gunfire, standing to talk
-    if (clock < p.fleeUntil && !p.node) vMax = Math.max(vMax, p.fleeSpeed);
+    if (clock < p.fleeUntil) vMax = Math.max(vMax, p.fleeSpeed);
     if (clock < p.talkUntil) vMax = 0;
     if (dodging || diving) p.v = vMax = 0;
     if (!p.nextRoute) vMax = Math.min(vMax, Math.sqrt(2 * brake * ahead));
@@ -664,13 +677,14 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   // Personal space: people closer than SPACE to someone step sideways (across their footpath) away from them, and ease
   // back once clear, so a crowd spreads out instead of bunching into one another (waiting at a kerb too)
   const SPACE = 1.5;
+  const BODY_SPACE = 1.4; // a prone body is about 1.4 m long
   const spaceGrid = new Map();
   const cellKey = (cx, cz) => (cx * 73856093) ^ (cz * 19349663);
   function spread() {
     spaceGrid.clear();
     const R = 90 * 90;
     for (const p of peds) {
-      if (!p.placed || p.dead) continue;
+      if (!p.placed) continue; // bodies stay in the grid: the living step round them
       if ((p.x - focusX) ** 2 + (p.z - focusZ) ** 2 > R) { p.sepWant = 0; continue; }
       const k = cellKey(Math.floor(p.x / 2), Math.floor(p.z / 2));
       let cell = spaceGrid.get(k);
@@ -688,10 +702,10 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
           for (const q of cell) {
             if (q === p || (p.conversation && (p.conversation.a === q || p.conversation.b === q))) continue;
             const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
-            if (d >= SPACE || d < 1e-4) continue;
+            if (d >= (q.dead ? BODY_SPACE : SPACE) || d < 1e-4) continue;
             // which side of p (across its track) q is on: step the other way, harder the closer they are
             const across = dx * p.uz - dz * p.ux;
-            push -= Math.sign(across || (p.index - q.index)) * (SPACE - d);
+            push -= Math.sign(across || (p.index - q.index)) * ((q.dead ? BODY_SPACE : SPACE) - d);
           }
         }
       }
@@ -700,6 +714,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   }
   let castCandidates = null, lastCandidates = null;
   function update(dt, elapsed, x, z, jump, view, activeMode) {
+    dt = Math.min(Math.max(dt, 1e-4), 0.1); // the rig clamps the same way: a frame hitch must not make walkers lurch
     clock = elapsed;
     focusX = x;
     focusZ = z;
@@ -720,13 +735,13 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         if (dx * dx + dz * dz <= keepRadiusSq) continue;
       }
       pedBudget--;
-      spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 280, !jump);
+      spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 190, !jump);
     }
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
       if (p.placed) avoidPlayer(p);
-      // bodies are cleared away after a while (out of sight, the spawner reuses the person)
-      if (p.dead && clock - p.diveStart > 45) { p.placed = false; p.dead = false; }
+      // bodies are cleared away after a while, but only out of sight and not close behind the camera
+      if (p.dead && clock - p.diveStart > 45 && hasView && (p.x - focusX) ** 2 + (p.z - focusZ) ** 2 > 900 && !visible(p.x, p.z, 7)) { p.placed = false; p.dead = false; }
     }
     meet(dt);
     spread();
@@ -750,14 +765,48 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   function leaveConversation(p) {
     if (p.conversation) endConversation(p.conversation);
   }
-  /** p is shot: falls (away from the shot) and stays down */
+  /** p is shot (or run down): crumples where they stand, leaning at most 0.6 rad from the way they face towards
+   *  away from (fromX, fromZ), so no turn comes first, and stays down */
   function kill(p, fromX, fromZ) {
     if (p.dead) return;
     leaveConversation(p);
     p.dead = true;
     p.v = 0;
     p.diveStart = clock;
-    p.diveHeading = Math.atan2(p.x - fromX, p.z - fromZ);
+    const yaw = p.rig.yaw || 0, away = Math.atan2(p.x - fromX, p.z - fromZ) - yaw;
+    p.diveHeading = yaw + clamp(away - Math.round(away / (Math.PI * 2)) * Math.PI * 2, -0.6, 0.6);
+  }
+  /**
+   * A moving car (centre x, z; heading yaw, 0 = +z; signed speed m/s; half width/length; dt) that reaches a living
+   * pedestrian above HIT_SPEED knocks them down with kill(); returns how many. Reads last frame's spaceGrid, and covers the
+   * ground the car crossed this frame (capped) so a hitch can't carry it through someone. Slower cars are left to the
+   * walkers' own avoidance. A body is dead and skipped, so one car can't kill the same person twice.
+   */
+  const HIT_SPEED = 3, HIT_RADIUS = 0.3;
+  let hitListener = null;
+  function carContact(x, z, yaw, speed, halfW, halfL, dt, driven = false) {
+    if (Math.abs(speed) < HIT_SPEED || (x - focusX) ** 2 + (z - focusZ) ** 2 > 8100) return 0;
+    const fx = Math.sin(yaw), fz = Math.cos(yaw), sweep = Math.min(Math.abs(speed) * dt, 4);
+    const reach = Math.hypot(halfW, halfL) + sweep + HIT_RADIUS;
+    const lo = -halfL - HIT_RADIUS - (speed > 0 ? sweep : 0), hi = halfL + HIT_RADIUS + (speed < 0 ? sweep : 0);
+    const wide = halfW + HIT_RADIUS;
+    let hits = 0;
+    for (let cx = Math.floor((x - reach) / 2), cx1 = Math.floor((x + reach) / 2); cx <= cx1; cx++) {
+      for (let cz = Math.floor((z - reach) / 2), cz1 = Math.floor((z + reach) / 2); cz <= cz1; cz++) {
+        const cell = spaceGrid.get(cellKey(cx, cz));
+        if (!cell) continue;
+        for (const q of cell) {
+          if (q.dead || !q.placed) continue;
+          const dx = q.x - x, dz = q.z - z, along = dx * fx + dz * fz, side = dx * fz - dz * fx;
+          if (side > wide || side < -wide || along < lo || along > hi) continue;
+          const dir = speed > 0 ? 1 : -1;
+          kill(q, q.x - fx * dir, q.z - fz * dir); // knocked the way the car goes
+          hits++;
+          if (hitListener) hitListener(q, driven, Math.abs(speed));
+        }
+      }
+    }
+    return hits;
   }
   /** Everyone within r of (x, z) runs off along their footpath, away from it */
   function scare(x, z, r, secs = 9) {
@@ -769,7 +818,10 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       leaveConversation(p);
       p.talkUntil = 0;
       p.pause = 0;
-      if (!p.node) p.dir = dx * p.ux + dz * p.uz >= 0 ? 1 : -1;
+      // on a crosswalk's road run for the nearer end (at its kerbs they keep their way: walk() still holds them at a red)
+      const onRoad = p.node && p.t > 2 && p.t < p.len - 2;
+      const dir = p.node ? (onRoad ? (p.t < p.len * 0.5 ? -1 : 1) : p.dir) : dx * p.ux + dz * p.uz >= 0 ? 1 : -1;
+      if (dir !== p.dir) { p.dir = dir; p.nextRoute = null; p.nextLeg = 0; }
       p.fleeUntil = clock + secs * (0.7 + Math.random() * 0.6);
       p.fleeSpeed = 3.6 + Math.random() * 1.6;
     }
@@ -783,7 +835,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     p.talkZ = z;
   }
 
-  return { peds, meshes: pedCrowd.meshes, update, kill, scare, talk };
+  return { peds, meshes: pedCrowd.meshes, update, kill, scare, talk, carContact, setHitListener: (fn) => { hitListener = fn; } };
 }
 
 export { createPedestrianSystem };

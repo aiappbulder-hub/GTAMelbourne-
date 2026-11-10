@@ -20,15 +20,15 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const ok = (cond, what) => { log(cond ? 'PASS' : 'FAIL', what); if (!cond) process.exitCode = 1; };
   const ready = async () => { await p.waitForFunction(() => window.__city && __city.missions && __city.gameplay, null, { timeout: 480000 }); await p.waitForTimeout(3000); };
   const dbg = () => p.evaluate(() => __city.missions.debug());
-  const waitFor = async (fn, ms, arg) => { await p.waitForFunction(fn, arg, { timeout: ms * 4, polling: 250 }); };
+  const waitFor = async (fn, ms, arg) => { await p.waitForFunction(fn, arg, { timeout: ms * 10, polling: 250 }); };
 
   await p.goto(URL_, { timeout: 120000 }); await ready();
   let st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags, v2: !!localStorage.getItem('gta-melbourne3d-save-v2') }));
-  ok(st.prog === 10 && st.money === 12345 && JSON.stringify(st.flags) === '{}' && st.v2, `1.1 v1 save migrated ${JSON.stringify(st)}`);
-  ok((await p.evaluate(() => __city.missions.missions.length)) === 12 && (await p.evaluate(() => __city.missions.missions[11].name)) === 'Low Tide', '1.4 Low Tide is job 12');
+  ok(st.prog === 0 && st.money === 12345 && JSON.stringify(st.flags) === '{}' && st.v2, `1.1 v1 save migrated (cash kept; the new story starts from the top) ${JSON.stringify(st)}`);
+  ok((await p.evaluate(() => __city.missions.missions.length)) === 8 && (await p.evaluate(() => __city.missions.missions[0].name)) === 'Low Tide', '1.4 Low Tide is job 1 of 8');
 
   // to M1's marker: it starts (black card), then the cut scene
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await waitFor(() => __city.missions.debug().blackout, 30000); ok(true, '1.4 M1 opens on the black card');
   await waitFor(() => __city.missions.debug().inCut, 30000); ok(true, '1.8 cut scene with Davo');
   ok((await p.evaluate(() => __city.cast.debug().Davo)) !== 'hidden', `1.8 Davo visible in the cut (${await p.evaluate(() => __city.cast.debug().Davo)})`);
@@ -49,11 +49,27 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await waitFor(() => !__city.missions.debug().mission, 5000);
   ok(true, '1.5 seen on the esplanade: mission failed'); ok(!(await dbg()).tail, '1.7 tail gone after a fail');
 
-  // restart from the marker
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  // restart from the marker; gunfire in the stealth step blows the job (G11)
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await waitFor(() => __city.missions.debug().inCut, 40000);
   await p.evaluate(() => __city.missions.skipCut());
   await waitFor(() => __city.missions.debug().step === 0, 10000);
+  await p.evaluate(() => __city.teleportTo(-1840, -150, 0));
+  await p.waitForTimeout(1500);
+  await p.evaluate(() => __city.missions.onGunfire());
+  await waitFor(() => !__city.missions.debug().mission, 8000); ok(true, '1.5 gunfire during the stealth step fails the job');
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await waitFor(() => __city.missions.debug().inCut, 40000);
+  await p.evaluate(() => __city.missions.skipCut());
+  await waitFor(() => __city.missions.debug().step === 0, 10000);
+  // the watchers' and Davo's feet are on the ground (G4)
+  const feet = await p.evaluate(() => {
+    const out = {};
+    __city.scene.traverse((o) => { if (/^Person:/.test(o.name) && o.visible) out[o.name] = [+o.position.x.toFixed(2), +o.position.y.toFixed(3), +o.position.z.toFixed(2)]; });
+    return Object.fromEntries(Object.entries(out).map(([k, [x, y, z]]) => [k, { y, ground: __city.controllerManager.getGroundHeight(x, z, 'person') }]));
+  });
+  const sunk = Object.entries(feet).filter(([k, v]) => !/player/.test(k) && Math.abs(v.y - v.ground) > 0.06);
+  ok(Object.keys(feet).length >= 2 && sunk.length === 0, `1.8 feet on the ground ${JSON.stringify(feet)}`);
   // the waterfront route, slowly, behind the patrol: walk the player in hops along x = -1868
   let failed = false;
   for (let z = 10; z >= -170; z -= 6) {
@@ -84,16 +100,22 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.evaluate((g) => __city.teleportTo(g.x, g.z, 0), g);
   await waitFor(() => __city.missions.debug().choice, 15000); ok(true, '1.6 the choice is offered');
   await p.waitForTimeout(1500);
+  const davoAt = () => p.evaluate(() => { let r = null; __city.scene.traverse((o) => { if (o.name === 'Person:ara:davo' && o.visible) r = [o.position.x, o.position.z]; }); return r; });
+  await p.waitForTimeout(20000); // he walks to his spot and settles (slow frames)
+  const d0 = await davoAt();
+  for (const h of [1.5, 3.0, 4.5]) { await p.evaluate((h) => { __city.controllerManager.entities.person.heading = h; }, h); await p.waitForTimeout(4000); }
+  const d1 = await davoAt();
+  ok(d0 && d1 && Math.hypot(d0[0] - d1[0], d0[1] - d1[1]) < 0.4, `1.8 Davo stays put when the player turns (moved ${d0 && d1 ? Math.hypot(d0[0] - d1[0], d0[1] - d1[1]).toFixed(2) : '?'} m)`);
   ok((await p.evaluate(() => __city.cast.debug())) && true, `1.8 actors at the door: ${JSON.stringify(await p.evaluate(() => Object.keys(__city.cast.debug())))}`);
   await p.evaluate(() => __city.missions.choose(0));
   await waitFor(() => !__city.missions.debug().mission, 10000);
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
-  ok(st.prog === 12 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.9 M1 passed ${JSON.stringify(st)}`);
+  ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.9 M1 passed ${JSON.stringify(st)}`);
 
   // reload: progress and the choice survive
   await p.reload(); await ready();
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
-  ok(st.prog === 12 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.1 survives a restart ${JSON.stringify(st)}`);
+  ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.1 survives a restart ${JSON.stringify(st)}`);
 
   // corrupt save: a new game, no error
   await p.evaluate(() => { localStorage.setItem('gta-melbourne3d-save-v2', '{bad json'); localStorage.removeItem('gta-melbourne3d-save-v1'); });

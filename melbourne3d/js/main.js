@@ -643,9 +643,12 @@ async function initApp() {
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
+  // The wanted level and the police (js/wanted.js)
+  const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
+  window.__city.wanted = wanted;
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
-    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem
+    scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem, audioSystem, wanted
   }) : null;
   window.__city.gameplay = gameplay;
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
@@ -667,7 +670,7 @@ async function initApp() {
     n.textContent = 'Watch the intro';
     const sub = document.createElement('span');
     sub.className = 'pop-sub';
-    sub.textContent = 'Melbourne, 2004: how it starts';
+    sub.textContent = 'Tonight, and 2004 as he remembers it';
     b.append(n, sub);
     b.addEventListener('click', () => { closePopovers(); intro.play(); });
     pop.prepend(b);
@@ -825,9 +828,7 @@ async function initApp() {
       case 'KeyN':
         if (!e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) audioSystem.setEnabled(!audioSystem.enabled);
         break;
-      case 'KeyB':
-        if (!e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && !mapSystem.isFullMapOpen) audioSystem.honk(controllerManager.getActiveEntity());
-        break;
+      // (B is the horn: js/gameplay.js, held, with js/car-sounds.js)
     }
   });
 
@@ -968,6 +969,7 @@ async function initApp() {
       if (race) boxes.push(...race.boxes());
       const tail = missionSystem?.pursuerBox?.();
       if (tail) boxes.push(tail);
+      if (wanted) boxes.push(...wanted.boxes());
       // a sports car of the player's own, parked
       const sp = gameplay?.sportsBox?.();
       if (sp) boxes.push(sp);
@@ -1008,6 +1010,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
+    if (wanted) wanted.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);

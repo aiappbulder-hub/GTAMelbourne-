@@ -100,165 +100,23 @@
       "gain": 1,
       "refDistance": 6,
       "maxDistance": 60
+    },
+    "davo": {
+      "name": "Davo",
+      "role": "mission",
+      "crew": "The Crossing",
+      "voice": {
+        "speaker": "flynn",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 83
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
     }
   },
   "lines": [
-    {
-      "id": "vince_phone_1",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/intro",
-      "text": "Heard you were back. I've got work, if you want it.",
-      "file": "dialogue/intro/vince_phone_1.mp3",
-      "duration": 3.29,
-      "check": {
-        "heard": "Heard you were back. I've got work, if you want it.\"",
-        "score": 1
-      }
-    },
-    {
-      "id": "vince_phone_2",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/intro",
-      "text": "Flinders Lane, off Elizabeth Street. Don't keep me waiting.",
-      "file": "dialogue/intro/vince_phone_2.mp3",
-      "duration": 3.84,
-      "check": {
-        "heard": "Finders Lane, off Elizabeth Street, don't keep me waiting.",
-        "score": 0.89
-      }
-    },
-    {
-      "id": "vince_laneway_1",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/laneway-hustle",
-      "text": "There you are. Six years this war's been going, and the Broadmeadows mob reckon they own the town now.",
-      "file": "dialogue/laneway-hustle/vince_laneway_1.mp3",
-      "duration": 6.46,
-      "check": {
-        "heard": "There you are, six years this war has been going, and the Broadmeadows mob reckon they own the town now.",
-        "score": 0.92
-      }
-    },
-    {
-      "id": "vince_laneway_2",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/laneway-hustle",
-      "text": "Davo needs a lift. The trams won't cut it. Get your car and don't hang about.",
-      "file": "dialogue/laneway-hustle/vince_laneway_2.mp3",
-      "duration": 5.3,
-      "check": {
-        "heard": "Daevo needs a lift. The trams won't cut it. Get your car and don't hang about.",
-        "score": 0.94
-      }
-    },
-    {
-      "id": "vince_hotlap_1",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/hot-lap",
-      "text": "Every Sunday the Broady boys race their hotted-up cars round the Albert Park circuit.",
-      "file": "dialogue/hot-lap/vince_hotlap_1.mp3",
-      "duration": 5.59,
-      "check": {
-        "heard": "Every Sunday the Brody boys raced their hotted-up cars round the Albert Park circuit.",
-        "score": 0.87
-      }
-    },
-    {
-      "id": "vince_hotlap_2",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/hot-lap",
-      "text": "One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go.",
-      "file": "dialogue/hot-lap/vince_hotlap_2.mp3",
-      "duration": 4.94,
-      "check": {
-        "heard": "One lap, lakeside drive, otty drive, back to the pits. Go!",
-        "score": 0.91
-      }
-    },
-    {
-      "id": "kaz_bikies_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/westside-bikies",
-      "text": "So you're the one Vince keeps sending round. Forget the Lygon lot.",
-      "file": "dialogue/westside-bikies/kaz_bikies_1.mp3",
-      "duration": 3.29,
-      "check": {
-        "heard": "So you're the one Vince keeps sending round, forget the Lygon lot.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_bikies_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/westside-bikies",
-      "text": "Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it.",
-      "file": "dialogue/westside-bikies/kaz_bikies_2.mp3",
-      "duration": 5.93,
-      "check": {
-        "heard": "answer. The Westside nomads have stashed their takings on a boat in Docklands. Get there before they move it.",
-        "score": 0.97
-      }
-    },
-    {
-      "id": "kaz_collection_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/collection-day",
-      "text": "Half the corner boys in the city owe us money and think we forgot.",
-      "file": "dialogue/collection-day/kaz_collection_1.mp3",
-      "duration": 3.31,
-      "check": {
-        "heard": "Half the corner boys in the city owe us money and think we forgot.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_collection_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/collection-day",
-      "text": "Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet.",
-      "file": "dialogue/collection-day/kaz_collection_2.mp3",
-      "duration": 4.99,
-      "check": {
-        "heard": "Go to the Bork Street Mall and remind three of them Point the piece, ask for the wallet",
-        "score": 0.94
-      }
-    },
-    {
-      "id": "kaz_cleanup_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/clean-up",
-      "text": "Three Nomads are dealing outside Southern Cross like they own the place.",
-      "file": "dialogue/clean-up/kaz_cleanup_1.mp3",
-      "duration": 3.53,
-      "check": {
-        "heard": "Three nomads are dueling outside Southern Cross like they own the place.",
-        "score": 0.92
-      }
-    },
-    {
-      "id": "kaz_cleanup_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/clean-up",
-      "text": "They don't. Go and make that clear.",
-      "file": "dialogue/clean-up/kaz_cleanup_2.mp3",
-      "duration": 3.38,
-      "check": {
-        "heard": "They don't. Go and make that clear. Next.",
-        "score": 0.93
-      }
-    },
     {
       "id": "police_bark_stop",
       "character": "police",
@@ -550,162 +408,6 @@
       }
     },
     {
-      "id": "vince_hotlap_3",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/hot-lap",
-      "text": "Their best lap is three and a half minutes. Beat it and they'll know whose town this is.",
-      "file": "dialogue/hot-lap/vince_hotlap_3.mp3",
-      "duration": 5.59,
-      "check": {
-        "heard": "Their best lap is 3 and a half minutes. Beat it, and they'll know whose town this is.",
-        "score": 0.94
-      }
-    },
-    {
-      "id": "vince_chop_1",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/chop-shop",
-      "text": "The Broady boys love their utes. So do the buyers at my chop shop.",
-      "file": "dialogue/chop-shop/vince_chop_1.mp3",
-      "duration": 4.22,
-      "check": {
-        "heard": "The Brody Boys love their utes. So do the buyers at my chop shop.\"",
-        "score": 0.93
-      }
-    },
-    {
-      "id": "vince_chop_2",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/chop-shop",
-      "text": "Nick one off the street. Walk up, pull the driver out, done. Then get it to North Melbourne.",
-      "file": "dialogue/chop-shop/vince_chop_2.mp3",
-      "duration": 5.71,
-      "check": {
-        "heard": "Nick one off the street, walk up, pull the driver out, done, then get it to North Melbourne.",
-        "score": 1
-      }
-    },
-    {
-      "id": "vince_chop_3",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/chop-shop",
-      "text": "Any ute. Just don't bring it back with bullet holes.",
-      "file": "dialogue/chop-shop/vince_chop_3.mp3",
-      "duration": 3.29,
-      "check": {
-        "heard": "Benny Ute, just don't bring it back with bullet holes.",
-        "score": 0.9
-      }
-    },
-    {
-      "id": "vince_word_1",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/word-on-the-street",
-      "text": "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who.",
-      "file": "dialogue/word-on-the-street/vince_word_1.mp3",
-      "duration": 5.3,
-      "check": {
-        "heard": "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who.",
-        "score": 1
-      }
-    },
-    {
-      "id": "vince_word_2",
-      "character": "vince",
-      "category": "story",
-      "folder": "dialogue/word-on-the-street",
-      "text": "Go to Fitzroy and ask around. Locals talk if you ask nicely.",
-      "file": "dialogue/word-on-the-street/vince_word_2.mp3",
-      "duration": 4.7,
-      "check": {
-        "heard": "Go to Fitzroy and ask around, locals talk if you ask nicely.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_informant_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/the-informant",
-      "text": "Some dog in Carlton is singing to Taskforce Kestrel. He records it all on tape.",
-      "file": "dialogue/the-informant/kaz_informant_1.mp3",
-      "duration": 5.45,
-      "check": {
-        "heard": "Some dog in Carlton is singing to Task Force Kestrel. He records it all on tape.",
-        "score": 0.9
-      }
-    },
-    {
-      "id": "kaz_informant_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/the-informant",
-      "text": "Two drops: the phone box by the Exhibition Building, and his flat in East Melbourne. Get the tapes before Kestrel does.",
-      "file": "dialogue/the-informant/kaz_informant_2.mp3",
-      "duration": 6.98,
-      "check": {
-        "heard": "Two drops the phone box by the exhibition building and his flat in East Melbourne. Get the tapes before Kestrel does.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_tobacco_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/tobacco-wars",
-      "text": "You heard about the tobacco war? Every chop shop in town is getting torched.",
-      "file": "dialogue/tobacco-wars/kaz_tobacco_1.mp3",
-      "duration": 4.34,
-      "check": {
-        "heard": "You heard about the tobacco war? Every chop shop in town is getting torched.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_tobacco_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/tobacco-wars",
-      "text": "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf.",
-      "file": "dialogue/tobacco-wars/kaz_tobacco_2.mp3",
-      "duration": 5.47,
-      "check": {
-        "heard": "It is now, the nomads burnt down our shop last night, there's stocks in a warehouse at South Wharf",
-        "score": 0.89
-      }
-    },
-    {
-      "id": "kaz_tobacco_3",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/tobacco-wars",
-      "text": "Set the charge, then get well clear. Make it loud.",
-      "file": "dialogue/tobacco-wars/kaz_tobacco_3.mp3",
-      "duration": 2.71,
-      "check": {
-        "heard": "Set the charge then get well clear, make it loud.",
-        "score": 1
-      }
-    },
-    {
-      "id": "kaz_harbour_1",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/harbour-run",
-      "text": "Taskforce Kestrel raided the Brighton house. Both crews want you gone now.",
-      "file": "dialogue/harbour-run/kaz_harbour_1.mp3",
-      "duration": 4.44,
-      "check": {
-        "heard": "Task Force Kestrel raided the Brighton House. Both crews want you gone now.",
-        "score": 0.88
-      }
-    },
-    {
       "id": "kaz_harbour_2",
       "character": "kaz",
       "category": "story",
@@ -742,45 +444,6 @@
       "check": {
         "heard": "There's flat white south of the river and you lot want to talk shop.",
         "score": 0.93
-      }
-    },
-    {
-      "id": "kaz_cafe_2",
-      "character": "kaz",
-      "category": "story",
-      "folder": "dialogue/short-black",
-      "text": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.",
-      "file": "dialogue/short-black/kaz_cafe_2.mp3",
-      "duration": 4.97,
-      "check": {
-        "heard": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.",
-        "score": 1
-      }
-    },
-    {
-      "id": "mick_cafe_2",
-      "character": "mick",
-      "category": "story",
-      "folder": "dialogue/short-black",
-      "text": "There's a bag in a locker at the end of St Kilda Pier. Twenty Rolexes. The Nomads' stash.",
-      "file": "dialogue/short-black/mick_cafe_2.mp3",
-      "duration": 6.38,
-      "check": {
-        "heard": "There's a bag and a locker at the end of St. Kilda Pier, 20 Rolexes, the nomads stash.",
-        "score": 0.89
-      }
-    },
-    {
-      "id": "mick_cafe_3",
-      "character": "mick",
-      "category": "story",
-      "folder": "dialogue/short-black",
-      "text": "Till tonight. Grab it before they do, and we split it three ways.",
-      "file": "dialogue/short-black/mick_cafe_3.mp3",
-      "duration": 4.37,
-      "check": {
-        "heard": "Till tonight, grab it before they do, and we split it three ways.",
-        "score": 1
       }
     },
     {
@@ -823,32 +486,6 @@
       }
     },
     {
-      "id": "player_line_2",
-      "character": "player",
-      "category": "story",
-      "folder": "voices/player",
-      "text": "One lap?",
-      "file": "voices/player/player_line_2.mp3",
-      "duration": 1.06,
-      "check": {
-        "heard": "One lap, O, O, Soul.",
-        "score": 0.57
-      }
-    },
-    {
-      "id": "player_line_3",
-      "character": "player",
-      "category": "story",
-      "folder": "voices/player",
-      "text": "Any ute?",
-      "file": "voices/player/player_line_3.mp3",
-      "duration": 0.94,
-      "check": {
-        "heard": "any yout.",
-        "score": 0.5
-      }
-    },
-    {
       "id": "player_line_4",
       "character": "player",
       "category": "story",
@@ -862,19 +499,6 @@
       }
     },
     {
-      "id": "player_line_5",
-      "character": "player",
-      "category": "story",
-      "folder": "voices/player",
-      "text": "And the Nomads just leave it lying about?",
-      "file": "voices/player/player_line_5.mp3",
-      "duration": 2.71,
-      "check": {
-        "heard": "And the nomads just leave it lying about.",
-        "score": 1.0
-      }
-    },
-    {
       "id": "player_line_6",
       "character": "player",
       "category": "story",
@@ -883,7 +507,7 @@
       "duration": 1.42,
       "check": {
         "heard": "That's not my fight.",
-        "score": 1.0
+        "score": 1
       },
       "file": "voices/player/player_line_6.mp3"
     },
@@ -901,16 +525,614 @@
       }
     },
     {
+      "id": "player_low-tide_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Twenty-two years. The skyline's taller. The river's the same colour.",
+      "file": "dialogue/low-tide/player_low-tide_1.mp3",
+      "duration": 6.1,
+      "check": {
+        "heard": "22 years, the skyline's taller, the river's the same colour.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "davo_low-tide_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "You got old.",
+      "file": "dialogue/low-tide/davo_low-tide_1.mp3",
+      "duration": 2.04,
+      "check": {
+        "heard": "You got old, and...",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "player_low-tide_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "You got sober.",
+      "file": "dialogue/low-tide/player_low-tide_2.mp3",
+      "duration": 2.04,
+      "check": {
+        "heard": "You got sober?",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_2",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Someone had to. Vince asks about you every day. He hasn't got long.",
+      "file": "dialogue/low-tide/davo_low-tide_2.mp3",
+      "duration": 3.65,
+      "check": {
+        "heard": "Someone had to. Vince asks about you every day. He hasn't got long.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_low-tide_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Where is the car?",
+      "file": "dialogue/low-tide/player_low-tide_3.mp3",
+      "duration": 3.07,
+      "check": {
+        "heard": "Where is the car?",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_3",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore.",
+      "file": "dialogue/low-tide/davo_low-tide_3.mp3",
+      "duration": 12.46,
+      "check": {
+        "heard": "Up the End by Bork Street. Don't walk the Esplanade. There's a Grey Komodo park there since Tuesday. Two up. Coppers or real estate? Can't tell anymore.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "player_low-tide_4",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Both.",
+      "file": "dialogue/low-tide/player_low-tide_4.mp3",
+      "duration": 0.55,
+      "check": {
+        "heard": "BOTH!",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_4",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Go round by the water, and mind the woman walking the park.",
+      "file": "dialogue/low-tide/davo_low-tide_4.mp3",
+      "duration": 2.9,
+      "check": {
+        "heard": "Go round by the water and line the woman walking the park.",
+        "score": 0.92
+      }
+    },
+    {
+      "id": "player_low-tide_5",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Every empire starts with a lease nobody else wants.",
+      "file": "dialogue/low-tide/player_low-tide_5.mp3",
+      "duration": 4.3,
+      "check": {
+        "heard": "Every empire starts with a lease nobody else wants.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_low-tide_6",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "It started in 2004, with a phone call from Vince Lombardo.",
+      "file": "dialogue/low-tide/player_low-tide_6.mp3",
+      "duration": 4.87,
+      "check": {
+        "heard": "It started in 2004 with a phone call from Vince Lombardo.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_5",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Don't look now. They're on us.",
+      "file": "dialogue/low-tide/davo_low-tide_5.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "Don't look now. They're on us.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_6",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Take the city. Plenty of lights, plenty of trams.",
+      "file": "dialogue/low-tide/davo_low-tide_6.mp3",
+      "duration": 3.05,
+      "check": {
+        "heard": "Take the city. Plenty of lights, plenty of trams.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_7",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Still there. Lose them, mate.",
+      "file": "dialogue/low-tide/davo_low-tide_7.mp3",
+      "duration": 2.5,
+      "check": {
+        "heard": "still there lose them mate",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "They'll run out of petrol before patience. You won't.",
+      "file": "dialogue/low-tide/davo_low-tide_8.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "They'll run out of petrol before patients. You won't.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "davo_low-tide_9",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Your bar. Well, it's a bar. Gus wants out. You'll see.",
+      "file": "dialogue/low-tide/davo_low-tide_9.mp3",
+      "duration": 4.39,
+      "check": {
+        "heard": "Your bar? Well, it's a bar. Gus wants out. You'll see.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_10",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Thirty years his dad ran it. Smells like it, too.",
+      "file": "dialogue/low-tide/davo_low-tide_10.mp3",
+      "duration": 3.48,
+      "check": {
+        "heard": "Thirty years his dad ran it, smells like it too.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_11",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "That car. Want me to find out whose it was?",
+      "file": "dialogue/low-tide/davo_low-tide_11.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "that car. Want me to find out who's it was?",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "davo_low-tide_12",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "I know a bloke who used to be a copper. Leave it with me.",
+      "file": "dialogue/low-tide/davo_low-tide_12.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "I know a bloke who used to be a copper. Leave it with me.\"",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_13",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Your call. I'll put the kettle on.",
+      "file": "dialogue/low-tide/davo_low-tide_13.mp3",
+      "duration": 2.86,
+      "check": {
+        "heard": "Your call. I'll put the kettle on.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "vince_laneway-hustle_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "There you are. Six years this war's been going, and the Broadmeadows firm reckon they own the town now.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_1.mp3",
+      "duration": 6.19,
+      "check": {
+        "heard": "There you are, six years this war's been going, and the Broadmeadows' firm reckon they own the town now.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "vince_laneway-hustle_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "Somebody's been selling pages out of my book. Names, payments, who's on whose payroll. Davo is carrying what's left.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_2.mp3",
+      "duration": 7.85,
+      "check": {
+        "heard": "Somebody's been selling pages out of my book. Names, payments, who's on who's payroll? Davo is carrying what's left.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "vince_laneway-hustle_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "Get him to the lock-up in Carlton before the firm gets to him. He's at the pub in Collingwood. Don't hang about.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_3.mp3",
+      "duration": 6.96,
+      "check": {
+        "heard": "Get him to the lock-up in Carlton, before the firm gets to him. He's at the pub in Collinwood. Don't hang about.\"",
+        "score": 0.96
+      }
+    },
+    {
+      "id": "vince_word-on-the-street_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "The pages are still going missing. Somebody is talking to the firm, or to Kestrel. I want a name.",
+      "file": "dialogue/word-on-the-street/vince_word-on-the-street_1.mp3",
+      "duration": 6.43,
+      "check": {
+        "heard": "The pages are still going missing. Somebody is talking to the firm or to Kestrel. I want a name.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_word-on-the-street_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Where do I start?",
+      "file": "dialogue/word-on-the-street/player_word-on-the-street_1.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Where do I start? Oh!",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "vince_word-on-the-street_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Fitzroy. Ask around. Locals talk if you ask nicely.",
+      "file": "dialogue/word-on-the-street/vince_word-on-the-street_2.mp3",
+      "duration": 4.42,
+      "check": {
+        "heard": "Fitzroy. Ask around. Locals talked, if you ask nicely.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "kaz_the-informant_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "You're the one asking questions about Vince's pages. Sit down. It isn't me you want.",
+      "file": "dialogue/the-informant/kaz_the-informant_1.mp3",
+      "duration": 4.61,
+      "check": {
+        "heard": "You're the one asking questions about Vince's pages, sit down, it isn't me you want.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_the-informant_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "Vince has a man in Carlton who records everything on tape and sings to Taskforce Kestrel. Who paid whom. Get the tapes before Kestrel does.",
+      "file": "dialogue/the-informant/kaz_the-informant_2.mp3",
+      "duration": 8.38,
+      "check": {
+        "heard": "Vince has a man in Carlton who records everything on tape and sings to Task Force Kestrel, who paid whom. Get the tapes before Kestrel does.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "player_the-informant_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "Why would I do that for you?",
+      "file": "dialogue/the-informant/player_the-informant_1.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "Why would I do that for you?",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_the-informant_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "Because Vince never paid you what you're worth. I will.",
+      "file": "dialogue/the-informant/kaz_the-informant_3.mp3",
+      "duration": 3.7,
+      "check": {
+        "heard": "Because Vince never paid you what you're worth, I will.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_westside-bikies_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "The tapes say who sold Vince's pages. The Westside Nomads bought them.",
+      "file": "dialogue/westside-bikies/kaz_westside-bikies_1.mp3",
+      "duration": 4.54,
+      "check": {
+        "heard": "The tapes say who sold Vince's pages. The Westside Nomads bought them.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_westside-bikies_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "And?",
+      "file": "dialogue/westside-bikies/player_westside-bikies_1.mp3",
+      "duration": 0.62,
+      "check": {
+        "heard": "And?",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_westside-bikies_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it.",
+      "file": "dialogue/westside-bikies/kaz_westside-bikies_2.mp3",
+      "duration": 4.9,
+      "check": {
+        "heard": "They've hidden the pages in their takings on a boat in Docklands, get there before they move it.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "kaz_tobacco-wars_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "The Nomads know it was us. They burnt our shop last night.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_1.mp3",
+      "duration": 3.36,
+      "check": {
+        "heard": "The nomads know it was us. They burnt our shop last night.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_tobacco-wars_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "It is now. Their stock is in a warehouse on the South Wharf, and so is the rest of Vince's book.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_2.mp3",
+      "duration": 5.3,
+      "check": {
+        "heard": "It is now. Their stock is in a warehouse on the South Wharf and so is the rest of Vincer's book.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "kaz_tobacco-wars_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "Set the charge, grab the pages, then get well clear. Make it loud.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_3.mp3",
+      "duration": 3.96,
+      "check": {
+        "heard": "Set the charge, grab the pages, then get well clear. Make it loud.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "kaz_short-black_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.",
+      "file": "dialogue/short-black/kaz_short-black_1.mp3",
+      "duration": 7.46,
+      "check": {
+        "heard": "This is Mick. Mick moves things. Watchers, phones, whatever falls off a truck. Today he is moving paper.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "mick_short-black_1",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "There's an envelope in a locker at the end of St Kilda Pier. The last pages of Vince's book, and a photograph.",
+      "file": "dialogue/short-black/mick_short-black_1.mp3",
+      "duration": 6.48,
+      "check": {
+        "heard": "There's an envelope in a locker at the end of St Kilda Pier, the last pages of Vince's book, and a photograph.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_short-black_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Of what?",
+      "file": "dialogue/short-black/player_short-black_1.mp3",
+      "duration": 1.1,
+      "check": {
+        "heard": "Of what?",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "mick_short-black_2",
+      "character": "mick",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "A developer shaking hands with a Kestrel detective. Whoever holds that photograph owns this town.",
+      "file": "dialogue/short-black/mick_short-black_2.mp3",
+      "duration": 6.65,
+      "check": {
+        "heard": "The developer shaking hands with a Kestrel detective, whoever holds that photograph owns this town.",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "kaz_harbour-run_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "Kestrel raided the Brighton house. They know the book is gone, and so do both crews.",
+      "file": "dialogue/harbour-run/kaz_harbour-run_1.mp3",
+      "duration": 4.8,
+      "check": {
+        "heard": "Kestrel raided the Brighton house. They know the book is gone and so did both crews",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "player_harbour-run_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "That's how long it takes a book like that to get heavy.",
+      "file": "dialogue/harbour-run/player_harbour-run_1.mp3",
+      "duration": 3.12,
+      "check": {
+        "heard": "That's how long it takes a book like that to get heavy.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "player_intro_5",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Twenty-two years ago I left this city by boat, with a book that two gangs and the police would have killed for.",
+      "file": "dialogue/intro/player_intro_5.mp3",
+      "duration": 6.84,
+      "check": {
+        "heard": "22 years ago I left this city by boat with a book that two gangs and the police would've killed for.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "player_intro_6",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Vince Lombardo kept that book. His Lygon Street Crew ran Carlton and Fitzroy. Old families, old rules, good coffee.",
+      "file": "dialogue/intro/player_intro_6.mp3",
+      "duration": 9.89,
+      "check": {
+        "heard": "Vince Lombardo kept that book. His Lydon Street crew ran Carlton and Fitzroy. Old families. Old rules. Good coffee.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "player_intro_7",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Out west, the Broadmeadows firm wanted the lot. Six years of war: chop shops torched, tobacco trucks gone.",
+      "file": "dialogue/intro/player_intro_7.mp3",
+      "duration": 9.48,
+      "check": {
+        "heard": "Out West, the Broadmeadows firm wanted the lot, six years of warden chop shops torched, tobacco tracks gone.",
+        "score": 0.89
+      }
+    },
+    {
       "id": "player_intro_8",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
+      "text": "And Taskforce Kestrel was closing in on all of them.",
       "file": "dialogue/intro/player_intro_8.mp3",
-      "duration": 5.74,
+      "duration": 4.2,
       "check": {
-        "heard": "It's 2004. I've been gone three years. The city's grown up. So have the crooks.",
+        "heard": "and Tusk Force Kestrel was closing in on all of them.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "vince_intro_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "So you're back. I haven't got long, and there's something we never finished.",
+      "file": "dialogue/intro/vince_intro_1.mp3",
+      "duration": 3.94,
+      "check": {
+        "heard": "So you're back. I haven't got long, and there's something we never finished.",
         "score": 1.0
+      }
+    },
+    {
+      "id": "vince_intro_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/intro",
+      "text": "Davo will meet you at the water. Don't be seen.",
+      "file": "dialogue/intro/vince_intro_2.mp3",
+      "duration": 2.81,
+      "check": {
+        "heard": "Devo will meet you at the water, don't be seen.",
+        "score": 0.9
       }
     },
     {
@@ -918,11 +1140,11 @@
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "The Lygon Street Crew run Carlton and Fitzroy. Old families, old rules, good coffee.",
+      "text": "Twenty-two years, and he still tells me where to stand.",
       "file": "dialogue/intro/player_intro_9.mp3",
-      "duration": 5.38,
+      "duration": 4.13,
       "check": {
-        "heard": "The Ligon Street crew run Charlton and Fitzroy, old families, old rules, good coffee.",
+        "heard": "22 years, and he still tells me where to stand?",
         "score": 0.86
       }
     },
@@ -931,38 +1153,38 @@
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Out west, the Broadmeadows mob want the lot. Six years of war: chop shops torched, tobacco trucks gone.",
+      "text": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
       "file": "dialogue/intro/player_intro_10.mp3",
-      "duration": 6.84,
+      "duration": 4.99,
       "check": {
-        "heard": "Out west the Broadmeadows mob want the lot. Six years of worried chop shops torched, tobacco trucks gone.",
-        "score": 0.94
-      }
-    },
-    {
-      "id": "player_intro_11",
-      "character": "player",
-      "category": "story",
-      "folder": "dialogue/intro",
-      "text": "And now Taskforce Kestrel, the cops' shiny new toy, is closing in on all of them.",
-      "file": "dialogue/intro/player_intro_11.mp3",
-      "duration": 6.1,
-      "check": {
-        "heard": "And now Task Force Kestrel, the cop's shiny new toy, is closing in on all of them.",
-        "score": 0.85
-      }
-    },
-    {
-      "id": "player_line_12",
-      "character": "player",
-      "category": "story",
-      "folder": "voices/player",
-      "text": "Fresh off the plane and already working. Typical.",
-      "file": "voices/player/player_line_12.mp3",
-      "duration": 3.48,
-      "check": {
-        "heard": "Fresh off the plane and already working typical.",
+        "heard": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
         "score": 1.0
+      }
+    },
+    {
+      "id": "davo_low-tide_14",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "Gone. Nice driving, for an old bloke.",
+      "file": "dialogue/low-tide/davo_low-tide_14.mp3",
+      "duration": 2.95,
+      "check": {
+        "heard": "Gone. Nice driving for an old bloke.",
+        "score": 1.0
+      }
+    },
+    {
+      "id": "davo_laneway-hustle_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "Carlton, mate. The Broady boys are cutting in on our patch. Step on it.",
+      "file": "dialogue/laneway-hustle/davo_laneway-hustle_1.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "Carlton mate the Brody boys are cutting in on our patch step on it",
+        "score": 0.93
       }
     }
   ]

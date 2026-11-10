@@ -2,66 +2,78 @@
 
 What the studio agents in `.claude/agents/` should assume about this project.
 
+**The only active game is the Three.js engine in `melbourne3d/`.** The old WebGL game (`index.html` at the repository
+root, `map/`, `models/`, `tools/build_map.py`) is retired: don't change it, revive it or move anything back into it.
+Story design and milestones are in `melbourne3d/docs/story/` (`EMPIRE_DESIGN.md`, `MILESTONES.md`).
+
 ## Engine & Language
 
-- **Engine**: none. A custom browser engine on **three.js r128**, using the global build plus `examples/js` loaders
-  (GLTFLoader, SkeletonUtils, EffectComposer and SSAOPass), loaded from cdn.jsdelivr.net.
-- **Language**: plain JavaScript, no build step. The whole game is the single file `index.html`.
-- **Rendering**: three.js WebGL. Chase and overhead 3D cameras, plus a 2D canvas view as fallback.
-  - Shadows use PCF soft shadow maps.
-  - SSAO runs on desktop only, and switches itself off when slow.
-  - City chunks are built from canvas-drawn textures; facades are procedural.
-- **Physics**: our own arcade physics. Tile and fine-grid collision (`SOL`, `carHits`, `moveCircle`), plus raised decks
-  and tunnels.
+- **Engine**: Slop New York by mrdoob (MIT), ported to Melbourne, on **three.js r187** (WebGPU renderer, WebGL2
+  fallback) with TSL node materials. Three comes from an import map in `melbourne3d/index.html` (cdn.jsdelivr.net).
+- **Language**: plain JavaScript ES modules in `melbourne3d/js/`. No bundler and no build step.
+- **Entry point**: `melbourne3d/js/main.js`. `js/city.js` and `js/city-config.js` pick Melbourne (default) or Manhattan
+  (`?nyc`, a reference only).
+- **Systems to reuse, not duplicate**:
+  - missions and cut scenes: `js/missions.js`, `js/stkilda.js`
+  - characters: `js/people.js`, `js/character-presets.js`
+  - voices: `js/voice-manager.js` and `data/character-voices.json`
+  - driving, guns, taking cars: `js/gameplay.js`, `js/controllers.js`
+  - traffic and roads: `js/traffic.js`, `js/road-network.js`
+  - the tail car: `js/pursuit.js`
+  - the Grand Prix: `js/race.js`
+  - the intro: `js/intro.js`
 
 ## World and assets
 
-- **Map**: `map/melbourne.js`, built from OpenStreetMap data (ODbL, credit required) by `tools/build_map.py`
-  (run with `python3 -I`).
-- **Models**: glTF JSON with embedded buffers under `models/`. They are built in Blender by `tools/make_*.py`
-  (custom cars, landmarks, aircraft, props), or come from CC0 packs credited in `models/README.md`.
-- **Characters**: `characters/` and `tools/characters/`. Bodies start from the MakeHuman CC0 base mesh; the clothing,
-  hair, textures and GLB exports are scripted.
-- **Licences**: only CC0, CC-BY or MIT assets may go in the repo, because it is public. Never commit paid packs such as
-  Synty. Never use real brands or logos: invent fictional ones (for example *Plumbright*, *Southerly Surf Co.*).
+- **Map**: OpenStreetMap (ODbL, credit required). Built by `melbourne3d/tools/melbourne/*.mjs` into
+  `js/melbourne-geodata.js` and the building and tree `.bin.gz` files. Playable area: 144.935–144.990 E,
+  37.800–37.867 S. World frame: metres, x = Hoddle Grid east, z = grid south, origin Swanston × Collins St.
+- **Story places**: `js/story/places.js`. Missions use `{ place: 'ID' }`. Run `node tools/melbourne/check-places.mjs`
+  (from `melbourne3d/`) after changing any place: it rejects places off the map, near its edge or on water.
+- **Not on the map** (mention in dialogue only): Broadmeadows, Ringwood, Dandenong, Alphington, Brighton, Chapel St,
+  Luna Park, the freeways, any bridge over the Yarra (none is built yet).
+- **Characters**: Microsoft Rocketbox (MIT) and the "ara" cast (`assets/ara/`), animated from motion capture.
+- **Licences**: only CC0, CC-BY or MIT assets, because the repo is public. Never real brands or logos: invent fictional
+  ones.
 
 ## Input & Platform
 
-- **Target Platforms**: Web: desktop browsers and mobile (iOS and Android touch). Hosted on GitHub Pages from the
-  working branch. A rebranded copy, "Melbourne Underworld", is also published as a claude.ai artifact.
-- **Input Methods**: Mixed. Keyboard and mouse on desktop (with pointer-lock aiming); on-screen touch controls on mobile.
-- **Primary Input**: keyboard and mouse on desktop, touch on mobile.
-- **Gamepad Support**: none yet.
-- **Touch Support**: full: stick, buttons, tap to lock on.
+- **Platforms**: desktop and mobile browsers, hosted on GitHub Pages from the main branch
+  (`https://aiappbulder-hub.github.io/GTAMelbourne-/melbourne3d/`).
+- **Input**: keyboard and mouse on desktop, on-screen touch controls on mobile, gamepad supported
+  (`js/gamepad-controls.js`).
 
 ## Conventions
 
-- Match the surrounding code: dense one-line functions, short names (`G3`, `CHK`, `EDGES`), and comments only where the
-  reason isn't obvious.
-- Bump `const BUILD='Build N'` with each shipped change.
-- Test hooks are exposed on `window.GTA`.
+- Match the surrounding code: dense functions, short names, comments only where the reason isn't obvious.
+- Missions are data in `MISSIONS` (`js/missions.js`): steps such as `at`, `car`, `time`, `wait`, `targets`, `watch`,
+  `evade`, `choice`. Add a step type there rather than a second mission system.
+- The save is `gta-melbourne3d-save-v2` (`money`, `progress`, `flags`). A v1 save migrates on load.
+- Test hooks are on `window.__city` (teleport, missions, gameplay, cast, voices).
 
-## Performance Budgets
+## Milestone discipline
 
-- **Target Framerate**: 60 fps on a mid-range laptop, 30 or more on phones.
-- **Characters**: 8k to 20k triangles each (about 15k now), 1K to 2K textures, GLB under 1 MB.
-- **Map chunks**: built a few per frame, and disposed when out of range.
+Progress is what the player can do, not files created or mechanics listed. Work one milestone at a time from
+`melbourne3d/docs/story/MILESTONES.md`, with its acceptance tests. Deferred for now: boats, trucks, interiors,
+the helicopter escape and advanced pedestrian behaviour.
+
+## Performance
+
+- 60 fps on a mid-range laptop, 30 or more on phones. Graphics quality levels are in `js/quality.js`.
+- Characters about 15k triangles, textures 1K to 2K.
 
 ## Testing
 
-- **Framework**: headless Playwright scripts against a local `python3 -m http.server`. Chromium is preinstalled, and 3D
-  runs on swiftshader (slow, about 1 fps).
-  - The checks are: the game loads, traffic doesn't jam, lock-on combat works, plus screenshot reviews.
-  - Call the scripts through `window.GTA` hooks.
-- **Required**: the game loads without page errors. Look at screenshots of anything visual before shipping it.
+- **Framework**: headless Playwright against `python3 -m http.server 8765` run at the repository root, loading
+  `/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`. Chromium is preinstalled. 3D runs on swiftshader at about
+  1–2 fps, so allow minutes for the city to load and use generous waits.
+- **Checks**: `node tools/melbourne/test-m1.cjs` (Milestone 1, end to end) and `node tools/melbourne/check-places.mjs`.
+- **Required**: the game loads without page errors. Look at a screenshot of anything visual before shipping it.
 
 ## Forbidden Patterns
 
+- Changing the retired root game.
 - Real brand names, logos or trade dress in game content.
 - Assets that can't be redistributed in a public repo.
-- Build tooling or bundlers. The game stays one HTML file that runs as is.
-
-## Allowed Libraries / Addons
-
-- three.js r128 and its `examples/js` addons, from cdn.jsdelivr.net.
-- Blender run as a Python module (`bpy`) for asset scripts, and Pillow for textures.
+- Bundlers, or a build step.
+- A mission placed at a coordinate that isn't in `js/story/places.js` or a real OSM street intersection.

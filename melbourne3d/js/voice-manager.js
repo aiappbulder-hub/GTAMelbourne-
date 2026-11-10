@@ -252,8 +252,48 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   /** A line by its exact script text (mission cut scenes, the intro); null when it has no clip */
   function sayText(text, opts = {}) {
     const line = byText.get(key(text));
-    return line ? say(line, opts) : null;
+    if (line) return say(line, opts);
+    return opts.who ? speak(text, opts.who) : null; // no recording: the browser's own voice, if the caller says who speaks
   }
+
+  // A line with no recording (the new story's) is spoken by the browser's own speech voice: an Australian one if the
+  // device has it. Recordings, made offline with the Orpheus TTS (tools/voices/generate.py), replace this line by line.
+  const SPEECH = { Davo: { pitch: 0.75, rate: 0.93, male: true }, You: { pitch: 0.85, rate: 0.95, male: true },
+    Vince: { pitch: 0.7, rate: 0.9, male: true }, Kaz: { pitch: 1.05, rate: 1.0, male: false }, Mick: { pitch: 0.9, rate: 1.0, male: true },
+    Marsh: { pitch: 1.0, rate: 1.0, male: false }, Ruby: { pitch: 1.1, rate: 1.02, male: false } };
+  let speechVoices = null;
+  function pickVoice(male) {
+    const all = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
+    if (!all.length) return null;
+    speechVoices = all;
+    const rank = (v) => {
+      const lang = (v.lang || '').replace('_', '-').toLowerCase();
+      let r = lang === 'en-au' ? 0 : lang === 'en-nz' ? 1 : lang === 'en-gb' ? 2 : lang.startsWith('en') ? 3 : 9;
+      const name = v.name.toLowerCase();
+      const isMale = /male(?!.*female)|\b(lee|daniel|james|gordon|oliver|rishi|arthur|fred|alex)\b/.test(name) && !/female/.test(name);
+      const isFemale = /female|\b(karen|catherine|kate|serena|samantha|susan|fiona|moira|tessa|zira|libby)\b/.test(name);
+      if (male && isFemale) r += 4;
+      if (!male && isMale) r += 4;
+      return r;
+    };
+    return [...all].sort((a, b) => rank(a) - rank(b))[0];
+  }
+  function speak(text, who) {
+    if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined' || volume <= 0) return null;
+    try {
+      const cfg = SPEECH[who] || { pitch: 1, rate: 1, male: true };
+      speechSynthesis.cancel(); // one story voice at a time
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice(cfg.male);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-AU';
+      u.pitch = cfg.pitch;
+      u.rate = cfg.rate;
+      u.volume = Math.min(1, volume);
+      speechSynthesis.speak(u);
+      return { line: null, duration: Math.max(1.5, text.length / 14) };
+    } catch { return null; }
+  }
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', () => { speechVoices = null; });
 
   /** What a pedestrian says when you talk to them: a fresh line for their voice, played when you call play() */
   function talkLine(ped) {
@@ -389,8 +429,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     event,
     update,
     /** End the story line that's playing (a skipped cut scene) */
-    stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); },
-    stopAll() { [...active].forEach((v) => stop(v)); },
+    stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); if (!tag && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
+    stopAll() { [...active].forEach((v) => stop(v)); if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
     /** Whether a story line (a cut scene's or the intro's) is being spoken */
     get speaking() { return active.some((v) => v.prio >= PRIORITY.story && v.src); },
     /** The voices' loudness now, 0..1 (for lip movement) */

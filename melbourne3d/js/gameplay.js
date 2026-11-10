@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
+import { createCarSounds } from './car-sounds.js';
 import { SPORTS_DRIVE } from './controllers.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
@@ -66,15 +67,21 @@ const CSS = `
   background: rgba(10,12,16,.78); color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; pointer-events: auto; cursor: pointer; white-space: nowrap; }
 .gp-prompt:empty { display: none; }
 .gp-prompt kbd { display: inline-block; min-width: 18px; margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #ffd23f; color: #111; font: 800 12px/1.2 Inter, sans-serif; text-align: center; }
-.gp-weapon { position: fixed; right: 18px; top: 160px; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
-  color: #fff; font: 700 14px/1.3 Inter, system-ui, sans-serif; text-align: right; pointer-events: none; }
+.gp-weapon { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(300px, 92vw); z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
+  color: #fff; font: 700 13px/1.3 Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
 .gp-weapon b { display: block; font: 800 20px/1 'JetBrains Mono', monospace; color: #ffd23f; }
 .gp-weapon[hidden] { display: none; }
+.gp-hint { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; opacity: .85; }
+@media (max-width: 960px) { .gp-hint { display: none; } }
+body.touch-enabled .gp-hint { display: none; }
 .gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
   border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
 .gp-cross.lock { border-color: #ff4040; }
 .gp-cross[hidden] { display: none; }
+.gp-horn { position: fixed; right: 20px; bottom: 214px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0; display: none; touch-action: none;
+  background: rgba(255,210,63,.86); color: #111; font: 800 15px/1 Inter, system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+body.touch-enabled .gp-horn.on { display: block; }
 .gp-fire { position: fixed; right: 26px; bottom: 210px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0;
   background: rgba(220, 40, 40, .82); color: #fff; font: 800 14px/1 Inter, sans-serif; display: none; }
 body.touch-enabled .gp-fire.on { display: block; }
@@ -98,7 +105,7 @@ body.touch-enabled .gp-fire.on { display: block; }
 .gp-say small { display: block; color: #a0336b; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 `;
 
-export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null, cast = null }) {
+export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null, cast = null, audioSystem = null, wanted = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -163,6 +170,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   fireBtn.type = 'button';
   fireBtn.textContent = 'FIRE';
   document.body.append(fireBtn);
+  const hornBtn = document.createElement('button');
+  hornBtn.className = 'gp-horn';
+  hornBtn.type = 'button';
+  hornBtn.textContent = 'HORN';
+  document.body.append(hornBtn);
+  const sounds = createCarSounds({ audioSystem });
+  let hornHinted = false;
 
   const cm = controllerManager;
   // mode changes made here skip beforeMode() (main.js routes the HUD's mode buttons through it)
@@ -304,6 +318,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function enterTrafficCar(v) {
     voices?.event('carjack', v);
     const wasMoving = v.edge && v.speed > 0.5;
+    wanted?.crime(wasMoving ? 'carjack' : 'theft', v.x, v.z);
     if (riding !== v) parkCurrent();
     trafficSystem.takeCar(v);
     riding = lastRide = v;
@@ -625,6 +640,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flashT = 0.05;
     bang(w.sound);
     voices?.event('gunfire', person.position);
+    missionSystem?.onGunfire?.();
+    wanted?.crime('shot', person.position.x, person.position.z);
     const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
     for (let k = 0; k < w.pellets; k++) {
       const a = yaw + (Math.random() - 0.5) * 2 * w.spread;
@@ -658,7 +675,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         sp.visible = true;
         sp.userData.t = 0.08;
       }
-      if (hit.kind === 'ped') trafficSystem.killPed(hit.p, person.position.x, person.position.z);
+      if (hit.kind === 'ped') { trafficSystem.killPed(hit.p, person.position.x, person.position.z); wanted?.crime('kill', hit.p.x, hit.p.z); }
       else if (hit.kind === 'car') trafficSystem.shootCar(hit.v);
     }
     trafficSystem.scarePeds(person.position.x, person.position.z, 40, 10);
@@ -696,6 +713,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       chat = { p: q, lines: [['You', 'Wallet. Now.'], ['Local', `Alright, alright! Take it, $${cash}, just don't shoot!`]], k: 0, t: 0 };
       missionSystem?.addMoney?.(cash);
       missionSystem?.onTalk?.(true);
+      wanted?.crime('robbery', q.x, q.z);
       setTimeout(() => trafficSystem.scarePeds(q.x, q.z, 6, 10), 2600);
       return;
     }
@@ -729,6 +747,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       case 'KeyT':
         talk();
         break;
+      case 'KeyB':
+        honk(true);
+        break;
       case 'KeyJ':
         triggerHeld = true;
         fire();
@@ -745,7 +766,16 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         break;
     }
   });
-  window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; });
+  window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; if (e.code === 'KeyB') honk(false); });
+  // the horn: B (held) in a car, or the HORN button on touch screens; people just ahead of a moving car take the hint
+  function honk(on) {
+    if (on && cm.activeMode !== 'car') return;
+    sounds.horn(on);
+  }
+  window.addEventListener('blur', () => honk(false));
+  hornBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); honk(true); });
+  hornBtn.addEventListener('pointerup', () => honk(false));
+  hornBtn.addEventListener('pointercancel', () => honk(false));
   const canvas = renderer.domElement;
   let down = null;
   // aim with the right mouse button anywhere off the menus (the camera's own handlers can take the canvas's events),
@@ -958,12 +988,20 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // weapon panel
     elWeapon.hidden = !onFoot;
     fireBtn.classList.toggle('on', onFoot && armed);
+    hornBtn.classList.toggle('on', cm.activeMode === 'car');
+    if (cm.activeMode === 'car' && !hornHinted && !document.body.classList.contains('cinematic')) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }
+    if (cm.activeMode !== 'car' && sounds.hornOn) sounds.horn(false);
     if (onFoot) {
       const w = WEAPONS[wi];
       elWeapon.textContent = '';
       const b = document.createElement('b');
       b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      elWeapon.append(b, document.createTextNode(armed ? `${w.name} · Right click (hold) or Q: aim · Left click or J: shoot · move the mouse to turn · E: next target · Tab: change` : 'G to draw your gun'));
+      if (armed) {
+        const hint = document.createElement('span');
+        hint.className = 'gp-hint';
+        hint.textContent = 'Right click or Q: aim · Left click or J: shoot · E: next target · Tab: change';
+        elWeapon.append(b, document.createTextNode(w.name), hint);
+      } else elWeapon.append(b, document.createTextNode('G to draw your gun'));
     }
   }
 

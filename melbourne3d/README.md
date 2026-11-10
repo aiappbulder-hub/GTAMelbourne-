@@ -39,34 +39,44 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 
 - **Characters** (`js/character-presets.js`): five named Melbourne presets (a local, a street criminal, a local woman,
   a bikie, a Victoria Police officer) on the shared person rig, given to the first five pedestrians.
-- **Story missions** (`js/missions.js`): the original game's story (the Lygon Street Crew against the Broadmeadows
-  mob, Taskforce Kestrel closing in) with Vince and Kaz's six jobs, set on this map: Laneway Hustle, Hot Lap, Westside
-  Bikies, The Informant, Tobacco Wars and Harbour Run, plus Chop Shop (steal a ute), Word on the Street (ask the locals),
-  Collection Day (hold-ups) and Clean Up (take out three dealers): ten jobs. Pink beam: the next job; yellow beam: the objective, with the
-  GPS route on the map. Between jobs, the objective line says where the next one is (distance and direction) and the
-  map's waypoint points to it.
+- **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the
+  milestones with their tests in `MILESTONES.md`). Tonight Callum Reid (you) comes back to Melbourne by boat, twenty-two
+  years after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's
+  office). Eight jobs, one thread:
+  - **Tonight:** *Low Tide*. A black card, Davo on Harbour Esplanade, a stealth walk past two Kestrel watchers (red view
+    cones; a SEEN meter fails the job when full; gunfire fails it too), a grey Comodo to lose (it follows the route you
+    actually drive; stay 200 m clear for 8 s), the drive to the Quiet Room (Flinders Lane × Elizabeth St), and a choice
+    (keys 1–2). Then a card: **2004**.
+  - **2004, as he remembers it:** *Laneway Hustle* (Davo and the last of the book to Carlton), *Word on the Street*
+    (who is selling pages?), *The Informant* (Kaz's offer; the tapes), *Westside Bikies* (the pages on a boat in
+    Docklands), *Tobacco Wars* (the rest of the pages at South Wharf), *Short Black* (a sit-down in St Kilda with Mick,
+    and the photograph), *Harbour Run* (Kestrel raids; the boat). Then a card: **2026**.
+  - Pink beam: the next job; yellow beam: the objective, with the GPS route on the map. Between jobs, the objective line
+    says where the next one is (distance and direction) and the map's waypoint points to it.
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
-    or the nearest target (red). It sits over the marker, or at the screen's edge pointing towards it.
-  - The marker beams are 140 m tall, to show over the buildings.
-  - The minimap and its GPS route stay on phones and touch screens, small and top left.
-- **Act I, "The Ferryman"** (design: `docs/story/EMPIRE_DESIGN.md`, milestones and acceptance tests:
-  `docs/story/MILESTONES.md`). After Harbour Run, job 12 is **Low Tide**, set twenty-two years later on Harbour
-  Esplanade:
-  - It opens on a black card. Davo meets you.
-  - Get to his car past two Kestrel watchers (red view cones on the ground; a SEEN meter fails the job when full).
-  - Lose the grey Comodo that tails you (it follows the route you actually drive; stay 200 m clear for 8 s).
-  - Drive Davo to the Quiet Room (Flinders Lane × Elizabeth St), then choose what to do about the tail (buttons or
-    keys 1–2).
-- **Save** (`gta-melbourne3d-save-v2`): cash, progress and story choices (`flags`). An old v1 save carries over;
-  an unreadable one starts a new game.
+    or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
+  - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+- **Police and the wanted level** (`js/wanted.js`): shoot someone, run someone down, take a car or hold someone up and you
+  get stars (up to 5). A person or a police car that sees it counts at once (a police car seeing it is two stars). If
+  nobody is around, it is reported a few seconds later anyway. One police car per star (four at most) spawns well back on
+  the route you drove and follows it with a siren; they are solid, you can't drive through them. Lose them (stay
+  230 m clear for 10 s), cool off, or get BUSTED (stopped with a police car within 16 m for 2.5 s: 12% of your cash).
+  There are twice as many police cars in the traffic.
+- **Horn** (`js/car-sounds.js`): hold **B** in a car, or the HORN button on touch screens. A two-tone horn for as long
+  as you hold it.
+- **Voices** (`js/voice-manager.js`, `data/character-voices.json`): recorded lines play where they exist; any line without
+  a recording is spoken by the browser's own voice (an Australian one where the device has it). Tools:
+  `node tools/voices/sync-lines.mjs [--prune]` finds every line the story says and adds the missing ones to the voice
+  data; `tools/voices/generate.py` records them offline.
+- **Save** (`gta-melbourne3d-save-v2`): cash, progress and story choices (`flags`). A save from the older ten-job story
+  keeps its cash and choices and starts the new story from the top; an unreadable one starts a new game.
 - **Story places** (`js/story/places.js`): missions use `{ place: 'ID' }`.
   `node tools/melbourne/check-places.mjs` fails on any place off the map, near its edge or on water, and prints each
   place's neighbourhood (`districtAt`, now along the real boundaries: the Yarra, Victoria Pde, Nicholson St, Punt Rd).
-- **The start**: a new story begins with the taxi ride in from the airport. In the intro's last shot the taxi rolls
-  down Elizabeth Street to the kerb by Flinders Lane, and you step out by Vince's first job. Skipping the intro
-  still drops you there. Walk or drive into the pink marker to start. Cutscene dialogue is advanced with Enter
-  or a click. Timers, cash and progress are saved. The teleport menu's Jobs list takes you to any job and starts it. The jobs that needed guns, gangs and police are driving jobs until those move
-  across.
+- **The start**: the title film, then the intro (Callum's voice-over over the city, Vince's call), ending with you on
+  Harbour Esplanade by the first job's marker. Skipping the intro puts you there too. Walk or drive into the pink marker
+  to start. Cutscene dialogue is advanced with Enter or a click. Timers, cash and progress are saved. The teleport
+  menu's Jobs list takes you to any job and starts it.
 - **On foot and behind the wheel** (`js/gameplay.js`, `js/controllers.js`):
   - Movement as in GTA: the keys go where the camera looks; jog by default, Shift to sprint, a light touch of the stick
     walks; the body turns smoothly into the direction of travel and slows into sharp turns; the camera swings round
