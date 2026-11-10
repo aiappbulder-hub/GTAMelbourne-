@@ -26,7 +26,7 @@ Callum is back from three years abroad. He is a good driver and he keeps his mou
 between two crews:
 
 - **The Lygon Street Crew** (Carlton, Fitzroy): old families, old rules. Vince runs it.
-- **The Broadmeadows mob**: freight, tobacco, chop shops. Kaz Whitlock runs its Melbourne end for her uncle Ray.
+- **The Broadmeadows firm**: freight, tobacco, chop shops. Kaz Whitlock runs its Melbourne end for her uncle Ray.
 - **The Westside Nomads**: a bikie club in the middle, selling to whoever pays.
 - **Taskforce Kestrel**: the police, closing in on all of them.
 
@@ -98,7 +98,7 @@ in Argyle Square.
 
 **Sal Ferrante** (50). Vince's enforcer.
 
-### The Broadmeadows mob
+### The Broadmeadows firm
 
 **Karen "Kaz" Whitlock** (49; 27). Ruthless, funny, ambitious.
 - *Then:* offered Callum the respect Vince didn't. Her uncle Ray sat above her.

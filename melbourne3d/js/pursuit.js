@@ -37,9 +37,10 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   let pos = { x: 0, y: 0, z: 0 }, heading = 0, v = 0, vMax = 30;
   let token = 0;
   let parked = false; // waiting at the kerb until release()
+  let gapStop = STOP; // this one's own closest following distance (police units keep different gaps)
 
   /** Start tailing from (x, z, heading): a dark sedan by default */
-  async function start({ x, z, heading: h = 0, file = 'comodo', color = 0x2b2f33, speed = 30, wait = false }) {
+  async function start({ x, z, heading: h = 0, file = 'comodo', color = 0x2b2f33, speed = 30, wait = false, stopGap = STOP, seed = null }) {
     const my = ++token;
     active = true;
     parked = wait;
@@ -47,7 +48,9 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     heading = h;
     v = 0;
     vMax = speed;
-    trail = [];
+    trail = seed ? seed.map((q) => ({ x: q.x, y: q.y || 0, z: q.z })) : []; // (a unit starts on the route the player drove)
+    gapStop = stopGap;
+    if (seed && seed.length > 1) heading = Math.atan2(seed[1].x - seed[0].x, seed[1].z - seed[0].z);
     if (!car || car.file !== file) {
       if (car) scene.remove(car.root);
       const m = await loadModel(file, color);
@@ -115,15 +118,15 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     const gap = trailLength();
     const mine = Math.abs(controllerManager.activeMode === 'car' ? player().speed || 0 : 0);
     // brake in time to stop STOP metres behind the player, and match their speed once in the gap
-    want = Math.min(want, mine + Math.sqrt(2 * 8 * Math.max(0, gap - STOP)));
-    if (gap < GAP) want = Math.min(want, gap < (GAP + STOP) / 2 ? Math.min(mine, 2) : mine);
+    want = Math.min(want, mine + Math.sqrt(2 * 8 * Math.max(0, gap - gapStop)));
+    if (gap < GAP) want = Math.min(want, gap < (GAP + gapStop) / 2 ? Math.min(mine, 2) : mine);
     // and for a car in front: brake to stop 6 m behind it
     const ahead = carAhead();
     if (ahead < Infinity) want = Math.min(want, Math.sqrt(2 * 8 * Math.max(0, ahead - 6)));
     v += Math.max(-11 * dt, Math.min(5.5 * dt, want - v));
     v = Math.max(0, v);
     // drive along the trail
-    let move = Math.min(v * dt, Math.max(0, gap - STOP), Math.max(0, ahead - 5));
+    let move = Math.min(v * dt, Math.max(0, gap - gapStop), Math.max(0, ahead - 5));
     while (move > 0 && trail.length) {
       const b = trail[0], d = Math.hypot(b.x - pos.x, b.z - pos.z);
       if (d <= move) { pos = { x: b.x, y: b.y, z: b.z }; trail.shift(); move -= d; continue; }

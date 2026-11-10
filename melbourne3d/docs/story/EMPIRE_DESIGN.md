@@ -243,7 +243,7 @@ Southbank (around (−260, 430) to (−381, 597)), and ends at the first job.
 | Name | Kind | Where it appears |
 |---|---|---|
 | **Lygon Street Crew** | gang (Carlton) | missions 1–4, intro |
-| **The Broadmeadows mob** | gang (home base off-map) | missions 5–11 ("Broady boys"); the crew name on Kaz's jobs |
+| **The Broadmeadows firm** | gang (home base off-map) | missions 5–11 ("Broady boys"); the crew name on Kaz's jobs |
 | **Westside Nomads** | bikie club | Westside Bikies, Short Black, Clean Up, Tobacco Wars |
 | **Taskforce Kestrel** | Victoria Police taskforce | The Informant, Harbour Run, the story setup |
 | **Vince** | Lygon St Crew boss | ara model `vince`, voice `mason` |
@@ -258,7 +258,7 @@ The voice data holds 66 recorded lines (`../data/character-voices.json`).
 
 ### 1.9 Locations outside the playable boundary
 
-These may be **mentioned** in dialogue but never used as mission locations: Broadmeadows (the mob's home turf),
+These may be **mentioned** in dialogue but never used as mission locations: Broadmeadows (the firm's home turf),
 Brighton (the "Brighton house" raided in Harbour Run), Ringwood, Dandenong, Alphington, Footscray, Flemington
 racecourse, Station Pier, Williamstown, Tullamarine, Lorne, the Mornington Peninsula, Geelong, Tasmania.
 
@@ -281,7 +281,7 @@ There are eleven territories. Their boundaries follow streets and the river (see
 |---|---|---|---|---|
 | 1 | **The Grid** (CBD) | La Trobe St, Spring St, the Yarra, Spencer St | contested: Kingsgate holds the King St doors | nightlife, protection, laundering through hospitality |
 | 2 | **Carlton** | Victoria St, Nicholson St, the map edge, Elizabeth St | Lygon Street Crew | restaurants, cafés, construction, SP bookmaking |
-| 3 | **North and West Melbourne** | Elizabeth St / Victoria St, the map edge, Footscray Rd, Dudley St, Spencer St | Broadmeadows mob (via the rail yards) | freight, illicit tobacco, chop shops, the market |
+| 3 | **North and West Melbourne** | Elizabeth St / Victoria St, the map edge, Footscray Rd, Dudley St, Spencer St | Broadmeadows firm (via the rail yards) | freight, illicit tobacco, chop shops, the market |
 | 4 | **Docklands** | Dudley St, Footscray Rd, the Yarra, Spencer St / Wurundjeri Way | Westside Nomads (marinas), Broadmeadows pushing in | marinas, waterfront clubs, stadium events, imports |
 | 5 | **Fitzroy and Collingwood** | Victoria Pde, Nicholson St, the map edge (Hoddle St side) | the Doherty family | pubs, live music, tattoo and vintage, the estate trade |
 | 6 | **East Melbourne and the MCG** | Spring St, Victoria Pde, Punt Rd, the Yarra | The Members | event ticketing, corporate boxes, political access |
@@ -314,7 +314,7 @@ Drummond St terraces.
 *Rival pressure:* Broadmeadows from the west, and Nico from inside.
 
 **3. North and West Melbourne.** *Identity:* warehouses, the market at dawn, the rail yards, Errol St's working pubs.
-*Controller:* the Broadmeadows mob, run on-map by Kaz Whitlock.
+*Controller:* the Broadmeadows firm, run on-map by Kaz Whitlock.
 *Legitimate businesses:* Whitlock Freight (Dudley St), a market produce wholesaler (QVM), a smash repairer (Errol ×
 Victoria, the 2004 chop shop).
 *Locations:* Queen Victoria Market, Flagstaff Gardens, Errol St, Spencer × Roden (the old West Melbourne lock-up), the
@@ -438,7 +438,7 @@ Elizabeth St (−224, 120), the exact spot where the prologue began.
 | Faction | Leader | Supporting characters | Style | Wants |
 |---|---|---|---|---|
 | **Lygon Street Crew** | Vince Lombardo, 66, ill with emphysema and still in a cardigan | Nico Lombardo (nephew, 34, ambitious); Nonna Pina (Vince's sister, runs the pasticceria and the books); Sal Ferrante (enforcer, 50) | old-world honour, Sunday lunch, never in public | an orderly succession and a respected exit |
-| **Broadmeadows mob** | Karen "Kaz" Whitlock, 49 (on-map), answering to her uncle Ray (off-map, Broadmeadows) | Jonno Pike (yard boss, Dynon Rd); Leila Haddad (fixer, QVM wholesaler); the "Broady boys" (drivers) | freight, volume, family loyalty to the north | take North Melbourne outright; Kaz wants to replace Ray |
+| **Broadmeadows firm** | Karen "Kaz" Whitlock, 49 (on-map), answering to her uncle Ray (off-map, Broadmeadows) | Jonno Pike (yard boss, Dynon Rd); Leila Haddad (fixer, QVM wholesaler); the "Broady boys" (drivers) | freight, volume, family loyalty to the north | take North Melbourne outright; Kaz wants to replace Ray |
 | **Westside Nomads MC** | Colin "Col" Ferris, 58, president | Hamish "Hammer" Kowalczyk (sergeant-at-arms, 41, wants out); Dean "Tunnel" Mayer (treasurer, crypto); prospects | patches, rules, retaliation, towing contracts | hold the Westside and sell their land to the highest bidder |
 | **The Doherty family** | Siobhan "Shiv" Doherty, 55, publican of the Gipps Arms | Fergal Doherty (brother, 44, unreliable); Tess Doherty (daughter, 24, law student); Father Lenehan (parish priest, St Patrick's) | community, grudges, protection of their own | keep Fitzroy for Fitzroy |
 | **Kingsgate Security** | Terry "Doors" Maguire, 52, ex-boxer | head bouncers on King St; Bianca Rowe (licensing compliance, actually his bagwoman) | doors, crowd control, what gets let in | the CBD nightlife monopoly |

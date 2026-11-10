@@ -62,9 +62,10 @@ const CAR_KINDS = {
 
 // Retire distant actors even when looking their way: keeping them indefinitely starves upcoming streets.
 // Replacements may enter the far view, but nearby visible roads and sidewalks are protected from pop-in.
-const VEHICLE_RADIUS = 380;
-const NEAR_RADIUS = 350;
-const VEHICLE_SPAWN_DISTANCE = 250;
+// (the same cars kept nearer the player: a smaller area, so busier streets; they were spread over 380 m)
+const VEHICLE_RADIUS = 280;
+const NEAR_RADIUS = 270;
+const VEHICLE_SPAWN_DISTANCE = 200;
 
 // 8-row LED destination sign atlas (route badge + destination) aligned with the 4-slot bus livery cycle
 // (slots 0/2 = Current MTA Blue/Gold, slot 1 = Select Bus Service, slot 3 = Classic White/Blue)
@@ -278,7 +279,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   const policeCounts = { sedan: 0, suv: 0 };
 
   for (let i = 0; i < NUM_CARS; i++) {
-    const isPolice = (i % 50) === 6 || (i % 100) === 56;
+    const isPolice = (i % 25) === 6 || (i % 100) === 56; // (twice the police on the street: a patrol is never far)
     const isBoroTaxi = !isPolice && (i % 25) === 3;
     let bodyType = FLEET_MIX[i % FLEET_MIX.length];
     if (isPolice) bodyType = (i % 100) === 56 ? 'suv' : 'sedan';

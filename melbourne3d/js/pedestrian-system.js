@@ -8,8 +8,9 @@ import { castHook, characterFor, isFemale } from './people.js';
 // Local pedestrian population: connected walks, curb queues, conversations and player avoidance.
 // Traffic supplies crossing permissions and view checks; this system owns the crowd and its animation.
 const NUM_PEDS = Math.round(Q.peds * 0.75); // 255 on high quality (js/quality.js's 340, thinned so people have room)
-const PED_RADIUS = 320;
-const NEAR_RADIUS = 350;
+// (the same people kept nearer the player: a smaller area, so a busier street; they were spread over 320 m)
+const PED_RADIUS = 220;
+const NEAR_RADIUS = 260;
 const PED_SPAWN_DISTANCE = 150;
 const PED_AVOID_INTERVAL = 0.12;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -734,7 +735,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         if (dx * dx + dz * dz <= keepRadiusSq) continue;
       }
       pedBudget--;
-      spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 280, !jump);
+      spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 190, !jump);
     }
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];

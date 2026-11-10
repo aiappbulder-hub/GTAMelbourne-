@@ -24,11 +24,11 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
   await p.goto(URL_, { timeout: 120000 }); await ready();
   let st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags, v2: !!localStorage.getItem('gta-melbourne3d-save-v2') }));
-  ok(st.prog === 10 && st.money === 12345 && JSON.stringify(st.flags) === '{}' && st.v2, `1.1 v1 save migrated ${JSON.stringify(st)}`);
-  ok((await p.evaluate(() => __city.missions.missions.length)) === 12 && (await p.evaluate(() => __city.missions.missions[11].name)) === 'Low Tide', '1.4 Low Tide is job 12');
+  ok(st.prog === 0 && st.money === 12345 && JSON.stringify(st.flags) === '{}' && st.v2, `1.1 v1 save migrated (cash kept; the new story starts from the top) ${JSON.stringify(st)}`);
+  ok((await p.evaluate(() => __city.missions.missions.length)) === 8 && (await p.evaluate(() => __city.missions.missions[0].name)) === 'Low Tide', '1.4 Low Tide is job 1 of 8');
 
   // to M1's marker: it starts (black card), then the cut scene
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await waitFor(() => __city.missions.debug().blackout, 30000); ok(true, '1.4 M1 opens on the black card');
   await waitFor(() => __city.missions.debug().inCut, 30000); ok(true, '1.8 cut scene with Davo');
   ok((await p.evaluate(() => __city.cast.debug().Davo)) !== 'hidden', `1.8 Davo visible in the cut (${await p.evaluate(() => __city.cast.debug().Davo)})`);
@@ -50,7 +50,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(true, '1.5 seen on the esplanade: mission failed'); ok(!(await dbg()).tail, '1.7 tail gone after a fail');
 
   // restart from the marker; gunfire in the stealth step blows the job (G11)
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await waitFor(() => __city.missions.debug().inCut, 40000);
   await p.evaluate(() => __city.missions.skipCut());
   await waitFor(() => __city.missions.debug().step === 0, 10000);
@@ -58,7 +58,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.waitForTimeout(1500);
   await p.evaluate(() => __city.missions.onGunfire());
   await waitFor(() => !__city.missions.debug().mission, 8000); ok(true, '1.5 gunfire during the stealth step fails the job');
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await waitFor(() => __city.missions.debug().inCut, 40000);
   await p.evaluate(() => __city.missions.skipCut());
   await waitFor(() => __city.missions.debug().step === 0, 10000);
@@ -110,12 +110,12 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.evaluate(() => __city.missions.choose(0));
   await waitFor(() => !__city.missions.debug().mission, 10000);
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
-  ok(st.prog === 12 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.9 M1 passed ${JSON.stringify(st)}`);
+  ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.9 M1 passed ${JSON.stringify(st)}`);
 
   // reload: progress and the choice survive
   await p.reload(); await ready();
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
-  ok(st.prog === 12 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.1 survives a restart ${JSON.stringify(st)}`);
+  ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.1 survives a restart ${JSON.stringify(st)}`);
 
   // corrupt save: a new game, no error
   await p.evaluate(() => { localStorage.setItem('gta-melbourne3d-save-v2', '{bad json'); localStorage.removeItem('gta-melbourne3d-save-v1'); });

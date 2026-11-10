@@ -141,7 +141,7 @@ export function createStKilda({ scene, cast, controllerManager }) {
       props.add(pole, shade);
       // chairs facing the table, with a cup and saucer in front of each
       for (const a of chairsAt) {
-        const sx = cx + Math.sin(a) * 0.7, sz = cz + Math.cos(a) * 0.7;
+        const sx = cx + Math.sin(a) * 0.78, sz = cz + Math.cos(a) * 0.78;
         const face = a + Math.PI; // towards the table
         const seat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.04, 0.44), wood);
         seat.position.set(sx, y + 0.45, sz);
@@ -157,7 +157,9 @@ export function createStKilda({ scene, cast, controllerManager }) {
         const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.01, 14), china);
         saucer.position.set(cup.position.x, y + 0.765, cup.position.z);
         props.add(cup, saucer);
-        if (k === 0) seats.push({ x: sx, y, z: sz, heading: face });
+        // (the seated clips put the pelvis 0.54 m behind the figure's root, measured: the root goes forward so the hips land
+        // on the seat, in front of the chair back, with the knees under the table)
+        if (k === 0) seats.push({ x: sx + Math.sin(face) * 0.46, y, z: sz + Math.cos(face) * 0.46, heading: face });
       }
     };
     // the front table (the scene's) and two more along the footpath

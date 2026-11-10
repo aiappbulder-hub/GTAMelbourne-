@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
+import { createCarSounds } from './car-sounds.js';
 import { SPORTS_DRIVE } from './controllers.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
@@ -78,6 +79,9 @@ body.touch-enabled .gp-hint { display: none; }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
 .gp-cross.lock { border-color: #ff4040; }
 .gp-cross[hidden] { display: none; }
+.gp-horn { position: fixed; right: 20px; bottom: 214px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0; display: none; touch-action: none;
+  background: rgba(255,210,63,.86); color: #111; font: 800 15px/1 Inter, system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+body.touch-enabled .gp-horn.on { display: block; }
 .gp-fire { position: fixed; right: 26px; bottom: 210px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0;
   background: rgba(220, 40, 40, .82); color: #fff; font: 800 14px/1 Inter, sans-serif; display: none; }
 body.touch-enabled .gp-fire.on { display: block; }
@@ -101,7 +105,7 @@ body.touch-enabled .gp-fire.on { display: block; }
 .gp-say small { display: block; color: #a0336b; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 `;
 
-export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null, cast = null }) {
+export function createGameplay({ scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices = null, cast = null, audioSystem = null, wanted = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -166,6 +170,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   fireBtn.type = 'button';
   fireBtn.textContent = 'FIRE';
   document.body.append(fireBtn);
+  const hornBtn = document.createElement('button');
+  hornBtn.className = 'gp-horn';
+  hornBtn.type = 'button';
+  hornBtn.textContent = 'HORN';
+  document.body.append(hornBtn);
+  const sounds = createCarSounds({ audioSystem });
+  let hornHinted = false;
 
   const cm = controllerManager;
   // mode changes made here skip beforeMode() (main.js routes the HUD's mode buttons through it)
@@ -307,6 +318,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function enterTrafficCar(v) {
     voices?.event('carjack', v);
     const wasMoving = v.edge && v.speed > 0.5;
+    wanted?.crime(wasMoving ? 'carjack' : 'theft', v.x, v.z);
     if (riding !== v) parkCurrent();
     trafficSystem.takeCar(v);
     riding = lastRide = v;
@@ -629,6 +641,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     bang(w.sound);
     voices?.event('gunfire', person.position);
     missionSystem?.onGunfire?.();
+    wanted?.crime('shot', person.position.x, person.position.z);
     const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
     for (let k = 0; k < w.pellets; k++) {
       const a = yaw + (Math.random() - 0.5) * 2 * w.spread;
@@ -662,7 +675,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         sp.visible = true;
         sp.userData.t = 0.08;
       }
-      if (hit.kind === 'ped') trafficSystem.killPed(hit.p, person.position.x, person.position.z);
+      if (hit.kind === 'ped') { trafficSystem.killPed(hit.p, person.position.x, person.position.z); wanted?.crime('kill', hit.p.x, hit.p.z); }
       else if (hit.kind === 'car') trafficSystem.shootCar(hit.v);
     }
     trafficSystem.scarePeds(person.position.x, person.position.z, 40, 10);
@@ -700,6 +713,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       chat = { p: q, lines: [['You', 'Wallet. Now.'], ['Local', `Alright, alright! Take it, $${cash}, just don't shoot!`]], k: 0, t: 0 };
       missionSystem?.addMoney?.(cash);
       missionSystem?.onTalk?.(true);
+      wanted?.crime('robbery', q.x, q.z);
       setTimeout(() => trafficSystem.scarePeds(q.x, q.z, 6, 10), 2600);
       return;
     }
@@ -733,6 +747,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       case 'KeyT':
         talk();
         break;
+      case 'KeyB':
+        honk(true);
+        break;
       case 'KeyJ':
         triggerHeld = true;
         fire();
@@ -749,7 +766,16 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         break;
     }
   });
-  window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; });
+  window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; if (e.code === 'KeyB') honk(false); });
+  // the horn: B (held) in a car, or the HORN button on touch screens; people just ahead of a moving car take the hint
+  function honk(on) {
+    if (on && cm.activeMode !== 'car') return;
+    sounds.horn(on);
+  }
+  window.addEventListener('blur', () => honk(false));
+  hornBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); honk(true); });
+  hornBtn.addEventListener('pointerup', () => honk(false));
+  hornBtn.addEventListener('pointercancel', () => honk(false));
   const canvas = renderer.domElement;
   let down = null;
   // aim with the right mouse button anywhere off the menus (the camera's own handlers can take the canvas's events),
@@ -962,6 +988,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // weapon panel
     elWeapon.hidden = !onFoot;
     fireBtn.classList.toggle('on', onFoot && armed);
+    hornBtn.classList.toggle('on', cm.activeMode === 'car');
+    if (cm.activeMode === 'car' && !hornHinted) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }
+    if (cm.activeMode !== 'car' && sounds.hornOn) sounds.horn(false);
     if (onFoot) {
       const w = WEAPONS[wi];
       elWeapon.textContent = '';

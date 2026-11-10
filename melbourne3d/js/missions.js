@@ -6,14 +6,11 @@ import { STORY_CAST } from './people.js';
 import { PLACES } from './story/places.js';
 import { createPursuer } from './pursuit.js';
 
-// GTA Melbourne's story, moved across from the original game (../index.html) onto the new engine's real-scale map.
-//
-// Melbourne, 2004. The underworld war between the Lygon Street Crew and the Broadmeadows mob is in its sixth year, and
-// Taskforce Kestrel is closing in. You start out running jobs for Vince (Lygon Street Crew) and end up working for Kaz
-// (Broadmeadows). The original jobs ranged over the whole metro area; this map covers the CBD and the inner suburbs, so
-// each job is set where it fits here. The driving jobs play as in the original; the ones that needed guns, gangs and
-// police (Westside Bikies, The Informant, Tobacco Wars, the cash van) are driving jobs for now, until those systems
-// move across too.
+// GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
+// after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
+// Job 1 is tonight (Low Tide). The rest are 2004, as he remembers it: the Lygon Street Crew against the Broadmeadows
+// firm, Taskforce Kestrel closing in, the book's pages being sold, and the night he takes it and goes. One thread runs
+// through every job. The design is in docs/story/ (SYNOPSIS.md, EMPIRE_DESIGN.md).
 //
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
 // streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: u } the point a fraction u of the
@@ -26,148 +23,18 @@ import { createPursuer } from './pursuit.js';
 
 const MISSIONS = [
   {
-    name: 'Laneway Hustle', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 1000,
-    cut: [['Vince', "There you are. Six years this war's been going, and the Broadmeadows mob reckon they own the town now."],
-      ['You', 'So what do you need?'],
-      ['Vince', "Davo needs a lift. The trams won't cut it. Get your car and don't hang about."]],
-    steps: [
-      { text: 'Get in your car (the CAR button, or switch with the mode buttons).', car: true },
-      { text: 'Pick up Davo outside the pub on Wellington St, Collingwood.', at: { cross: ['WELLINGTON STREET', 'GIPPS STREET'] }, r: 14, car: true,
-        say: 'Davo: "West Melbourne, mate. The Broady boys are cutting in on our patch. Step on it."' },
-      { text: 'Get Davo to the lock-up in West Melbourne before the Broadmeadows mob gets there first.', at: { cross: ['SPENCER STREET', 'RODEN STREET'] }, r: 16, car: true, time: 150 }
-    ]
-  },
-  {
-    name: 'Hot Lap', giver: 'Vince', crew: 'Lygon Street Crew', start: { circuit: 0.006, off: 14 }, reward: 1500,
-    cut: [['Vince', 'Every Sunday the Broady boys race their hotted-up cars round the Albert Park circuit.'],
-      ['Vince', "Their best lap is three and a half minutes. Beat it and they'll know whose town this is."],
-      ['You', 'One lap?'],
-      ['Vince', 'One lap. Lakeside Drive, Aughtie Drive, back to the pits. Go.']],
-    steps: [
-      { text: 'Get in your car.', car: true },
-      { text: 'Hot lap: round the circuit, clockwise. Up Aughtie Drive.', at: { circuit: 0.2 }, r: 16, car: true, time: 210, keepTime: true },
-      { text: 'Hot lap: across the top on Albert Road Drive.', at: { circuit: 0.4 }, r: 16, car: true, keepTime: true },
-      { text: 'Hot lap: down Lakeside Drive.', at: { circuit: 0.6 }, r: 16, car: true, keepTime: true },
-      { text: 'Hot lap: through the bottom of the park.', at: { circuit: 0.8 }, r: 16, car: true, keepTime: true },
-      { text: 'Hot lap: the pit straight. Bring it home across the line.', at: { circuit: 0 }, r: 16, car: true, keepTime: true }
-    ]
-  },
-  {
-    name: 'Chop Shop', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 2500,
-    cut: [['Vince', 'The Broady boys love their utes. So do the buyers at my chop shop.'],
-      ['Vince', "Nick one off the street. Walk up, pull the driver out, done. Then get it to North Melbourne."],
-      ['You', 'Any ute?'],
-      ['Vince', "Any ute. Just don't bring it back with bullet holes."]],
-    steps: [
-      { text: 'Steal a ute: walk up to one in the traffic and press F.', steal: 'pickup' },
-      { text: 'Take the ute to the chop shop on Errol St, North Melbourne.', at: { cross: ['ERROL STREET', 'VICTORIA STREET'] }, r: 16, steal: 'pickup', time: 180 }
-    ]
-  },
-  {
-    name: 'Word on the Street', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 2000,
-    cut: [['Vince', "Somebody's telling the Broadmeadows mob where our trucks go. I want to know who."],
-      ['Vince', 'Go to Fitzroy and ask around. Locals talk if you ask nicely.']],
-    steps: [
-      { text: 'Get to Gertrude St, Fitzroy.', at: { cross: ['GERTRUDE STREET', 'NICHOLSON STREET'] }, r: 30 },
-      { text: 'Ask around: talk to three locals (T next to someone).', talkTo: 3,
-        say: 'A local: "The bloke you want drinks at the pub on Smith Street. Didn\'t hear it from me."' },
-      { text: 'Check out the pub on Smith St.', at: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, r: 16, time: 90 }
-    ]
-  },
-  {
-    name: 'Westside Bikies', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3000,
-    cut: [['Kaz', "So you're the one Vince keeps sending round. Forget the Lygon lot."],
-      ['You', 'I go where the money is.'],
-      ['Kaz', 'Good answer. The Westside Nomads have stashed their takings on a boat in Docklands. Get there before they move it.']],
-    steps: [
-      { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
-      { text: 'The Nomads are guarding it. Take them out.', targets: 3 },
-      { text: 'Grab the bag. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
-      { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
-    ]
-  },
-  {
-    // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
-    name: 'Short Black', giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 3500,
-    cut: [['Kaz', "Sit down. You're making the locals nervous."],
-      ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
-      ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck.'],
-      ['Mick', "There's a bag in a locker at the end of St Kilda Pier. Twenty Rolexes. The Nomads' stash."],
-      ['You', 'And the Nomads just leave it lying about?'],
-      ['Mick', 'Till tonight. Grab it before they do, and we split it three ways.'],
-      ['Kaz', "Bring it back here. And don't stop to look at the penguins."]],
-    outro: ['Mick', "Good man. The coffee's on me."],
-    steps: [
-      { text: 'Get out to the end of St Kilda Pier, by the kiosk.', at: { pier: true }, r: 8 },
-      { text: 'Find the locker and grab the bag. Stay in the marker on foot.', at: { pier: true }, r: 5, wait: 3, foot: true },
-      { text: 'Get the watches back to the café on Acland Street before the Nomads catch on.', at: { cafe: true }, r: 7, time: 150 }
-    ]
-  },
-  {
-    name: 'Collection Day', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3500,
-    cut: [['Kaz', 'Half the corner boys in the city owe us money and think we forgot.'],
-      ['Kaz', 'Go to the Bourke Street Mall and remind three of them. Point the piece, ask for the wallet.']],
-    steps: [
-      { text: 'Get to the Bourke Street Mall.', at: { grid: ['Bourke St', 'Elizabeth St'] }, r: 40 },
-      { text: 'Hold up three people: aim (right mouse) and press T next to them.', rob: 3 },
-      { text: 'Lose yourself: get 300 m from the Mall.', away: 300, time: 60 }
-    ]
-  },
-  {
-    name: 'The Informant', giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 4000,
-    cut: [['Kaz', 'Some dog in Carlton is singing to Taskforce Kestrel. He records it all on tape.'],
-      ['Kaz', 'Two drops: the phone box by the Exhibition Building, and his flat in East Melbourne. Get the tapes before Kestrel does.']],
-    steps: [
-      { text: 'Get the first tape from the phone box on Nicholson St, by the Exhibition Building.', at: { cross: ['NICHOLSON STREET', 'CARLTON STREET'] }, r: 12, time: 150, keepTime: true },
-      { text: 'Get the other tape from the informant\'s flat on Clarendon St, East Melbourne.', at: { cross: ['CLARENDON STREET', 'GIPPS STREET'] }, r: 12, keepTime: true },
-      { text: 'Burn the tapes at the lock-up in Collingwood. Kestrel is onto you.', at: { cross: ['WELLINGTON STREET', 'GIPPS STREET'] }, r: 14, time: 90 }
-    ]
-  },
-  {
-    name: 'Clean Up', giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 5000,
-    cut: [['Kaz', 'Three Nomads are dealing outside Southern Cross like they own the place.'],
-      ['Kaz', "They don't. Go and make that clear."]],
-    steps: [
-      { text: 'Get to Southern Cross Station.', at: { grid: ['Bourke St', 'Spencer St'] }, r: 40, time: 150 },
-      { text: 'Take out the three Nomads.', targets: 3 },
-      { text: 'Get away: 400 m clear of the station.', away: 400, time: 45 }
-    ]
-  },
-  {
-    name: 'Tobacco Wars', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'King St'] }, reward: 6000,
-    cut: [['Kaz', 'You heard about the tobacco war? Every chop shop in town is getting torched.'],
-      ['You', "That's not my fight."],
-      ['Kaz', "It is now. The Nomads burnt down our shop last night. Their stock's in a warehouse at South Wharf."],
-      ['Kaz', 'Set the charge, then get well clear. Make it loud.']],
-    steps: [
-      { text: 'Get to the Nomads\' warehouse on the South Wharf, by the Polly Woodside.', at: { place: 'POLLY_WOODSIDE' }, r: 16, time: 90 },
-      { text: 'Set the charge: stay in the marker on foot.', at: { place: 'POLLY_WOODSIDE' }, r: 7, wait: 5, foot: true },
-      { text: 'It\'s going to blow! Get 250 m clear.', away: 250, time: 25 }
-    ]
-  },
-  {
-    name: 'Harbour Run', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
-    cut: [['Kaz', 'Taskforce Kestrel raided the Brighton house. Both crews want you gone now.'],
-      ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
-    steps: [
-      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
-    ]
-  },
-  // ---------------------------------------------------------------------------------------------------------------
-  // ACT I: LOW TIDE (docs/story/EMPIRE_DESIGN.md). Twenty-two years after Harbour Run, the Ferryman comes back.
-  // ---------------------------------------------------------------------------------------------------------------
-  {
-    id: 'M1', act: 'Act I', name: 'Low Tide', giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
+    id: 'M1', act: 'Tonight', name: 'Low Tide', giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
     begin: { card: ['TWENTY-TWO YEARS LATER', 'Docklands · tonight'], car: { id: 'comodo', place: 'M1_CAR', heading: Math.PI } },
     cut: [['You', "Twenty-two years. The skyline's taller. The river's the same colour."],
       ['Davo', 'You got old.'],
       ['You', 'You got sober.'],
-      ['Davo', "Someone had to. Car's up the end, by Bourke Street. Don't walk up the esplanade."],
-      ['You', 'Why not?'],
-      ['Davo', "Grey Comodo, two up, parked there since Tuesday. Coppers or real estate. Can't tell anymore."],
+      ['Davo', "Someone had to. Vince asks about you every day. He hasn't got long."],
+      ['You', 'Where is the car?'],
+      ['Davo', "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore."],
       ['You', 'Both.'],
-      ['Davo', "Go round by the water. Mind the sheila walking the park. I'll be at the car."]],
+      ['Davo', 'Go round by the water, and mind the woman walking the park.']],
     outro: ['You', 'Every empire starts with a lease nobody else wants.'],
+    after: { card: ['2004', 'How it started'], line: ['You', 'It started in 2004, with a phone call from Vince Lombardo.'] },
     steps: [
       { text: "Get to Davo's car and get in (F) without being seen. Go round by the water: the esplanade is watched.",
         at: { place: 'M1_CAR' }, r: 7, car: true,
@@ -192,6 +59,98 @@ const MISSIONS = [
         ] },
         actors: [{ key: 'm_davo', who: 'Davo', near: 'player', anim: 'talk_cool' }] }
     ]
+  },
+  // ---------------------------------------------------------------------------------------------------------------
+  // 2004, as the Ferryman remembers it. One thread runs through every job: Vince Lombardo's black book (who paid whom:
+  // police, a developer, a minister's office), who is selling its pages, and the man who takes it and leaves by boat.
+  // ---------------------------------------------------------------------------------------------------------------
+  {
+    id: 'M2', act: '2004', name: 'Laneway Hustle', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 1000,
+    cut: [['Vince', "There you are. Six years this war's been going, and the Broadmeadows firm reckon they own the town now."],
+      ['You', 'So what do you need?'],
+      ['Vince', "Somebody's been selling pages out of my book. Names, payments, who's on whose payroll. Davo is carrying what's left."],
+      ['Vince', "Get him to the lock-up in Carlton before the firm gets to him. He's at the pub in Collingwood. Don't hang about."]],
+    steps: [
+      { text: 'Get in your car (the CAR button, or switch with the mode buttons).', car: true },
+      { text: 'Pick up Davo outside the pub on Wellington St, Collingwood.', at: { cross: ['WELLINGTON STREET', 'GIPPS STREET'] }, r: 14, car: true,
+        say: 'Davo: "Carlton, mate. The Broady boys are cutting in on our patch. Step on it."' },
+      { text: 'Get Davo to the lock-up in Carlton before the Broadmeadows firm gets there first.', at: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, r: 16, car: true, time: 150 }
+    ]
+  },
+  {
+    id: 'M3', act: '2004', name: 'Word on the Street', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 2000,
+    cut: [['Vince', 'The pages are still going missing. Somebody is talking to the firm, or to Kestrel. I want a name.'],
+      ['You', 'Where do I start?'],
+      ['Vince', 'Fitzroy. Ask around. Locals talk if you ask nicely.']],
+    steps: [
+      { text: 'Get to Gertrude St, Fitzroy.', at: { cross: ['GERTRUDE STREET', 'NICHOLSON STREET'] }, r: 30 },
+      { text: 'Ask around: talk to three locals (T next to someone).', talkTo: 3,
+        say: 'A local: "The bloke you want drinks at the pub on Smith Street. Didn\'t hear it from me."' },
+      { text: 'Check out the pub on Smith St.', at: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, r: 16, time: 90 }
+    ]
+  },
+  {
+    id: 'M4', act: '2004', name: 'The Informant', giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, reward: 4000,
+    cut: [['Kaz', "You're the one asking questions about Vince's pages. Sit down. It isn't me you want."],
+      ['Kaz', 'Vince has a man in Carlton who records everything on tape and sings to Taskforce Kestrel. Who paid whom. Get the tapes before Kestrel does.'],
+      ['You', 'Why would I do that for you?'],
+      ['Kaz', "Because Vince never paid you what you're worth. I will."],
+      ['You', 'I go where the money is.']],
+    steps: [
+      { text: 'Get the first tape from the phone box on Nicholson St, by the Exhibition Building.', at: { cross: ['NICHOLSON STREET', 'CARLTON STREET'] }, r: 12, time: 150, keepTime: true },
+      { text: 'Get the other tape from the informant\'s flat on Clarendon St, East Melbourne.', at: { cross: ['CLARENDON STREET', 'GIPPS STREET'] }, r: 12, keepTime: true },
+      { text: 'Burn the tapes at the lock-up in Collingwood. Kestrel is onto you.', at: { cross: ['WELLINGTON STREET', 'GIPPS STREET'] }, r: 14, time: 90 }
+    ]
+  },
+  {
+    id: 'M5', act: '2004', name: 'Westside Bikies', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3000,
+    cut: [['Kaz', "The tapes say who sold Vince's pages. The Westside Nomads bought them."],
+      ['You', 'And?'],
+      ['Kaz', "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."]],
+    steps: [
+      { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
+      { text: 'The Nomads are guarding it. Take them out.', targets: 3 },
+      { text: 'Grab the bag, the pages and the cash. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
+      { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
+    ]
+  },
+  {
+    id: 'M6', act: '2004', name: 'Tobacco Wars', giver: 'Kaz', crew: 'Broadmeadows', start: { place: 'CLAR_WHITE' }, reward: 5000,
+    cut: [['Kaz', 'The Nomads know it was us. They burnt our shop last night.'],
+      ['You', "That's not my fight."],
+      ['Kaz', "It is now. Their stock is in a warehouse on the South Wharf, and so is the rest of Vince's book."],
+      ['Kaz', 'Set the charge, grab the pages, then get well clear. Make it loud.']],
+    steps: [
+      { text: 'Get to the Nomads\' warehouse on the South Wharf, by the Polly Woodside.', at: { place: 'POLLY_WOODSIDE' }, r: 16, time: 90 },
+      { text: 'Set the charge and grab the pages: stay in the marker on foot.', at: { place: 'POLLY_WOODSIDE' }, r: 7, wait: 5, foot: true },
+      { text: 'It\'s going to blow! Get 250 m clear.', away: 250, time: 25 }
+    ]
+  },
+  {
+    // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
+    id: 'M7', act: '2004', name: 'Short Black', giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
+    cut: [['Kaz', "Sit down. You're making the locals nervous."],
+      ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
+      ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.'],
+      ['Mick', "There's an envelope in a locker at the end of St Kilda Pier. The last pages of Vince's book, and a photograph."],
+      ['You', 'Of what?'],
+      ['Mick', 'A developer shaking hands with a Kestrel detective. Whoever holds that photograph owns this town.'],
+      ['Kaz', "Bring it back here. And don't stop to look at the penguins."]],
+    outro: ['Mick', "Good man. The coffee's on me."],
+    steps: [
+      { text: 'Get out to the end of St Kilda Pier, by the kiosk.', at: { pier: true }, r: 8 },
+      { text: 'Find the locker and grab the envelope. Stay in the marker on foot.', at: { pier: true }, r: 5, wait: 3, foot: true },
+      { text: 'Get the envelope back to the café on Acland Street before the Nomads catch on.', at: { cafe: true }, r: 7, time: 150 }
+    ]
+  },
+  {
+    id: 'M8', act: '2004', name: 'Harbour Run', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
+    cut: [['Kaz', 'Kestrel raided the Brighton house. They know the book is gone, and so do both crews.'],
+      ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
+    steps: [
+      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
+    ],
+    after: { card: ['2026', 'Twenty-two years later'], line: ['You', "That's how long it takes a book like that to get heavy."] }
   }
 ];
 
@@ -300,10 +259,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // Save: cash and how far through the story
   // Save v2: { version: 2, money, progress, flags } (story choices in flags). A v1 save (money, progress) is carried
   // over; anything unreadable starts a new game.
+  // (`story` 2 is this chain of eight jobs; a save from the older ten-job order keeps its cash and choices but starts the
+  // new story from the top, since its progress counted different jobs)
   const clean = (s) => ({
     version: 2,
+    story: 2,
     money: Number.isFinite(s?.money) ? s.money : 500,
-    progress: Number.isInteger(s?.progress) ? Math.max(0, Math.min(MISSIONS.length, s.progress)) : 0,
+    progress: s?.story === 2 && Number.isInteger(s?.progress) ? Math.max(0, Math.min(MISSIONS.length, s.progress)) : 0,
     flags: s && typeof s.flags === 'object' && s.flags && !Array.isArray(s.flags) ? s.flags : {}
   });
   const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
@@ -738,9 +700,32 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       goalMarker.visible = false;
     }
   }
+  // a black card between chapters (2004, 2026) with the Ferryman's voice over it; no job starts under it
+  let cardUp = false;
+  function chapterCard(after) {
+    cardUp = true;
+    setTimeout(() => {
+      elBlack.innerHTML = '';
+      const t = document.createElement('b');
+      t.textContent = after.card[0];
+      const sm = document.createElement('small');
+      sm.textContent = after.card[1] || '';
+      elBlack.append(t, sm);
+      if (after.line) {
+        const v = document.createElement('i');
+        v.textContent = after.line[1];
+        v.style.cssText = 'margin-top:26px;font:italic 500 17px/1.4 Inter,system-ui,sans-serif;opacity:.85;max-width:min(560px,86vw)';
+        elBlack.append(v);
+        voices?.sayText(after.line[1], { subtitle: false, who: after.line[0] });
+      }
+      elBlack.classList.add('on');
+      setTimeout(() => { elBlack.classList.remove('on'); cardUp = false; }, 6500);
+    }, 2800);
+  }
   function pass() {
     const def = mission.def;
     cleanup();
+    if (def.after) chapterCard(def.after);
     if (def.outro) { voices?.sayText(def.outro[1], { who: def.outro[0] }); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
@@ -822,7 +807,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
-        if (!cut && d < 8 && bigT <= 0) start(save.progress);
+        if (!cut && d < 8 && bigT <= 0 && !cardUp) start(save.progress);
         else if (!cut) {
           // say where the next job is, and put it on the map
           const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -980,7 +965,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       done = driving();
     }
     if (done) {
-      if (s.say) sub(s.say, 5);
+      if (s.say) {
+        sub(s.say, 5);
+        const sm = /^(\w+): "(.*)"$/.exec(s.say); // 'Davo: "..."': said aloud too (a recording, or the browser's voice)
+        if (sm) voices?.sayText(sm[2], { subtitle: false, who: sm[1] });
+      }
       nextStep();
     }
   }

@@ -33,7 +33,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   }
   log('traffic car contact', JSON.stringify(worst));
   // 2. the tail car (Low Tide): parked at the kerb, then driven into
-  await p.evaluate(() => { const q = __city.missions.jumpTo(11); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await p.waitForFunction(() => __city.missions.debug().inCut, null, { timeout: 200000, polling: 250 });
   await p.evaluate(() => __city.missions.skipCut());
   await p.waitForFunction(() => __city.missions.debug().step === 0, null, { timeout: 60000, polling: 250 });
