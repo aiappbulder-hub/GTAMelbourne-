@@ -596,10 +596,10 @@
       "folder": "dialogue/low-tide",
       "text": "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore.",
       "file": "dialogue/low-tide/davo_low-tide_3.mp3",
-      "duration": 11.04,
+      "duration": 12.46,
       "check": {
-        "heard": "Up the end, by Bork Street. Don't lock the Esplanade. There's a grey Komodo Park there since Tuesday. Two up. Coppers or real estate? Can't tell any more.",
-        "score": 0.8
+        "heard": "Up the End by Bork Street. Don't walk the Esplanade. There's a Grey Komodo park there since Tuesday. Two up. Coppers or real estate? Can't tell anymore.",
+        "score": 0.89
       }
     },
     {
@@ -687,10 +687,10 @@
       "folder": "dialogue/low-tide",
       "text": "Still there. Lose them, mate.",
       "file": "dialogue/low-tide/davo_low-tide_7.mp3",
-      "duration": 2.02,
+      "duration": 2.5,
       "check": {
-        "heard": "Still there, lose and mate?",
-        "score": 0.8
+        "heard": "still there lose them mate",
+        "score": 1.0
       }
     },
     {
@@ -713,10 +713,10 @@
       "folder": "dialogue/low-tide",
       "text": "Your bar. Well, it's a bar. Gus wants out. You'll see.",
       "file": "dialogue/low-tide/davo_low-tide_9.mp3",
-      "duration": 4.27,
+      "duration": 4.39,
       "check": {
-        "heard": "Your bar. Well, it's a bar. Just watch out. You'll see.",
-        "score": 0.82
+        "heard": "Your bar? Well, it's a bar. Gus wants out. You'll see.",
+        "score": 1.0
       }
     },
     {
@@ -830,10 +830,10 @@
       "folder": "dialogue/word-on-the-street",
       "text": "Where do I start?",
       "file": "dialogue/word-on-the-street/player_word-on-the-street_1.mp3",
-      "duration": 3.62,
+      "duration": 3.43,
       "check": {
-        "heard": "Where do I start? Oh, oh.",
-        "score": 0.8
+        "heard": "Where do I start? Oh!",
+        "score": 0.89
       }
     },
     {
@@ -921,10 +921,10 @@
       "folder": "dialogue/westside-bikies",
       "text": "And?",
       "file": "dialogue/westside-bikies/player_westside-bikies_1.mp3",
-      "duration": 0.94,
+      "duration": 0.62,
       "check": {
-        "heard": "End.",
-        "score": 0.0
+        "heard": "And?",
+        "score": 1.0
       }
     },
     {
@@ -1168,10 +1168,10 @@
       "folder": "dialogue/low-tide",
       "text": "Gone. Nice driving, for an old bloke.",
       "file": "dialogue/low-tide/davo_low-tide_14.mp3",
-      "duration": 2.74,
+      "duration": 2.95,
       "check": {
-        "heard": "Gone. Nice try then for an old bloke.",
-        "score": 0.8
+        "heard": "Gone. Nice driving for an old bloke.",
+        "score": 1.0
       }
     },
     {
@@ -1181,10 +1181,10 @@
       "folder": "dialogue/laneway-hustle",
       "text": "Carlton, mate. The Broady boys are cutting in on our patch. Step on it.",
       "file": "dialogue/laneway-hustle/davo_laneway-hustle_1.mp3",
-      "duration": 4.92,
+      "duration": 4.56,
       "check": {
-        "heard": "Carl down late. The Brody boys are cutting in on our patch. Step on it.",
-        "score": 0.76
+        "heard": "Carlton mate the Brody boys are cutting in on our patch step on it",
+        "score": 0.93
       }
     }
   ]
