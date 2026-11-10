@@ -594,126 +594,234 @@
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore."
+      "text": "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore.",
+      "file": "dialogue/low-tide/davo_low-tide_3.mp3",
+      "duration": 11.04,
+      "check": {
+        "heard": "Up the end, by Bork Street. Don't lock the Esplanade. There's a grey Komodo Park there since Tuesday. Two up. Coppers or real estate? Can't tell any more.",
+        "score": 0.8
+      }
     },
     {
       "id": "player_low-tide_4",
       "character": "player",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Both."
+      "text": "Both.",
+      "file": "dialogue/low-tide/player_low-tide_4.mp3",
+      "duration": 0.55,
+      "check": {
+        "heard": "BOTH!",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_4",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Go round by the water, and mind the woman walking the park."
+      "text": "Go round by the water, and mind the woman walking the park.",
+      "file": "dialogue/low-tide/davo_low-tide_4.mp3",
+      "duration": 2.9,
+      "check": {
+        "heard": "Go round by the water and line the woman walking the park.",
+        "score": 0.92
+      }
     },
     {
       "id": "player_low-tide_5",
       "character": "player",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Every empire starts with a lease nobody else wants."
+      "text": "Every empire starts with a lease nobody else wants.",
+      "file": "dialogue/low-tide/player_low-tide_5.mp3",
+      "duration": 4.3,
+      "check": {
+        "heard": "Every empire starts with a lease nobody else wants.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_low-tide_6",
       "character": "player",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "It started in 2004, with a phone call from Vince Lombardo."
+      "text": "It started in 2004, with a phone call from Vince Lombardo.",
+      "file": "dialogue/low-tide/player_low-tide_6.mp3",
+      "duration": 4.87,
+      "check": {
+        "heard": "It started in 2004 with a phone call from Vince Lombardo.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_5",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Don't look now. They're on us."
+      "text": "Don't look now. They're on us.",
+      "file": "dialogue/low-tide/davo_low-tide_5.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "Don't look now. They're on us.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_6",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Take the city. Plenty of lights, plenty of trams."
+      "text": "Take the city. Plenty of lights, plenty of trams.",
+      "file": "dialogue/low-tide/davo_low-tide_6.mp3",
+      "duration": 3.05,
+      "check": {
+        "heard": "Take the city. Plenty of lights, plenty of trams.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_7",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Still there. Lose them, mate."
+      "text": "Still there. Lose them, mate.",
+      "file": "dialogue/low-tide/davo_low-tide_7.mp3",
+      "duration": 2.02,
+      "check": {
+        "heard": "Still there, lose and mate?",
+        "score": 0.8
+      }
     },
     {
       "id": "davo_low-tide_8",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "They'll run out of petrol before patience. You won't."
+      "text": "They'll run out of petrol before patience. You won't.",
+      "file": "dialogue/low-tide/davo_low-tide_8.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "They'll run out of petrol before patients. You won't.",
+        "score": 0.89
+      }
     },
     {
       "id": "davo_low-tide_9",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Your bar. Well, it's a bar. Gus wants out. You'll see."
+      "text": "Your bar. Well, it's a bar. Gus wants out. You'll see.",
+      "file": "dialogue/low-tide/davo_low-tide_9.mp3",
+      "duration": 4.27,
+      "check": {
+        "heard": "Your bar. Well, it's a bar. Just watch out. You'll see.",
+        "score": 0.82
+      }
     },
     {
       "id": "davo_low-tide_10",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Thirty years his dad ran it. Smells like it, too."
+      "text": "Thirty years his dad ran it. Smells like it, too.",
+      "file": "dialogue/low-tide/davo_low-tide_10.mp3",
+      "duration": 3.48,
+      "check": {
+        "heard": "Thirty years his dad ran it, smells like it too.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_11",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "That car. Want me to find out whose it was?"
+      "text": "That car. Want me to find out whose it was?",
+      "file": "dialogue/low-tide/davo_low-tide_11.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "that car. Want me to find out who's it was?",
+        "score": 0.9
+      }
     },
     {
       "id": "davo_low-tide_12",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "I know a bloke who used to be a copper. Leave it with me."
+      "text": "I know a bloke who used to be a copper. Leave it with me.",
+      "file": "dialogue/low-tide/davo_low-tide_12.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "I know a bloke who used to be a copper. Leave it with me.\"",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_13",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Your call. I'll put the kettle on."
+      "text": "Your call. I'll put the kettle on.",
+      "file": "dialogue/low-tide/davo_low-tide_13.mp3",
+      "duration": 2.86,
+      "check": {
+        "heard": "Your call. I'll put the kettle on.",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_laneway-hustle_1",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/laneway-hustle",
-      "text": "There you are. Six years this war's been going, and the Broadmeadows firm reckon they own the town now."
+      "text": "There you are. Six years this war's been going, and the Broadmeadows firm reckon they own the town now.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_1.mp3",
+      "duration": 6.19,
+      "check": {
+        "heard": "There you are, six years this war's been going, and the Broadmeadows' firm reckon they own the town now.",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_laneway-hustle_2",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/laneway-hustle",
-      "text": "Somebody's been selling pages out of my book. Names, payments, who's on whose payroll. Davo is carrying what's left."
+      "text": "Somebody's been selling pages out of my book. Names, payments, who's on whose payroll. Davo is carrying what's left.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_2.mp3",
+      "duration": 7.85,
+      "check": {
+        "heard": "Somebody's been selling pages out of my book. Names, payments, who's on who's payroll? Davo is carrying what's left.",
+        "score": 0.95
+      }
     },
     {
       "id": "vince_laneway-hustle_3",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/laneway-hustle",
-      "text": "Get him to the lock-up in Carlton before the firm gets to him. He's at the pub in Collingwood. Don't hang about."
+      "text": "Get him to the lock-up in Carlton before the firm gets to him. He's at the pub in Collingwood. Don't hang about.",
+      "file": "dialogue/laneway-hustle/vince_laneway-hustle_3.mp3",
+      "duration": 6.96,
+      "check": {
+        "heard": "Get him to the lock-up in Carlton, before the firm gets to him. He's at the pub in Collinwood. Don't hang about.\"",
+        "score": 0.96
+      }
     },
     {
       "id": "vince_word-on-the-street_1",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/word-on-the-street",
-      "text": "The pages are still going missing. Somebody is talking to the firm, or to Kestrel. I want a name."
+      "text": "The pages are still going missing. Somebody is talking to the firm, or to Kestrel. I want a name.",
+      "file": "dialogue/word-on-the-street/vince_word-on-the-street_1.mp3",
+      "duration": 6.43,
+      "check": {
+        "heard": "The pages are still going missing. Somebody is talking to the firm or to Kestrel. I want a name.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_word-on-the-street_1",

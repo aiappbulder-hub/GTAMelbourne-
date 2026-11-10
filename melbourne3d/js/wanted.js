@@ -9,7 +9,7 @@
 //    (js/pursuit.js: slows for bends and traffic, solid, so it can't be driven through), with a siren that grows as
 //    the nearest one closes.
 //  - It ends when you lose them (stay over 230 m clear for 10 s), when the heat cools (it falls while no unit is within
-//    80 m), or when you are BUSTED: stopped, with a police car within 11 m, for 2.5 s. Busted costs 12% of your cash.
+//    80 m), or when you are BUSTED: stopped, with a police car within 16 m, for 2.5 s. Busted costs 12% of your cash.
 //
 // Nothing here runs during cut scenes or the intro.
 import { createPursuer } from './pursuit.js';
@@ -45,6 +45,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   const units = []; // { p: pursuer, n }
   const history = []; // the route the player drove: a point every 4 m, newest last
   let farT = 0, bustT = 0, label = '', labelT = 0, spawnWait = 0;
+  const tuning = { spawnBack: [170, 210] }; // how far back along your route a police car appears (metres; tests shorten it)
 
   const player = () => controllerManager.getActiveEntity();
   const cinematic = () => document.body.classList.contains('cinematic');
@@ -110,7 +111,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   }
 
   function spawnUnit() {
-    const want = 170 + Math.random() * 40;
+    const want = tuning.spawnBack[0] + Math.random() * (tuning.spawnBack[1] - tuning.spawnBack[0]);
     const rp = routePoint(want);
     if (rp.along < 45 && spawnWait < 12) return false; // too close to be believable: wait for the player to move (up to 12 s)
     const seed = history.slice(rp.index);
@@ -177,7 +178,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
       // busted: stopped with a police car beside you
       const e = player();
       const still = Math.abs(e.speed || 0) < 2.5;
-      bustT = still && nearest < 11 ? bustT + dt : 0;
+      bustT = still && nearest < 16 ? bustT + dt : 0;
       if (bustT > 2.5) busted();
     } else bustT = 0;
 
@@ -196,11 +197,12 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     update,
     crime,
     reset,
+    tuning,
     /** The police cars' footprints (for the player on foot to bump into) */
     boxes() { return units.map((u) => u.p.box()).filter(Boolean); },
     get stars() { return stars; },
     get heat() { return heat; },
     /** For scripted checks */
-    debug() { return { stars, heat: +heat.toFixed(1), units: units.length, nearest: units.length ? Math.min(...units.map((u) => u.p.distance())) : null, reports: reports.length, history: history.length }; }
+    debug() { return { stars, heat: +heat.toFixed(1), units: units.length, nearest: units.length ? Math.min(...units.map((u) => u.p.distance())) : null, reports: reports.length, history: history.length, speeds: units.map((u) => +u.p.speed.toFixed(1)), pos: units.map((u) => [Math.round(u.p.position.x), Math.round(u.p.position.z)]), bust: +bustT.toFixed(1), info: units.map((u) => u.p.info) }; }
   };
 }

@@ -37,6 +37,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   let pos = { x: 0, y: 0, z: 0 }, heading = 0, v = 0, vMax = 30;
   let token = 0;
   let parked = false; // waiting at the kerb until release()
+  let info = null;
   let gapStop = STOP; // this one's own closest following distance (police units keep different gaps)
 
   /** Start tailing from (x, z, heading): a dark sedan by default */
@@ -123,6 +124,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     // and for a car in front: brake to stop 6 m behind it
     const ahead = carAhead();
     if (ahead < Infinity) want = Math.min(want, Math.sqrt(2 * 8 * Math.max(0, ahead - 6)));
+    info = { want: +want.toFixed(1), ahead: ahead === Infinity ? null : +ahead.toFixed(1), gap: +gap.toFixed(1), bend: +bend.toFixed(2), trail: trail.length, dt: +dt.toFixed(3) };
     v += Math.max(-11 * dt, Math.min(5.5 * dt, want - v));
     v = Math.max(0, v);
     // drive along the trail
@@ -187,6 +189,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     get active() { return active; },
     get position() { return pos; },
     get speed() { return v; },
+    get info() { return info; },
     get heading() { return heading; },
     /** Straight-line distance to the player */
     distance() { const p = player().position; return Math.hypot(p.x - pos.x, p.z - pos.z); },

@@ -20,27 +20,31 @@ his name.
 
 ### The memory (2004)
 
-*Played as the ten original jobs, told in Callum's voice.*
+*Played as seven jobs, told in Callum's voice. One thread runs through all of them: Vince's black book.*
 
 Callum is back from three years abroad. He is a good driver and he keeps his mouth shut. A war has run for six years
 between two crews:
 
-- **The Lygon Street Crew** (Carlton, Fitzroy): old families, old rules. Vince runs it.
+- **The Lygon Street Crew** (Carlton, Fitzroy): old families, old rules. Vince runs it, and Vince keeps the book.
 - **The Broadmeadows firm**: freight, tobacco, chop shops. Kaz Whitlock runs its Melbourne end for her uncle Ray.
-- **The Westside Nomads**: a bikie club in the middle, selling to whoever pays.
+- **The Westside Nomads**: a bikie club in the middle, buying whatever is for sale.
 - **Taskforce Kestrel**: the police, closing in on all of them.
 
-Callum takes small jobs for Vince: pick up Davo, a hot lap at Albert Park, a stolen ute, asking around Fitzroy about a
-leak. Vince never trusts him with more. Then Kaz offers respect and bigger work, and he changes sides with one line:
-"I go where the money is."
+Somebody is selling pages out of the book. Callum works for Vince first, then for Kaz, and each job pulls the same thread:
 
-For Kaz he robs the Nomads' boat, picks up watches in St Kilda from a fence called Mick, collects debts at the Bourke
-Street Mall, steals an informant's tapes, clears out Nomads at Southern Cross and torches their tobacco warehouse.
+1. **Laneway Hustle** (Vince): get Davo and what is left of the book to the lock-up in Carlton before the firm does.
+2. **Word on the Street** (Vince): who is selling pages? Fitzroy talks, and it points to a pub on Smith Street.
+3. **The Informant** (Kaz): at the pub, Kaz makes her offer: Vince has a man who records everything and sings to Kestrel.
+   Get the tapes. "Vince never paid you what you're worth. I will." Callum switches sides: "I go where the money is."
+4. **Westside Bikies** (Kaz): the tapes show the Nomads bought the pages. They are on a boat in Docklands.
+5. **Tobacco Wars** (Kaz): the rest of the book is in the Nomads' warehouse at South Wharf. Burn it, take the pages.
+6. **Short Black** (Kaz and Mick): a sit-down in St Kilda. Mick has the last pages and a photograph of a developer shaking
+   hands with a Kestrel detective. "Whoever holds that photograph owns this town."
+7. **Harbour Run** (Kaz): Kestrel raids the Brighton house. Both crews know the book is gone, and who took it.
 
 What nobody saw: he was never working for either side. He was working for the **ledger**, a book that records who paid
-whom: police, a developer, a minister's office. Both gangs' money ran through it. When Kestrel raids the Brighton house,
-both crews want him gone. He leaves by boat with the ledger and the last thing he does in 2004 is vanish. Who tipped
-Kestrel off has never been said. He lets people believe what they like.
+whom: police, a developer, a minister's office. Both gangs' money ran through it. He leaves by boat with it, and the last
+thing he does in 2004 is vanish. Who tipped Kestrel off has never been said. He lets people believe what they like.
 
 ### Act I, Low Tide (2026)
 
@@ -67,8 +71,8 @@ he sits across a table from the developer in the shadow of Parliament.
 - **The Badge:** he hands the developer and the ledger to Kestrel and owes them for ever.
 - **The Ferry:** he burns it down, gives each territory to its loyal lieutenant and leaves by water, the way he came.
 
-**What's playable now:** the ten 2004 jobs and Act I's first mission, Low Tide. Acts II and III are designed but not
-built.
+**What's playable now:** Low Tide, then the seven 2004 jobs. The rest of Act I, and Acts II and III, are designed but not
+built. The game also has a wanted level and police.
 
 ---
 
@@ -184,7 +188,7 @@ loyalty to Callum is tested by that pull.
 | Part | What it is | State |
 |---|---|---|
 | Frame | arrival by boat; Davo; the grey Comodo | Low Tide, built |
-| The memory | the ten 2004 jobs, told by Callum | built, framing not yet |
+| The memory | seven 2004 jobs on one thread, told by Callum | built |
 | Act I | the Quiet Room, Sunday lunch, the leak, the raid | Low Tide built; five missions to go |
 | Act II | lieutenants, territories, the truce that breaks | designed |
 | Act III | the war, the traitor, three endings | designed |

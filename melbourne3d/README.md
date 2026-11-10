@@ -60,7 +60,7 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   get stars (up to 5). A person or a police car that sees it counts at once (a police car seeing it is two stars). If
   nobody is around, it is reported a few seconds later anyway. One police car per star (four at most) spawns well back on
   the route you drove and follows it with a siren; they are solid, you can't drive through them. Lose them (stay
-  230 m clear for 10 s), cool off, or get BUSTED (stopped with a police car within 11 m for 2.5 s: 12% of your cash).
+  230 m clear for 10 s), cool off, or get BUSTED (stopped with a police car within 16 m for 2.5 s: 12% of your cash).
   There are twice as many police cars in the traffic.
 - **Horn** (`js/car-sounds.js`): hold **B** in a car, or the HORN button on touch screens. A two-tone horn for as long
   as you hold it.

@@ -41,12 +41,13 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   });
   log('witness', JSON.stringify(near));
   if (near) {
+    await p.evaluate(() => { __city.wanted.tuning.spawnBack = [55, 65]; }); // (the headless browser runs slowly: start them close)
     await p.evaluate(() => { const e = __city.controllerManager.getActiveEntity().position; __city.wanted.crime('kill', e.x, e.z); });
     let d = await dbg();
     ok(d.stars >= 1, `a witnessed killing raises the wanted level at once (${d.stars} star, heat ${d.heat})`);
     await waitFor(() => __city.wanted.debug().units >= 1, 200000);
     d = await dbg();
-    ok(d.units >= 1 && d.nearest > 40, `a police car comes, from well back (${Math.round(d.nearest)} m)`);
+    ok(d.units >= 1 && d.nearest > 40, `a police car comes, from back along your route (${Math.round(d.nearest)} m)`);
     // 2. stand still: it closes in and busts you
     const cash0 = await p.evaluate(() => __city.missions.money);
     await waitFor(() => __city.wanted.debug().stars === 0, 400000);
