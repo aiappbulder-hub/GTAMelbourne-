@@ -1,4 +1,5 @@
-// Which city the engine builds. melbourne3d is GTA Melbourne's engine, so Melbourne is the default; ?nyc builds Slop
-// New York's Manhattan, kept as the reference the port is checked against.
-export const CITY = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nyc') ? 'nyc' : 'melbourne';
-export const IS_MELBOURNE = CITY === 'melbourne';
+// Which city the engine builds: Melbourne. (This module began as a switch between Melbourne and Slop New York's Manhattan,
+// the demo this engine was vendored from; the New York code and data have been removed. IS_MELBOURNE stays as a constant
+// for the modules that still carry a branch for the other city.)
+export const CITY = 'melbourne';
+export const IS_MELBOURNE = true;

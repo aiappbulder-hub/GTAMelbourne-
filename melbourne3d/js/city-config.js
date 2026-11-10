@@ -1,7 +1,5 @@
-// The city's spatial configuration: js/nyc-config.js (Manhattan) or js/melbourne-config.js, with the same exports.
-import { IS_MELBOURNE } from './city.js';
-
-const C = IS_MELBOURNE ? await import('./melbourne-config.js') : await import('./nyc-config.js');
+// The city's spatial configuration: js/melbourne-config.js, re-exported for the engine's generic modules.
+const C = await import('./melbourne-config.js');
 export const {
   AVENUES,
   ALL_AVENUES,

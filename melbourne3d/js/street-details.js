@@ -19,10 +19,7 @@ import { cityUniforms, createSteamMaterial, createTreeGrateMaterial, createGodRa
 import { createTreeField } from './trees.js';
 import { REAL_TREES } from './city-trees.js';
 import { placeStreetTrees } from './tree-placements.js';
-import { createSubwayEntranceParts, createFoodCartParts } from './street-props.js';
-import { createSubwayEntrances } from './subway-entrances.js';
 import { pavedPlazaRects, centralParkClearings, parkTreeSites, parkLampSites } from './city-grid.js';
-import { bryantParkLawn } from './landmarks.js';
 
 // Instanced street furniture, traffic signals, trees and nearby light pools.
 
@@ -694,88 +691,6 @@ function buildStreetDetails(scene, colliders = []) {
   group.add(steamInstancedSprites);
 
   // =========================================================================
-  // 4. MTA SUBWAY ENTRANCES WITH GLOWING GREEN GLOBE LAMPS
-  // =========================================================================
-  // (New York's subway: Melbourne has none of these entrances)
-  const subwaySites = IS_MELBOURNE ? [] : createSubwayEntrances(colliders, footprints);
-  const subwayMatrices = [];
-  const subwayColliders = [];
-  for (const { x, y, z, yaw } of subwaySites) {
-    const cs = Math.cos(yaw), sn = Math.sin(yaw);
-    subwayMatrices.push(new THREE.Matrix4().makeRotationY(yaw).setPosition(x, y, z));
-    const hw = 1.21, hd = 3.16;
-    const ex = Math.abs(cs) * hw + Math.abs(sn) * hd;
-    const ez = Math.abs(sn) * hw + Math.abs(cs) * hd;
-    addFootprint(x, z, ex * 2, ez * 2, true);
-    subwayColliders.push({
-      minX: x - ex, maxX: x + ex, minZ: z - ez, maxZ: z + ez, minY: 0.22, maxY: y + 2.8,
-      obb: { cx: x, cz: z, hx: hw, hz: hd, cs, sn }
-    });
-    streetPointSites.push({ x: x + sn * 2.98, y: y + 2.65, z: z + cs * 2.98, color: 0xb9e8c8, intensity: 12, dist: 8.5 });
-  }
-  for (const part of createSubwayEntranceParts()) {
-    addMatrixArrayInstanced(part.geometry, part.material, subwayMatrices, part.castShadow);
-  }
-
-  // =========================================================================
-  // 5. NYC HOT DOG / HALAL FOOD CARTS
-  // =========================================================================
-  // Keep the whole prop on the sidewalk, outside building lots.
-  const findPropSite = (x, z, width, depth) => {
-    const hw = width * 0.5 + 0.15;
-    const hd = depth * 0.5 + 0.15;
-    const fits = (px, pz) => {
-      const block = blockAt(px, pz);
-      if (!block || block.median) return false;
-      for (const dx of [-hw, 0, hw]) {
-        for (const dz of [-hd, 0, hd]) {
-          if (blockAt(px + dx, pz + dz) !== block) return false;
-        }
-      }
-      return !block.rects.some(([x0, x1, z0, z1]) =>
-        px + hw > x0 && px - hw < x1 && pz + hd > z0 && pz - hd < z1)
-        && !subwayColliders.some((b) => px + hw > b.minX && px - hw < b.maxX && pz + hd > b.minZ && pz - hd < b.maxZ);
-    };
-    if (fits(x, z)) return { x, z };
-    for (let r = 2; r <= 40; r += 2) {
-      for (let k = 0; k < 16; k++) {
-        const angle = k / 16 * Math.PI * 2;
-        const px = x + Math.cos(angle) * r;
-        const pz = z + Math.sin(angle) * r;
-        if (fits(px, pz)) return { x: px, z: pz };
-      }
-    }
-    return null;
-  };
-
-  const cartLocations = [
-    [-17, 152],   // Empire State corner
-    [-17, 25],    // NYPL / Bryant Park
-    [-127, 25],   // 6th Ave & 42nd
-    [-202, -28],  // Times Square
-    [-202, -108], // Duffy Square
-    [127, -25],   // Grand Central
-    [237, -25],   // Chrysler Building corner
-    [-17, -148],  // Rockefeller Center
-    [127, -205],  // Seagram Plaza corner
-    [-17, 325]    // Flatiron Plaza
-  ];
-
-  const cartMatrices = [];
-  for (const [ox, oz] of IS_MELBOURNE ? [] : cartLocations) { // (New York's hot-dog carts)
-    const raw = fromOldFrame(ox, oz);
-    const site = findPropSite(raw.x, raw.z, 3.5, 3.5);
-    if (!site) continue;
-    const { x, z } = site;
-    cartMatrices.push(new THREE.Matrix4().makeTranslation(x, 0, z));
-    addFootprint(x, z, 1.5, 2.2);
-    streetPointSites.push({ x, y: 2.15, z, color: 0xffdf9e, intensity: 28, dist: 9.5 });
-  }
-  for (const part of createFoodCartParts()) {
-    addMatrixArrayInstanced(part.geometry, part.material, cartMatrices, part.castShadow);
-  }
-
-  // =========================================================================
   // 6. FIRE HYDRANTS & USPS BLUE MAILBOXES ALONG CURBS (INSTANCED)
   // =========================================================================
   const hydrantPositions = [];
@@ -825,22 +740,6 @@ function buildStreetDetails(scene, colliders = []) {
   const CP_LAWN_Y = 1.19;
   const mixSpecies = (r, plane, locust) => (r < plane ? 0 : (r < plane + locust ? 1 : 2));
 
-
-  // A. Bryant Park: double allées of London planes on the raised terraces along the Great Lawn's north & south sides
-  //    and its west end, framing the lawn the library's terrace looks out over (the lawn as fitted by landmarks.js)
-  const bpl = bryantParkLawn;
-  if (bpl) {
-    const ty = bpl.top - 0.2;
-    for (let tx = bpl.minX - 6; tx <= bpl.maxX + 6; tx += 6.5) {
-      for (const tz of [bpl.minZ - 5, bpl.minZ - 11.5, bpl.maxZ + 5, bpl.maxZ + 11.5]) {
-        treePositions.push({ x: tx, y: ty, z: tz, scale: 0.8, species: 0 });
-      }
-    }
-    for (let tz = bpl.minZ; tz <= bpl.maxZ; tz += 6.5) {
-      treePositions.push({ x: bpl.minX - 6, y: ty, z: tz, scale: 0.82, species: 0 });
-      treePositions.push({ x: bpl.minX - 12.5, y: ty, z: tz, scale: 0.76, species: 0 });
-    }
-  }
 
   // B. Central Park (59th to 110th St, 5th Ave to Central Park West; city-config.js CENTRAL_PARK_BOUNDS), on the lawn
   const cp = CPB;
@@ -939,7 +838,7 @@ function buildStreetDetails(scene, colliders = []) {
   let sidewalkTreePositions = placeStreetTrees(REAL_TREES, treePositions,
     (x, z) => !inPlaza(x, z, 1.5) && isClearOfPoles(x, z, 2.2));
   for (const tree of sidewalkTreePositions) treePositions.push(tree);
-  const treeField = createTreeField(scene, treePositions, [...colliders, ...subwayColliders]);
+  const treeField = createTreeField(scene, treePositions, [...colliders]);
   group.add(treeField.group);
   sidewalkTreePositions = sidewalkTreePositions.filter((t) => treeField.sites.has(t));
   console.info(`[streetDetails] ${treeField.stats.trees} trees (${sidewalkTreePositions.length} street trees)`);

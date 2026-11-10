@@ -1,7 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { IS_MELBOURNE } from './city.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createFireEscapes } from './fire-escapes.js';
 import { addBuildingDetails } from './building-details.js';
 import {
   Fn,
@@ -299,49 +298,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
       { x: r.x0, z: r.z0 }, { x: r.x1, z: r.z0 }, { x: r.x1, z: r.z1 }, { x: r.x0, z: r.z1 }
     ], holes: [] }] });
   }
-  function reserveFireEscape(fe) {
-    const cs = Math.cos(fe.facing), sn = Math.sin(fe.facing);
-    const outer = [[-1.7, -0.55], [1.7, -0.55], [1.7, 0.57], [-1.7, 0.57]].map(([x, z]) =>
-      ({ x: fe.x + x * cs + z * sn, z: fe.z - x * sn + z * cs }));
-    const xs = outer.map((p) => p.x), zs = outer.map((p) => p.z);
-    const r = { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs),
-      height: 0, polygons: [{ outer, holes: [] }] };
-    addReserve(r);
-    return r;
-  }
-
-  function addSurveyedFireEscapes(b, detail, storey, neighbours) {
-    if (IS_MELBOURNE) return; // (New York's tenement fire escapes)
-    if (!b.year || b.year >= 1945 || b.height > 30) return;
-    const floors = Math.floor((b.height + 0.22) / storey);
-    if (floors < 3) return;
-    const landings = Math.min(floors - 1, 7), h = (landings - 1) * storey + 1;
-    for (const polygon of b.polygons) {
-      for (const ring of [polygon.outer, ...polygon.holes]) {
-        for (let i = 0; i < ring.length; i++) {
-          const a = ring[i], c = ring[(i + 1) % ring.length];
-          const dx = c.x - a.x, dz = c.z - a.z, length = Math.hypot(dx, dz);
-          if (length < 4.6) continue;
-          const nx = dz / length, nz = -dx / length;
-          const count = length >= 15 ? 2 : 1;
-          for (let k = 0; k < count; k++) {
-            const t = (k + 0.5) / count, x = a.x + dx * t, z = a.z + dz * t;
-            // The clearance box starts just outside the wall, including on concave footprints.
-            if (neighbours.some((r) => r.polygons.some((p) =>
-              polygonBoxOverlaps(p, x + nx * 0.75, z + nz * 0.75, 1.9, 0.65, nz, nx)))) continue;
-            const fe = {
-              x: x + nx * 0.55, y: storey + 0.1, z: z + nz * 0.55, h, storey, landings,
-              facing: Math.atan2(nx, nz)
-            };
-            detail.fireEscapes.push(fe);
-            neighbours.push(reserveFireEscape(fe));
-            if (detail.fireEscapes.length === 4) return;
-          }
-        }
-      }
-    }
-  }
-
   const surveyedBuckets = materials.map(() => []);
   const detailsToPlace = [];
   for (const b of surveyedBuildings) {
@@ -357,7 +313,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     surveyedBuckets[mat].push(record);
     const detail = {
       cx: b.cx, cz: b.cz, minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ,
-      cornices: [], waterTowers: [], hvacUnits: [], fireEscapes: [], awnings: [], scaffoldSheds: [], footprints: []
+      cornices: [], waterTowers: [], hvacUnits: [], awnings: [], scaffoldSheds: [], footprints: []
     };
     const top = b.height + 0.22;
     for (const polygon of b.polygons) {
@@ -367,7 +323,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
       detail.footprints.push({ h: top, pts: polygon.outer, holes: polygon.holes });
     }
     const neighbours = nearbyReserves(b, 6);
-    addSurveyedFireEscapes(b, detail, storeys[mat], neighbours);
     detailsToPlace.push({ b: record, detail, masonry: mat < 2, rand });
     allBlocks.push(detail);
   }
@@ -594,9 +549,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   hvacInst.frustumCulled = false;
   group.add(hvacInst);
 
-  // 4. Instanced fire escapes: real steps nearby, lightweight silhouettes in the distance.
-  const fireEscapeSystem = createFireEscapes(group);
-
   // 5. Ground-floor retail canvas awnings & illuminated storefront fascia signs
   const awningMat = new THREE.MeshStandardNodeMaterial({ color: 0xffffff, roughness: 0.65 });
   const awningPalette = [
@@ -728,7 +680,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     let corniceCount = 0;
     let wtCount = 0;
     let hvacCount = 0;
-    fireEscapeSystem.begin(focusX, focusZ);
     let awningCount = 0;
     let awningBlocks = 0;
     let shedCount = 0;
@@ -778,9 +729,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
         hvacInst.setMatrixAt(hvacCount++, dummy.matrix);
       }
 
-      // 4. Wrought-iron fire escapes
-      for (const fe of blk.fireEscapes) fireEscapeSystem.add(fe);
-
       // 5. Retail awnings & illuminated storefront fascia signs
       for (let i = 0; i < blk.awnings.length && awningCount < MAX_AWNINGS; i++) {
         const a = blk.awnings[i];
@@ -828,8 +776,6 @@ function buildCityBlocks(scene, landmarkColliders = []) {
 
     hvacInst.count = hvacCount;
     flagRange(hvacInst.instanceMatrix, hvacCount);
-
-    fireEscapeSystem.end();
 
     awningInst.count = awningCount;
     flagRange(awningInst.instanceMatrix, awningCount);

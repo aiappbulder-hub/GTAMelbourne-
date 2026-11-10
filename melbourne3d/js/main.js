@@ -7,9 +7,6 @@ import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCAT
 import { buildCityGrid } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality } from './quality.js';
-// boroughs.js builds New York's surroundings as it loads, so Melbourne never imports it
-const { buildBoroughs } = IS_MELBOURNE ? {} : await import('./boroughs.js');
-import { buildLandmarks } from './landmarks.js';
 import { buildCityBlocks } from './buildings.js';
 import { buildStreetDetails } from './street-details.js';
 import { createTrafficSystem, createHighwayTraffic } from './traffic.js';
@@ -53,7 +50,7 @@ async function initApp() {
   // the stylesheet animates). The fill glides through a stage as a compositor transition, so it keeps moving while the
   // stage's synchronous work blocks the main thread, at the pace the earlier stages ran at on this machine.
   const STAGE_MS = {
-    data: 1800, renderer: 50, lighting: 60, cityGrid: 1800, boroughs: 560, landmarks: 200, blocks: 2100,
+    data: 1800, renderer: 50, lighting: 60, cityGrid: 1800, landmarks: 200, blocks: 2100,
     streetDetails: 2200, traffic: 860, roadPaint: 170, controllers: 50, culling: 730, ui: 50, postFX: 60,
     compile: 3900, warmup: 1950, gpu: 300
   };
@@ -139,18 +136,14 @@ async function initApp() {
   await showLoadingStage('Building streets, parks and waterfronts...', 'cityGrid');
   const cityGrid = buildCityGrid(scene);
   markInit('cityGrid');
-  await showLoadingStage(IS_MELBOURNE ? 'Loading Melbourne...' : 'Building bridges and surrounding boroughs...', 'boroughs');
-  // Melbourne has no boroughs or harbour bridges (and Slop New York's hand-built landmarks are Manhattan's)
-  const boroughs = IS_MELBOURNE ? { colliders: [] } : buildBoroughs(scene, { sidewalks: cityGrid.sidewalks });
-  markInit('boroughs');
   await showLoadingStage('Building landmarks...', 'landmarks');
   // Melbourne: the old game's landmark models on their real sites (js/melbourne-landmarks.js)
-  const { colliders: landmarkColliders } = IS_MELBOURNE ? await (await import('./melbourne-landmarks.js')).buildMelbourneLandmarks(scene) : buildLandmarks(scene);
+  const { colliders: landmarkColliders } = await (await import('./melbourne-landmarks.js')).buildMelbourneLandmarks(scene);
   markInit('landmarks');
   await showLoadingStage('Generating building footprints and facades...', 'blocks');
   const cityBlocks = buildCityBlocks(scene, landmarkColliders);
   markInit('blocks');
-  const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...boroughs.colliders, ...(cityGrid.colliders || [])];
+  const allColliders = [...landmarkColliders, ...cityBlocks.colliders, ...(cityGrid.colliders || [])];
 
   await showLoadingStage('Placing trees, streetlights and street furniture...', 'streetDetails');
   const streetDetails = buildStreetDetails(scene, allColliders);
@@ -1003,7 +996,6 @@ async function initApp() {
       savePlayerState();
       nextPlayerSave = now + 5000;
     }
-    if (boroughs.update) boroughs.update(elapsed); // Roosevelt Island Tramway cabins
     cityBlocks.update(cameraSystem.currentPos.x, cameraSystem.currentPos.z);
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
