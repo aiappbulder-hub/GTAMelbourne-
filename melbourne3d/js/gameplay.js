@@ -989,7 +989,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     elWeapon.hidden = !onFoot;
     fireBtn.classList.toggle('on', onFoot && armed);
     hornBtn.classList.toggle('on', cm.activeMode === 'car');
-    if (cm.activeMode === 'car' && !hornHinted) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }
+    if (cm.activeMode === 'car' && !hornHinted && !document.body.classList.contains('cinematic')) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }
     if (cm.activeMode !== 'car' && sounds.hornOn) sounds.horn(false);
     if (onFoot) {
       const w = WEAPONS[wi];

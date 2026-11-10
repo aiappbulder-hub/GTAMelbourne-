@@ -828,119 +828,221 @@
       "character": "player",
       "category": "story",
       "folder": "dialogue/word-on-the-street",
-      "text": "Where do I start?"
+      "text": "Where do I start?",
+      "file": "dialogue/word-on-the-street/player_word-on-the-street_1.mp3",
+      "duration": 3.62,
+      "check": {
+        "heard": "Where do I start? Oh, oh.",
+        "score": 0.8
+      }
     },
     {
       "id": "vince_word-on-the-street_2",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/word-on-the-street",
-      "text": "Fitzroy. Ask around. Locals talk if you ask nicely."
+      "text": "Fitzroy. Ask around. Locals talk if you ask nicely.",
+      "file": "dialogue/word-on-the-street/vince_word-on-the-street_2.mp3",
+      "duration": 4.42,
+      "check": {
+        "heard": "Fitzroy. Ask around. Locals talked, if you ask nicely.",
+        "score": 0.89
+      }
     },
     {
       "id": "kaz_the-informant_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/the-informant",
-      "text": "You're the one asking questions about Vince's pages. Sit down. It isn't me you want."
+      "text": "You're the one asking questions about Vince's pages. Sit down. It isn't me you want.",
+      "file": "dialogue/the-informant/kaz_the-informant_1.mp3",
+      "duration": 4.61,
+      "check": {
+        "heard": "You're the one asking questions about Vince's pages, sit down, it isn't me you want.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_the-informant_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/the-informant",
-      "text": "Vince has a man in Carlton who records everything on tape and sings to Taskforce Kestrel. Who paid whom. Get the tapes before Kestrel does."
+      "text": "Vince has a man in Carlton who records everything on tape and sings to Taskforce Kestrel. Who paid whom. Get the tapes before Kestrel does.",
+      "file": "dialogue/the-informant/kaz_the-informant_2.mp3",
+      "duration": 8.38,
+      "check": {
+        "heard": "Vince has a man in Carlton who records everything on tape and sings to Task Force Kestrel, who paid whom. Get the tapes before Kestrel does.",
+        "score": 0.94
+      }
     },
     {
       "id": "player_the-informant_1",
       "character": "player",
       "category": "story",
       "folder": "dialogue/the-informant",
-      "text": "Why would I do that for you?"
+      "text": "Why would I do that for you?",
+      "file": "dialogue/the-informant/player_the-informant_1.mp3",
+      "duration": 2.78,
+      "check": {
+        "heard": "Why would I do that for you?",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_the-informant_3",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/the-informant",
-      "text": "Because Vince never paid you what you're worth. I will."
+      "text": "Because Vince never paid you what you're worth. I will.",
+      "file": "dialogue/the-informant/kaz_the-informant_3.mp3",
+      "duration": 3.7,
+      "check": {
+        "heard": "Because Vince never paid you what you're worth, I will.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_westside-bikies_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/westside-bikies",
-      "text": "The tapes say who sold Vince's pages. The Westside Nomads bought them."
+      "text": "The tapes say who sold Vince's pages. The Westside Nomads bought them.",
+      "file": "dialogue/westside-bikies/kaz_westside-bikies_1.mp3",
+      "duration": 4.54,
+      "check": {
+        "heard": "The tapes say who sold Vince's pages. The Westside Nomads bought them.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_westside-bikies_1",
       "character": "player",
       "category": "story",
       "folder": "dialogue/westside-bikies",
-      "text": "And?"
+      "text": "And?",
+      "file": "dialogue/westside-bikies/player_westside-bikies_1.mp3",
+      "duration": 0.94,
+      "check": {
+        "heard": "End.",
+        "score": 0.0
+      }
     },
     {
       "id": "kaz_westside-bikies_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/westside-bikies",
-      "text": "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."
+      "text": "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it.",
+      "file": "dialogue/westside-bikies/kaz_westside-bikies_2.mp3",
+      "duration": 4.9,
+      "check": {
+        "heard": "They've hidden the pages in their takings on a boat in Docklands, get there before they move it.",
+        "score": 0.94
+      }
     },
     {
       "id": "kaz_tobacco-wars_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/tobacco-wars",
-      "text": "The Nomads know it was us. They burnt our shop last night."
+      "text": "The Nomads know it was us. They burnt our shop last night.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_1.mp3",
+      "duration": 3.36,
+      "check": {
+        "heard": "The nomads know it was us. They burnt our shop last night.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_tobacco-wars_2",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/tobacco-wars",
-      "text": "It is now. Their stock is in a warehouse on the South Wharf, and so is the rest of Vince's book."
+      "text": "It is now. Their stock is in a warehouse on the South Wharf, and so is the rest of Vince's book.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_2.mp3",
+      "duration": 5.3,
+      "check": {
+        "heard": "It is now. Their stock is in a warehouse on the South Wharf and so is the rest of Vincer's book.",
+        "score": 0.95
+      }
     },
     {
       "id": "kaz_tobacco-wars_3",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/tobacco-wars",
-      "text": "Set the charge, grab the pages, then get well clear. Make it loud."
+      "text": "Set the charge, grab the pages, then get well clear. Make it loud.",
+      "file": "dialogue/tobacco-wars/kaz_tobacco-wars_3.mp3",
+      "duration": 3.96,
+      "check": {
+        "heard": "Set the charge, grab the pages, then get well clear. Make it loud.",
+        "score": 1.0
+      }
     },
     {
       "id": "kaz_short-black_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/short-black",
-      "text": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper."
+      "text": "This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.",
+      "file": "dialogue/short-black/kaz_short-black_1.mp3",
+      "duration": 7.46,
+      "check": {
+        "heard": "This is Mick. Mick moves things. Watchers, phones, whatever falls off a truck. Today he is moving paper.",
+        "score": 0.94
+      }
     },
     {
       "id": "mick_short-black_1",
       "character": "mick",
       "category": "story",
       "folder": "dialogue/short-black",
-      "text": "There's an envelope in a locker at the end of St Kilda Pier. The last pages of Vince's book, and a photograph."
+      "text": "There's an envelope in a locker at the end of St Kilda Pier. The last pages of Vince's book, and a photograph.",
+      "file": "dialogue/short-black/mick_short-black_1.mp3",
+      "duration": 6.48,
+      "check": {
+        "heard": "There's an envelope in a locker at the end of St Kilda Pier, the last pages of Vince's book, and a photograph.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_short-black_1",
       "character": "player",
       "category": "story",
       "folder": "dialogue/short-black",
-      "text": "Of what?"
+      "text": "Of what?",
+      "file": "dialogue/short-black/player_short-black_1.mp3",
+      "duration": 1.1,
+      "check": {
+        "heard": "Of what?",
+        "score": 1.0
+      }
     },
     {
       "id": "mick_short-black_2",
       "character": "mick",
       "category": "story",
       "folder": "dialogue/short-black",
-      "text": "A developer shaking hands with a Kestrel detective. Whoever holds that photograph owns this town."
+      "text": "A developer shaking hands with a Kestrel detective. Whoever holds that photograph owns this town.",
+      "file": "dialogue/short-black/mick_short-black_2.mp3",
+      "duration": 6.65,
+      "check": {
+        "heard": "The developer shaking hands with a Kestrel detective, whoever holds that photograph owns this town.",
+        "score": 0.93
+      }
     },
     {
       "id": "kaz_harbour-run_1",
       "character": "kaz",
       "category": "story",
       "folder": "dialogue/harbour-run",
-      "text": "Kestrel raided the Brighton house. They know the book is gone, and so do both crews."
+      "text": "Kestrel raided the Brighton house. They know the book is gone, and so do both crews.",
+      "file": "dialogue/harbour-run/kaz_harbour-run_1.mp3",
+      "duration": 4.8,
+      "check": {
+        "heard": "Kestrel raided the Brighton house. They know the book is gone and so did both crews",
+        "score": 0.94
+      }
     },
     {
       "id": "player_harbour-run_1",
