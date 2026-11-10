@@ -544,10 +544,10 @@
       "folder": "dialogue/low-tide",
       "text": "You got old.",
       "file": "dialogue/low-tide/davo_low-tide_1.mp3",
-      "duration": 5.62,
+      "duration": 2.04,
       "check": {
-        "heard": "You got old. Well, where you at when you at?",
-        "score": 0.46
+        "heard": "You got old, and...",
+        "score": 0.86
       }
     },
     {
@@ -583,10 +583,10 @@
       "folder": "dialogue/low-tide",
       "text": "Where is the car?",
       "file": "dialogue/low-tide/player_low-tide_3.mp3",
-      "duration": 4.15,
+      "duration": 3.07,
       "check": {
-        "heard": "Where is the car? Easy, yeah? Where is Dog?",
-        "score": 0.62
+        "heard": "Where is the car?",
+        "score": 1.0
       }
     },
     {
@@ -1049,77 +1049,143 @@
       "character": "player",
       "category": "story",
       "folder": "dialogue/harbour-run",
-      "text": "That's how long it takes a book like that to get heavy."
+      "text": "That's how long it takes a book like that to get heavy.",
+      "file": "dialogue/harbour-run/player_harbour-run_1.mp3",
+      "duration": 3.12,
+      "check": {
+        "heard": "That's how long it takes a book like that to get heavy.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_intro_5",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Twenty-two years ago I left this city by boat, with a book that two gangs and the police would have killed for."
+      "text": "Twenty-two years ago I left this city by boat, with a book that two gangs and the police would have killed for.",
+      "file": "dialogue/intro/player_intro_5.mp3",
+      "duration": 6.84,
+      "check": {
+        "heard": "22 years ago I left this city by boat with a book that two gangs and the police would've killed for.",
+        "score": 0.86
+      }
     },
     {
       "id": "player_intro_6",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Vince Lombardo kept that book. His Lygon Street Crew ran Carlton and Fitzroy. Old families, old rules, good coffee."
+      "text": "Vince Lombardo kept that book. His Lygon Street Crew ran Carlton and Fitzroy. Old families, old rules, good coffee.",
+      "file": "dialogue/intro/player_intro_6.mp3",
+      "duration": 9.89,
+      "check": {
+        "heard": "Vince Lombardo kept that book. His Lydon Street crew ran Carlton and Fitzroy. Old families. Old rules. Good coffee.",
+        "score": 0.95
+      }
     },
     {
       "id": "player_intro_7",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Out west, the Broadmeadows firm wanted the lot. Six years of war: chop shops torched, tobacco trucks gone."
+      "text": "Out west, the Broadmeadows firm wanted the lot. Six years of war: chop shops torched, tobacco trucks gone.",
+      "file": "dialogue/intro/player_intro_7.mp3",
+      "duration": 9.48,
+      "check": {
+        "heard": "Out West, the Broadmeadows firm wanted the lot, six years of warden chop shops torched, tobacco tracks gone.",
+        "score": 0.89
+      }
     },
     {
       "id": "player_intro_8",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "And Taskforce Kestrel was closing in on all of them."
+      "text": "And Taskforce Kestrel was closing in on all of them.",
+      "file": "dialogue/intro/player_intro_8.mp3",
+      "duration": 4.2,
+      "check": {
+        "heard": "and Tusk Force Kestrel was closing in on all of them.",
+        "score": 0.86
+      }
     },
     {
       "id": "vince_intro_1",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "So you're back. I haven't got long, and there's something we never finished."
+      "text": "So you're back. I haven't got long, and there's something we never finished.",
+      "file": "dialogue/intro/vince_intro_1.mp3",
+      "duration": 3.94,
+      "check": {
+        "heard": "So you're back. I haven't got long, and there's something we never finished.",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_intro_2",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Davo will meet you at the water. Don't be seen."
+      "text": "Davo will meet you at the water. Don't be seen.",
+      "file": "dialogue/intro/vince_intro_2.mp3",
+      "duration": 2.81,
+      "check": {
+        "heard": "Devo will meet you at the water, don't be seen.",
+        "score": 0.9
+      }
     },
     {
       "id": "player_intro_9",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Twenty-two years, and he still tells me where to stand."
+      "text": "Twenty-two years, and he still tells me where to stand.",
+      "file": "dialogue/intro/player_intro_9.mp3",
+      "duration": 4.13,
+      "check": {
+        "heard": "22 years, and he still tells me where to stand?",
+        "score": 0.86
+      }
     },
     {
       "id": "player_intro_10",
       "character": "player",
       "category": "story",
       "folder": "dialogue/intro",
-      "text": "Davo is waiting on Harbour Esplanade. Walk to the pink marker."
+      "text": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
+      "file": "dialogue/intro/player_intro_10.mp3",
+      "duration": 4.99,
+      "check": {
+        "heard": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_low-tide_14",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/low-tide",
-      "text": "Gone. Nice driving, for an old bloke."
+      "text": "Gone. Nice driving, for an old bloke.",
+      "file": "dialogue/low-tide/davo_low-tide_14.mp3",
+      "duration": 2.74,
+      "check": {
+        "heard": "Gone. Nice try then for an old bloke.",
+        "score": 0.8
+      }
     },
     {
       "id": "davo_laneway-hustle_1",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/laneway-hustle",
-      "text": "Carlton, mate. The Broady boys are cutting in on our patch. Step on it."
+      "text": "Carlton, mate. The Broady boys are cutting in on our patch. Step on it.",
+      "file": "dialogue/laneway-hustle/davo_laneway-hustle_1.mp3",
+      "duration": 4.92,
+      "check": {
+        "heard": "Carl down late. The Brody boys are cutting in on our patch. Step on it.",
+        "score": 0.76
+      }
     }
   ]
 }
