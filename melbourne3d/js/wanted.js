@@ -70,6 +70,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   /** A crime at (x, z): kind is 'shot', 'kill', 'hit', 'carjack', 'theft' or 'robbery' */
   function crime(kind, x, z) {
     if (cinematic()) return;
+    if (missionSystem?.onJob) return; // the police stay out of the story's jobs (a job has its own pursuers and fails)
     let add = HEAT[kind] ?? 8;
     if (kind === 'shot') { // a burst of fire is one crime
       if (clock - lastShot < 4) return;
@@ -147,7 +148,12 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   // The police pedestrians' hits: a car of the player's that knocks someone down is a crime
   trafficSystem.setPedHitListener?.((ped, byPlayersCar) => { if (byPlayersCar) crime('hit', ped.x, ped.z); });
 
+  let onJobWas = false;
   function update(dt) {
+    // a job starting calls the police off: stars, reports and any cars already after you are gone
+    const onJob = !!missionSystem?.onJob;
+    if (onJob && !onJobWas && (stars > 0 || heat > 0 || units.length)) { reset(); say('The police have lost interest.', 3); }
+    onJobWas = onJob;
     if (cinematic()) return;
     dt = Math.min(dt, 0.1);
     clock += dt;
