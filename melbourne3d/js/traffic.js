@@ -62,9 +62,9 @@ const CAR_KINDS = {
 
 // Retire distant actors even when looking their way: keeping them indefinitely starves upcoming streets.
 // Replacements may enter the far view, but nearby visible roads and sidewalks are protected from pop-in.
-// (the same cars kept nearer the player: a smaller area, so busier streets; they were spread over 380 m)
-const VEHICLE_RADIUS = 280;
-const NEAR_RADIUS = 270;
+// (the same cars spread over a wide area, so streets stay drivable and no part of the map is packed)
+const VEHICLE_RADIUS = 400;
+const NEAR_RADIUS = 390;
 const VEHICLE_SPAWN_DISTANCE = 200;
 
 // 8-row LED destination sign atlas (route badge + destination) aligned with the 4-slot bus livery cycle
@@ -1734,14 +1734,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       if (d < rMin || d > rMax || (protectView && nearView(x, z, v.half + 4, VEHICLE_SPAWN_DISTANCE))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
       if (!laneClear(e.occ[lane], s, v.half + 12)) continue;
-      // and not into a bunch: no more than two other cars within 25 m, in any lane or street
+      // and not into a bunch: no more than one other car within 35 m, in any lane or street
       let near = 0;
       for (const o of vehicles) {
         if (o === v || !(o.edge || o.parked)) continue;
         const ex = o.x - x, ez = o.z - z;
-        if (ex * ex + ez * ez < 625 && ++near > 2) break;
+        if (ex * ex + ez * ez < 1225 && ++near > 1) break;
       }
-      if (near > 2) continue;
+      if (near > 1) continue;
       place(v, e, lane, s);
       return true;
     }
@@ -2096,7 +2096,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
         v.parked = false; // far behind: back into the traffic
       }
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
-      if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS)) continue;
+      // (a car that has sat still for half a minute, out of the player's way, is moved on: no standing jams)
+      if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS) && !(v.wait > 30 && d > 45 && !visible(v.x, v.z, v.half + 4))) continue;
       budget--;
       spawnVehicle(v, jump ? 0 : 100, NEAR_RADIUS, !jump);
     }

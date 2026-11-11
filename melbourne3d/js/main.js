@@ -1045,7 +1045,7 @@ async function initApp() {
         initTimings = null;
         setLoadingProgress(1);
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
-        if (intro && intro.shouldAutoplay) intro.prompt();
+        if (intro) { if (intro.shouldAutoplay) intro.prompt(); else intro.skip(); }
         audioSystem.ready = true;
       });
     }
