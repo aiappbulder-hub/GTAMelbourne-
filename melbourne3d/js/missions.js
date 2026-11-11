@@ -808,6 +808,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     bigT = secs;
   }
   function sub(text, secs = 4) {
+    if (cut) return; // (never over a cut scene's own lines)
     elSub.textContent = text;
     subT = secs;
   }
@@ -848,6 +849,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       });
     }
     document.body.classList.add('cinematic', 'cutscene');
+    // nobody talks over the scene: whatever was being said (the call, the passenger, a line on the street) stops, and
+    // its subtitle goes
+    voices?.stopStory();
+    subT = 0; elSub.textContent = '';
+    elCall.classList.remove('on'); callUp = 0;
     renderCut();
   }
   // who does what on the current line: the speaker in their mood, the listener listening (a nod on the last line)
@@ -920,7 +926,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // the line spoken (a recording, or the browser's voice; the panel already shows the words). The scene plays itself:
     // the next line follows once this one has been said (Enter or a click still moves it on sooner)
     const said = voices?.sayText(line, { subtitle: false, who });
-    cut.auto = Math.max(said?.duration || 0, 1.4 + line.length / 15) + 0.7;
+    cut.auto = Math.max(said?.duration || 0, 1.4 + line.length / 12) + 0.7; // (long enough for the browser's voice to finish too)
   }
   function advanceCut(skip = false) {
     if (!cut) return;
@@ -1201,7 +1207,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
         // the call that sends you there
-        if (def.call && !cut && !cardUp && bigT <= 0 && d > 9 && !document.body.classList.contains('cinematic')) {
+        if (def.call && !cut && !cardUp && bigT <= 0 && subT <= 0 && d > 9 && !document.body.classList.contains('cinematic')) {
           callT += dt;
           if (called !== save.progress && callT > 3.5) { called = save.progress; callT = 0; ring(def, st); }
           else if (called === save.progress && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again

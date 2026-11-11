@@ -317,6 +317,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     return best;
   }
   function event(kind, pos) {
+    if (isCinematic()) return; // nobody talks over a cut scene: no police barks or radio while one plays
     if (kind === 'gunfire' || kind === 'carjack') {
       const cop = pos && nearestPolice(pos.x, pos.z, 45);
       if (cop && clock - eventAt.bark > 6) {
