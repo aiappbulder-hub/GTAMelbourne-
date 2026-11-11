@@ -454,6 +454,10 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
 .gm-call small { display: block; margin-top: 6px; color: #ffcf6e; font: 700 13px/1.3 Inter, system-ui, sans-serif; }
 body.cutscene .gm-call, body.cinematic .gm-call { display: none; }
 @media (prefers-reduced-motion: reduce) { .gm-call::before { animation: none; } }
+.gm-skip { position: fixed; right: 18px; top: calc(11vh + 12px); z-index: 63; padding: 7px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
+  background: rgba(0,0,0,.45); color: #fff; font: 700 13px/1 Inter, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; display: none; }
+body.cutscene .gm-skip { display: block; }
+.gm-skip:hover, .gm-skip:focus-visible { background: rgba(255,79,163,.35); border-color: #ff4fa3; outline: none; }
 .gm-sub { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); z-index: 30; max-width: 80vw; color: #fff; text-align: center;
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
@@ -476,6 +480,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   const elSub = el('gm-sub');
   const elCut = el('gm-cut');
   const elBlack = el('gm-black');
+  // Skip, as in the intro: ends the cut scene that's playing
+  const elSkip = document.createElement('button');
+  elSkip.type = 'button';
+  elSkip.className = 'gm-skip';
+  elSkip.textContent = 'Skip \u25B8\u25B8';
+  elSkip.addEventListener('click', (e) => { e.stopPropagation(); advanceCut(true); });
+  document.body.append(elSkip);
   const elCall = el('gm-call');
   elCall.addEventListener('click', () => { callUp = 0; elCall.classList.remove('on'); });
   const elChoice = el('gm-choice');
@@ -903,7 +914,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const t = document.createElement('span');
     t.textContent = line;
     const hint = document.createElement('i');
-    hint.textContent = 'Enter or click: next · Esc: skip';
+    hint.textContent = 'Plays by itself · Enter: next line · Esc or Skip: skip';
     elCut.append(b, t, hint);
     elCut.hidden = false;
     // the line spoken (a recording, or the browser's voice; the panel already shows the words). The scene plays itself:

@@ -825,7 +825,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
 
   function fire() {
-    if (missionSystem?.busy || document.body.classList.contains('cutscene')) return; // no shooting in a cut scene (or with a choice up)
+    if (missionSystem?.busy || document.body.classList.contains('cutscene') || document.body.classList.contains('cinematic')) return; // no shooting in a cut scene, the intro, or with a choice up
     if (seq) return; // (getting into a car: both hands busy)
     if (!armed || cm.activeMode !== 'person' || reloading > 0 || cooldown > 0) return;
     const w = WEAPONS[wi];
