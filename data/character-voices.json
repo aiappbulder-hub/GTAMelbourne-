@@ -1309,7 +1309,7 @@
       "duration": 4.92,
       "check": {
         "heard": "thirty years, my father's bar, and you want it, for what, a front?\"",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1322,7 +1322,7 @@
       "duration": 3.36,
       "check": {
         "heard": "A bar with a quiet room out the back.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1335,7 +1335,7 @@
       "duration": 3.38,
       "check": {
         "heard": "the bank wants it friday",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1361,7 +1361,7 @@
       "duration": 3.43,
       "check": {
         "heard": "You don't have enough money to be this calm.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1387,7 +1387,7 @@
       "duration": 4.85,
       "check": {
         "heard": "He'll sell, he just wants to be asked properly, or not, up to you.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1413,7 +1413,7 @@
       "duration": 1.94,
       "check": {
         "heard": "So, what's your offer?",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1426,7 +1426,7 @@
       "duration": 4.3,
       "check": {
         "heard": "My father would have shaken your hand. Don't make me regret it.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1439,7 +1439,7 @@
       "duration": 2.95,
       "check": {
         "heard": "You people, always the same. Take it.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1452,7 +1452,7 @@
       "duration": 4.51,
       "check": {
         "heard": "Then I hear things, and you hear them second. Deal.\"",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1491,7 +1491,7 @@
       "duration": 5.23,
       "check": {
         "heard": "over the river, Queens Bridge, then left. She'll be the one not looking at her phone.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1504,7 +1504,7 @@
       "duration": 3.1,
       "check": {
         "heard": "Drive. Don't look at the black four-wheel drive.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1543,7 +1543,7 @@
       "duration": 2.83,
       "check": {
         "heard": "Still there. I did say be quick.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1582,7 +1582,7 @@
       "duration": 3.1,
       "check": {
         "heard": "She talks like that all the time.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1595,7 +1595,7 @@
       "duration": 3.77,
       "check": {
         "heard": "Only when I am being paid, am I being paid.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1660,7 +1660,7 @@
       "duration": 3.7,
       "check": {
         "heard": "Then we mind what we say in here and choose what they hear.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1699,7 +1699,7 @@
       "duration": 2.66,
       "check": {
         "heard": "You were twelve. You remember gelato.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1725,7 +1725,7 @@
       "duration": 3.1,
       "check": {
         "heard": "I'd rather it went to someone who sits still.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1738,7 +1738,7 @@
       "duration": 3.12,
       "check": {
         "heard": "I didn't come back for Carlton!",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1751,7 +1751,7 @@
       "duration": 3.98,
       "check": {
         "heard": "Nobody comes back for Carlton. They come back, and it's still here.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1790,7 +1790,7 @@
       "duration": 6.05,
       "check": {
         "heard": "Nico will be there, the nephew, he was twelve when you left and he's been angry about it ever since.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1829,7 +1829,7 @@
       "duration": 3.5,
       "check": {
         "heard": "Don't stand there. Go and ask him who sent him.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1839,7 +1839,7 @@
       "folder": "dialogue/sunday-lunch",
       "text": "White Barrina. One bloke. He's not a shooter, he's a driver who was handed a gun.",
       "file": "dialogue/sunday-lunch/davo_sunday-lunch_4.mp3",
-      "duration": 6.0,
+      "duration": 6,
       "check": {
         "heard": "white barina one bloke he's not a shooter he's a driver that was handed a gun",
         "score": 0.88
@@ -1855,7 +1855,7 @@
       "duration": 3.46,
       "check": {
         "heard": "He's running for the University, nowhere to go up there on a Sunday.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1868,7 +1868,7 @@
       "duration": 3.77,
       "check": {
         "heard": "He's stalled it. Go easy. He's more scared than you are.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1881,7 +1881,7 @@
       "duration": 4.01,
       "check": {
         "heard": "Don't, please. I just drive. I just drive.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1907,7 +1907,7 @@
       "duration": 3.43,
       "check": {
         "heard": "Thank you. Thank you. I never saw you.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1920,7 +1920,7 @@
       "duration": 4.75,
       "check": {
         "heard": "A message at Sunday lunch. Somebody wants the old man to know he can be reached at his own table.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1959,7 +1959,7 @@
       "duration": 4.58,
       "check": {
         "heard": "Good. He will try you. When he does, do it kindly, for his mother.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -1972,7 +1972,7 @@
       "duration": 5.93,
       "check": {
         "heard": "Then you are my partner, and he is your problem. Do it kindly, for his mother.\"",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2011,7 +2011,7 @@
       "duration": 0.72,
       "check": {
         "heard": "Booze.",
-        "score": 0.0
+        "score": 0
       }
     },
     {
@@ -2050,7 +2050,7 @@
       "duration": 3.6,
       "check": {
         "heard": "You were always the quiet one. It scared Vince more than me.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2089,7 +2089,7 @@
       "duration": 5.95,
       "check": {
         "heard": "Photograph them then follow one and stay back. People who load at dawn check their mirrors.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2115,7 +2115,7 @@
       "duration": 3.84,
       "check": {
         "heard": "West on Victoria Street, not the freeway then, somewhere close.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2141,7 +2141,7 @@
       "duration": 2.98,
       "check": {
         "heard": "Easy. Let a car get between you if you can.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2154,7 +2154,7 @@
       "duration": 3.84,
       "check": {
         "heard": "Dudley Street, the rail yards. Well, I'll be. She never left.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2167,7 +2167,7 @@
       "duration": 3.34,
       "check": {
         "heard": "That's Kaz at the gate. She knew we were coming, mate.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2206,7 +2206,7 @@
       "duration": 5.66,
       "check": {
         "heard": "Uncle Ray's tobacco, pays for the yard, pays for the boys, pays for nothing I want.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2258,7 +2258,7 @@
       "duration": 2.86,
       "check": {
         "heard": "Partners then don't make me say it twice",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2284,7 +2284,7 @@
       "duration": 3.17,
       "check": {
         "heard": "Then we are done talking. Mind your back, Ferryman.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2336,7 +2336,7 @@
       "duration": 5.14,
       "check": {
         "heard": "Bianca Rowe walks the night's envelopes up to Terry. She is quick, be quicker.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2388,7 +2388,7 @@
       "duration": 4.56,
       "check": {
         "heard": "Terry's all right. Terry's just never been told no by anyone he couldn't have thrown out.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2414,7 +2414,7 @@
       "duration": 2.9,
       "check": {
         "heard": "then I never saw who came through.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2427,7 +2427,7 @@
       "duration": 2.62,
       "check": {
         "heard": "Yeah, yeah, I heard you were back.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2466,7 +2466,7 @@
       "duration": 4.22,
       "check": {
         "heard": "I am the man who just spoke to your doors.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2492,7 +2492,7 @@
       "duration": 4.13,
       "check": {
         "heard": "Then let's keep this between people who can count.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2544,7 +2544,7 @@
       "duration": 4.08,
       "check": {
         "heard": "You're buying my runner. Take her. She was skimming anyway.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2557,7 +2557,7 @@
       "duration": 5.88,
       "check": {
         "heard": "Lemonade, thanks. I'm working. Detective Inspector Helen Marsh.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2583,7 +2583,7 @@
       "duration": 2.42,
       "check": {
         "heard": "Sounds like a short conference.",
-        "score": 1.0
+        "score": 1
       }
     },
     {
@@ -2617,63 +2617,117 @@
       "character": "player",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "Someone inside wanted me caught. Not killed. Caught. That narrows it."
+      "text": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
+      "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_2.mp3",
+      "duration": 5.95,
+      "check": {
+        "heard": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
+        "score": 1
+      }
     },
     {
       "id": "player_the-ferryman-s-toll_3",
       "character": "player",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "You don't take a city. You find out who you can trust with a piece of it."
+      "text": "You don't take a city. You find out who you can trust with a piece of it.",
+      "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_3.mp3",
+      "duration": 4.92,
+      "check": {
+        "heard": "You don't take a city, you find out who you can trust with a piece of it.",
+        "score": 1
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_1",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "Ruby rang. Three cars sitting on Flinders Lane with their lights off. That's not a booze bus."
+      "text": "Ruby rang. Three cars sitting on Flinders Lane with their lights off. That's not a booze bus.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_1.mp3",
+      "duration": 6.86,
+      "check": {
+        "heard": "Ruby rang, three cars sitting on Flinders Lane with her lights off. That's not a booze bus.",
+        "score": 0.94
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_2",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front."
+      "text": "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_2.mp3",
+      "duration": 7.13,
+      "check": {
+        "heard": "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front.",
+        "score": 1
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_3",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "And don't let them have the ledger. Everything we've done since you got back is in that book."
+      "text": "And don't let them have the ledger. Everything we've done since you got back is in that book.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_3.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "then don't let them have the ledger. Everything we've done since you got back is in that book.",
+        "score": 0.94
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_4",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "That's Marsh's lot. Go. Go!"
+      "text": "That's Marsh's lot. Go. Go!",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_4.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "That's Marsha's Lot, go, go!",
+        "score": 0.8
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_5",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "They knew which night. How did they know which night?"
+      "text": "They knew which night. How did they know which night?",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_5.mp3",
+      "duration": 2.98,
+      "check": {
+        "heard": "They knew which night. How did they know which night?",
+        "score": 1
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_6",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "Don't go home. Don't go anywhere you've been."
+      "text": "Don't go home. Don't go anywhere you've been.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_6.mp3",
+      "duration": 3.72,
+      "check": {
+        "heard": "Don't go home. Don't go anywhere you've been.",
+        "score": 1
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_7",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
-      "text": "Clear. Dump the car by the station. They'll have the plates by now."
+      "text": "Clear. Dump the car by the station. They'll have the plates by now.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_7.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "clear dump the car by the station rail and the plates by now",
+        "score": 0.85
+      }
     },
     {
       "id": "davo_the-ferryman-s-toll_8",
@@ -2751,6 +2805,132 @@
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
       "text": "Then only one man can give it up. Mind he does not."
+    },
+    {
+      "id": "davo_low-tide_15",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "It's Davo. I'm on Harbour Esplanade, at the bottom of Collins Street. Walk down to me. Don't wave."
+    },
+    {
+      "id": "vince_laneway-hustle_4",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "It's Vince. Flinders Lane, corner of Elizabeth Street. Come now, and come alone."
+    },
+    {
+      "id": "vince_word-on-the-street_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Vince. I'm at the lock-up, Rathdowne and Queensberry. We need to talk about my book."
+    },
+    {
+      "id": "kaz_the-informant_4",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "You're the one asking about Vince's pages. Smith Street, corner of Gertrude. I'm buying."
+    },
+    {
+      "id": "kaz_westside-bikies_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "It's Kaz. Collins Street at Spencer, by the station. I know who has the pages."
+    },
+    {
+      "id": "kaz_tobacco-wars_4",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "They burnt my shop. Clarendon Street at Whiteman, in Southbank. Now."
+    },
+    {
+      "id": "kaz_short-black_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."
+    },
+    {
+      "id": "kaz_harbour-run_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "It's all coming down. Flinders Street at Queen. Hurry."
+    },
+    {
+      "id": "davo_the-quiet-room_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."
+    },
+    {
+      "id": "davo_the-quiet-room_9",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Gus is at the bar now. Flinders Lane at Elizabeth Street. If you want the place, today's the day."
+    },
+    {
+      "id": "vince_sunday-lunch_10",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Callum. Sunday lunch. Argyle Square, off Lygon Street. Come hungry, and come alone."
+    },
+    {
+      "id": "player_market-day_5",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "She was always going to be at that gate. The only question was which side of it I would be standing on."
+    },
+    {
+      "id": "davo_market-day_10",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Queen Vic Market, the Victoria Street end, corner of Queen. Early. Bring your phone, not your gun."
+    },
+    {
+      "id": "davo_market-day_11",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "North Melbourne. Twenty-two years ago this was all Kaz's uncle's. Ray, out in Broadmeadows. Tobacco, mostly."
+    },
+    {
+      "id": "ruby_doors_6",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "King Street, tonight. Meet me at the Flinders Lane corner. Wear something a bouncer would respect."
+    },
+    {
+      "id": "ruby_the-ferryman-s-toll_2",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Come to the Quiet Room. Now. There are three cars in the lane with their lights off."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_10",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Davo has been asking after a grey Comodo. I'm the bloke he asked. Sully. Fifteen years in the job, twenty-one out of it."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_11",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Don't turn round. The name is Sully. Fifteen years in the job, twenty-one out of it, and I still know a raid when I see one go wrong."
     }
   ]
 }
