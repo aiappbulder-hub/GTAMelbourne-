@@ -68,6 +68,17 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
     or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
   - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+- **Between jobs**: a few seconds after a job (or after the game loads) your phone rings: a card says who is calling,
+  what they want and where the pink marker is (distance and compass direction). It comes up again if you stand about.
+- **New game** (toolbar): asks first, then wipes cash, progress, choices and the till and starts the story again from
+  the intro, on foot by Harbour Esplanade.
+- **Taking a car** (`js/gameplay.js`): you walk to the door, reach for it and sit before you can drive (about 1.3 s).
+  A car with someone in it brakes to a stop, the driver is pulled out, goes down, gets up and runs. Getting out is a
+  short step from the seat. F beside your own car (or one a job left for you) takes that one, not a passing car.
+- **Bridges** (`js/bridges.js`, `tools/melbourne/find-bridges.mjs`): Princes Bridge (three iron arches, bluestone piers,
+  lamp standards), Queens Bridge (five girder spans), Spencer St, Swan St and Charles Grimes bridges have decks, kerbs,
+  footpaths and solid railings. Decks are flat at road level, because traffic, trams and lane paint are drawn at a
+  fixed height. Kings Way's crossing isn't in the road data, and the footbridges aren't built yet.
 - **The Book** (`js/empire.js`): press **K** or the Book button once the Quiet Room is yours.
   - *Ledger:* the eleven territories, your share of each (the Grid from the bar and the King St doors, Carlton from
     Vince, North Melbourne from Kaz), what that pays a day, and Kestrel's interest in you.

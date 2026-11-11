@@ -1421,266 +1421,494 @@
       "character": "gus",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "My father would have shaken your hand. Don't make me regret it."
+      "text": "My father would have shaken your hand. Don't make me regret it.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_4.mp3",
+      "duration": 4.3,
+      "check": {
+        "heard": "My father would have shaken your hand. Don't make me regret it.",
+        "score": 1.0
+      }
     },
     {
       "id": "gus_the-quiet-room_5",
       "character": "gus",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "You people. Always the same. Take it."
+      "text": "You people. Always the same. Take it.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_5.mp3",
+      "duration": 2.95,
+      "check": {
+        "heard": "You people, always the same. Take it.",
+        "score": 1.0
+      }
     },
     {
       "id": "gus_the-quiet-room_6",
       "character": "gus",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Then I hear things, and you hear them second. Deal."
+      "text": "Then I hear things, and you hear them second. Deal.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_6.mp3",
+      "duration": 4.51,
+      "check": {
+        "heard": "Then I hear things, and you hear them second. Deal.\"",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_2",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick."
+      "text": "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_2.mp3",
+      "duration": 7.51,
+      "check": {
+        "heard": "It's Ruby, you said to call if I ever want it out. I want out, under Eureka, the Seaward side. Be quick.",
+        "score": 0.86
+      }
     },
     {
       "id": "davo_the-quiet-room_4",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Ruby Achterberg kept Vellacott's books six years. If she's walking out, she's walking out with all of it in her head."
+      "text": "Ruby Achterberg kept Vellacott's books six years. If she's walking out, she's walking out with all of it in her head.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_4.mp3",
+      "duration": 6.1,
+      "check": {
+        "heard": "Ruby Aktaberg kept Velikov's books six years. If she's walking out, she's walking out with all of it in her head.",
+        "score": 0.9
+      }
     },
     {
       "id": "davo_the-quiet-room_5",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Over the river. Queens Bridge, then left. She'll be the one not looking at her phone."
+      "text": "Over the river. Queens Bridge, then left. She'll be the one not looking at her phone.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_5.mp3",
+      "duration": 5.23,
+      "check": {
+        "heard": "over the river, Queens Bridge, then left. She'll be the one not looking at her phone.",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_3",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Drive. Don't look at the black four-wheel drive."
+      "text": "Drive. Don't look at the black four-wheel drive.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_3.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "Drive. Don't look at the black four-wheel drive.",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_4",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "That's Vellacott's chauffeur. He's paid to follow, not to think. Use that."
+      "text": "That's Vellacott's chauffeur. He's paid to follow, not to think. Use that.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_4.mp3",
+      "duration": 5.23,
+      "check": {
+        "heard": "That's Velikont's chauffeur. He's paid to follow, not to think. Use that.",
+        "score": 0.92
+      }
     },
     {
       "id": "davo_the-quiet-room_6",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Back over the river. He hates trams."
+      "text": "Back over the river. He hates trams.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_6.mp3",
+      "duration": 2.45,
+      "check": {
+        "heard": "back over the river. He hates trails.",
+        "score": 0.86
+      }
     },
     {
       "id": "ruby_the-quiet-room_5",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Still there. I did say be quick."
+      "text": "Still there. I did say be quick.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_5.mp3",
+      "duration": 2.83,
+      "check": {
+        "heard": "Still there. I did say be quick.",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_6",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Gone. Vellacott will be livid. Good."
+      "text": "Gone. Vellacott will be livid. Good.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_6.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "Gone. Velikot will be livid. Good.",
+        "score": 0.83
+      }
     },
     {
       "id": "ruby_the-quiet-room_7",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Six years of his books. I know where every dollar sleeps, and who tucks it in."
+      "text": "Six years of his books. I know where every dollar sleeps, and who tucks it in.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_7.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "Six years of his books, I know where every doll sleeps, and who tucks it in?",
+        "score": 0.94
+      }
     },
     {
       "id": "davo_the-quiet-room_7",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "She talks like that all the time?"
+      "text": "She talks like that all the time?",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_7.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "She talks like that all the time.",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_8",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Only when I am being paid. Am I being paid?"
+      "text": "Only when I am being paid. Am I being paid?",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_8.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "Only when I am being paid, am I being paid.",
+        "score": 1.0
+      }
     },
     {
       "id": "ruby_the-quiet-room_9",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty."
+      "text": "Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_9.mp3",
+      "duration": 5.28,
+      "check": {
+        "heard": "Before anyone says anything useful in that bar I sweep it, Kestrel had a wig with the place empty.",
+        "score": 0.95
+      }
     },
     {
       "id": "ruby_the-quiet-room_10",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "There. Under the coin slot. That is a Kestrel bug, and it is still warm."
+      "text": "There. Under the coin slot. That is a Kestrel bug, and it is still warm.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_10.mp3",
+      "duration": 4.73,
+      "check": {
+        "heard": "There, under the coin slot, there is a kestrel bug, and it is still warm.",
+        "score": 0.93
+      }
     },
     {
       "id": "ruby_the-quiet-room_11",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "What do we do with it?"
+      "text": "What do we do with it?",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_11.mp3",
+      "duration": 4.51,
+      "check": {
+        "heard": "What do I do with it?",
+        "score": 0.83
+      }
     },
     {
       "id": "ruby_the-quiet-room_12",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Clean. They'll know we found it."
+      "text": "Clean. They'll know we found it.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_12.mp3",
+      "duration": 2.71,
+      "check": {
+        "heard": "They'll know we found it.",
+        "score": 0.91
+      }
     },
     {
       "id": "ruby_the-quiet-room_13",
       "character": "ruby",
       "category": "story",
       "folder": "dialogue/the-quiet-room",
-      "text": "Then we mind what we say in here, and choose what they hear."
+      "text": "Then we mind what we say in here, and choose what they hear.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_13.mp3",
+      "duration": 3.7,
+      "check": {
+        "heard": "Then we mind what we say in here and choose what they hear.",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_sunday-lunch_1",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Twenty-two years, and you walk in at the primo. You always had manners."
+      "text": "Twenty-two years, and you walk in at the primo. You always had manners.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_1.mp3",
+      "duration": 4.85,
+      "check": {
+        "heard": "22 years and you walk in at the primo, you always had manners.",
+        "score": 0.89
+      }
     },
     {
       "id": "nico_sunday-lunch_1",
       "character": "nico",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Manners. He left with your book, Zio. I remember."
+      "text": "Manners. He left with your book, Zio. I remember.",
+      "file": "dialogue/sunday-lunch/nico_sunday-lunch_1.mp3",
+      "duration": 3.05,
+      "check": {
+        "heard": "Manners you left with your book sale. I remember",
+        "score": 0.78
+      }
     },
     {
       "id": "vince_sunday-lunch_2",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "You were twelve. You remember gelato."
+      "text": "You were twelve. You remember gelato.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_2.mp3",
+      "duration": 2.66,
+      "check": {
+        "heard": "You were twelve. You remember gelato.",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_sunday-lunch_3",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "I'm dying, Callum. Slowly, which is the expensive way. When I go, Carlton goes to someone."
+      "text": "I'm dying, Callum. Slowly, which is the expensive way. When I go, Carlton goes to someone.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_3.mp3",
+      "duration": 6.62,
+      "check": {
+        "heard": "dying, tell him, slowly, which is the expensive way. When I go, Carlton goes to someone.",
+        "score": 0.88
+      }
     },
     {
       "id": "vince_sunday-lunch_4",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "I'd rather it went to someone who sits still."
+      "text": "I'd rather it went to someone who sits still.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_4.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "I'd rather it went to someone who sits still.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_sunday-lunch_1",
       "character": "player",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "I didn't come back for Carlton."
+      "text": "I didn't come back for Carlton.",
+      "file": "dialogue/sunday-lunch/player_sunday-lunch_1.mp3",
+      "duration": 3.12,
+      "check": {
+        "heard": "I didn't come back for Carlton!",
+        "score": 1.0
+      }
     },
     {
       "id": "vince_sunday-lunch_5",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Nobody comes back for Carlton. They come back, and it's still here."
+      "text": "Nobody comes back for Carlton. They come back, and it's still here.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_5.mp3",
+      "duration": 3.98,
+      "check": {
+        "heard": "Nobody comes back for Carlton. They come back, and it's still here.",
+        "score": 1.0
+      }
     },
     {
       "id": "player_sunday-lunch_2",
       "character": "player",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "In Carlton, a promise to a dying man outranks a contract."
+      "text": "In Carlton, a promise to a dying man outranks a contract.",
+      "file": "dialogue/sunday-lunch/player_sunday-lunch_2.mp3",
+      "duration": 5.09,
+      "check": {
+        "heard": "In Galtona, a promise to a dying man outranks a contract.",
+        "score": 0.91
+      }
     },
     {
       "id": "davo_sunday-lunch_1",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Sunday lunch on the piazza. He still does it. Long table, bocce, the oxygen bottle under his chair like a dog."
+      "text": "Sunday lunch on the piazza. He still does it. Long table, bocce, the oxygen bottle under his chair like a dog.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_1.mp3",
+      "duration": 7.63,
+      "check": {
+        "heard": "Sunday lunch on the piazza. He still does it. Wong table, bocce. The oxygen bottle under his chair like a dog.",
+        "score": 0.95
+      }
     },
     {
       "id": "davo_sunday-lunch_2",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Nico will be there. The nephew. He was twelve when you left and he's been angry about it ever since."
+      "text": "Nico will be there. The nephew. He was twelve when you left and he's been angry about it ever since.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_2.mp3",
+      "duration": 6.05,
+      "check": {
+        "heard": "Nico will be there, the nephew, he was twelve when you left and he's been angry about it ever since.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_sunday-lunch_3",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Don't let Vince pour for you. He does it to see if your hand shakes."
+      "text": "Don't let Vince pour for you. He does it to see if your hand shakes.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_3.mp3",
+      "duration": 4.34,
+      "check": {
+        "heard": "don't let them spore for you. He does it to see if your hand shakes.\"",
+        "score": 0.87
+      }
     },
     {
       "id": "nico_sunday-lunch_2",
       "character": "nico",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Down! Get Zio down!"
+      "text": "Down! Get Zio down!",
+      "file": "dialogue/sunday-lunch/nico_sunday-lunch_2.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "Down! Get Zio down! Sit those...",
+        "score": 0.8
+      }
     },
     {
       "id": "vince_sunday-lunch_6",
       "character": "vince",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Don't stand there. Go and ask him who sent him."
+      "text": "Don't stand there. Go and ask him who sent him.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_6.mp3",
+      "duration": 3.5,
+      "check": {
+        "heard": "Don't stand there. Go and ask him who sent him.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_sunday-lunch_4",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "White Barrina. One bloke. He's not a shooter, he's a driver who was handed a gun."
+      "text": "White Barrina. One bloke. He's not a shooter, he's a driver who was handed a gun.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_4.mp3",
+      "duration": 6.0,
+      "check": {
+        "heard": "white barina one bloke he's not a shooter he's a driver that was handed a gun",
+        "score": 0.88
+      }
     },
     {
       "id": "davo_sunday-lunch_5",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "He's running for the university. Nowhere to go up there on a Sunday."
+      "text": "He's running for the university. Nowhere to go up there on a Sunday.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_5.mp3",
+      "duration": 3.46,
+      "check": {
+        "heard": "He's running for the University, nowhere to go up there on a Sunday.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_sunday-lunch_6",
       "character": "davo",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "He's stalled it. Go easy. He's more scared than you are."
+      "text": "He's stalled it. Go easy. He's more scared than you are.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_6.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "He's stalled it. Go easy. He's more scared than you are.",
+        "score": 1.0
+      }
     },
     {
       "id": "shooter_sunday-lunch_1",
       "character": "shooter",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Don't. Please. I just drive. I just drive!"
+      "text": "Don't. Please. I just drive. I just drive!",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_1.mp3",
+      "duration": 4.01,
+      "check": {
+        "heard": "Don't, please. I just drive. I just drive.",
+        "score": 1.0
+      }
     },
     {
       "id": "shooter_sunday-lunch_2",
       "character": "shooter",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "A yard hand at the market. Paid cash. Said it was a message, not a hit."
+      "text": "A yard hand at the market. Paid cash. Said it was a message, not a hit.",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_2.mp3",
+      "duration": 4.44,
+      "check": {
+        "heard": "A yard end at the market paid cash, said it was a message, not a hit.",
+        "score": 0.94
+      }
     },
     {
       "id": "shooter_sunday-lunch_3",
       "character": "shooter",
       "category": "story",
       "folder": "dialogue/sunday-lunch",
-      "text": "Thank you. Thank you. I never saw you."
+      "text": "Thank you. Thank you. I never saw you.",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_3.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Thank you. Thank you. I never saw you.",
+        "score": 1.0
+      }
     },
     {
       "id": "davo_sunday-lunch_7",

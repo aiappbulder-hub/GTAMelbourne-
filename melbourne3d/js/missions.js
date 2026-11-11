@@ -35,7 +35,7 @@ import { ROUTES } from './story/routes.js';
 
 const MISSIONS = [
   {
-    id: 'M1', act: 'Tonight', name: 'Low Tide', giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
+    id: 'M1', act: 'Tonight', name: 'Low Tide', call: ['Davo', "It's Davo. I'm on Harbour Esplanade, at the bottom of Collins Street. Walk down to me. Don't wave."], giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
     begin: { card: ['TWENTY-TWO YEARS LATER', 'Docklands · tonight'], car: { id: 'comodo', place: 'M1_CAR', heading: Math.PI } },
     cut: [['You', "Twenty-two years. The skyline's taller. The river's the same colour."],
       ['Davo', 'You got old.'],
@@ -77,7 +77,7 @@ const MISSIONS = [
   // police, a developer, a minister's office), who is selling its pages, and the man who takes it and leaves by boat.
   // ---------------------------------------------------------------------------------------------------------------
   {
-    id: 'M2', act: '2004', name: 'Laneway Hustle', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 1000,
+    id: 'M2', act: '2004', name: 'Laneway Hustle', call: ['Vince', "It's Vince. Flinders Lane, corner of Elizabeth Street. Come now, and come alone."], giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['FLINDERS LANE', 'ELIZABETH STREET'] }, reward: 1000,
     cut: [['Vince', "There you are. Six years this war's been going, and the Broadmeadows firm reckon they own the town now."],
       ['You', 'So what do you need?'],
       ['Vince', "Somebody's been selling pages out of my book. Names, payments, who's on whose payroll. Davo is carrying what's left."],
@@ -90,7 +90,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'M3', act: '2004', name: 'Word on the Street', giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 2000,
+    id: 'M3', act: '2004', name: 'Word on the Street', call: ['Vince', "Vince. I'm at the lock-up, Rathdowne and Queensberry. We need to talk about my book."], giver: 'Vince', crew: 'Lygon Street Crew', start: { cross: ['RATHDOWNE STREET', 'QUEENSBERRY STREET'] }, reward: 2000,
     cut: [['Vince', 'The pages are still going missing. Somebody is talking to the firm, or to Kestrel. I want a name.'],
       ['You', 'Where do I start?'],
       ['Vince', 'Fitzroy. Ask around. Locals talk if you ask nicely.']],
@@ -102,7 +102,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'M4', act: '2004', name: 'The Informant', giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, reward: 4000,
+    id: 'M4', act: '2004', name: 'The Informant', call: ['Kaz', "You're the one asking about Vince's pages. Smith Street, corner of Gertrude. I'm buying."], giver: 'Kaz', crew: 'Broadmeadows', start: { cross: ['SMITH STREET', 'GERTRUDE STREET'] }, reward: 4000,
     cut: [['Kaz', "You're the one asking questions about Vince's pages. Sit down. It isn't me you want."],
       ['Kaz', 'Vince has a man in Carlton who records everything on tape and sings to Taskforce Kestrel. Who paid whom. Get the tapes before Kestrel does.'],
       ['You', 'Why would I do that for you?'],
@@ -115,7 +115,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'M5', act: '2004', name: 'Westside Bikies', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3000,
+    id: 'M5', act: '2004', name: 'Westside Bikies', call: ['Kaz', "It's Kaz. Collins Street at Spencer, by the station. I know who has the pages."], giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Collins St', 'Spencer St'] }, reward: 3000,
     cut: [['Kaz', "The tapes say who sold Vince's pages. The Westside Nomads bought them."],
       ['You', 'And?'],
       ['Kaz', "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."]],
@@ -127,7 +127,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'M6', act: '2004', name: 'Tobacco Wars', giver: 'Kaz', crew: 'Broadmeadows', start: { place: 'CLAR_WHITE' }, reward: 5000,
+    id: 'M6', act: '2004', name: 'Tobacco Wars', call: ['Kaz', "They burnt my shop. Clarendon Street at Whiteman, in Southbank. Now."], giver: 'Kaz', crew: 'Broadmeadows', start: { place: 'CLAR_WHITE' }, reward: 5000,
     cut: [['Kaz', 'The Nomads know it was us. They burnt our shop last night.'],
       ['You', "That's not my fight."],
       ['Kaz', "It is now. Their stock is in a warehouse on the South Wharf, and so is the rest of Vince's book."],
@@ -140,7 +140,7 @@ const MISSIONS = [
   },
   {
     // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
-    id: 'M7', act: '2004', name: 'Short Black', giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
+    id: 'M7', act: '2004', name: 'Short Black', call: ['Kaz', "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."], giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
     cut: [['Kaz', "Sit down. You're making the locals nervous."],
       ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
       ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.'],
@@ -156,7 +156,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'M8', act: '2004', name: 'Harbour Run', giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
+    id: 'M8', act: '2004', name: 'Harbour Run', call: ['Kaz', "It's all coming down. Flinders Street at Queen. Hurry."], giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
     cut: [['Kaz', 'Kestrel raided the Brighton house. They know the book is gone, and so do both crews.'],
       ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
     steps: [
@@ -167,10 +167,12 @@ const MISSIONS = [
   // ---------------------------------------------------------------------------------------------------------------
   // Act I, "Low Tide" (2026), after the memory: the Quiet Room, Sunday lunch, the market, the doors and the raid
   // (docs/story/EMPIRE_DESIGN.md section 5, restaged without interiors, boats or trucks: see MILESTONES.md).
-  // ride: someone in the car with you, talking, while you drive to the job's marker ([seconds at the wheel, who, line]).
+  // call: the phone call that sends you to the job ([who, line]), rung through a few seconds after the last job (or
+// after the game loads), with where to go.
+// ride: someone in the car with you, talking, while you drive to the job's marker ([seconds at the wheel, who, line]).
   // ---------------------------------------------------------------------------------------------------------------
   {
-    id: 'A2', act: 'Act I', name: 'The Quiet Room', giver: 'Gus', crew: 'The Crossing', start: { place: 'HQ' }, reward: 3000,
+    id: 'A2', act: 'Act I', name: 'The Quiet Room', call: ['Davo', "Gus is at the bar now. Flinders Lane at Elizabeth Street. If you want the place, today's the day."], giver: 'Gus', crew: 'The Crossing', start: { place: 'HQ' }, reward: 3000,
     ride: [[3, 'Davo', "Gus Pappas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank."],
       [14, 'Davo', "He'll sell. He just wants to be asked properly. Or not. Up to you."],
       [28, 'Davo', "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."]],
@@ -220,7 +222,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'A3', act: 'Act I', name: 'Sunday Lunch', giver: 'Vince', crew: 'Lygon Street Crew', start: { place: 'ARGYLE_SQ' }, reward: 4000, with: ['Nico'],
+    id: 'A3', act: 'Act I', name: 'Sunday Lunch', call: ['Vince', "Callum. Sunday lunch. Argyle Square, off Lygon Street. Come hungry, and come alone."], giver: 'Vince', crew: 'Lygon Street Crew', start: { place: 'ARGYLE_SQ' }, reward: 4000, with: ['Nico'],
     ride: [[3, 'Davo', 'Sunday lunch on the piazza. He still does it. Long table, bocce, the oxygen bottle under his chair like a dog.'],
       [16, 'Davo', "Nico will be there. The nephew. He was twelve when you left and he's been angry about it ever since."],
       [30, 'Davo', "Don't let Vince pour for you. He does it to see if your hand shakes."]],
@@ -262,7 +264,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'A4', act: 'Act I', name: 'Market Day', giver: 'Davo', crew: 'The Crossing', start: { place: 'VIC_QUEEN' }, reward: 4500,
+    id: 'A4', act: 'Act I', name: 'Market Day', call: ['Davo', "Queen Vic Market, the Victoria Street end, corner of Queen. Early. Bring your phone, not your gun."], giver: 'Davo', crew: 'The Crossing', start: { place: 'VIC_QUEEN' }, reward: 4500,
     ride: [[3, 'Ruby', 'The market. Five in the morning, forklifts everywhere, and three utes that never have plates on.'],
       [16, 'Ruby', "I ran the numbers on what comes off them. It isn't fruit. Fruit doesn't pay for a rail yard."],
       [30, 'Ruby', 'Photograph them, then follow one. And stay back. People who load at dawn check their mirrors.']],
@@ -307,7 +309,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'A5', act: 'Act I', name: 'Doors', giver: 'Ruby', crew: 'The Crossing', start: { place: 'KING_FL' }, reward: 5000,
+    id: 'A5', act: 'Act I', name: 'Doors', call: ['Ruby', "King Street, tonight. Meet me at the Flinders Lane corner. Wear something a bouncer would respect."], giver: 'Ruby', crew: 'The Crossing', start: { place: 'KING_FL' }, reward: 5000,
     ride: [[3, 'Ruby', 'King Street. Eleven clubs, and one firm on every door: Kingsgate. Terry Maguire.'],
       [15, 'Ruby', 'A door is the only business in this town that is all cash and no stock. Whoever holds the rope holds the street.'],
       [29, 'Davo', "Terry's all right. Terry's just never been told no by anyone he couldn't have thrown out."]],
@@ -346,7 +348,7 @@ const MISSIONS = [
     ]
   },
   {
-    id: 'A6', act: 'Act I', name: "The Ferryman's Toll", giver: 'Marsh', crew: 'Taskforce Kestrel', start: { place: 'HQ' }, reward: 8000, with: ['Ruby'],
+    id: 'A6', act: 'Act I', name: "The Ferryman's Toll", call: ['Ruby', "Come to the Quiet Room. Now. There are three cars in the lane with their lights off."], giver: 'Marsh', crew: 'Taskforce Kestrel', start: { place: 'HQ' }, reward: 8000, with: ['Ruby'],
     ride: [[3, 'Davo', "Ruby rang. Three cars sitting on Flinders Lane with their lights off. That's not a booze bus."],
       [15, 'Davo', "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front."],
       [28, 'Davo', "And don't let them have the ledger. Everything we've done since you got back is in that book."]],
@@ -400,6 +402,7 @@ const MISSIONS = [
 
 const SAVE_KEY = 'gta-melbourne3d-save-v2';
 const SAVE_KEY_V1 = 'gta-melbourne3d-save-v1';
+const NEW_KEY = 'gta-melbourne3d-new-game'; // set for one reload by newGame()
 
 const CSS = `
 .gm-pointer { position: fixed; left: 0; top: 0; z-index: 31; pointer-events: none; display: none; transform: translate(-50%, -50%);
@@ -440,6 +443,17 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   background: rgba(255,255,255,.06); color: #fff; font: 600 15px/1.3 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; }
 .gm-choice button:hover, .gm-choice button:focus-visible { background: rgba(255,79,163,.22); border-color: #ff4fa3; outline: none; }
 .gm-choice button i { font-style: normal; color: #ffd23f; margin-right: 8px; }
+.gm-call { position: fixed; left: 50%; top: 150px; transform: translate(-50%, -12px); width: min(560px, 92vw); z-index: 32; padding: 12px 16px 12px 58px;
+  border-radius: 14px; background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .55); color: #fff; font: 500 15px/1.4 Inter, system-ui, sans-serif;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; }
+.gm-call.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; cursor: pointer; }
+.gm-call::before { content: '\\260E'; position: absolute; left: 16px; top: 12px; width: 30px; height: 30px; border-radius: 50%; background: #2fa84f; color: #fff;
+  font: 400 18px/30px system-ui, sans-serif; text-align: center; animation: gm-ring .5s ease-in-out 6 alternate; }
+@keyframes gm-ring { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+.gm-call b { display: block; color: #8ee07a; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 2px; }
+.gm-call small { display: block; margin-top: 6px; color: #ffcf6e; font: 700 13px/1.3 Inter, system-ui, sans-serif; }
+body.cutscene .gm-call, body.cinematic .gm-call { display: none; }
+@media (prefers-reduced-motion: reduce) { .gm-call::before { animation: none; } }
 .gm-sub { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); z-index: 30; max-width: 80vw; color: #fff; text-align: center;
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
@@ -462,6 +476,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   const elSub = el('gm-sub');
   const elCut = el('gm-cut');
   const elBlack = el('gm-black');
+  const elCall = el('gm-call');
+  elCall.addEventListener('click', () => { callUp = 0; elCall.classList.remove('on'); });
   const elChoice = el('gm-choice');
   elChoice.hidden = true;
   // A pointer to the marker that matters (the next job, or the objective): over it when it's on screen, pinned to
@@ -499,6 +515,23 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elPointer.classList.add('on');
   }
   elCut.hidden = true;
+  // New game: a toolbar button that asks first
+  const tbAnchor = document.getElementById('btn-quality');
+  if (tbAnchor) {
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.type = 'button';
+    btn.id = 'btn-new-game';
+    btn.title = 'Start the story again from the beginning';
+    const lab = document.createElement('span');
+    lab.className = 'gfx-label';
+    lab.textContent = 'New game';
+    btn.append(lab);
+    btn.addEventListener('click', () => {
+      if (window.confirm('Start a new game? Your cash, progress and story choices will be wiped.')) api.newGame();
+    });
+    tbAnchor.before(btn);
+  }
 
   // Save: cash and how far through the story
   // Save v2: { version: 2, money, progress, flags } (story choices in flags). A v1 save (money, progress) is carried
@@ -514,7 +547,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   });
   const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   let save = clean(read(SAVE_KEY) || read(SAVE_KEY_V1));
-  const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
+  let persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
   persist();
   const showMoney = () => { elMoney.textContent = `$${save.money.toLocaleString('en-AU')}`; };
   showMoney();
@@ -904,6 +937,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (!def) return;
     cleanup();
     mission = { def, i, si: -1, timer: 0, data: {} };
+    elCall.classList.remove('on'); callUp = 0; callT = 0;
     if (cast) { // the job's people, fetched now so they are there when their scene comes
       const who = new Set([def.giver, ...(def.with || [])]);
       for (const st of def.steps) {
@@ -1017,6 +1051,31 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // a black card between chapters (2004, 2026) with the Ferryman's voice over it; no job starts under it
   let cardUp = false;
   let ride = { job: -1, t: 0, said: 0 }; // the passenger's talk on the way to the next job
+  // The phone call that sends you to the next job: a card with who is ringing, what they say and where to go. It rings
+  // a few seconds after the last job (or after the game loads), and again if you've done nothing about it for a while
+  let called = -1, callT = 0, callUp = 0;
+  const whereTo = (st) => {
+    const p = playerPos(), d = Math.hypot(p.x - st.x, p.z - st.z);
+    const dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+    const bearing = (Math.atan2(st.x - p.x, -(st.z - p.z)) * 180) / Math.PI - 19.18; // (the grid is turned ~19° off north)
+    return `${d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.max(10, Math.round(d / 10) * 10)} m`} ${dirs[(Math.round((((bearing % 360) + 360) % 360) / 45)) % 8]}`;
+  };
+  function ring(def, st, again = false) {
+    elCall.textContent = '';
+    const b = document.createElement('b');
+    b.textContent = `${def.call[0]} calling`;
+    const t = document.createElement('span');
+    t.textContent = def.call[1];
+    const sm = document.createElement('small');
+    const near = Math.hypot(playerPos().x - st.x, playerPos().z - st.z) < 60;
+    sm.textContent = near ? `Next job: ${def.name}. Walk into the pink marker, just ahead.` : `Next job: ${def.name}. Follow the pink marker, ${whereTo(st)} (M opens the map).`;
+    elCall.append(b, t, sm);
+    elCall.classList.remove('on');
+    void elCall.offsetWidth; // (so the handset rings again)
+    elCall.classList.add('on');
+    callUp = 11;
+    if (!again) voices?.sayText(def.call[1], { subtitle: false, who: def.call[0] });
+  }
   function chapterCard(after) {
     cardUp = true;
     setTimeout(() => {
@@ -1130,8 +1189,15 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
+        // the call that sends you there
+        if (def.call && !cut && !cardUp && bigT <= 0 && d > 9 && !document.body.classList.contains('cinematic')) {
+          callT += dt;
+          if (called !== save.progress && callT > 3.5) { called = save.progress; callT = 0; ring(def, st); }
+          else if (called === save.progress && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again
+        }
+        if (callUp > 0) { callUp -= dt; if (callUp <= 0 || d < 9) elCall.classList.remove('on'); }
         // someone in the car on the way there, talking (once per job)
-        if (def.ride && driving() && !cut && !cardUp && d > 30) {
+        if (def.ride && driving() && !cut && !cardUp && d > 30 && callUp < 4) {
           if (ride.job !== save.progress) ride = { job: save.progress, t: 0, said: 0 };
           ride.t += dt;
           while (ride.said < def.ride.length && ride.t >= def.ride[ride.said][0]) {
@@ -1334,11 +1400,34 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     }
   }
 
-  return {
+  const api = {
     update,
     sub,
     /** gameplay.js and the traffic, once they exist; gameplay reports talks and hold-ups here */
-    attach(g, t) { gameplay = g; traffic = t; },
+    attach(g, t) {
+      gameplay = g; traffic = t;
+      // a new game was asked for (below): on foot at the story's first spot, whatever the last game left behind
+      let fresh = false;
+      try { fresh = sessionStorage.getItem(NEW_KEY) === '1'; sessionStorage.removeItem(NEW_KEY); } catch { /* storage unavailable */ }
+      if (fresh) {
+        g.leaveCarNow?.();
+        const q = PLACES.M1_PLAYER, e = controllerManager.entities.person;
+        e.position.set(q.x, controllerManager.getGroundHeight(q.x, q.z, 'person'), q.z);
+        e.heading = Math.PI;
+        if (e.mesh) e.mesh.position.copy(e.position);
+      }
+    },
+    /** Start the story again from the top: cash, progress, choices, the till and where you stood are all wiped, and
+     *  the page reloads into the intro */
+    newGame() {
+      try {
+        for (const k of [SAVE_KEY, SAVE_KEY_V1, 'gta-melbourne3d-till-v1', 'melbourne-player-state', 'gta-melbourne3d-intro-seen']) localStorage.removeItem(k);
+        sessionStorage.setItem(NEW_KEY, '1');
+      } catch { /* storage unavailable */ }
+      save = clean(null);
+      persist = () => {}; // (nothing written between here and the reload)
+      location.reload();
+    },
     /** The player fired (gameplay.js): shots during a stealth step blow the job */
     onGunfire() {
       const st = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
@@ -1390,4 +1479,5 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       return resolve(MISSIONS[i].start);
     }
   };
+  return api;
 }

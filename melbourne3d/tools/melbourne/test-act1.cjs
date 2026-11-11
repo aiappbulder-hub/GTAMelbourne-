@@ -175,6 +175,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // The Book: what the choices bought, and the till
   let bk = await p.evaluate(() => __city.empire.debug());
   ok(bk.open && bk.shares.GRID === 40 && bk.shares.CARLTON === 30 && bk.shares.NWM === 20 && bk.daily === 4600, `Book: shares and the daily take ${JSON.stringify(bk)}`);
+  await p.waitForFunction(() => !__city.missions.busy, null, { timeout: 300000 }); // (the Act II card is up for a few seconds)
   await p.keyboard.press('KeyK'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => __city.empire.isOpen && /The Grid/.test(document.querySelector('.bk-body').textContent)), 'Book: K opens it on the ledger');
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);

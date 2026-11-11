@@ -30,6 +30,7 @@ for (const m of MISSIONS) {
   if (m.outro) add(m.outro[0], m.outro[1], f);
   if (m.after?.line) add(m.after.line[0], m.after.line[1], f);
   for (const [, who, text] of m.ride || []) add(who, text, f); // the passenger on the way to the job
+  if (m.call) add(m.call[0], m.call[1], f); // the phone call that sends you there
   for (const st of m.steps || []) {
     for (const [, who, text] of st.lines || []) add(who, text, f);
     const sm = /^(\w+): "(.*)"$/.exec(st.say || ''); if (sm) add(sm[1], sm[2].replace(/\\'/g, "'"), f); // 'Davo: "..."' on a step is spoken too

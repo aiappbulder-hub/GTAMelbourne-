@@ -171,10 +171,15 @@ async function initApp() {
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
+  // Melbourne: the Yarra's bridge decks (js/bridges.js). Their railings join the player's colliders (after traffic
+  // has taken its obstacles, so AI lanes are unaffected) and their decks the ground height, below.
+  const bridges = IS_MELBOURNE ? (await import('./bridges.js')).createBridges({ scene }) : null;
+  if (bridges) allColliders.push(...bridges.colliders);
 
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
+  if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
