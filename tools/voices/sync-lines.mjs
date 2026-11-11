@@ -14,11 +14,13 @@ const slice = (file, from, to) => {
   return s.slice(a, b);
 };
 const evalArr = (src, name) => new Function('Math', src.replace(`const ${name} =`, 'return '))(Math);
-const MISSIONS = evalArr(slice('missions.js', 'const MISSIONS = [', "const SAVE_KEY"), 'MISSIONS');
+const STORY_CAST = {}; // (missions.js names a model through it; the voices don't need it)
+const MISSIONS = new Function('Math', 'STORY_CAST', slice('missions.js', 'const MISSIONS = [', "const SAVE_KEY").replace('const MISSIONS =', 'return '))(Math, STORY_CAST);
 const SHOTS = evalArr(slice('intro.js', 'const SHOTS = [', '\nconst CSS'), 'SHOTS');
 
 // who speaks → character in the voice data
-const CHAR = { Vince: 'vince', 'Vince (phone)': 'vince', Kaz: 'kaz', Mick: 'mick', Davo: 'davo', You: 'player', '': 'player' };
+const CHAR = { Vince: 'vince', 'Vince (phone)': 'vince', Kaz: 'kaz', Mick: 'mick', Davo: 'davo', You: 'player', '': 'player',
+  Gus: 'gus', Ruby: 'ruby', Nico: 'nico', Marsh: 'marsh', Terry: 'terry', Sully: 'sully', Shooter: 'shooter', Bouncer: 'bouncer' };
 const want = []; // { character, folder, text }
 const add = (who, text, folder) => { if (text && CHAR[who] !== undefined) want.push({ character: CHAR[who], folder, text, phone: /phone/i.test(who) }); };
 const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -27,9 +29,12 @@ for (const m of MISSIONS) {
   for (const [who, text] of m.cut || []) add(who, text, f);
   if (m.outro) add(m.outro[0], m.outro[1], f);
   if (m.after?.line) add(m.after.line[0], m.after.line[1], f);
+  for (const [, who, text] of m.ride || []) add(who, text, f); // the passenger on the way to the job
+  if (m.call) add(m.call[0], m.call[1], f); // the phone call that sends you there
   for (const st of m.steps || []) {
     for (const [, who, text] of st.lines || []) add(who, text, f);
     const sm = /^(\w+): "(.*)"$/.exec(st.say || ''); if (sm) add(sm[1], sm[2].replace(/\\'/g, "'"), f); // 'Davo: "..."' on a step is spoken too
+    for (const [who, text] of st.talk?.lines || []) add(who, text, f);
     if (st.choice) { add(st.choice.who, st.choice.text, f); for (const o of st.choice.options) add(st.choice.who, o.reply, f); }
   }
 }
@@ -38,6 +43,12 @@ for (const sh of SHOTS) for (const [who, text] of sh.lines || []) add(who, text,
 // the voice of a character that has none yet
 if (!data.characters.davo) {
   data.characters.davo = { name: 'Davo', role: 'mission', crew: 'The Crossing', voice: { speaker: 'flynn', gender: 'male', temperature: 0.6, seed: 83 }, gain: 1, refDistance: 6, maxDistance: 60 };
+}
+// Act I's people (Orpheus speakers shared with the first cast, told apart by seed and temperature)
+const ACT1 = { gus: ['Gus', 'mason', 'male', 101], ruby: ['Ruby', 'ruby', 'female', 103], nico: ['Nico', 'flynn', 'male', 107], marsh: ['Marsh', 'matilda', 'female', 109],
+  terry: ['Terry', 'angus', 'male', 113], sully: ['Sully', 'mason', 'male', 127], shooter: ['The driver', 'flynn', 'male', 131], bouncer: ['The bouncer', 'angus', 'male', 137] };
+for (const [id, [name, speaker, gender, seed]] of Object.entries(ACT1)) {
+  if (!data.characters[id]) data.characters[id] = { name, role: 'mission', crew: 'Act I', voice: { speaker, gender, temperature: 0.6, seed }, gain: 1, refDistance: 6, maxDistance: 60 };
 }
 const key = (t) => t.toLowerCase().replace(/[-–]/g, ' ').replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).map((w) => w.replace(/^'+|'+$/g, '')).filter(Boolean).join(' ');
 const have = new Map(data.lines.map((l) => [key(l.text), l]));

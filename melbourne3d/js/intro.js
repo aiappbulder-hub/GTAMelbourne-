@@ -413,7 +413,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       actors: [
         { key: 'vince', id: V, pose: { ...vince, heading: face(vince, { x: (c1.x + c2.x) / 2, z: (c1.z + c2.z) / 2 }) }, anim: 'talk_assured' },
         // (only the story's own people: Davo is Vince's driver)
-        { key: 'crew1', id: STORY_CAST.Davo, pose: { ...c1, heading: face(c1, vince) }, anim: 'laugh' }
+        { key: 'crew1', id: STORY_CAST.Davo, pose: { ...c1, heading: face(c1, vince) }, anim: 'listen' } // (the laugh clip shook him and froze head-back: he listens)
       ]
     });
     // Docklands at sunset: they stand between the camera and the sun

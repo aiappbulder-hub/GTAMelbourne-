@@ -31,12 +31,41 @@ through a car only if one cuts in sideways (it brakes for cars ahead).
 
 ## Milestone 2: Act I complete (M2–M6)
 
-Built only after Milestone 1 has been played and judged enjoyable. Tickets: search step, photo step, sit-down at any
-table (generalised from the St Kilda café), Princes Bridge and Queens Bridge decks, cars stall in water, then M2–M6.
+**Status:** the five jobs are built and play end to end (`node tools/melbourne/test-act1.cjs`), as jobs 9–13:
+The Quiet Room, Sunday Lunch, Market Day, Doors, The Ferryman's Toll. Still to judge by playing: the pace of the two
+chases, the tail's distances, and the raid's stealth.
+
+What was added to the mission system for them (`js/missions.js`, `js/story/leader.js`, `js/story/routes.js`):
+
+| Step | What it does |
+|---|---|
+| `when: { flag: value }` | a step played only on one branch of an earlier choice |
+| `choice` with `cost` | an option takes money; one you can't afford is greyed out (the cheapest never is); up to four options, keys 1–4 |
+| `talk` | a conversation part-way through a job, staged like the opening cut scene; `with` puts more of the cast in a scene |
+| `lead` | a car or a runner on a fixed route to chase (stay within `far`) or tail (also not within `near`) |
+| `ride` (on a job) | someone in the car talking while you drive to the job's marker |
+
+Routes for lead cars are found along the real streets by `tools/melbourne/build-routes.mjs`.
+
+**Restaged for now** (the design's version waits on the features listed): the search and the photographs are
+stand-in-the-marker steps; lunch is standing, not seated; the shooter drives a hatch, not a scooter; the market
+trucks are utes; Terry's four men are a run for it, not a fight; "blend" is standing still in Federation Square.
+Act I's new people (Gus, Ruby, Nico, Marsh, Terry, Sully, Bianca) wear stock bodies and speak with the browser's
+voice until their own models and recordings are made (121 lines are listed in `data/character-voices.json`).
+
+Not built: the empire screen tutorial, territory influence and loyalty numbers (Milestone 3 reads the flags these
+jobs save), Princes Bridge and Queens Bridge decks, cars stalling in water.
 
 ## Milestone 3: the empire (the user's Phase 5)
 
 Territory ownership, business income, four lieutenants, relationships and loyalty, The Book.
+
+**Status:** the first part is built (`js/empire.js`). The Book opens with K: a ledger of the eleven territories with
+the player's share and daily take, the people and where they stand, and the record of choices. Shares, standing and
+Kestrel's heat are a pure function of the story's flags (`bookFrom(progress, flags)`), so they cannot drift from the
+save. The take accrues in real time (capped at three days) and is collected at the Quiet Room.
+Still to build: the territory tint on the map, lieutenants (appointing, paying, orders), loyalty events, messages,
+and territory jobs.
 
 **Lieutenant rules, simplified** (replacing section 6.4 of the design):
 

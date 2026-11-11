@@ -42,7 +42,7 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
 - **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the
   milestones with their tests in `MILESTONES.md`). Tonight Callum Reid (you) comes back to Melbourne by boat, twenty-two
   years after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's
-  office). Eight jobs, one thread:
+  office). Thirteen jobs, one thread:
   - **Tonight:** *Low Tide*. A black card, Davo on Harbour Esplanade, a stealth walk past two Kestrel watchers (red view
     cones; a SEEN meter fails the job when full; gunfire fails it too), a grey Comodo to lose (it follows the route you
     actually drive; stay 200 m clear for 8 s), the drive to the Quiet Room (Flinders Lane × Elizabeth St), and a choice
@@ -51,11 +51,41 @@ and `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU
     (who is selling pages?), *The Informant* (Kaz's offer; the tapes), *Westside Bikies* (the pages on a boat in
     Docklands), *Tobacco Wars* (the rest of the pages at South Wharf), *Short Black* (a sit-down in St Kilda with Mick,
     and the photograph), *Harbour Run* (Kestrel raids; the boat). Then a card: **2026**.
+  - **Act I, 2026:** *The Quiet Room* (buy Gus's bar three ways, get Ruby out of Southbank with Golden Reef's driver
+    behind you, sweep the bar for Kestrel's bug), *Sunday Lunch* (Vince and Nico at Argyle Square, a car chase after the
+    hatch that shoots up the table, who inherits Carlton), *Market Day* (photograph three utes at the Queen Victoria
+    Market, tail one to the Dudley St yards without being seen, and Kaz), *Doors* (King St's bouncers, a foot chase
+    after Bianca Rowe, Terry Maguire), *The Ferryman's Toll* (the raid: out past the uniforms, lose Kestrel, vanish
+    into the crowd at Federation Square, Sully, and who keeps the ledger). Then a card: **Act II**.
+  - Choices cost money where they should, are saved as story flags, and some change what comes next (Sully greets
+    you differently if Davo asked about the grey Comodo; "all of it" on King St means running for it).
+  - Someone rides with you: on the way to each Act I job, Davo or Ruby talks it through in the car, and they keep
+    talking on the drives inside the jobs.
+  - Cut scenes play through by themselves (Enter or a click moves on sooner, Esc skips), and you can't shoot, aim or
+    hold anyone up while one is playing or a choice is on screen.
   - Pink beam: the next job; yellow beam: the objective, with the GPS route on the map. Between jobs, the objective line
     says where the next one is (distance and direction) and the map's waypoint points to it.
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
     or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
   - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+- **Between jobs**: a few seconds after a job (or after the game loads) your phone rings: a card says who is calling,
+  what they want and where the pink marker is (distance and compass direction). It comes up again if you stand about.
+- **New game** (toolbar): asks first, then wipes cash, progress, choices and the till and starts the story again from
+  the intro, on foot by Harbour Esplanade.
+- **Taking a car** (`js/gameplay.js`): you walk to the door, reach for it and sit before you can drive (about 1.3 s).
+  A car with someone in it brakes to a stop, the driver is pulled out, goes down, gets up and runs. Getting out is a
+  short step from the seat. F beside your own car (or one a job left for you) takes that one, not a passing car.
+- **Bridges** (`js/bridges.js`, `tools/melbourne/find-bridges.mjs`): Princes Bridge (three iron arches, bluestone piers,
+  lamp standards), Queens Bridge (five girder spans), Spencer St, Swan St and Charles Grimes bridges have decks, kerbs,
+  footpaths and solid railings. Decks are flat at road level, because traffic, trams and lane paint are drawn at a
+  fixed height. Kings Way's crossing isn't in the road data, and the footbridges aren't built yet.
+- **The Book** (`js/empire.js`): press **K** or the Book button once the Quiet Room is yours.
+  - *Ledger:* the eleven territories, your share of each (the Grid from the bar and the King St doors, Carlton from
+    Vince, North Melbourne from Kaz), what that pays a day, and Kestrel's interest in you.
+  - *People:* who is with you, wary of you or against you, and why. *Record:* what you chose, in order.
+  - The take builds up while you play (a game day is 48 minutes) and the till holds three days of it. Walk into the
+    Quiet Room between jobs and Ruby hands it over.
+  - All of it is worked out from the story's saved choices; lieutenants and orders come with Act II.
 - **Police and the wanted level** (`js/wanted.js`): shoot someone, run someone down, take a car or hold someone up and you
   get stars (up to 5). A person or a police car that sees it counts at once (a police car seeing it is two stars). If
   nobody is around, it is reported a few seconds later anyway. One police car per star (four at most) spawns well back on
