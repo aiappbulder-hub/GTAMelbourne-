@@ -189,7 +189,7 @@ loyalty to Callum is tested by that pull.
 |---|---|---|
 | Frame | arrival by boat; Davo; the grey Comodo | Low Tide, built |
 | The memory | seven 2004 jobs on one thread, told by Callum | built |
-| Act I | the Quiet Room, Sunday lunch, the leak, the raid | Low Tide built; five missions to go |
+| Act I | the Quiet Room, Sunday lunch, the leak, the raid | built (jobs 9–13) |
 | Act II | lieutenants, territories, the truce that breaks | designed |
 | Act III | the war, the traitor, three endings | designed |
 

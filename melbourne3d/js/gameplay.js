@@ -450,6 +450,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
   let approach = null; // walking to a car's door
   function tryEnter() {
+    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
     const r = nearestRide();
     if (!r) return;
     if (r.dist <= ENTER_REACH) return board(r);
@@ -619,6 +620,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
 
   function fire() {
+    if (missionSystem?.busy || document.body.classList.contains('cutscene')) return; // no shooting in a cut scene (or with a choice up)
     if (!armed || cm.activeMode !== 'person' || reloading > 0 || cooldown > 0) return;
     const w = WEAPONS[wi];
     if (ammo[wi] <= 0) { reloading = w.reload; return; }
@@ -702,6 +704,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     return best;
   }
   function talk() {
+    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
     if (cm.activeMode !== 'person') return;
     const q = nearestPed(TALK_REACH);
     if (!q) return;
@@ -845,7 +848,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     const onFoot = cm.activeMode === 'person';
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
-    cm.aiming = onFoot && armed && aimHeld;
+    cm.aiming = onFoot && armed && aimHeld && !missionSystem?.busy;
     if (cm.aiming) {
       // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
       // degrees of it draws the aim onto them; E jumps the aim to the next one along

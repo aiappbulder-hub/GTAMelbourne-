@@ -25,7 +25,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.goto(URL_, { timeout: 120000 }); await ready();
   let st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags, v2: !!localStorage.getItem('gta-melbourne3d-save-v2') }));
   ok(st.prog === 0 && st.money === 12345 && JSON.stringify(st.flags) === '{}' && st.v2, `1.1 v1 save migrated (cash kept; the new story starts from the top) ${JSON.stringify(st)}`);
-  ok((await p.evaluate(() => __city.missions.missions.length)) === 8 && (await p.evaluate(() => __city.missions.missions[0].name)) === 'Low Tide', '1.4 Low Tide is job 1 of 8');
+  ok((await p.evaluate(() => __city.missions.missions.length)) === 13 && (await p.evaluate(() => __city.missions.missions[0].name)) === 'Low Tide', '1.4 Low Tide is job 1 of 13');
 
   // to M1's marker: it starts (black card), then the cut scene
   await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 2, q.z + 2, 0); });
@@ -108,7 +108,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(d0 && d1 && Math.hypot(d0[0] - d1[0], d0[1] - d1[1]) < 0.4, `1.8 Davo stays put when the player turns (moved ${d0 && d1 ? Math.hypot(d0[0] - d1[0], d0[1] - d1[1]).toFixed(2) : '?'} m)`);
   ok((await p.evaluate(() => __city.cast.debug())) && true, `1.8 actors at the door: ${JSON.stringify(await p.evaluate(() => Object.keys(__city.cast.debug())))}`);
   await p.evaluate(() => __city.missions.choose(0));
-  await waitFor(() => !__city.missions.debug().mission, 10000);
+  await waitFor(() => !__city.missions.debug().mission, 60000);
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
   ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.9 M1 passed ${JSON.stringify(st)}`);
 

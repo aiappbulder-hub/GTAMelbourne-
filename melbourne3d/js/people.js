@@ -30,8 +30,12 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
   sit: 'Sit idle (chair)', sit_listen: 'Sit idle (chair)', sit_look: 'Sit idle (chair)', sit_talk: 'Sit idle (chair)', sit_think: 'Sit idle (chair)',
   ready: 'Pistol idle (low ready)', aim: 'Pistol aim', fire: 'Pistol fire', hit: 'Hit from front', die: 'Death (fall backward)', getup: 'Get up (from back)' };
 const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
-export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10' }
-  : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo' };
+// (Act I's people are Rocketbox bodies for now; each loads when their job first wants them)
+const ACT1_CAST = { Gus: 'Male_Adult_07', Ruby: 'Business_Female_01', Nico: 'Male_Adult_04', Marsh: 'Business_Female_02', Terry: 'Business_Male_02',
+  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17' };
+const EAGER_CAST = ['Vince', 'Kaz', 'Mick'];
+export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10', ...ACT1_CAST }
+  : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo', ...ACT1_CAST };
 const POOLS = {
   police: ['Police_Male_01', 'Police_Male_03'],
   gang: ['Male_Adult_18', 'Male_Adult_04', 'Male_Adult_10', 'Male_Adult_17'],
@@ -145,7 +149,7 @@ export function createCast({ scene, controllerManager }) {
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER)]);
     // (Davo is one job's: he loads when it wants him)
-    await Promise.all([...Object.entries(STORY_CAST).filter(([n]) => n !== 'Davo').map(([, id]) => loadPerson(id)), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
+    await Promise.all([...EAGER_CAST.map((n) => loadPerson(STORY_CAST[n])), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
     // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
     // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
     // load when the scene first wants them, in setActor)
@@ -595,6 +599,7 @@ export function createCast({ scene, controllerManager }) {
     if (!name || !at) return;
     const id = STORY_CAST[name];
     if (!id) return;
+    if (!templates.has(id)) { loadPerson(id); return; } // fetched the first time their job wants them
     if (!story[name]) {
       story[name] = makeActor(id, true);
       if (!story[name]) return;

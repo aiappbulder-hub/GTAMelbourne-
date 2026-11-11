@@ -5,6 +5,8 @@ import { blockAt } from './city-config.js';
 import { STORY_CAST } from './people.js';
 import { PLACES } from './story/places.js';
 import { createPursuer } from './pursuit.js';
+import { createLeader } from './story/leader.js';
+import { ROUTES } from './story/routes.js';
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
 // after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
@@ -19,7 +21,17 @@ import { createPursuer } from './pursuit.js';
 // (be driving a car of that kind taken from the traffic, or 'any'), talkTo: n (talk to n people), rob: n (hold up n
 // people: aim and T).
 // A job's steps: { text, at: place, r: metres, car: true (must be driving), time: seconds,
-// wait: seconds standing in the marker, away: metres to get clear of the last marker, cut: [[who, line], ...] }
+// wait: seconds standing in the marker, away: metres to get clear of the last marker }
+// Act I's steps can also ask for:
+//   when: { flag: value }   the step is only played if the story's flags say so (a branch after a choice)
+//   choice: { who, text, options: [{ label, cost, set: { flag: value }, reply }] }   cost: dollars it takes
+//   talk: { who, at, with: [who], lines: [[who, line], ...] }   a conversation part-way through a job, staged like the
+//     opening cut scene (a job's own `with` puts more of the cast beside its giver in the opening one)
+//   lead: { id: route, speed, file | person, far, near, end, catch }   someone to follow or chase along a route
+//     (js/story/leader.js): further than `far` for a few seconds and they're lost, closer than `near` and they've seen
+//     you; done once they've stopped at the end with you within `end` metres (or at any time within `catch`).
+//     hold: true keeps them where they are (parked before the chase, or stopped after it)
+//   watch: [...] with seenText (what the fail says), evade: { file, color } (what's chasing)
 
 const MISSIONS = [
   {
@@ -151,6 +163,238 @@ const MISSIONS = [
       { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
     ],
     after: { card: ['2026', 'Twenty-two years later'], line: ['You', "That's how long it takes a book like that to get heavy."] }
+  },
+  // ---------------------------------------------------------------------------------------------------------------
+  // Act I, "Low Tide" (2026), after the memory: the Quiet Room, Sunday lunch, the market, the doors and the raid
+  // (docs/story/EMPIRE_DESIGN.md section 5, restaged without interiors, boats or trucks: see MILESTONES.md).
+  // ride: someone in the car with you, talking, while you drive to the job's marker ([seconds at the wheel, who, line]).
+  // ---------------------------------------------------------------------------------------------------------------
+  {
+    id: 'A2', act: 'Act I', name: 'The Quiet Room', giver: 'Gus', crew: 'The Crossing', start: { place: 'HQ' }, reward: 3000,
+    ride: [[3, 'Davo', "Gus Pappas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank."],
+      [14, 'Davo', "He'll sell. He just wants to be asked properly. Or not. Up to you."],
+      [28, 'Davo', "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."]],
+    cut: [['Gus', "Thirty years. My father's bar. And you want it for what? A front?"],
+      ['You', 'A bar. With a quiet room out the back.'],
+      ['Gus', 'The bank wants it Friday.'],
+      ['You', 'Then we both know what day it is.']],
+    outro: ['Ruby', "You don't have enough money to be this calm."],
+    steps: [
+      { text: 'Gus is waiting on an offer.', choice: { who: 'Gus', text: "So. What's your offer?",
+        options: [
+          { label: 'A fair price, and your name stays on the window.', cost: 12000, set: { quiet_room: 'fair' }, reply: "My father would have shaken your hand. Don't make me regret it." },
+          { label: 'The bank wants it Friday. I want it today.', cost: 4000, set: { quiet_room: 'lean' }, reply: 'You people. Always the same. Take it.' },
+          { label: "Stay on. Run the bar. I'll run the rest.", cost: 8000, set: { quiet_room: 'partner' }, reply: 'Then I hear things, and you hear them second. Deal.' }
+        ] },
+        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'HQ', kerb: true }, face: 'player', anim: 'talk_assured' }] },
+      { text: 'Your phone: Ruby Achterberg wants out of the Golden Reef suite at Southbank, now. Get in a car (F by any car, or the CAR button).', car: true,
+        lines: [[0.4, 'Ruby', "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick."]] },
+      { text: "Get to City Rd at Southbank Blvd, under Eureka, before Golden Reef's driver does.", at: { place: 'SB_CITY' }, r: 16, car: true, time: 130, wait: 2,
+        lines: [[6, 'Davo', "Ruby Achterberg kept Vellacott's books six years. If she's walking out, she's walking out with all of it in her head."],
+          [22, 'Davo', "Over the river. Queens Bridge, then left. She'll be the one not looking at her phone."]],
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'SB_CITY', kerb: true }, face: 'player', anim: 'look' }],
+        say: 'Ruby: "Drive. Don\'t look at the black four-wheel drive."' },
+      { text: "Golden Reef's driver is behind you. Lose the black Territorial: get 200 m clear and stay clear.", evade: { lose: 200, hold: 8, speed: 27, file: 'territorial', color: 0x0c0c0e }, time: 160,
+        lines: [[2, 'Ruby', "That's Vellacott's chauffeur. He's paid to follow, not to think. Use that."],
+          [18, 'Davo', 'Back over the river. He hates trams.'],
+          [45, 'Ruby', 'Still there. I did say be quick.']],
+        say: 'Ruby: "Gone. Vellacott will be livid. Good."' },
+      { text: 'Take Ruby to the Quiet Room: Flinders Lane at Elizabeth St.', at: { place: 'HQ' }, r: 16, car: true,
+        lines: [[2, 'Ruby', "Six years of his books. I know where every dollar sleeps, and who tucks it in."],
+          [14, 'Davo', 'She talks like that all the time?'],
+          [19, 'Ruby', 'Only when I am being paid. Am I being paid?'],
+          [30, 'Ruby', 'Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty.']] },
+      { text: 'Ruby wants the place swept. On foot: check the cooler by the back door.', at: { place: 'HQ_COOLER' }, r: 3.5, wait: 3, foot: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
+      { text: 'Check the fuse box across the lane.', at: { place: 'HQ_FUSE' }, r: 3.5, wait: 3, foot: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
+      { text: 'Check the jukebox by the window.', at: { place: 'HQ_JUKE' }, r: 3.5, wait: 3, foot: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }],
+        say: 'Ruby: "There. Under the coin slot. That is a Kestrel bug, and it is still warm."' },
+      { text: 'Ruby is holding the bug.', choice: { who: 'Ruby', text: 'What do we do with it?',
+        options: [
+          { label: 'Crush it.', set: { bug: 'destroyed' }, reply: "Clean. They'll know we found it." },
+          { label: "Leave it. We'll tell it bedtime stories.", set: { bug: 'kept' }, reply: 'Then we mind what we say in here, and choose what they hear.' }
+        ] },
+        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'talk_cool' }] }
+    ]
+  },
+  {
+    id: 'A3', act: 'Act I', name: 'Sunday Lunch', giver: 'Vince', crew: 'Lygon Street Crew', start: { place: 'ARGYLE_SQ' }, reward: 4000, with: ['Nico'],
+    ride: [[3, 'Davo', 'Sunday lunch on the piazza. He still does it. Long table, bocce, the oxygen bottle under his chair like a dog.'],
+      [16, 'Davo', "Nico will be there. The nephew. He was twelve when you left and he's been angry about it ever since."],
+      [30, 'Davo', "Don't let Vince pour for you. He does it to see if your hand shakes."]],
+    cut: [['Vince', 'Twenty-two years, and you walk in at the primo. You always had manners.'],
+      ['Nico', "Manners. He left with your book, Zio. I remember."],
+      ['Vince', 'You were twelve. You remember gelato.'],
+      ['Vince', "I'm dying, Callum. Slowly, which is the expensive way. When I go, Carlton goes to someone."],
+      ['Vince', "I'd rather it went to someone who sits still."],
+      ['You', "I didn't come back for Carlton."],
+      ['Vince', "Nobody comes back for Carlton. They come back, and it's still here."]],
+    outro: ['You', 'In Carlton, a promise to a dying man outranks a contract.'],
+    steps: [
+      { text: 'Shots from Lygon St! A white hatch is pulling away. Get in a car (F by any car, or the CAR button).', car: true,
+        lead: { id: 'LUNCH_CHASE', hold: true, file: 'barrina', color: 0xe8e8e8 },
+        lines: [[0.3, 'Nico', 'Down! Get Zio down!'], [2.6, 'Vince', "Don't stand there. Go and ask him who sent him."]] },
+      { text: "Chase the white hatch. Don't let it get away.", lead: { id: 'LUNCH_CHASE', speed: 16, file: 'barrina', color: 0xe8e8e8, far: 190, end: 18, lostText: 'The hatch got away.' },
+        lines: [[3, 'Davo', "White Barrina. One bloke. He's not a shooter, he's a driver who was handed a gun."],
+          [14, 'Davo', "He's running for the university. Nowhere to go up there on a Sunday."]],
+        say: 'Davo: "He\'s stalled it. Go easy. He\'s more scared than you are."' },
+      { text: 'He has stalled it on Grattan St. Get out and walk up to him.', at: { place: 'CARDIGAN_DRIVER' }, r: 4, foot: true,
+        lead: { id: 'LUNCH_CHASE', hold: true },
+        actors: [{ key: 'a_shooter', who: 'Shooter', at: { place: 'CARDIGAN_DRIVER' }, off: [2.2, 1.6], face: 'player', anim: 'nervous_idle' }] },
+      { text: 'The driver has his hands up.', choice: { who: 'Shooter', text: "Don't. Please. I just drive. I just drive!",
+        options: [
+          { label: 'Who sent you?', set: { lunch_shooter: 'talked' }, reply: 'A yard hand at the market. Paid cash. Said it was a message, not a hit.' },
+          { label: 'Leave him for Sal.', set: { lunch_shooter: 'sal' }, reply: 'Thank you. Thank you. I never saw you.' }
+        ] },
+        lead: { id: 'LUNCH_CHASE', hold: true },
+        actors: [{ key: 'a_shooter', who: 'Shooter', at: { place: 'CARDIGAN_DRIVER' }, off: [2.2, 1.6], face: 'player', anim: 'talk_nervous' }] },
+      { text: 'Go back to Vince at Argyle Square.', at: { place: 'ARGYLE_SQ' }, r: 9,
+        lines: [[3, 'Davo', "A message. At Sunday lunch. Somebody wants the old man to know he can be reached at his own table."],
+          [16, 'Davo', "Whatever he asks you now, he's been waiting twenty-two years to ask it."]] },
+      { text: 'Vince has sent the others away.', choice: { who: 'Vince', text: 'So. Nico takes the chair when I am gone, or you keep the books for Carlton and he never knows. Which?',
+        options: [
+          { label: "Nico takes the chair. I'll stand behind it.", set: { carlton: 'nico' }, reply: "Good. He will try you. When he does, do it kindly. For his mother." },
+          { label: "I'll keep the books. Quietly.", set: { carlton: 'books' }, reply: "Then you are my partner, and he is your problem. Do it kindly. For his mother." }
+        ] },
+        actors: [{ key: 'a_vince', who: 'Vince', at: { place: 'ARGYLE_SQ', kerb: true }, face: 'player', anim: 'talk_assured' }] }
+    ]
+  },
+  {
+    id: 'A4', act: 'Act I', name: 'Market Day', giver: 'Davo', crew: 'The Crossing', start: { place: 'VIC_QUEEN' }, reward: 4500,
+    ride: [[3, 'Ruby', 'The market. Five in the morning, forklifts everywhere, and three utes that never have plates on.'],
+      [16, 'Ruby', "I ran the numbers on what comes off them. It isn't fruit. Fruit doesn't pay for a rail yard."],
+      [30, 'Ruby', 'Photograph them, then follow one. And stay back. People who load at dawn check their mirrors.']],
+    cut: [['You', 'Fruit and veg goes in at dawn. So does everything else.'],
+      ['Davo', 'Word is the bloke at lunch was paid out of this market. Three utes load here every morning. No plates, and nobody asks.'],
+      ['You', 'Whose?'],
+      ['Davo', "That's what the phone is for. Get a picture of each, then see where the last one goes."],
+      ['Davo', 'And Callum. Hang back. They know what a tail looks like.']],
+    outro: ['You', 'She was always going to be at that gate. The only question was which side of it I would be standing on.'],
+    steps: [
+      { text: 'Photograph the first ute: Queen St at Franklin St. On foot, stay in the marker and hold still.', at: { place: 'QUEEN_FRANKLIN', kerb: true }, r: 4, wait: 3, foot: true },
+      { text: 'Photograph the second: Elizabeth St at Therry St.', at: { place: 'ELIZ_THERRY', kerb: true }, r: 4, wait: 3, foot: true },
+      { text: 'Photograph the third, by the sheds: Queen St at Therry St.', at: { place: 'QUEEN_THERRY', kerb: true }, r: 4, wait: 3, foot: true,
+        say: 'Davo: "That\'s three. The grey one is pulling out onto Victoria Street. Go."' },
+      { text: 'The grey ute is leaving from Victoria St. Get in a car.', car: true, lead: { id: 'MARKET_UTE', hold: true, file: 'strainger', color: 0x8d8f8a } },
+      { text: "Tail the grey ute to wherever it's going. Stay back: no closer than 25 m, no further than 200 m.",
+        lead: { id: 'MARKET_UTE', speed: 13, file: 'strainger', color: 0x8d8f8a, far: 200, farHold: 7, near: 25, end: 50,
+          lostText: 'You lost the ute.', seenText: 'The driver saw you in his mirror. The yard will be empty by tonight.' },
+        lines: [[4, 'Davo', 'West on Victoria Street. Not the freeway, then. Somewhere close.'],
+          [30, 'Davo', "North Melbourne. Twenty-two years ago this was all Kaz's uncle's. Ray, out in Broadmeadows. Tobacco, mostly."],
+          [60, 'Davo', "Easy. Let a car get between you if you can."],
+          [95, 'Davo', "Dudley Street. The rail yards. Well, I'll be. She never left."]],
+        say: 'Davo: "That\'s Kaz at the gate. She knew we were coming, mate."' },
+      { text: 'The yards on Dudley St. Get out and walk to the gate.', at: { place: 'DUDLEY_WURU', kerb: true }, r: 4, foot: true,
+        lead: { id: 'MARKET_UTE', hold: true },
+        actors: [{ key: 'a_kaz', who: 'Kaz', at: { place: 'DUDLEY_WURU', kerb: true }, off: [1.8, 1.2], face: 'player', anim: 'angry_idle' }] },
+      { text: 'Kaz.', lead: { id: 'MARKET_UTE', hold: true },
+        talk: { who: 'Kaz', at: { place: 'DUDLEY_WURU', kerb: true }, lines: [
+          ['Kaz', 'Twenty-two years, and you still follow utes.'],
+          ['You', 'You still load them at the market.'],
+          ['Kaz', "Uncle Ray's tobacco. Pays for the yard, pays for the boys. Pays for nothing I want."],
+          ['Kaz', 'What do you want?'],
+          ['You', 'Ten percent of what goes through this gate, and nothing that goes through it in my name.']] } },
+      { text: 'Kaz is waiting.', lead: { id: 'MARKET_UTE', hold: true },
+        choice: { who: 'Kaz', text: 'Ten percent. Or what?',
+          options: [
+            { label: 'Or nothing. You get a door into the Grid. I get my ten.', set: { kaz: 'partner' }, reply: "Partners, then. Don't make me say it twice." },
+            { label: 'Or these photographs go for a walk.', set: { kaz: 'threat' }, reply: "There he is. Fine. You'll get your ten, and you'll count it yourself." },
+            { label: 'Or Kestrel gets a present.', set: { kaz: 'inform' }, reply: 'Then we are done talking. Mind your back, Ferryman.' }
+          ] },
+        actors: [{ key: 'a_kaz', who: 'Kaz', at: { place: 'DUDLEY_WURU', kerb: true }, face: 'player', anim: 'talk_cool' }] }
+    ]
+  },
+  {
+    id: 'A5', act: 'Act I', name: 'Doors', giver: 'Ruby', crew: 'The Crossing', start: { place: 'KING_FL' }, reward: 5000,
+    ride: [[3, 'Ruby', 'King Street. Eleven clubs, and one firm on every door: Kingsgate. Terry Maguire.'],
+      [15, 'Ruby', 'A door is the only business in this town that is all cash and no stock. Whoever holds the rope holds the street.'],
+      [29, 'Davo', "Terry's all right. Terry's just never been told no by anyone he couldn't have thrown out."]],
+    cut: [['Ruby', 'Friday, eleven at night. The doors are counting, and so am I.'],
+      ['Ruby', 'You want a slice of the Grid, it starts at the rope. The big fella at Bourke Street runs the rest of them.'],
+      ['You', 'And the takings?'],
+      ['Ruby', "Bianca Rowe walks the night's envelopes up to Terry. She is quick. Be quicker."]],
+    outro: ['You', 'By dawn the street sweeper was the only one working King Street for free.'],
+    steps: [
+      { text: 'Walk up King St to the head bouncer at Bourke St.', at: { place: 'KING_BOURKE', kerb: true }, r: 4, foot: true,
+        actors: [{ key: 'a_bouncer', who: 'Bouncer', at: { place: 'KING_BOURKE', kerb: true }, off: [1.6, 1.2], face: 'player', anim: 'idle' }] },
+      { text: 'The head bouncer.', choice: { who: 'Bouncer', text: "Private night, mate. Unless you're here about the door.",
+        options: [
+          { label: "Here's two grand. Tell the others.", cost: 2000, set: { doors_first: 'bribe' }, reply: 'Then I never saw who came through.' },
+          { label: 'You work for me now. Ask around about who I am.', set: { doors_first: 'lean' }, reply: 'Yeah. Yeah, I heard you were back.' }
+        ] },
+        actors: [{ key: 'a_bouncer', who: 'Bouncer', at: { place: 'KING_BOURKE', kerb: true }, off: [1.6, 1.2], face: 'player', anim: 'talk' }] },
+      { text: "Bianca Rowe has bolted with the night's envelopes. Run her down (Shift to sprint).",
+        lead: { id: 'DOORS_RUN', person: STORY_CAST.Bianca, speed: 5.9, far: 110, farHold: 4, end: 3.5, catch: 2.5, lostText: 'Bianca got away with the envelopes.' },
+        lines: [[0.3, 'Bouncer', "Oi! That's Bianca! She's got the bag!"]] },
+      { text: 'A Merc pulls up. Terry Maguire.', lead: { id: 'DOORS_RUN', hold: true },
+        talk: { who: 'Terry', at: 'lead', lines: [
+          ['Terry', "That's my girl you've run to ground, and my envelopes. Terry Maguire. You'll be the ghost everyone's on about."],
+          ['You', 'I am the man who just spoke to your doors.'],
+          ['Terry', "Doors talk to whoever's standing closest. I've four lads in that car who stand very close."],
+          ['You', "Then let's keep this between people who can count."]] } },
+      { text: 'Terry is listening.', lead: { id: 'DOORS_RUN', hold: true },
+        choice: { who: 'Terry', text: 'Go on, then. Count.',
+          options: [
+            { label: 'Fifty-fifty. Your men, my peace.', set: { doors: 'split' }, reply: "Half of King Street for a quiet life. I've signed worse." },
+            { label: 'All of it. You can keep the Merc.', set: { doors: 'take' }, reply: 'Wrong answer, son. Lads!' },
+            { label: "Bianca keeps tonight's envelopes. And she answers my calls.", set: { doors: 'bianca' }, reply: "You're buying my runner? Take her. She was skimming anyway." }
+          ] },
+        actors: [{ key: 'a_terry', who: 'Terry', at: 'lead', off: [1.6, 1.0], face: 'player', anim: 'talk_assured' }] },
+      { when: { doors: 'take' }, text: "Terry's men are coming out of every door. Get 250 m clear.", away: 250, time: 60 }
+    ]
+  },
+  {
+    id: 'A6', act: 'Act I', name: "The Ferryman's Toll", giver: 'Marsh', crew: 'Taskforce Kestrel', start: { place: 'HQ' }, reward: 8000, with: ['Ruby'],
+    ride: [[3, 'Davo', "Ruby rang. Three cars sitting on Flinders Lane with their lights off. That's not a booze bus."],
+      [15, 'Davo', "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front."],
+      [28, 'Davo', "And don't let them have the ledger. Everything we've done since you got back is in that book."]],
+    begin: { card: ['CLOSING TIME', 'The Quiet Room'], car: { id: 'comodo', place: 'M13_CAR', heading: -Math.PI / 2 } },
+    cut: [['Marsh', "Lemonade, thanks. I'm working. Detective Inspector Helen Marsh."],
+      ['Marsh', "I read your file on the plane back from a conference. Twelve pages. Ten of them say 'unknown'."],
+      ['You', 'Sounds like a short conference.'],
+      ['Marsh', "The warrant's for the ledger. Not you. Not yet."],
+      ['Ruby', "It's in your coat. Back door. Davo is on Flinders Street. Go."]],
+    outro: ['You', 'Someone inside wanted me caught. Not killed. Caught. That narrows it.'],
+    after: { card: ['ACT II', 'The Board'], line: ['You', "You don't take a city. You find out who you can trust with a piece of it."] },
+    steps: [
+      { text: "Get the ledger to Davo's car on Flinders St without being seen. Cross Elizabeth St behind the uniform on the corner and go down the far side.",
+        at: { place: 'M13_CAR' }, r: 7, car: true, time: 110,
+        seenText: 'The uniforms saw you leave. Marsh has the ledger.', shotText: 'Shots outside a raid. Marsh has the ledger, and you.',
+        watch: [
+          { key: 'uni_b', model: 'Police_Male_03', at: { place: 'M13_UNI_B' }, heading: 0, fov: 60, range: 30, sweep: 15, period: 7 },
+          { key: 'uni_a', model: 'Police_Male_01', patrol: [{ place: 'M13_UNI_N' }, { place: 'M13_UNI_S' }], speed: 1.3, fov: 80, range: 20 }
+        ],
+        actors: [{ key: 'm_davo', who: 'Davo', at: { place: 'M13_CAR' }, off: [-3.4, 1.8], face: 'player', anim: 'text' }] },
+      { text: "Kestrel is on you. Lose the unmarked car: get 200 m clear and stay clear.", evade: { lose: 200, hold: 8, speed: 30 }, time: 160,
+        lines: [[1, 'Davo', "That's Marsh's lot. Go. Go!"], [12, 'Davo', 'They knew which night. How did they know which night?'],
+          [40, 'Davo', "Don't go home. Don't go anywhere you've been."]],
+        say: 'Davo: "Clear. Dump the car by the station. They\'ll have the plates by now."' },
+      { text: 'Dump the car on Flinders St at Russell St, by Federation Square.', at: { place: 'FLINDERS_RUSSELL' }, r: 16, car: true,
+        lines: [[3, 'Davo', "I'll walk it from here. You get in among the people at Fed Square and you stand very still."]] },
+      { text: 'On foot: walk into the crowd at Federation Square and stand still while the heat goes by.', at: { place: 'FEDSQ' }, r: 12, wait: 10, foot: true },
+      { when: { davo_tails_kestrel: true }, text: 'A man steps out of the crowd.',
+        talk: { who: 'Sully', at: { place: 'FEDSQ' }, lines: [
+          ['Sully', "Davo has been asking after a grey Comodo. I'm the bloke he asked. Sully. Fifteen years in the job, twenty-one out of it."],
+          ['Sully', 'They knew which floorboard, Callum. Someone told them which floorboard.'],
+          ['You', 'Someone inside.'],
+          ['Sully', 'Someone who wants you in a cell, not in the river. I would start with who knew about tonight.']] } },
+      { when: { davo_tails_kestrel: false }, text: 'A man steps out of the crowd.',
+        talk: { who: 'Sully', at: { place: 'FEDSQ' }, lines: [
+          ['Sully', "Don't turn round. The name is Sully. Fifteen years in the job, twenty-one out of it, and I still know a raid when I see one go wrong."],
+          ['Sully', 'They knew which floorboard, Callum. Someone told them which floorboard.'],
+          ['You', 'Someone inside.'],
+          ['Sully', 'Someone who wants you in a cell, not in the river. I would start with who knew about tonight.']] } },
+      { text: 'Sully nods at your coat.', choice: { who: 'Sully', text: "That ledger can't stay on you. Who holds it?",
+        options: [
+          { label: 'Ruby. She wrote half of it.', set: { ledger: 'ruby' }, reply: 'The bookkeeper. Sensible. Hope she is as loyal as she is neat.' },
+          { label: 'Davo. He has never read a book in his life.', set: { ledger: 'davo' }, reply: 'The old mate. They will look there first, and he will say nothing. Probably.' },
+          { label: 'You. Nobody knows you are with me.', set: { ledger: 'sully' }, reply: 'Trusting a copper. You have been away a long time.' },
+          { label: "Nobody. I'll stash it myself.", set: { ledger: 'self' }, reply: 'Then only one man can give it up. Mind he does not.' }
+        ] },
+        actors: [{ key: 'a_sully', who: 'Sully', at: { place: 'FEDSQ' }, face: 'player', anim: 'talk_cool' }] }
+    ]
   }
 ];
 
@@ -296,7 +540,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
   // --- Act I machinery: watchers with view cones, the tail, story actors, choices -----------------------------------
   const pursuer = createPursuer({ scene, controllerManager, traffic: () => traffic });
+  const leader = createLeader({ scene, controllerManager, cast });
+  // the routes a job's lead can take: the ones found along the streets (js/story/routes.js) and the short ones written here
+  const LEAD_ROUTES = { ...ROUTES,
+    // Doors: Bianca's run, down King St's east footpath and along Collins St's north one to William St
+    DOORS_RUN: [[-923, -203], [-923, -4], [-722, -4]] };
   if (cast) cast.preload([STORY_CAST.Davo]);
+  // the rest of the cast standing with the giver in a cut scene (a job's `with`), put away when it ends
+  let cutExtras = new Set();
+  function hideCutExtras() { for (const k of cutExtras) cast?.setActor(k, null, null); cutExtras = new Set(); }
+  const flagsMatch = (when) => !when || Object.entries(when).every(([k, v]) => (save.flags[k] ?? false) === v);
   const D2R = Math.PI / 180;
   // a watcher's view cone on the ground: a fan of `fov` degrees out to `range` metres, facing +z (turned by heading)
   const coneMat = new THREE.MeshBasicNodeMaterial({ color: 0xff3030, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
@@ -371,17 +624,23 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     t.textContent = c.text;
     elChoice.append(b, t);
     const pick = (i) => {
-      if (!choiceOpen) return;
+      if (!choiceOpen || !c.options[i]) return;
+      if (c.options[i].cost > save.money && (c.options[i].cost || 0) !== Math.min(...c.options.map((o) => o.cost || 0))) return;
       choiceOpen = null;
       elChoice.hidden = true;
       onPick(c.options[i]);
     };
+    // an option that costs more than the player has can't be picked (the cheapest always can: it takes what there is)
+    const cheapest = Math.min(...c.options.map((o) => o.cost || 0));
+    const can = (o) => !(o.cost > save.money) || (o.cost || 0) === cheapest;
     c.options.forEach((o, i) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       const k = document.createElement('i');
       k.textContent = String(i + 1);
-      btn.append(k, document.createTextNode(o.label));
+      btn.append(k, document.createTextNode(o.cost ? `${o.label} ($${o.cost.toLocaleString('en-AU')})` : o.label));
+      btn.disabled = !can(o);
+      if (btn.disabled) btn.style.opacity = '0.45';
       btn.addEventListener('click', () => pick(i));
       elChoice.append(btn);
     });
@@ -391,14 +650,23 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   window.addEventListener('keydown', (e) => {
     if (!choiceOpen) return;
-    const i = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code);
+    const i = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
     if (i >= 0 && i < choiceOpen.def.options.length) { e.preventDefault(); e.stopPropagation(); choiceOpen.pick(i); }
   }, true);
   // everything a job set out in the world, put away (on a pass, a fail or a restart)
   function cleanup() {
+    if (cut) { // a conversation still playing (the job was left from the Jobs list)
+      cut = null;
+      elCut.hidden = true;
+      document.body.classList.remove('cinematic', 'cutscene');
+      cast?.setPlayerAction(null);
+      voices?.stopStory();
+    }
     pursuer.stop();
+    leader.stop();
     hideWatchers();
     showActors([]);
+    hideCutExtras();
     if (choiceOpen) { choiceOpen = null; elChoice.hidden = true; }
     elBlack.classList.remove('on');
   }
@@ -474,6 +742,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     placeCache.set(at, p);
     return p;
   }
+  // 'lead': beside whoever the job has you chasing, wherever they stopped
+  const spotOf = (at, off = [0, 0]) => (at === 'lead' ? { x: leader.position.x + off[0], z: leader.position.z + off[1] } : resolve(at));
   const playerPos = () => controllerManager.getActiveEntity().position;
   const driving = () => controllerManager.activeMode === 'car';
 
@@ -509,11 +779,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   // A job's cut scene is played out between the player and the giver (Vince or Kaz): letterbox bars, the player walks
   // up to the giver (on foot), and the camera cuts over the shoulder of whoever is listening to whoever is speaking
-  function showCut(lines, done) {
-    cut = { lines, k: 0, done, giver: null, scene: !!mission?.def?.scene };
+  function showCut(lines, done, opts = null) {
+    cut = { lines, k: 0, done, giver: null, scene: !opts && !!mission?.def?.scene, step: !!opts, who: opts?.who ?? mission?.def?.giver, spots: {} };
     const def = mission?.def;
-    if (def && cast && !def.scene) {
-      const at = giverSpot(def);
+    if (def && cast && !cut.scene) {
+      let at = giverSpot(def);
+      if (opts?.at) { const q = spotOf(opts.at, [1.6, 1.0]); at = { x: q.x, y: q.y ?? controllerManager.getGroundHeight(q.x, q.z, 'person'), z: q.z }; }
       cut.giver = at;
       const person = controllerManager.entities.person;
       if (controllerManager.activeMode === 'person') {
@@ -524,6 +795,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         person.heading = Math.atan2(at.x - person.position.x, at.z - person.position.z);
         person.speed = 0;
       }
+      // the others in the scene stand either side of the giver, turned to the player
+      const p = playerPos(), d = Math.hypot(p.x - at.x, p.z - at.z) || 1, fx = (p.x - at.x) / d, fz = (p.z - at.z) / d;
+      (opts ? opts.with || [] : def.with || []).forEach((who, n) => {
+        const side = (n % 2 ? -1 : 1) * (1.15 + 0.5 * (n >> 1));
+        const x = at.x - fz * side - fx * 0.25, z = at.z + fx * side - fz * 0.25;
+        cut.spots[who] = { x, y: controllerManager.getGroundHeight(x, z, 'person'), z };
+      });
     }
     document.body.classList.add('cinematic', 'cutscene');
     renderCut();
@@ -534,7 +812,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const last = cut.k === cut.lines.length - 1;
     const mood = moodOf(who, text, given);
     if (who === 'You') return { player: mood, giver: /\?$/.test(text.trim()) ? 'listen' : 'nod' };
-    return { player: last ? 'nod' : 'listen', giver: mood };
+    if (cut.spots[who]) return { player: 'listen', giver: 'listen', extra: who, mood }; // one of the others speaks
+    return { player: last ? 'nod' : 'listen', giver: who === cut.who || !cut.step && !Object.keys(cut.spots).length ? mood : 'listen' };
   }
   // The camera for the line being spoken (called after the follow camera each frame; see main.js)
   const _eye = new THREE.Vector3(), _look = new THREE.Vector3();
@@ -553,9 +832,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     }
     if (!cut || !cut.giver || !cameraSystem) return false;
     controllerManager.resetInput();
-    const me = controllerManager.getActiveEntity().position, g = cut.giver;
+    const me = controllerManager.getActiveEntity().position;
     const onFoot = controllerManager.activeMode === 'person';
     const [who] = cut.lines[cut.k];
+    const g = cut.spots[who] || cut.giver; // whoever is speaking (the giver, or one of the others)
     const youSpeak = who === 'You';
     // from the listener's side, a little to the right of their shoulder, looking at the speaker's face
     const from = youSpeak ? g : me, to = youSpeak ? me : g;
@@ -593,8 +873,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     hint.textContent = 'Enter or click: next · Esc: skip';
     elCut.append(b, t, hint);
     elCut.hidden = false;
-    // the line spoken, when it has a recording (the panel already shows the words)
-    voices?.sayText(line, { subtitle: false, who });
+    // the line spoken (a recording, or the browser's voice; the panel already shows the words). The scene plays itself:
+    // the next line follows once this one has been said (Enter or a click still moves it on sooner)
+    const said = voices?.sayText(line, { subtitle: false, who });
+    cut.auto = Math.max(said?.duration || 0, 1.4 + line.length / 15) + 0.7;
   }
   function advanceCut(skip = false) {
     if (!cut) return;
@@ -622,6 +904,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (!def) return;
     cleanup();
     mission = { def, i, si: -1, timer: 0, data: {} };
+    if (cast) { // the job's people, fetched now so they are there when their scene comes
+      const who = new Set([def.giver, ...(def.with || [])]);
+      for (const st of def.steps) {
+        for (const a of st.actors || []) who.add(a.who);
+        if (st.talk) { who.add(st.talk.who); for (const w of st.talk.with || []) who.add(w); }
+      }
+      cast.preload([...who].map((n) => STORY_CAST[n]).filter(Boolean).concat(def.steps.map((st) => st.lead?.person).filter(Boolean)));
+    }
     startMarker.visible = false;
     const m = mission;
     const open = () => {
@@ -654,6 +944,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   function nextStep() {
     const m = mission;
     m.si++;
+    while (m.si < m.def.steps.length && !flagsMatch(m.def.steps[m.si].when)) m.si++; // a branch not taken
     if (m.si >= m.def.steps.length) return pass();
     const s = m.def.steps[m.si];
     if (s.time && !(s.keepTime && m.timer > 0)) m.timer = s.time;
@@ -672,12 +963,28 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     m.said = 0;
     m.clear = 0;
     m.seen = 0;
+    m.lost = 0;
+    m.replyT = 0;
+    for (const t of targetMarkers) t.visible = false;
+    if (s.lead) {
+      const L = s.lead;
+      if (!leader.active || m.leadId !== L.id) {
+        m.leadId = L.id;
+        leader.start({ pts: LEAD_ROUTES[L.id], speed: L.speed, file: L.file, color: L.color, person: L.person, ease: L.far });
+      }
+      if (!L.hold) { leader.tune({ speed: L.speed, ease: L.far }); leader.go(); }
+    } else leader.stop();
     if (s.tail && !pursuer.active) {
       const t = resolve({ place: s.tail.place });
       pursuer.start({ x: t.x, z: t.z, heading: s.tail.heading || 0, wait: true, speed: 29 });
     }
     if (s.evade) {
-      if (!pursuer.active) { const p = playerPos(); pursuer.start({ x: p.x - 30, z: p.z, heading: 0, speed: s.evade.speed || 29 }); }
+      if (!pursuer.active) {
+        const p = playerPos(), o = { x: p.x - 30, z: p.z, heading: 0, speed: s.evade.speed || 29 };
+        if (s.evade.file) o.file = s.evade.file;
+        if (s.evade.color !== undefined) o.color = s.evade.color;
+        pursuer.start(o);
+      }
       pursuer.release();
       hideWatchers();
     }
@@ -686,9 +993,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       openChoice(s.choice, (o) => {
         if (mission !== m) return;
         Object.assign(save.flags, o.set || {});
+        if (o.cost) { save.money = Math.max(0, save.money - o.cost); showMoney(); }
         persist();
-        if (o.reply) { sub(`${s.choice.who}: ${o.reply}`, 5); voices?.sayText(o.reply, { who: s.choice.who }); }
-        nextStep();
+        if (o.reply) {
+          sub(`${s.choice.who}: ${o.reply}`, 5);
+          const said = voices?.sayText(o.reply, { who: s.choice.who });
+          m.replyT = Math.max(said?.duration || 0, 1.2 + o.reply.length / 15) + 0.4; // the answer is heard out, then on
+        } else nextStep();
       });
     }
     elObjective.textContent = s.text;
@@ -698,10 +1009,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (mapSystem) mapSystem.waypoint = { x: p.x, z: p.z, name: getLocationLabel(p.x, p.z) };
     } else {
       goalMarker.visible = false;
+      if (mapSystem && !s.lead) mapSystem.waypoint = null;
     }
+    // a conversation part-way through the job: played like the opening cut scene, then on to the next step
+    if (s.talk) showCut(s.talk.lines, () => { if (mission === m) nextStep(); }, s.talk);
   }
   // a black card between chapters (2004, 2026) with the Ferryman's voice over it; no job starts under it
   let cardUp = false;
+  let ride = { job: -1, t: 0, said: 0 }; // the passenger's talk on the way to the next job
   function chapterCard(after) {
     cardUp = true;
     setTimeout(() => {
@@ -739,7 +1054,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (mapSystem) mapSystem.waypoint = null;
     if (save.progress >= MISSIONS.length) {
       big('MISSION PASSED', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
-      sub("The Ferryman is back. Act I continues in the next update; the city is yours to roam.", 7);
+      sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); setTimeout(() => cast.setPlayerAction(null), 3500); }
@@ -757,6 +1072,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
 
   function update(dt, elapsed) {
+    if (cut && cut.auto > 0) { cut.auto -= dt; if (cut.auto <= 0) advanceCut(); }
     if (bigT > 0) { bigT -= dt; if (bigT <= 0) elBig.style.opacity = '0'; }
     if (subT > 0) { subT -= dt; if (subT <= 0) elSub.textContent = ''; }
     // markers pulse
@@ -778,11 +1094,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const show = def && !inScene && (!mission || cut) && (cut || !document.body.classList.contains('cinematic'));
       if (inScene) cast.setGiver(null);
       if (show) {
-        const at = giverSpot(def);
+        const at = cut?.giver || giverSpot(def);
         const acts = cut ? cutActions() : null;
         if (acts && acts.player !== cut.playerAct) { cut.playerAct = acts.player; cast.setPlayerAction(acts.player); }
-        cast.setGiver(def.giver, at, p, acts && acts.giver, dt);
+        cast.setGiver(cut?.who || def.giver, at, p, acts && acts.giver, dt);
+        // and whoever stands with them
+        for (const [who, q] of Object.entries(cut?.spots || {})) {
+          const key = `cut_${who}`;
+          cutExtras.add(key);
+          cast.setActor(key, STORY_CAST[who], { ...q, heading: Math.atan2(p.x - q.x, p.z - q.z), ease: 7 }, acts.extra === who ? acts.mood : 'listen');
+        }
       } else cast.setGiver(null);
+      if (!cut && cutExtras.size) hideCutExtras();
       // Davo on the kerb outside the pub (the first job), waving the player down; picked up, he's in the car
       const step = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
       if (step && step.at && /Pick up Davo/.test(step.text)) {
@@ -807,6 +1130,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
+        // someone in the car on the way there, talking (once per job)
+        if (def.ride && driving() && !cut && !cardUp && d > 30) {
+          if (ride.job !== save.progress) ride = { job: save.progress, t: 0, said: 0 };
+          ride.t += dt;
+          while (ride.said < def.ride.length && ride.t >= def.ride[ride.said][0]) {
+            const [, who, text] = def.ride[ride.said++];
+            sub(`${who}: ${text}`, Math.max(4.5, text.length / 14));
+            voices?.sayText(text, { subtitle: false, who });
+          }
+        }
         if (!cut && d < 8 && bigT <= 0 && !cardUp) start(save.progress);
         else if (!cut) {
           // say where the next job is, and put it on the map
@@ -823,13 +1156,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       return;
     }
     if (mission.blackout) return;
-    if (cut || mission.si < 0) { if (!cut) showActors([]); return; }
+    if (cut || mission.si < 0) { if (!cut || cut.step) showActors([]); return; }
     const m = mission, s = m.def.steps[m.si];
     m.stepT += dt;
     // story actors and watchers for this step
     const acts = [];
     for (const a of s.actors || []) {
-      if (a.who === 'Davo' && driving()) continue; // in the car with you
+      if ((a.who === 'Davo' || a.near === 'player') && driving()) continue; // in the car with you
       let pose;
       if (a.near === 'player') {
         // walks to a spot picked once per step (beside the door, or where he already stands), then stays put
@@ -837,6 +1170,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         const ws = ((m.walkers ||= {})[a.key] ||= {});
         if (ws.si !== m.si) {
           ws.si = m.si;
+          if (ws.x === undefined && a.from) { const f = resolve(a.from); ws.x = f.x; ws.z = f.z; } // comes over from where they waited
           if (ws.x === undefined) { ws.x = pp.x + Math.cos(ph) * 1.6 - Math.sin(ph) * 0.8; ws.z = pp.z - Math.sin(ph) * 1.6 - Math.cos(ph) * 0.8; } // out of the car beside you
           ws.tx = ws.x; ws.tz = ws.z;
           if (s.at) {
@@ -859,7 +1193,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         }
         pose = { x: ws.x, y: controllerManager.getGroundHeight(ws.x, ws.z, 'person'), z: ws.z, heading, speed: v, ease: 7 };
       } else {
-        const at = resolve(a.at), x = at.x + (a.off ? a.off[0] : 0), z = at.z + (a.off ? a.off[1] : 0);
+        const at = spotOf(a.at), x = at.x + (a.off ? a.off[0] : 0), z = at.z + (a.off ? a.off[1] : 0);
         pose = { x, y: controllerManager.getGroundHeight(x, z, 'person'), z, heading: a.face === 'player' ? Math.atan2(p.x - x, p.z - z) : a.heading || 0, ease: 7 };
       }
       acts.push({ key: a.key, id: a.who ? STORY_CAST[a.who] : a.model, pose, anim: a.anim || 'idle' });
@@ -881,7 +1215,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     }
     if (s.watch) {
       if (!seenNow) m.seen = Math.max(0, m.seen - dt * 0.3);
-      if (m.seen >= 1) return fail('Kestrel made you. They know you\'re back.');
+      if (m.seen >= 1) return fail(s.seenText || 'Kestrel made you. They know you\'re back.');
     }
     showActors(acts);
     // timed lines (Davo talking in the car)
@@ -917,7 +1251,32 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       }
       return;
     }
-    if (s.choice) return;
+    if (m.replyT > 0) { m.replyT -= dt; if (m.replyT <= 0) nextStep(); return; }
+    if (s.choice || s.talk) return;
+    leader.update(dt);
+    if (s.lead && !s.lead.hold) {
+      // following or chasing: a red beam over them, the distance in the objective, lost if they get too far ahead
+      const L = s.lead, d = leader.distance(), q = leader.position;
+      placeMarker(targetMarkers[0], q, 1.2);
+      if (mapSystem) mapSystem.waypoint = { x: q.x, z: q.z, name: 'Target' };
+      if (d > L.far) m.lost += dt; else m.lost = Math.max(0, m.lost - dt);
+      if (m.lost > (L.farHold || 5)) return fail(L.lostText || 'You lost them.');
+      const close = L.near && d < L.near && !leader.arrived && m.stepT > 6; // (a moment's grace while it pulls out)
+      if (close) m.seen += dt / (L.nearHold || 3); else m.seen = Math.max(0, m.seen - dt * 0.3);
+      if (m.seen >= 1) return fail(L.seenText || 'They saw you coming.');
+      elObjective.textContent = `${s.text} (${Math.round(d)} m)${close ? '  TOO CLOSE' : d > L.far * 0.8 ? '  FALLING BEHIND' : ''}`;
+      if ((leader.arrived && d < (L.end || 14)) || (L.catch && d < L.catch)) {
+        leader.halt();
+        targetMarkers[0].visible = false;
+        if (s.say) {
+          sub(s.say, 5);
+          const sm = /^(\w+): "(.*)"$/.exec(s.say);
+          if (sm) voices?.sayText(sm[2], { subtitle: false, who: sm[1] });
+        }
+        return nextStep();
+      }
+      return;
+    }
     if (s.watch && m.seen > 0.05) {
       const n = Math.min(5, Math.ceil(m.seen * 5));
       const meter = `  SEEN ${'■'.repeat(n)}${'□'.repeat(5 - n)}`;
@@ -964,6 +1323,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else if (s.car) {
       done = driving();
     }
+    if (done && s.lines && !s.at && m.said < s.lines.length) done = false; // already in a car: the step's lines are still said
     if (done) {
       if (s.say) {
         sub(s.say, 5);
@@ -982,7 +1342,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     /** The player fired (gameplay.js): shots during a stealth step blow the job */
     onGunfire() {
       const st = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
-      if (st && st.watch) fail('Kestrel made you. They heard the shots.');
+      if (st && st.watch) fail(st.shotText || 'Kestrel made you. They heard the shots.');
     },
     onTalk(robbed) { if (robbed) counters.rob++; else counters.talk++; },
     addMoney(n) { save.money += n; persist(); showMoney(); },
@@ -991,12 +1351,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     /** Story choices made so far (saved) */
     get flags() { return { ...save.flags }; },
     /** The tail's footprint (for the player on foot), or null */
-    pursuerBox() { return pursuer.box(); },
+    pursuerBox() { return pursuer.box() || leader.box(); },
     /** For scripted checks: where the job is up to */
     debug() {
       return { mission: mission ? mission.def.name : null, step: mission ? mission.si : -1, seen: mission ? mission.seen || 0 : 0,
-        clear: mission ? mission.clear || 0 : 0, tail: pursuer.active ? { ...pursuer.position, parked: pursuer.parked, dist: pursuer.distance() } : null,
-        choice: !!choiceOpen, inCut: !!cut, blackout: !!(mission && mission.blackout),
+        clear: mission ? mission.clear || 0 : 0, ride: ride.said, tail: pursuer.active ? { ...pursuer.position, parked: pursuer.parked, dist: pursuer.distance() } : null,
+        choice: !!choiceOpen, inCut: !!cut, cutLine: cut ? cut.k : -1, blackout: !!(mission && mission.blackout), lost: mission ? mission.lost || 0 : 0,
+        lead: leader.active ? { ...leader.position, moving: leader.moving, arrived: leader.arrived, dist: leader.distance() } : null,
         goal: goalMarker.visible ? { x: goalMarker.position.x, z: goalMarker.position.z } : null };
     },
     /** Pick option i of the open choice (scripted checks; players use the buttons or 1-3) */
@@ -1009,6 +1370,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     start,
     applyCamera,
     get inCut() { return !!cut; },
+    /** A job is under way */
+    get onJob() { return !!mission; },
+    /** No shooting, aiming, talking to people or getting into cars: a cut scene, a choice or a black card is up */
+    get busy() { return !!cut || !!choiceOpen || cardUp || !!(mission && mission.blackout); },
     /** Start a job now, wherever the player is (the Jobs list) */
     startNow(i) {
       if (mission) fail('You walked off the job.');

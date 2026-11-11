@@ -643,6 +643,9 @@ async function initApp() {
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
+  // The Book: territories, people and the daily take that Act I's choices bought (js/empire.js)
+  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager }) : null;
+  window.__city.empire = empire;
   // The wanted level and the police (js/wanted.js)
   const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
   window.__city.wanted = wanted;
@@ -1010,6 +1013,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
+    if (empire) empire.update(dt);
     if (wanted) wanted.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
