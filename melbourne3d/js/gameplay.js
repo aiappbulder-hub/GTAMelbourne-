@@ -338,7 +338,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function enterTrafficCar(v, jack = null) {
     const wasMoving = jack ? jack.dragged : v.edge && v.speed > 0.5;
     if (!jack) {
-      voices?.event('carjack', v);
+      if (!missionSystem?.onJob) voices?.event('carjack', v); // (no police chatter on a job)
       wanted?.crime(wasMoving ? 'carjack' : 'theft', v.x, v.z);
     }
     v.hasDriver = false; // (nobody at the wheel of it now but the player)
@@ -549,7 +549,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (s.reported || s.r.kind !== 'traffic') return;
     s.reported = true;
     const v = s.r.v;
-    voices?.event('carjack', v);
+    if (!missionSystem?.onJob) voices?.event('carjack', v); // (no police chatter on a job)
     wanted?.crime(s.jack ? 'carjack' : 'theft', v.x, v.z);
     if (s.jack) {
       spawnJacked(v, s.c);
@@ -847,7 +847,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flash.visible = true;
     flashT = 0.05;
     bang(w.sound);
-    voices?.event('gunfire', person.position);
+    if (!missionSystem?.onJob) voices?.event('gunfire', person.position); // (no police chatter on a job)
     missionSystem?.onGunfire?.();
     wanted?.crime('shot', person.position.x, person.position.z);
     const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
