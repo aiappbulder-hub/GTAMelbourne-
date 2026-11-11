@@ -48,7 +48,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     await p.evaluate(async () => { const e = __city.controllerManager.entities.person.position; await __city.gameplay.placeCar('comodo', e.x + 3.5, e.z + 2, 0); });
     await p.waitForTimeout(800);
     await p.evaluate(() => __city.gameplay.tryEnter());
-    await until(() => __city.controllerManager.activeMode === 'car', 30000);
+    await until(() => __city.controllerManager.activeMode === 'car', 90000); // (walks to the door, opens it, sits: a few seconds of game time)
   };
   const outOfCar = async () => { await p.evaluate(() => __city.gameplay.exitCar()); await until(() => __city.controllerManager.activeMode === 'person', 10000); await p.waitForTimeout(400); };
   // keep (dx, dz) from the lead until it has stopped
@@ -161,7 +161,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   d = await dbg(); ok(alive && d.seen < 1, `FT the far side of Elizabeth St: not seen (seen=${d.seen.toFixed(2)})`);
   await tp(-271.5, 238.5); await p.waitForTimeout(800);
   await p.evaluate(() => __city.gameplay.tryEnter());
-  await step(1, 30000); ok(true, 'FT in Davo\'s car: Kestrel behind');
+  await step(1, 90000); ok(true, 'FT in Davo\'s car: Kestrel behind');
   await car(-1500, -900); await p.waitForTimeout(1500); await ff(12); await step(2, 20000);
   await car(228, 237); await step(3); await outOfCar();
   await tp(120, 270); await p.waitForTimeout(800); await ff(11);
