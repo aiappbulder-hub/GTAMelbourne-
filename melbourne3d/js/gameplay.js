@@ -994,7 +994,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (!offUi(e)) return;
     // right button: aim (held)
     if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
-    if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
+    // (a mouse click shoots; a finger on the screen never does: on touch screens only the FIRE button fires)
+    if (e.button === 0 && e.pointerType === 'mouse') down = { x: e.clientX, y: e.clientY, t: performance.now() };
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
