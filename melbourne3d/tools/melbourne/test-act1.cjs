@@ -28,7 +28,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const state = () => p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
   const step = async (n, ms = 30000) => {
     try { await p.waitForFunction((n) => __city.missions.debug().step === n, n, { timeout: ms * 10, polling: 250 }); }
-    catch (e) { log('stuck waiting for step', n, JSON.stringify(await p.evaluate(() => ({ mode: __city.controllerManager.activeMode, d: __city.missions.debug(), obj: document.querySelector('.gm-objective').textContent })))); throw e; }
+    catch (e) { log('stuck waiting for step', n, JSON.stringify(await p.evaluate(() => ({ mode: __city.controllerManager.activeMode, d: __city.missions.debug(), at: (({ x, z }) => [Math.round(x), Math.round(z)])(__city.controllerManager.getActiveEntity().position), ride: __city.gameplay.state?.riding, obj: document.querySelector('.gm-objective').textContent })))); throw e; }
   };
   const until = async (fn, ms = 30000) => { await p.waitForFunction(fn, null, { timeout: ms * 10, polling: 250 }); };
   const begin = async (i, x, z) => {

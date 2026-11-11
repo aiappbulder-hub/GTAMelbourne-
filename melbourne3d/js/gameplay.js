@@ -458,7 +458,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function nearestRide() {
     const p = person.position;
     let best = null;
-    const consider = (r) => { if (!best || r.dist < best.dist) best = r; };
+    // (a car of the player's own, or one a job has left for them, wins over a passing car that is only a little
+    // nearer: F beside Davo's car must not carjack whoever is driving by)
+    const rank = (r) => r.dist + (r.kind === 'traffic' ? 3.5 : 0);
+    const consider = (r) => { if (!best || rank(r) < rank(best)) best = r; };
     if (ownTaxiParked()) {
       const t = taxiClone || car;
       const h = taxiClone ? taxiClone.rotation.y : car.heading;
