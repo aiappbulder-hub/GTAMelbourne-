@@ -1161,7 +1161,7 @@ class ThirdPersonControllerManager {
   // speed and slows into stops and sharp turns; with a gun drawn it faces the aim and moves at a walk.
   updatePerson(dt) {
     const p = this.entities.person;
-    const WALK = 1.7, JOG = 4.3, SPRINT = 7.6;
+    const WALK = 1.7, JOG = 5.4, SPRINT = 9.2; // (a quick jog and a real sprint: the city's blocks are long on foot)
     const fwd = (this.keys.forward || 0) - (this.keys.backward || 0);
     const side = (this.keys.right || 0) - (this.keys.left || 0);
     const mag = Math.min(1, Math.hypot(fwd, side));

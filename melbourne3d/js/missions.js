@@ -37,10 +37,9 @@ const MISSIONS = [
   {
     id: 'M1', act: 'Tonight', name: 'Low Tide', call: ['Davo', "It's Davo. I'm on Harbour Esplanade, at the bottom of Collins Street. Walk down to me. Don't wave."], giver: 'Davo', crew: 'The Crossing', start: { place: 'DOCK_COLLINS' }, reward: 2000,
     begin: { card: ['TWENTY-TWO YEARS LATER', 'Docklands · tonight'], car: { id: 'comodo', place: 'M1_CAR', heading: Math.PI } },
-    cut: [['You', "Twenty-two years. The skyline's taller. The river's the same colour."],
-      ['Davo', 'You got old.'],
+    // (kept short: the intro has just set the story up)
+    cut: [['Davo', 'You got old.'],
       ['You', 'You got sober.'],
-      ['Davo', "Someone had to. Vince asks about you every day. He hasn't got long."],
       ['You', 'Where is the car?'],
       ['Davo', "Up the end, by Bourke Street. Don't walk the esplanade. There's a grey Comodo parked there since Tuesday, two up. Coppers or real estate. Can't tell anymore."],
       ['You', 'Both.'],
@@ -949,7 +948,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (e.code === 'Escape') { e.preventDefault(); advanceCut(true); }
   });
 
-  function start(i) {
+  function start(i, opts = null) {
     const def = MISSIONS[i];
     if (!def) return;
     cleanup();
@@ -990,7 +989,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       m.blackout = false;
       elBlack.classList.remove('on');
       open();
-    }, 3200);
+    }, opts?.fromIntro ? 1500 : 3200); // (straight from the intro: a beat of black, not a second title card's worth)
   }
   function nextStep() {
     const m = mission;
@@ -1430,7 +1429,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         g.leaveCarNow?.();
         const q = PLACES.M1_PLAYER, e = controllerManager.entities.person;
         e.position.set(q.x, controllerManager.getGroundHeight(q.x, q.z, 'person'), q.z);
-        e.heading = Math.PI;
+        e.heading = Math.atan2(PLACES.DOCK_COLLINS.x - q.x, PLACES.DOCK_COLLINS.z - q.z); // facing Davo and the first marker
         if (e.mesh) e.mesh.position.copy(e.position);
       }
     },
