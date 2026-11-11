@@ -7,7 +7,7 @@ const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&noi
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ctx = await b.newContext({ viewport: { width: 800, height: 500 } });
+  const ctx = await b.newContext({ viewport: { width: 360, height: 230 } });
   await ctx.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1');
