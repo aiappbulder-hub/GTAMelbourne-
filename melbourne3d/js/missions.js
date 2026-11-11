@@ -40,8 +40,8 @@ const MISSIONS = [
         at: { place: 'M1_CAR' }, r: 7, car: true,
         tail: { place: 'M1_SEDAN', heading: Math.PI },
         watch: [
-          { key: 'kestrel_a', model: 'Male_Adult_14', at: { place: 'M1_WATCH_A' }, heading: -Math.PI / 2, fov: 70, range: 50, sweep: 40, period: 7 },
-          { key: 'kestrel_b', model: 'Female_Adult_09', patrol: [{ place: 'M1_PATROL_S' }, { place: 'M1_PATROL_N' }], speed: 1.3, fov: 80, range: 20 }
+          { key: 'kestrel_a', model: 'ara:sgt', at: { place: 'M1_WATCH_A' }, heading: -Math.PI / 2, fov: 70, range: 50, sweep: 40, period: 7 },
+          { key: 'kestrel_b', model: 'ara:cons', patrol: [{ place: 'M1_PATROL_S' }, { place: 'M1_PATROL_N' }], speed: 1.3, fov: 80, range: 20 }
         ],
         actors: [{ key: 'm_davo', who: 'Davo', at: { place: 'M1_CAR' }, off: [3.6, 0.8], face: 'player', anim: 'text' }] },
       { text: 'They\'re pulling out. Lose the tail: get 200 m clear of the grey Comodo and stay clear.', evade: { lose: 200, hold: 8, speed: 29 }, time: 150,

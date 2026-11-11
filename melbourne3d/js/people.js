@@ -34,7 +34,7 @@ export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult
   : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo' };
 // (the Rocketbox people still in assets/people: the rest were never fetched and were removed, see assets/people/README.md)
 const POOLS = {
-  police: ['Police_Male_01', 'Police_Male_03'],
+  police: CLASSIC ? ['Police_Male_01', 'Police_Male_03'] : ['ara:sgt', 'ara:cons'], // Kestrel's own: a sergeant and a constable
   gang: ['Male_Adult_04', 'Male_Adult_10'],
   male: ['Male_Adult_03', 'Male_Adult_05', 'Male_Adult_09', 'Male_Adult_14'],
   female: ['Female_Adult_04', 'Female_Adult_09']
@@ -68,7 +68,7 @@ export function characterFor(i, female, role) {
   const pool = role === 'police' || role === 'gang' ? ACTIVE[role] : female ? ACTIVE.female : ACTIVE.male;
   return pool[Math.floor(hash(i, 3) * pool.length) % pool.length];
 }
-export const isFemale = (id) => /Female/.test(id) || id === 'ara:kaz';
+export const isFemale = (id) => /Female/.test(id) || id === 'ara:kaz' || id === 'ara:cons';
 
 export function createCast({ scene, controllerManager }) {
   const loader = new GLTFLoader();
