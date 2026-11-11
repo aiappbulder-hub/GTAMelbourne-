@@ -373,15 +373,15 @@ const MISSIONS = [
         say: 'Davo: "Clear. Dump the car by the station. They\'ll have the plates by now."' },
       { text: 'Dump the car on Flinders St at Russell St, by Federation Square.', at: { place: 'FLINDERS_RUSSELL' }, r: 16, car: true,
         lines: [[3, 'Davo', "I'll walk it from here. You get in among the people at Fed Square and you stand very still."]] },
-      { text: 'On foot: walk into the crowd at Federation Square and stand still while the heat goes by.', at: { place: 'FEDSQ' }, r: 12, wait: 10, foot: true },
+      { text: 'On foot: walk into the crowd at Federation Square and stand still while the heat goes by.', at: { place: 'FEDSQ_PLAZA' }, r: 10, wait: 10, foot: true },
       { when: { davo_tails_kestrel: true }, text: 'A man steps out of the crowd.',
-        talk: { who: 'Sully', at: { place: 'FEDSQ' }, lines: [
+        talk: { who: 'Sully', at: { place: 'FEDSQ_PLAZA' }, lines: [
           ['Sully', "Davo has been asking after a grey Comodo. I'm the bloke he asked. Sully. Fifteen years in the job, twenty-one out of it."],
           ['Sully', 'They knew which floorboard, Callum. Someone told them which floorboard.'],
           ['You', 'Someone inside.'],
           ['Sully', 'Someone who wants you in a cell, not in the river. I would start with who knew about tonight.']] } },
       { when: { davo_tails_kestrel: false }, text: 'A man steps out of the crowd.',
-        talk: { who: 'Sully', at: { place: 'FEDSQ' }, lines: [
+        talk: { who: 'Sully', at: { place: 'FEDSQ_PLAZA' }, lines: [
           ['Sully', "Don't turn round. The name is Sully. Fifteen years in the job, twenty-one out of it, and I still know a raid when I see one go wrong."],
           ['Sully', 'They knew which floorboard, Callum. Someone told them which floorboard.'],
           ['You', 'Someone inside.'],
@@ -393,7 +393,7 @@ const MISSIONS = [
           { label: 'You. Nobody knows you are with me.', set: { ledger: 'sully' }, reply: 'Trusting a copper. You have been away a long time.' },
           { label: "Nobody. I'll stash it myself.", set: { ledger: 'self' }, reply: 'Then only one man can give it up. Mind he does not.' }
         ] },
-        actors: [{ key: 'a_sully', who: 'Sully', at: { place: 'FEDSQ' }, face: 'player', anim: 'talk_cool' }] }
+        actors: [{ key: 'a_sully', who: 'Sully', at: { place: 'FEDSQ_PLAZA' }, face: 'player', anim: 'talk_cool' }] }
     ]
   }
 ];

@@ -786,13 +786,15 @@
    "id": "CARDIGAN_GRATTAN",
    "label": "Cardigan St x Grattan St (where the hatch stops)",
    "territory": "CARLTON",
-   "x": 446, "z": -1595
+   "x": 446,
+   "z": -1595
   },
   {
    "id": "CARDIGAN_DRIVER",
    "label": "Cardigan St x Grattan St, beside the stopped hatch",
    "territory": "CARLTON",
-   "x": 451, "z": -1590
+   "x": 451,
+   "z": -1590
   },
   {
    "id": "VIC_QUEEN",
@@ -884,6 +886,13 @@
    "territory": "GRID",
    "x": 228,
    "z": 237
+  },
+  {
+   "id": "FEDSQ_PLAZA",
+   "label": "Federation Square, the open plaza on Flinders St",
+   "territory": "GRID",
+   "x": 120,
+   "z": 270
   }
  ]
 }

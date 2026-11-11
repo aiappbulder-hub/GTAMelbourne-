@@ -5,17 +5,21 @@
 // two a second, and the jobs' timers count game time; ff() runs the mission system's own clock forward between frames.)
 const { chromium } = require('playwright');
 const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+// FROM=12 node tools/melbourne/test-act1.cjs starts at that job (0-based) with the choices the earlier ones would have made
+const FROM = Math.max(8, Math.min(12, +process.env.FROM || 8));
+const SEED = [{ quiet_room: 'fair', bug: 'kept' }, { lunch_shooter: 'talked', carlton: 'books' }, { kaz: 'partner' }, { doors_first: 'lean', doors: 'take' }];
+const MONEY = [40000, 31000, 35000, 39500, 44500];
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const ctx = await b.newContext({ viewport: { width: 360, height: 230 } });
-  await ctx.addInitScript(() => {
+  await ctx.addInitScript((save) => {
     if (!sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1');
       localStorage.clear();
-      localStorage.setItem('gta-melbourne3d-save-v2', JSON.stringify({ version: 2, story: 2, money: 40000, progress: 8, flags: { davo_tails_kestrel: true } }));
+      localStorage.setItem('gta-melbourne3d-save-v2', JSON.stringify(save));
     }
-  });
+  }, { version: 2, story: 2, money: MONEY[FROM - 8], progress: FROM, flags: Object.assign({ davo_tails_kestrel: true }, ...SEED.slice(0, FROM - 8)) });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   const ok = (cond, what) => { log(cond ? 'PASS' : 'FAIL', what); if (!cond) process.exitCode = 1; };
@@ -59,11 +63,12 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   };
 
   await p.goto(URL_, { timeout: 120000 }); await ready();
-  let st = await state();
-  ok(st.prog === 8 && (await p.evaluate(() => __city.missions.missions.length)) === 13, `13 jobs; the save starts at job 9 ${JSON.stringify(st)}`);
+  let d, st = await state();
+  ok(st.prog === FROM && (await p.evaluate(() => __city.missions.missions.length)) === 13, `13 jobs; the save starts at job ${FROM + 1} ${JSON.stringify(st)}`);
   ok((await p.evaluate(() => __city.missions.missions.slice(8).map((m) => m.name).join(', '))) === "The Quiet Room, Sunday Lunch, Market Day, Doors, The Ferryman's Toll", 'Act I jobs in order');
 
   // --- The Quiet Room ---------------------------------------------------------------------------------------------
+  if (FROM <= 8) {
   await begin(8, -221, 123);
   ok(await p.evaluate(() => __city.missions.busy), 'cut scene: the game is busy (no shooting)');
   await until(() => __city.missions.debug().cutLine >= 1 || !__city.missions.debug().inCut, 60000); ok(true, 'cut scene lines play on by themselves');
@@ -80,10 +85,12 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await until(() => !__city.missions.debug().mission, 10000);
   st = await state(); ok(st.prog === 9 && st.flags.bug === 'kept' && st.money === 31000, `QR passed ${JSON.stringify(st)}`);
   await p.waitForTimeout(5000);
+  }
 
   // --- Sunday Lunch -----------------------------------------------------------------------------------------------
+  if (FROM <= 9) {
   await begin(9, 410, -1355); await skip(); await step(0);
-  let d = await dbg(); ok(d.lead && !d.lead.moving, `SL the hatch waits on Lygon St ${JSON.stringify(d.lead)}`);
+  d = await dbg(); ok(d.lead && !d.lead.moving, `SL the hatch waits on Lygon St ${JSON.stringify(d.lead)}`);
   await intoCar(); await step(1);
   d = await follow(8, 8, 'car'); ok(d.lead && d.lead.arrived, 'SL the hatch runs its route and stops');
   await step(2, 20000); await outOfCar(); await toGoal(); await until(() => __city.missions.debug().choice, 15000);
@@ -93,8 +100,10 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await until(() => !__city.missions.debug().mission, 10000);
   st = await state(); ok(st.prog === 10 && st.flags.lunch_shooter === 'talked' && st.flags.carlton === 'books', `SL passed ${JSON.stringify(st)}`);
   await p.waitForTimeout(5000);
+  }
 
   // --- Market Day -------------------------------------------------------------------------------------------------
+  if (FROM <= 10) {
   await begin(10, -342, -1209); await skip(); await step(0);
   for (const n of [1, 2, 3]) { await toGoal(); await step(n, 30000); }
   ok(true, 'MD three utes photographed');
@@ -116,8 +125,10 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await until(() => !__city.missions.debug().mission, 10000);
   st = await state(); ok(st.prog === 11 && st.flags.kaz === 'partner', `MD passed ${JSON.stringify(st)}`);
   await p.waitForTimeout(5000);
+  }
 
   // --- Doors ------------------------------------------------------------------------------------------------------
+  if (FROM <= 11) {
   await begin(11, -935, 123); await skip(); await step(0);
   await toGoal(); await until(() => __city.missions.debug().choice, 15000);
   await choose(1); await step(2);
@@ -132,8 +143,10 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await until(() => !__city.missions.debug().mission, 15000);
   st = await state(); ok(st.prog === 12 && st.flags.doors === 'take', `D passed ${JSON.stringify(st)}`);
   await p.waitForTimeout(5000);
+  }
 
   // --- The Ferryman's Toll ----------------------------------------------------------------------------------------
+  if (FROM <= 12) {
   await begin(12, -221, 123); await skip(); await step(0);
   await tp(-229, 150); await p.waitForTimeout(800); await ff(4); // the east footpath, in front of the uniform on the corner
   await until(() => !__city.missions.debug().mission, 30000); ok(true, 'FT seen on the east footpath: failed');
@@ -151,12 +164,13 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await step(1, 30000); ok(true, 'FT in Davo\'s car: Kestrel behind');
   await car(-1500, -900); await p.waitForTimeout(1500); await ff(12); await step(2, 20000);
   await car(228, 237); await step(3); await outOfCar();
-  await tp(143, 346); await p.waitForTimeout(800); await ff(11);
+  await tp(120, 270); await p.waitForTimeout(800); await ff(11);
   await until(() => __city.missions.debug().inCut, 40000); ok((await dbg()).step === 4, 'FT blended in; Sully (the Davo-asked-around version)');
   await skip(); await until(() => __city.missions.debug().choice, 10000);
   await p.keyboard.press('Digit4'); await ff(9);
   await until(() => !__city.missions.debug().mission, 10000);
   st = await state(); ok(st.prog === 13 && st.flags.ledger === 'self', `FT passed; key 4 picks the fourth option ${JSON.stringify(st)}`);
+  }
 
   // The Book: what the choices bought, and the till
   let bk = await p.evaluate(() => __city.empire.debug());
