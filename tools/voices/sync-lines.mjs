@@ -29,6 +29,7 @@ for (const m of MISSIONS) {
   for (const [who, text] of m.cut || []) add(who, text, f);
   if (m.outro) add(m.outro[0], m.outro[1], f);
   if (m.after?.line) add(m.after.line[0], m.after.line[1], f);
+  if (m.after?.lineIf) { add(m.after.lineIf.yes[0], m.after.lineIf.yes[1], f); add(m.after.lineIf.no[0], m.after.lineIf.no[1], f); }
   for (const [, who, text] of m.ride || []) add(who, text, f); // the passenger on the way to the job
   if (m.call) add(m.call[0], m.call[1], f); // the phone call that sends you there
   for (const st of m.steps || []) {

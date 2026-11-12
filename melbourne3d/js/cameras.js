@@ -1,6 +1,5 @@
 import * as THREE from 'three/webgpu';
 import { Q } from './quality.js';
-import { bryantParkLawn } from './landmarks.js';
 import { SCENIC_VIEWS } from './city-config.js';
 
 // Chase, action, cockpit, fixed-location and aerial cameras, with mouse/touch orbit and zoom.
@@ -340,7 +339,7 @@ class CameraSystem {
       case 'bryantPark': {
         // Inside Bryant Park Great Lawn looking East toward NYPL portico, One Vanderbilt & Chrysler Building
         const sway = Math.sin(elapsed * 0.25) * 1.5;
-        const lawn = bryantParkLawn || { minX: -260, maxX: -150, minZ: 40, maxZ: 120, top: 1.3 };
+        const lawn = { minX: -260, maxX: -150, minZ: 40, maxZ: 120, top: 1.3 }; // (New York's lawn: the scenic view below replaces this in Melbourne)
         const lz = (lawn.minZ + lawn.maxZ) * 0.5;
         desiredPos.set(lawn.minX + 18.0, lawn.top + 1.7, lz + sway);
         desiredLook.set(lawn.maxX + 260.0, 70.0, lz - 60.0);

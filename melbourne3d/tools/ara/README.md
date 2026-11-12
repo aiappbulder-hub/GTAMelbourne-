@@ -17,6 +17,8 @@ Pistol idle/aim/fire, Hit, Death, Get up); everyone else borrows them, scaled to
 | Kaz (Broadmeadows) | `ara:kaz` | `Woman\|Adult · 35\|Athletic\|Caucasian\|Smart casual\|Ponytail\|Small hoops` |
 | Mick (Kaz's fence) | `ara:mick` | `Man\|Middle-aged · 52\|Heavy\|Caucasian\|Casual\|Bald\|Mustache & stubble` |
 | Davo (the first job's pickup) | `ara:davo` | `Man\|Young adult · 24\|Slim\|Caucasian\|T-shirt & jeans\|Buzz cut\|Stubble\|Fine gold chain & pendant` |
+| Kestrel's sergeant (Low Tide watcher, intro police)| `ara:sgt` | `Man\|Adult · 35\|Slim\|Caucasian\|Smart casual\|Short neat` |
+| Kestrel's constable (Low Tide patrol, intro police) | `ara:cons` | `Woman\|Adult · 35\|Slim\|Caucasian\|Smart casual\|Short neat` |
 
 `?classic` in the URL brings back the earlier Rocketbox cast.
 

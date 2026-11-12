@@ -18,3 +18,11 @@ hold the clips by bone name (idle, walk, run, sprint, talk, phone, crouch), shar
 | Everyday locals, office workers, tradies | the other Male/Female_Adult avatars, Business_*, Construction_Male_07/08 |
 
 `js/people.js` puts them in the game.
+
+
+## Trimmed
+
+Only the Rocketbox people the game can still fetch are kept: the two intro police (`Police_Male_01`, `Police_Male_03`), the two
+Kestrel watchers (`Male_Adult_14`, `Female_Adult_09`), and the six the `?classic` switch uses (`Male_Adult_03`, `04`, `05`, `09`,
+`10`, `Female_Adult_04`). The street crowd is the procedural one (`CROWD = false` in `js/people.js`), so the other 31 were never
+loaded. They are in git history: `git checkout 1d90ec3 -- melbourne3d/assets/people`.

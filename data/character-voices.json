@@ -2931,6 +2931,32 @@
       "category": "story",
       "folder": "dialogue/the-ferryman-s-toll",
       "text": "Don't turn round. The name is Sully. Fifteen years in the job, twenty-one out of it, and I still know a raid when I see one go wrong."
+    },
+    {
+      "id": "player_harbour-run_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "Davo's friend rang while I was remembering. The grey Comodo was Kestrel's. It always is.",
+      "file": "dialogue/harbour-run/player_harbour-run_2.mp3",
+      "duration": 6.91,
+      "check": {
+        "heard": "Davo's friend rang while I was remembering. The grey Komodo was Kestrels. It always is.",
+        "score": 0.87
+      }
+    },
+    {
+      "id": "player_harbour-run_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "I let Kestrel watch. After twenty-two years, they could wait one more night.",
+      "file": "dialogue/harbour-run/player_harbour-run_3.mp3",
+      "duration": 5.78,
+      "check": {
+        "heard": "I let Kestrel watch. After 22 years, they could wait one more night.",
+        "score": 0.89
+      }
     }
   ]
 }

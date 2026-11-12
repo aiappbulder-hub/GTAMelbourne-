@@ -6,7 +6,7 @@ import { PLACES } from './story/places.js';
 // The opening: wide shots of Melbourne at golden hour, letterboxed, with the player's own voice setting up the story
 // over them and Vince on the phone, ending on the player at the first job's marker, all to a synthesised score. Every
 // time the game starts it waits on a title card for a key or a tap (browsers only play sound after one), then plays;
-// ?nointro leaves it out. "Watch the intro" in the teleport menu plays it again. Esc, Enter or Skip end it.
+// It is off by default now: ?intro plays it; ?nointro is kept for the test scripts. "Watch the intro" in the teleport menu plays it again. Esc, Enter or Skip end it.
 // Before the shots, the title film (assets/video/intro.mp4, 15 s) plays full screen, ending on the GTA MELBOURNE
 // title; Esc, Enter, Space or Skip end the film and go on to the shots. ?nofilm leaves the film out.
 //
@@ -614,6 +614,9 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     /** For checking a shot: show shot i, a little way in */
     jump(i, at = 2) { if (!active) start(); shot = Math.max(0, Math.min(SHOTS.length - 1, i)); t = at; lineK = -1; },
     /** Whether to play it once the city is on screen */
-    shouldAutoplay: forced || !new URLSearchParams(location.search).has('nointro')
+    /** The intro is off: only ?intro (or "Watch the intro" in the teleport menu) plays it */
+    shouldAutoplay: forced,
+    /** No intro: a new game starts on the esplanade, in the player's hands. (?nointro leaves the player where the city loads) */
+    skip() { if (!new URLSearchParams(location.search).has('nointro') && missionSystem && missionSystem.progress === 0) arrive(true); }
   };
 }
