@@ -164,10 +164,15 @@ async function initApp() {
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
+  // Melbourne: the Yarra's bridge decks (js/bridges.js). Their railings join the player's colliders (after traffic
+  // has taken its obstacles, so AI lanes are unaffected) and their decks the ground height, below.
+  const bridges = IS_MELBOURNE ? (await import('./bridges.js')).createBridges({ scene }) : null;
+  if (bridges) allColliders.push(...bridges.colliders);
 
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
+  if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
@@ -636,6 +641,9 @@ async function initApp() {
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
+  // The Book: territories, people and the daily take that Act I's choices bought (js/empire.js)
+  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager }) : null;
+  window.__city.empire = empire;
   // The wanted level and the police (js/wanted.js)
   const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
   window.__city.wanted = wanted;
@@ -1002,6 +1010,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
+    if (empire) empire.update(dt);
     if (wanted) wanted.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');

@@ -257,7 +257,8 @@ function createScore() {
 }
 
 // The arrival: tonight, on foot on Harbour Esplanade in Docklands, where the first job (Low Tide) starts
-const ARRIVE = { x: PLACES.M1_PLAYER.x, z: PLACES.M1_PLAYER.z, heading: Math.PI }; // facing grid north, towards Davo's car
+// (facing Davo, who waits at the first job's marker a few steps away)
+const ARRIVE = { x: PLACES.M1_PLAYER.x, z: PLACES.M1_PLAYER.z, heading: Math.atan2(PLACES.DOCK_COLLINS.x - PLACES.M1_PLAYER.x, PLACES.DOCK_COLLINS.z - PLACES.M1_PLAYER.z) };
 
 // --- The people in the intro's ground-level shots -------------------------------------------------------------------
 // the footpath beside a named street nearest a point: the street's direction (ux, uz), the way from the road into the
@@ -413,7 +414,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       actors: [
         { key: 'vince', id: V, pose: { ...vince, heading: face(vince, { x: (c1.x + c2.x) / 2, z: (c1.z + c2.z) / 2 }) }, anim: 'talk_assured' },
         // (only the story's own people: Davo is Vince's driver)
-        { key: 'crew1', id: STORY_CAST.Davo, pose: { ...c1, heading: face(c1, vince) }, anim: 'laugh' }
+        { key: 'crew1', id: STORY_CAST.Davo, pose: { ...c1, heading: face(c1, vince) }, anim: 'listen' } // (the laugh clip shook him and froze head-back: he listens)
       ]
     });
     // Docklands at sunset: they stand between the camera and the sun
@@ -577,7 +578,9 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       teleportTo(ARRIVE.x, ARRIVE.z, ARRIVE.heading);
     }
     rolling = false;
-    missionSystem?.sub?.("Tonight. Davo is waiting on Harbour Esplanade: the pink marker.", 6);
+    // a new story goes straight on into the first job (one scene, not an intro, a walk, a call and another scene)
+    if (missionSystem && missionSystem.progress === 0 && !missionSystem.onJob) missionSystem.start(0, { fromIntro: true });
+    else missionSystem?.sub?.("Tonight. Davo is waiting on Harbour Esplanade: the pink marker.", 6);
   }
 
   const forced = new URLSearchParams(location.search).has('intro');

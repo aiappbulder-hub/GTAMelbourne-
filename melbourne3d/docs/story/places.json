@@ -767,6 +767,132 @@
    "onWater": null,
    "districtToday": "st_kilda",
    "network": "St Kilda East"
+  },
+  {
+   "id": "SB_CITY",
+   "label": "City Rd x Southbank Blvd (under Eureka)",
+   "territory": "SBANK",
+   "x": -455,
+   "z": 681
+  },
+  {
+   "id": "LYGON_ARGYLE",
+   "label": "Lygon St by Argyle Square (the shooter's hatch)",
+   "territory": "CARLTON",
+   "x": 466,
+   "z": -1317
+  },
+  {
+   "id": "CARDIGAN_GRATTAN",
+   "label": "Cardigan St x Grattan St (where the hatch stops)",
+   "territory": "CARLTON",
+   "x": 446,
+   "z": -1595
+  },
+  {
+   "id": "CARDIGAN_DRIVER",
+   "label": "Cardigan St x Grattan St, beside the stopped hatch",
+   "territory": "CARLTON",
+   "x": 451,
+   "z": -1590
+  },
+  {
+   "id": "VIC_QUEEN",
+   "label": "Victoria St x Queen St (Queen Victoria Market)",
+   "territory": "NWM",
+   "x": -345,
+   "z": -1212
+  },
+  {
+   "id": "QUEEN_FRANKLIN",
+   "label": "Queen St x Franklin St (market car park)",
+   "territory": "NWM",
+   "x": -475,
+   "z": -947
+  },
+  {
+   "id": "ELIZ_THERRY",
+   "label": "Elizabeth St x Therry St (market, east side)",
+   "territory": "NWM",
+   "x": -255,
+   "z": -1071
+  },
+  {
+   "id": "QUEEN_THERRY",
+   "label": "Queen St x Therry St (market sheds)",
+   "territory": "NWM",
+   "x": -419,
+   "z": -1062
+  },
+  {
+   "id": "HQ_COOLER",
+   "label": "The Quiet Room, the cooler by the back door",
+   "territory": "GRID",
+   "x": -212,
+   "z": 115
+  },
+  {
+   "id": "HQ_FUSE",
+   "label": "Flinders Lane, the fuse box across from the Quiet Room",
+   "territory": "GRID",
+   "x": -204,
+   "z": 125
+  },
+  {
+   "id": "HQ_JUKE",
+   "label": "The Quiet Room, the jukebox by the window",
+   "territory": "GRID",
+   "x": -227,
+   "z": 115
+  },
+  {
+   "id": "DOORS_END",
+   "label": "Collins St x William St (where Bianca stops)",
+   "territory": "GRID",
+   "x": -722,
+   "z": -4
+  },
+  {
+   "id": "M13_CAR",
+   "label": "Flinders St west of Elizabeth St, Davo's car",
+   "territory": "GRID",
+   "x": -275,
+   "z": 236
+  },
+  {
+   "id": "M13_UNI_N",
+   "label": "Elizabeth St east footpath, patrol north end",
+   "territory": "GRID",
+   "x": -229,
+   "z": 152
+  },
+  {
+   "id": "M13_UNI_S",
+   "label": "Elizabeth St east footpath, patrol south end",
+   "territory": "GRID",
+   "x": -229,
+   "z": 205
+  },
+  {
+   "id": "M13_UNI_B",
+   "label": "Elizabeth St east footpath, the uniform on the corner",
+   "territory": "GRID",
+   "x": -229,
+   "z": 136
+  },
+  {
+   "id": "FLINDERS_RUSSELL",
+   "label": "Flinders St x Russell St (by Federation Square)",
+   "territory": "GRID",
+   "x": 228,
+   "z": 237
+  },
+  {
+   "id": "FEDSQ_PLAZA",
+   "label": "Federation Square, the open plaza on Flinders St",
+   "territory": "GRID",
+   "x": 120,
+   "z": 270
   }
  ]
 }

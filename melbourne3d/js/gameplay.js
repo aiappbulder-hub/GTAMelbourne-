@@ -34,8 +34,20 @@ const WEAPONS = [
   { id: 'uzi', name: 'Uzi', mag: 32, rate: 0.085, reload: 1.6, range: 45, pellets: 1, spread: 0.05, auto: true, sound: 'uzi' },
   { id: 'shotgun', name: 'Shotgun', mag: 6, rate: 0.85, reload: 2.2, range: 26, pellets: 8, spread: 0.11, auto: false, sound: 'shotgun' }
 ];
-const ENTER_REACH = 2.8; // metres from the car's side: get straight in
 const WALK_REACH = 9; // metres: walk to the door first
+// Getting in (seconds of game time): turn to the car, open the door, get in; with a driver in it, they're dragged out
+// first. Getting out: a short climb out of the seat (not for a mission's leaveCarNow, which is instant)
+const BOARD_TIME = 1.25;
+const BOARD_STEPS = { turn: 0.3, pull: 0.75, sink: 1.25 };
+const JACK_TIME = 1.7;
+const JACK_STEPS = { turn: 0.25, pull: 0.6, aside: 0.95, back: 1.2, sink: 1.7 };
+const STEP_OUT_TIME = 0.6;
+// The driver dragged out: pulled out by 0.55 s, on their back by 1.0 s, up again by 2.7 s, then running; gone by 8 s
+const JACKED_LIFE = 8;
+const lerp = (a, b, k) => a + (b - a) * k;
+const smooth = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 * k); };
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+const lerpAngle = (a, b, k) => a + wrapAngle(b - a) * k;
 const TALK_REACH = 3.6;
 const LOCK_CONE = 0.62; // radians either side of the facing for lock-on without aiming
 const LOCK_RANGE = 40;
@@ -278,6 +290,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
   // the right-hand (driver's) side door of a car at (x, z) facing heading
   const doorOf = (x, z, heading, out = 1.45) => ({ x: x - Math.cos(heading) * out, z: z + Math.sin(heading) * out });
+  // a point by car c ({ x, z, h }): `along` metres forward of its middle, `out` metres out on the driver's side
+  const besideCar = (c, along, out) => ({ x: c.x + Math.sin(c.h) * along - Math.cos(c.h) * out, z: c.z + Math.cos(c.h) * along + Math.sin(c.h) * out });
+  let seq = null; // getting in: turning to the car, opening the door, (dragging the driver out,) sitting down
+  let stepOut = null; // getting out: climbing out of the seat
+  let halted = null; // { v, s }: a car in the traffic the player is going for, braking to a stop (s m/s)
+  let jacked = null; // the driver dragged out of it, on the ground and then running off
 
   // Leave what the car entity is now where it stands
   function parkCurrent() {
@@ -315,10 +333,15 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     carMesh.visible = false;
     missionSystem?.sub?.(sports.def.line, 2.5);
   }
-  function enterTrafficCar(v) {
-    voices?.event('carjack', v);
-    const wasMoving = v.edge && v.speed > 0.5;
-    wanted?.crime(wasMoving ? 'carjack' : 'theft', v.x, v.z);
+  // jack: the getting-in sequence has already reported the crime ({ dragged: whether a driver was pulled out });
+  // without it (the HUD's car button going back to the last car taken) it's reported here
+  function enterTrafficCar(v, jack = null) {
+    const wasMoving = jack ? jack.dragged : v.edge && v.speed > 0.5;
+    if (!jack) {
+      if (!missionSystem?.onJob) voices?.event('carjack', v); // (no police chatter on a job)
+      wanted?.crime(wasMoving ? 'carjack' : 'theft', v.x, v.z);
+    }
+    v.hasDriver = false; // (nobody at the wheel of it now but the player)
     if (riding !== v) parkCurrent();
     trafficSystem.takeCar(v);
     riding = lastRide = v;
@@ -331,9 +354,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (wasMoving || v.edge === null) trafficSystem.scarePeds(v.x, v.z, 18, 6);
     missionSystem?.sub?.(wasMoving ? 'You dragged the driver out and took the car.' : 'You took the car.', 2.5);
   }
-  function exitCar() {
+  // instant: straight out on to the footpath (a mission taking over); otherwise the player is shown climbing out of the
+  // seat (the mode changes at once all the same: only the drawing catches up)
+  function exitCar(instant = false) {
     if (Math.abs(car.speed) > 9) { missionSystem?.sub?.('Slow down before you get out.', 1.5); return; }
     const d = doorOf(car.position.x, car.position.z, car.heading, 1.6);
+    const h = car.heading, seat = besideCar({ x: car.position.x, z: car.position.z, h }, 0.05, 0.38);
     if (riding !== 'taxi') {
       parkCurrent();
       // the car entity is nobody's now: keep the taxi's body hidden where it stood
@@ -344,8 +370,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     go('person');
     if (riding === null && lastRide !== 'taxi') carMesh.visible = false;
     person.position.set(d.x, 0.22, d.z);
-    person.heading = car.heading + Math.PI / 2;
     person.speed = 0;
+    if (instant || !cast) { person.heading = car.heading + Math.PI / 2; return; }
+    // out of the seat and up beside the door, facing the way the car faces
+    person.heading = h;
+    stepOut = { t: 0, seat, door: { x: d.x, z: d.z }, h };
   }
   /** One of the player's cars, brought round to the kerb beside the player ('taxi' or a CUSTOM_CARS id) */
   async function summon(id = 'clubbie') {
@@ -381,7 +410,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (cm.activeMode !== 'car') return;
     car.speed = 0;
     car.vx = car.vz = 0;
-    exitCar();
+    exitCar(true);
   }
   const summonSports = () => summon('clubbie');
 
@@ -429,7 +458,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function nearestRide() {
     const p = person.position;
     let best = null;
-    const consider = (r) => { if (!best || r.dist < best.dist) best = r; };
+    // (a car of the player's own, or one a job has left for them, wins over a passing car that is only a little
+    // nearer: F beside Davo's car must not carjack whoever is driving by)
+    const rank = (r) => r.dist + (r.kind === 'traffic' ? 3.5 : 0);
+    const consider = (r) => { if (!best || rank(r) < rank(best)) best = r; };
     if (ownTaxiParked()) {
       const t = taxiClone || car;
       const h = taxiClone ? taxiClone.rotation.y : car.heading;
@@ -450,16 +482,190 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
   let approach = null; // walking to a car's door
   function tryEnter() {
+    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
+    if (seq) return; // already getting in
     const r = nearestRide();
     if (!r) return;
-    if (r.dist <= ENTER_REACH) return board(r);
+    if (r.kind === 'traffic') {
+      // someone at the wheel (a car in the traffic, or one stopped for the player before): they brake and stop where
+      // they are, and get dragged out
+      const v = r.v;
+      r.occupied = !!v.edge || !!v.hasDriver;
+      if (r.occupied) {
+        haltCar(v);
+        cast?.preload([driverModel(v)]);
+      }
+    }
+    // (always to the door first, however close: the sequence starts there)
+    if (r.dist <= 0.7 && !(halted && halted.v === r.v)) return board(r);
     approach = { ride: r, t: 0 };
   }
   function board(r) {
     approach = null;
+    startSeq(r);
+  }
+  // at the end of the sequence: in, and driving
+  function boardNow(r, s) {
     if (r.kind === 'taxi') enterOwnTaxi();
     else if (r.kind === 'sports') enterSports();
-    else enterTrafficCar(r.v);
+    else enterTrafficCar(r.v, { dragged: s.jack });
+  }
+  /** A car in the traffic out of it, coming to a stop where it is (it stays there as a parked car until taken) */
+  function haltCar(v) {
+    if (!v.edge) return;
+    const s = Math.max(0, v.speed || 0);
+    trafficSystem.takeCar(v); // (off its lane)
+    trafficSystem.parkCar(v); // (left standing: the traffic draws it where it is)
+    v.hasDriver = true;
+    halted = s > 0.05 ? { v, s } : null;
+  }
+  /** Who drives car v (a model the game's crowd and cast use already): a police officer in a police car */
+  function driverModel(v) {
+    const act = cast?.active;
+    if (!act) return null;
+    if (v.isPolice && act.police?.length) return act.police[0];
+    const i = Math.max(0, trafficSystem.cars.indexOf(v));
+    const pool = i % 3 === 1 && act.female?.length ? act.female : act.male?.length ? act.male : null;
+    return pool ? pool[i % pool.length] : 'Male_Adult_01';
+  }
+  // The car being got into, where it stands: { x, z, h }
+  function carPose(r) {
+    if (r.kind === 'taxi') return taxiClone ? { x: taxiClone.position.x, z: taxiClone.position.z, h: taxiClone.rotation.y } : { x: car.position.x, z: car.position.z, h: car.heading };
+    if (r.kind === 'sports') return { x: sports.x, z: sports.z, h: sports.heading };
+    return { x: r.v.x, z: r.v.z, h: r.v.yaw };
+  }
+  function startSeq(r) {
+    stepOut = null;
+    const jack = r.kind === 'traffic' && !!r.occupied;
+    seq = { r, t: 0, c: carPose(r), jack, total: jack ? JACK_TIME : BOARD_TIME, steps: jack ? JACK_STEPS : BOARD_STEPS,
+      x0: person.position.x, z0: person.position.z, h0: person.heading, px: person.position.x, pz: person.position.z, reported: false };
+  }
+  function endSeq() {
+    seq = null;
+    cast?.setPlayerPose(null);
+  }
+  // The crime, once, as the door comes open (a car in the traffic): the driver is dragged out at the same moment
+  function reportTheft(s) {
+    if (s.reported || s.r.kind !== 'traffic') return;
+    s.reported = true;
+    const v = s.r.v;
+    if (!missionSystem?.onJob) voices?.event('carjack', v); // (no police chatter on a job)
+    wanted?.crime(s.jack ? 'carjack' : 'theft', v.x, v.z);
+    if (s.jack) {
+      spawnJacked(v, s.c);
+      trafficSystem.scarePeds(v.x, v.z, 18, 6);
+    }
+  }
+  // One frame of getting in. The player is drawn by the sequence (cast.setPlayerPose) and held where it puts them;
+  // the movement keys do nothing meanwhile, and at the end of the timer they're in the car
+  function stepSeq(dt) {
+    const s = seq, c = s.c, T = s.steps;
+    s.t += dt;
+    const t = s.t;
+    const face = c.h + Math.PI / 2; // facing the car's side
+    const stand = besideCar(c, -0.3, 1.45), seat = besideCar(c, 0.05, 0.38);
+    const handle = besideCar(c, -0.2, 0.95), open = besideCar(c, 0.25, 1.35); // (the door hinges at its front edge)
+    const handY = person.position.y + 0.95;
+    let x = stand.x, z = stand.z, heading = face, anim = 'idle', timeScale = 1, reach = null, inside = false;
+    if (t < T.turn) {
+      // round to the door, turning to face the car
+      const k = smooth(t / T.turn), dh = wrapAngle(face - s.h0);
+      x = lerp(s.x0, stand.x, k);
+      z = lerp(s.z0, stand.z, k);
+      heading = lerpAngle(s.h0, face, k);
+      if (Math.abs(dh) > 0.6) anim = dh > 0 ? 'turn_left' : 'turn_right';
+    } else if (t < T.pull) {
+      // the right hand to the handle, then the door pulled open (out and towards the front)
+      const k = (t - T.turn) / (T.pull - T.turn), kk = smooth((k - 0.5) / 0.5);
+      reach = { x: lerp(handle.x, open.x, kk), y: handY, z: lerp(handle.z, open.z, kk), w: Math.min(1, k / 0.45) };
+      if (k > 0.6) reportTheft(s);
+    } else if (s.jack && t < T.back) {
+      // a step back along the car while the driver is hauled out past, a hand on them, and back to the door
+      reportTheft(s);
+      const aside = besideCar(c, -1.0, 1.55);
+      const first = t < T.aside, k = first ? smooth((t - T.pull) / (T.aside - T.pull)) : smooth((t - T.aside) / (T.back - T.aside));
+      x = first ? lerp(stand.x, aside.x, k) : lerp(aside.x, stand.x, k);
+      z = first ? lerp(stand.z, aside.z, k) : lerp(aside.z, stand.z, k);
+      anim = first ? 'strafe_left' : 'strafe_right';
+      timeScale = 1.2;
+      if (jacked && jacked.at) reach = { x: jacked.at.x, y: person.position.y + 1.15, z: jacked.at.z, w: first ? 1 : 1 - k };
+    } else if (t < T.sink) {
+      // in: into the seat, turning to face the front, sitting down; the door let go of
+      reportTheft(s);
+      const t0 = s.jack ? T.back : T.pull, k = smooth((t - t0) / (T.sink - t0));
+      x = lerp(stand.x, seat.x, k);
+      z = lerp(stand.z, seat.z, k);
+      heading = lerpAngle(face, c.h, k);
+      anim = 'sit';
+      inside = true;
+      if (!s.jack) reach = { x: open.x, y: handY, z: open.z, w: 1 - Math.min(1, k * 2.5) };
+    } else {
+      const r = s.r;
+      reportTheft(s);
+      endSeq();
+      boardNow(r, s);
+      return;
+    }
+    // the player's own position stays outside the car (the camera follows it; nothing pushes it out of the body)
+    const px = inside ? stand.x : x, pz = inside ? stand.z : z;
+    person.position.x = s.px = px;
+    person.position.z = s.pz = pz;
+    person.heading = heading;
+    person.speed = 0;
+    cast?.setPlayerPose({ x, y: person.position.y, z, heading, anim, timeScale, reach });
+  }
+
+  // The driver dragged out (a model of the game's own, cast.setActor): out of the seat, on their back on the road a
+  // moment, up, and running off. Gone after a few seconds, or as soon as the player is far away
+  function spawnJacked(v, c) {
+    if (jacked) cast?.setActor(jacked.key, jacked.id, null);
+    jacked = null;
+    const id = driverModel(v);
+    if (!cast || !id) return;
+    const fx = Math.sin(c.h), fz = Math.cos(c.h), ox = -Math.cos(c.h), oz = Math.sin(c.h);
+    // away from the car and back along it (not in front of where the player will drive)
+    const rx = ox - fx * 0.6, rz = oz - fz * 0.6;
+    jacked = { id, key: `carjack:${id}`, t: 0, c, y: v.y || 0, seat: besideCar(c, 0.05, 0.38), out1: besideCar(c, 0.1, 1.9), out2: besideCar(c, 0.1, 2.6),
+      runH: Math.atan2(rx, rz), at: null, run: null };
+  }
+  function stepJacked(dt) {
+    const j = jacked;
+    j.t += dt;
+    const t = j.t, c = j.c, face = c.h + Math.PI / 2;
+    const me = cm.getActiveEntity?.()?.position || person.position;
+    if (t > JACKED_LIFE || (j.at && Math.hypot(j.at.x - me.x, j.at.z - me.z) > 70)) {
+      cast?.setActor(j.key, j.id, null);
+      jacked = null;
+      return;
+    }
+    let x, z, heading = face, fall = 0, anim = 'idle', speed;
+    if (t < 0.15) { x = j.seat.x; z = j.seat.z; heading = c.h; anim = 'sit'; } // still at the wheel
+    else if (t < 0.55) {
+      // hauled out of the seat, turned round to the player
+      const k = smooth((t - 0.15) / 0.4);
+      x = lerp(j.seat.x, j.out1.x, k);
+      z = lerp(j.seat.z, j.out1.z, k);
+      heading = lerpAngle(c.h, face, k);
+    } else if (t < 2.7) {
+      // stumbling back, down on their back, and up again
+      const k = smooth((t - 0.55) / 0.45);
+      x = lerp(j.out1.x, j.out2.x, k);
+      z = lerp(j.out1.z, j.out2.z, k);
+      fall = t < 2.2 ? k : 1 - smooth((t - 2.2) / 0.5);
+    } else {
+      // and off, running
+      if (!j.run) j.run = { x: j.out2.x, z: j.out2.z };
+      const sp = 4.4;
+      j.run.x += Math.sin(j.runH) * sp * dt;
+      j.run.z += Math.cos(j.runH) * sp * dt;
+      x = j.run.x;
+      z = j.run.z;
+      heading = j.runH;
+      speed = sp;
+    }
+    j.at = { x, z };
+    // (running, they swing round to the way they run rather than snapping to it)
+    cast?.setActor(j.key, j.id, { x, y: j.y, z, heading, fall, ...(speed !== undefined ? { speed, ease: 7 } : {}) }, anim);
   }
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -619,6 +825,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
 
   function fire() {
+    if (missionSystem?.busy || document.body.classList.contains('cutscene') || document.body.classList.contains('cinematic')) return; // no shooting in a cut scene, the intro, or with a choice up
+    if (seq) return; // (getting into a car: both hands busy)
     if (!armed || cm.activeMode !== 'person' || reloading > 0 || cooldown > 0) return;
     const w = WEAPONS[wi];
     if (ammo[wi] <= 0) { reloading = w.reload; return; }
@@ -639,7 +847,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flash.visible = true;
     flashT = 0.05;
     bang(w.sound);
-    voices?.event('gunfire', person.position);
+    if (!missionSystem?.onJob) voices?.event('gunfire', person.position); // (no police chatter on a job)
     missionSystem?.onGunfire?.();
     wanted?.crime('shot', person.position.x, person.position.z);
     const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
@@ -702,7 +910,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     return best;
   }
   function talk() {
-    if (cm.activeMode !== 'person') return;
+    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
+    if (cm.activeMode !== 'person' || seq) return;
     const q = nearestPed(TALK_REACH);
     if (!q) return;
     person.heading = Math.atan2(q.x - person.position.x, q.z - person.position.z);
@@ -785,7 +994,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (!offUi(e)) return;
     // right button: aim (held)
     if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
-    if (e.button === 0) down = { x: e.clientX, y: e.clientY, t: performance.now() };
+    // (a mouse click shoots; a finger on the screen never does: on touch screens only the FIRE button fires)
+    if (e.button === 0 && e.pointerType === 'mouse') down = { x: e.clientX, y: e.clientY, t: performance.now() };
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
   window.addEventListener('keydown', (e) => {
@@ -845,7 +1055,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     const onFoot = cm.activeMode === 'person';
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
-    cm.aiming = onFoot && armed && aimHeld;
+    cm.aiming = onFoot && armed && aimHeld && !missionSystem?.busy && !seq;
     if (cm.aiming) {
       // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
       // degrees of it draws the aim onto them; E jumps the aim to the next one along
@@ -878,11 +1088,23 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     elCross.hidden = !cm.aiming;
     // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
     raisedT = Math.max(0, raisedT - dt);
-    cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot, aiming: cm.aiming || raisedT > 0,
+    cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut, aiming: cm.aiming || raisedT > 0,
       yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0 });
     elCross.classList.toggle('lock', !!lockTarget);
     if (triggerHeld && WEAPONS[wi].auto) fire();
 
+    // a car in the traffic the player is going for, braking to a stop
+    if (halted) {
+      const v = halted.v;
+      if (!v.parked || v.driven) halted = null;
+      else {
+        halted.s = Math.max(0, halted.s - 8 * dt);
+        const yaw = v.yaw + (v.yawOffset || 0);
+        v.x += Math.sin(yaw) * halted.s * dt;
+        v.z += Math.cos(yaw) * halted.s * dt;
+        if (halted.s <= 0) halted = null;
+      }
+    }
     // walking to a car's door, then in
     if (approach) {
       const anyKey = cm.keys.forward || cm.keys.backward || cm.keys.left || cm.keys.right;
@@ -893,7 +1115,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         if (r.kind === 'traffic') Object.assign(r.door, doorOf(r.v.x, r.v.z, r.v.yaw));
         const dx = r.door.x - person.position.x, dz = r.door.z - person.position.z, d = Math.hypot(dx, dz);
         approach.t += dt;
-        if (d < 0.7 || approach.t > 6) board(r);
+        // (at the door once the car has stopped; or, if something's in the way, after a few seconds whatever)
+        if ((d < 0.7 && !(halted && halted.v === r.v)) || approach.t > 4) board(r);
+        else if (d < 0.7) { person.speed = 0; person.heading = Math.atan2(dx, dz); }
         else {
           person.heading = Math.atan2(dx, dz);
           const sp = Math.min(4.3, d * 3);
@@ -903,6 +1127,29 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         }
       }
     }
+    // getting in: on a timer, so it always ends. Something else moving the player (a teleport, a mission) or changing
+    // the mode calls it off
+    if (seq) {
+      const r = seq.r;
+      const moved = Math.hypot(person.position.x - seq.px, person.position.z - seq.pz) > 2.5;
+      const carGone = r.kind === 'traffic' && (r.v.driven || r.v.edge || !r.v.parked);
+      if (!onFoot || moved || carGone) endSeq();
+      else stepSeq(dt);
+    }
+    // getting out: up out of the seat to beside the door (a key, or anything moving the player, ends it at once)
+    if (stepOut) {
+      const so = stepOut;
+      so.t += dt;
+      const anyKey = cm.keys.forward || cm.keys.backward || cm.keys.left || cm.keys.right;
+      if (!onFoot || anyKey || so.t >= STEP_OUT_TIME || Math.hypot(person.position.x - so.door.x, person.position.z - so.door.z) > 1) {
+        stepOut = null;
+        cast?.setPlayerPose(null);
+      } else {
+        const k = smooth((so.t - 0.15) / (STEP_OUT_TIME - 0.15));
+        cast?.setPlayerPose({ x: lerp(so.seat.x, so.door.x, k), y: person.position.y, z: lerp(so.seat.z, so.door.z, k), heading: so.h, anim: k < 0.35 ? 'sit' : 'idle' });
+      }
+    }
+    if (jacked) stepJacked(dt);
 
     // the sports car, driven: where the car physics puts it, tilting over kerbs and with the chassis, wheels turning
     if (riding === 'sports' && cm.activeMode === 'car' && sports.mesh) {
@@ -969,8 +1216,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
     // context prompt
     let act = '', label = '';
-    if (onFoot && !approach) {
+    if (onFoot && !approach && !seq) {
       const r = nearestRide();
+      if (r && r.kind === 'traffic' && r.dist < 5 && cast) cast.preload([driverModel(r.v)]); // (whoever's driving, ready to be dragged out)
       const q = nearestPed(TALK_REACH);
       if (r && r.dist < 5) { act = 'enter'; label = r.kind === 'taxi' ? 'Get in your taxi' : r.kind === 'sports' ? `Drive the ${sports.def.name}` : 'Take this car'; }
       else if (q && !chat) { act = 'talk'; label = armed && aimHeld ? 'Rob them' : 'Talk'; }
@@ -1044,6 +1292,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     },
     // for scripted checks
     fire, talk, tryEnter, exitCar,
-    get state() { return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode }; }
+    get state() {
+      return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
+        steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
+    }
   };
 }

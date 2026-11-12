@@ -30,9 +30,12 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
   sit: 'Sit idle (chair)', sit_listen: 'Sit idle (chair)', sit_look: 'Sit idle (chair)', sit_talk: 'Sit idle (chair)', sit_think: 'Sit idle (chair)',
   ready: 'Pistol idle (low ready)', aim: 'Pistol aim', fire: 'Pistol fire', hit: 'Hit from front', die: 'Death (fall backward)', getup: 'Get up (from back)' };
 const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
-export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10' }
-  : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo' };
-// (the Rocketbox people still in assets/people: the rest were never fetched and were removed, see assets/people/README.md)
+// (Act I's people are Rocketbox bodies for now; each loads when their job first wants them)
+const ACT1_CAST = { Gus: 'Male_Adult_07', Ruby: 'Business_Female_01', Nico: 'Male_Adult_04', Marsh: 'Business_Female_02', Terry: 'Business_Male_02',
+  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17' };
+const EAGER_CAST = ['Vince', 'Kaz', 'Mick'];
+export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10', ...ACT1_CAST }
+  : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo', ...ACT1_CAST };
 const POOLS = {
   police: CLASSIC ? ['Police_Male_01', 'Police_Male_03'] : ['ara:sgt', 'ara:cons'], // Kestrel's own: a sergeant and a constable
   gang: ['Male_Adult_04', 'Male_Adult_10'],
@@ -142,7 +145,7 @@ export function createCast({ scene, controllerManager }) {
   (async () => {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER)]);
     // (Davo is one job's: he loads when it wants him)
-    await Promise.all([...Object.entries(STORY_CAST).filter(([n]) => n !== 'Davo').map(([, id]) => loadPerson(id)), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
+    await Promise.all([...EAGER_CAST.map((n) => loadPerson(STORY_CAST[n])), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
     // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
     // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
     // load when the scene first wants them, in setActor)
@@ -239,7 +242,7 @@ export function createCast({ scene, controllerManager }) {
   function gait(a, v, idle = 'idle') {
     const s = Math.abs(v);
     const was = a.cur === a.acts.sprint ? 3 : a.cur === a.acts.run ? 2 : a.cur === a.acts.walk ? 1 : 0;
-    const g = s > (was === 3 ? 4.3 : 4.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
+    const g = s > (was === 3 ? 6.2 : 6.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
     const G = a.gaitSpeed || GAIT;
     if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / G.sprint, 0.8, 2.0));
     else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / G.run, 0.75, 1.45));
@@ -520,9 +523,33 @@ export function createCast({ scene, controllerManager }) {
     muzzleValid = true;
   }
 
+  // One arm reaching for a point in the world (a car's door handle, a driver's collar): the rig has no reaching clip, so
+  // the arm is solved over whatever the clip does, two bones as for the phone, the elbow down and out to that side.
+  // target: { x, y, z, left }
+  function reachArm(a, target, w) {
+    const B = bonesOf(a);
+    const U = target.left ? B.L_UpperArm : B.R_UpperArm, F = target.left ? B.L_Forearm : B.R_Forearm, H = target.left ? B.L_Hand : B.R_Hand;
+    if (!U || !F || !H) return;
+    const h = a.heading, fwd = _f.set(Math.sin(h), 0, Math.cos(h)), side = _r.set(-Math.cos(h), 0, Math.sin(h));
+    if (target.left) side.negate();
+    const S = U.getWorldPosition(new THREE.Vector3()), E0 = F.getWorldPosition(new THREE.Vector3()), H0 = H.getWorldPosition(new THREE.Vector3());
+    const L1 = S.distanceTo(E0), L2 = E0.distanceTo(H0);
+    const T = new THREE.Vector3(target.x, target.y, target.z);
+    const d = Math.max(1e-3, Math.min(S.distanceTo(T), L1 + L2 - 1e-3)), dir = new THREE.Vector3().subVectors(T, S).normalize();
+    const along = (L1 * L1 - L2 * L2 + d * d) / (2 * d), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
+    const pole = new THREE.Vector3(0, -1, 0).addScaledVector(side, 0.6).addScaledVector(fwd, -0.2);
+    pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+    const elbow = S.clone().addScaledVector(dir, along).addScaledVector(pole, up);
+    pointBone(U, F, elbow.sub(S).normalize(), w);
+    const E = F.getWorldPosition(new THREE.Vector3());
+    pointBone(F, H, T.sub(E).normalize(), w);
+  }
+
   // ---------------------------------------------------------------------------------------------------------------
   // The player
   let playerActor = null, playerAction = null;
+  // getting into or out of a car: { x, y, z, heading, anim, timeScale, reach: { x, y, z, w, left } } or null
+  let playerPose = null;
   /** What the player does while standing (a cut scene's listen, talk or nod; a cheer): null hands back to the gait */
   function setPlayerAction(name) {
     playerAction = name;
@@ -542,6 +569,24 @@ export function createCast({ scene, controllerManager }) {
       place(a, s.x, s.y, s.z, s.heading, dt, false);
       a.mixer.update(dt);
       faceLife(a, dt);
+      return;
+    }
+    if (playerPose && controllerManager.activeMode === 'person') {
+      // getting into or out of a car (js/gameplay.js): drawn where the sequence says, not where the controller stands
+      const a = playerActor, o = playerPose;
+      p.castModel = true;
+      a.still = 0;
+      a.turnT = 0;
+      a.lastHeading = p.heading; // (no turn clip kicks in from the jump back to the controller's heading afterwards)
+      a.onceUntil = 0; // a wave or a cheer doesn't hold the sequence up
+      play(a, has(a, o.anim) ? o.anim : 'idle', o.timeScale || 1, o.fade ?? 0.3);
+      place(a, o.x, o.y, o.z, o.heading, dt, false);
+      a.mixer.update(dt);
+      faceLife(a, dt);
+      a.group.updateMatrixWorld(true);
+      if (o.reach && o.reach.w > 0.01) reachArm(a, o.reach, Math.min(1, o.reach.w));
+      for (const g of Object.values(guns)) g.visible = false; // (the gun is away while both hands are busy)
+      muzzleValid = false;
       return;
     }
     if (controllerManager.activeMode !== 'person') {
@@ -592,6 +637,7 @@ export function createCast({ scene, controllerManager }) {
     if (!name || !at) return;
     const id = STORY_CAST[name];
     if (!id) return;
+    if (!templates.has(id)) { loadPerson(id); return; } // fetched the first time their job wants them
     if (!story[name]) {
       story[name] = makeActor(id, true);
       if (!story[name]) return;
@@ -647,6 +693,9 @@ export function createCast({ scene, controllerManager }) {
     // pose.speed (m/s): a walker, stepping at the pace they really move and standing in `anim` once they arrive.
     // pose.ease (rad/s): the heading turns towards pose.heading at most that fast (and settles) instead of snapping
     if (pose.speed !== undefined) gait(a, pose.speed, anim); else play(a, anim); // (a mood they've no clip for plays the idle, but stays their mood: the phone comes out for 'phone')
+    // pose.fall (0..1): tipped over backwards as the crowd's dead go down (a carjacked driver dragged out lands on
+    // their back; 0 stands them up again)
+    a.fall = pose.fall || 0;
     if (pose.ease && a.group.visible) {
       const dt = Math.min(0.1, Math.max(0, clock - (a.poseT ?? clock)));
       const d = Math.atan2(Math.sin(pose.heading - a.heading), Math.cos(pose.heading - a.heading));
@@ -682,6 +731,9 @@ export function createCast({ scene, controllerManager }) {
     setGiver,
     get actors() { return live; },
     setPlayerAction,
+    /** Draw the player at a pose of the car sequence's (js/gameplay.js) while on foot: { x, y, z, heading, anim,
+     *  timeScale, reach }, reach an arm's target { x, y, z, w (0..1), left }; null hands back to the controller */
+    setPlayerPose(o) { playerPose = o; },
     /** for checks: what the player and the story characters are playing */
     debug() {
       const name = (a) => a?.cur?.getClip().name || '-';

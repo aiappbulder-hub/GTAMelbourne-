@@ -875,8 +875,9 @@ class ThirdPersonControllerManager {
   }
 
   getGroundHeight(x, z, mode = 'person') {
-    // extra surfaces other modules lay down (St Kilda Pier's deck, js/stkilda.js)
-    if (this.extraGround) for (const f of this.extraGround) { const y = f(x, z); if (y !== null) return y; }
+    // extra surfaces other modules lay down (St Kilda Pier's deck, js/stkilda.js; the Yarra's bridges, js/bridges.js,
+    // whose footpaths are raised for people only, hence the mode)
+    if (this.extraGround) for (const f of this.extraGround) { const y = f(x, z, mode); if (y !== null) return y; }
     // Inside Central Park (5th Ave to Central Park West, 59th St to 110th St)
     const cp = CENTRAL_PARK_BOUNDS;
     if (x > cp.minX && x < cp.maxX && z > cp.minZ && z < cp.maxZ) {
@@ -1154,7 +1155,7 @@ class ThirdPersonControllerManager {
   // speed and slows into stops and sharp turns; with a gun drawn it faces the aim and moves at a walk.
   updatePerson(dt) {
     const p = this.entities.person;
-    const WALK = 1.7, JOG = 4.3, SPRINT = 7.6;
+    const WALK = 1.7, JOG = 5.4, SPRINT = 9.2; // (a quick jog and a real sprint: the city's blocks are long on foot)
     const fwd = (this.keys.forward || 0) - (this.keys.backward || 0);
     const side = (this.keys.right || 0) - (this.keys.left || 0);
     const mag = Math.min(1, Math.hypot(fwd, side));

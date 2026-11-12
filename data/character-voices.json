@@ -114,6 +114,118 @@
       "gain": 1,
       "refDistance": 6,
       "maxDistance": 60
+    },
+    "gus": {
+      "name": "Gus",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "mason",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 101
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "ruby": {
+      "name": "Ruby",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "ruby",
+        "gender": "female",
+        "temperature": 0.6,
+        "seed": 103
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "nico": {
+      "name": "Nico",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "flynn",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 107
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "marsh": {
+      "name": "Marsh",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "matilda",
+        "gender": "female",
+        "temperature": 0.6,
+        "seed": 109
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "terry": {
+      "name": "Terry",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "angus",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 113
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "sully": {
+      "name": "Sully",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "mason",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 127
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "shooter": {
+      "name": "The driver",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "flynn",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 131
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
+    },
+    "bouncer": {
+      "name": "The bouncer",
+      "role": "mission",
+      "crew": "Act I",
+      "voice": {
+        "speaker": "angus",
+        "gender": "male",
+        "temperature": 0.6,
+        "seed": 137
+      },
+      "gain": 1,
+      "refDistance": 6,
+      "maxDistance": 60
     }
   },
   "lines": [
@@ -1186,6 +1298,1639 @@
         "heard": "Carlton mate the Brody boys are cutting in on our patch step on it",
         "score": 0.93
       }
+    },
+    {
+      "id": "gus_the-quiet-room_1",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Thirty years. My father's bar. And you want it for what? A front?",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_1.mp3",
+      "duration": 4.92,
+      "check": {
+        "heard": "thirty years, my father's bar, and you want it, for what, a front?\"",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_the-quiet-room_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "A bar. With a quiet room out the back.",
+      "file": "dialogue/the-quiet-room/player_the-quiet-room_1.mp3",
+      "duration": 3.36,
+      "check": {
+        "heard": "A bar with a quiet room out the back.",
+        "score": 1
+      }
+    },
+    {
+      "id": "gus_the-quiet-room_2",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "The bank wants it Friday.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_2.mp3",
+      "duration": 3.38,
+      "check": {
+        "heard": "the bank wants it friday",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_the-quiet-room_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Then we both know what day it is.",
+      "file": "dialogue/the-quiet-room/player_the-quiet-room_2.mp3",
+      "duration": 2.95,
+      "check": {
+        "heard": "then we both know what day it is, like",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_1",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "You don't have enough money to be this calm.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_1.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "You don't have enough money to be this calm.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Gus Pappas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_1.mp3",
+      "duration": 6.29,
+      "check": {
+        "heard": "Gus Poppas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_2",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "He'll sell. He just wants to be asked properly. Or not. Up to you.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_2.mp3",
+      "duration": 4.85,
+      "check": {
+        "heard": "He'll sell, he just wants to be asked properly, or not, up to you.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_3",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "And there's a woman been ringing for you. Ruby someone. Does numbers for the Golden Reef crowd at Southbank. Wouldn't say what about.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_3.mp3",
+      "duration": 7.68,
+      "check": {
+        "heard": "And there's a woman been ringing for you. Ruby, someone does numbers for the golden reef crowd at South Bay. Wouldn't say what about",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "gus_the-quiet-room_3",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "So. What's your offer?",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_3.mp3",
+      "duration": 1.94,
+      "check": {
+        "heard": "So, what's your offer?",
+        "score": 1
+      }
+    },
+    {
+      "id": "gus_the-quiet-room_4",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "My father would have shaken your hand. Don't make me regret it.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_4.mp3",
+      "duration": 4.3,
+      "check": {
+        "heard": "My father would have shaken your hand. Don't make me regret it.",
+        "score": 1
+      }
+    },
+    {
+      "id": "gus_the-quiet-room_5",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "You people. Always the same. Take it.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_5.mp3",
+      "duration": 2.95,
+      "check": {
+        "heard": "You people, always the same. Take it.",
+        "score": 1
+      }
+    },
+    {
+      "id": "gus_the-quiet-room_6",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Then I hear things, and you hear them second. Deal.",
+      "file": "dialogue/the-quiet-room/gus_the-quiet-room_6.mp3",
+      "duration": 4.51,
+      "check": {
+        "heard": "Then I hear things, and you hear them second. Deal.\"",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_2",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_2.mp3",
+      "duration": 7.51,
+      "check": {
+        "heard": "It's Ruby, you said to call if I ever want it out. I want out, under Eureka, the Seaward side. Be quick.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_4",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Ruby Achterberg kept Vellacott's books six years. If she's walking out, she's walking out with all of it in her head.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_4.mp3",
+      "duration": 6.1,
+      "check": {
+        "heard": "Ruby Aktaberg kept Velikov's books six years. If she's walking out, she's walking out with all of it in her head.",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_5",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Over the river. Queens Bridge, then left. She'll be the one not looking at her phone.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_5.mp3",
+      "duration": 5.23,
+      "check": {
+        "heard": "over the river, Queens Bridge, then left. She'll be the one not looking at her phone.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_3",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Drive. Don't look at the black four-wheel drive.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_3.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "Drive. Don't look at the black four-wheel drive.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_4",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "That's Vellacott's chauffeur. He's paid to follow, not to think. Use that.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_4.mp3",
+      "duration": 5.23,
+      "check": {
+        "heard": "That's Velikont's chauffeur. He's paid to follow, not to think. Use that.",
+        "score": 0.92
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_6",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Back over the river. He hates trams.",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_6.mp3",
+      "duration": 2.45,
+      "check": {
+        "heard": "back over the river. He hates trails.",
+        "score": 0.86
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_5",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Still there. I did say be quick.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_5.mp3",
+      "duration": 2.83,
+      "check": {
+        "heard": "Still there. I did say be quick.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_6",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Gone. Vellacott will be livid. Good.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_6.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "Gone. Velikot will be livid. Good.",
+        "score": 0.83
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_7",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Six years of his books. I know where every dollar sleeps, and who tucks it in.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_7.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "Six years of his books, I know where every doll sleeps, and who tucks it in?",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "davo_the-quiet-room_7",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "She talks like that all the time?",
+      "file": "dialogue/the-quiet-room/davo_the-quiet-room_7.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "She talks like that all the time.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_8",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Only when I am being paid. Am I being paid?",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_8.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "Only when I am being paid, am I being paid.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_9",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_9.mp3",
+      "duration": 5.28,
+      "check": {
+        "heard": "Before anyone says anything useful in that bar I sweep it, Kestrel had a wig with the place empty.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_10",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "There. Under the coin slot. That is a Kestrel bug, and it is still warm.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_10.mp3",
+      "duration": 4.73,
+      "check": {
+        "heard": "There, under the coin slot, there is a kestrel bug, and it is still warm.",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_11",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "What do we do with it?",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_11.mp3",
+      "duration": 4.51,
+      "check": {
+        "heard": "What do I do with it?",
+        "score": 0.83
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_12",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Clean. They'll know we found it.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_12.mp3",
+      "duration": 2.71,
+      "check": {
+        "heard": "They'll know we found it.",
+        "score": 0.91
+      }
+    },
+    {
+      "id": "ruby_the-quiet-room_13",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Then we mind what we say in here, and choose what they hear.",
+      "file": "dialogue/the-quiet-room/ruby_the-quiet-room_13.mp3",
+      "duration": 3.7,
+      "check": {
+        "heard": "Then we mind what we say in here and choose what they hear.",
+        "score": 1
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_1",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Twenty-two years, and you walk in at the primo. You always had manners.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_1.mp3",
+      "duration": 4.85,
+      "check": {
+        "heard": "22 years and you walk in at the primo, you always had manners.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "nico_sunday-lunch_1",
+      "character": "nico",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Manners. He left with your book, Zio. I remember.",
+      "file": "dialogue/sunday-lunch/nico_sunday-lunch_1.mp3",
+      "duration": 3.05,
+      "check": {
+        "heard": "Manners you left with your book sale. I remember",
+        "score": 0.78
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_2",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "You were twelve. You remember gelato.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_2.mp3",
+      "duration": 2.66,
+      "check": {
+        "heard": "You were twelve. You remember gelato.",
+        "score": 1
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "I'm dying, Callum. Slowly, which is the expensive way. When I go, Carlton goes to someone.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_3.mp3",
+      "duration": 6.62,
+      "check": {
+        "heard": "dying, tell him, slowly, which is the expensive way. When I go, Carlton goes to someone.",
+        "score": 0.88
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_4",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "I'd rather it went to someone who sits still.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_4.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "I'd rather it went to someone who sits still.",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_sunday-lunch_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "I didn't come back for Carlton.",
+      "file": "dialogue/sunday-lunch/player_sunday-lunch_1.mp3",
+      "duration": 3.12,
+      "check": {
+        "heard": "I didn't come back for Carlton!",
+        "score": 1
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_5",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Nobody comes back for Carlton. They come back, and it's still here.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_5.mp3",
+      "duration": 3.98,
+      "check": {
+        "heard": "Nobody comes back for Carlton. They come back, and it's still here.",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_sunday-lunch_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "In Carlton, a promise to a dying man outranks a contract.",
+      "file": "dialogue/sunday-lunch/player_sunday-lunch_2.mp3",
+      "duration": 5.09,
+      "check": {
+        "heard": "In Galtona, a promise to a dying man outranks a contract.",
+        "score": 0.91
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Sunday lunch on the piazza. He still does it. Long table, bocce, the oxygen bottle under his chair like a dog.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_1.mp3",
+      "duration": 7.63,
+      "check": {
+        "heard": "Sunday lunch on the piazza. He still does it. Wong table, bocce. The oxygen bottle under his chair like a dog.",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_2",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Nico will be there. The nephew. He was twelve when you left and he's been angry about it ever since.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_2.mp3",
+      "duration": 6.05,
+      "check": {
+        "heard": "Nico will be there, the nephew, he was twelve when you left and he's been angry about it ever since.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_3",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Don't let Vince pour for you. He does it to see if your hand shakes.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_3.mp3",
+      "duration": 4.34,
+      "check": {
+        "heard": "don't let them spore for you. He does it to see if your hand shakes.\"",
+        "score": 0.87
+      }
+    },
+    {
+      "id": "nico_sunday-lunch_2",
+      "character": "nico",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Down! Get Zio down!",
+      "file": "dialogue/sunday-lunch/nico_sunday-lunch_2.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "Down! Get Zio down! Sit those...",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_6",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Don't stand there. Go and ask him who sent him.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_6.mp3",
+      "duration": 3.5,
+      "check": {
+        "heard": "Don't stand there. Go and ask him who sent him.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_4",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "White Barrina. One bloke. He's not a shooter, he's a driver who was handed a gun.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_4.mp3",
+      "duration": 6,
+      "check": {
+        "heard": "white barina one bloke he's not a shooter he's a driver that was handed a gun",
+        "score": 0.88
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_5",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "He's running for the university. Nowhere to go up there on a Sunday.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_5.mp3",
+      "duration": 3.46,
+      "check": {
+        "heard": "He's running for the University, nowhere to go up there on a Sunday.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_6",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "He's stalled it. Go easy. He's more scared than you are.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_6.mp3",
+      "duration": 3.77,
+      "check": {
+        "heard": "He's stalled it. Go easy. He's more scared than you are.",
+        "score": 1
+      }
+    },
+    {
+      "id": "shooter_sunday-lunch_1",
+      "character": "shooter",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Don't. Please. I just drive. I just drive!",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_1.mp3",
+      "duration": 4.01,
+      "check": {
+        "heard": "Don't, please. I just drive. I just drive.",
+        "score": 1
+      }
+    },
+    {
+      "id": "shooter_sunday-lunch_2",
+      "character": "shooter",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "A yard hand at the market. Paid cash. Said it was a message, not a hit.",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_2.mp3",
+      "duration": 4.44,
+      "check": {
+        "heard": "A yard end at the market paid cash, said it was a message, not a hit.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "shooter_sunday-lunch_3",
+      "character": "shooter",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Thank you. Thank you. I never saw you.",
+      "file": "dialogue/sunday-lunch/shooter_sunday-lunch_3.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Thank you. Thank you. I never saw you.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_7",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "A message. At Sunday lunch. Somebody wants the old man to know he can be reached at his own table.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_7.mp3",
+      "duration": 4.75,
+      "check": {
+        "heard": "A message at Sunday lunch. Somebody wants the old man to know he can be reached at his own table.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_sunday-lunch_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Whatever he asks you now, he's been waiting twenty-two years to ask it.",
+      "file": "dialogue/sunday-lunch/davo_sunday-lunch_8.mp3",
+      "duration": 3.91,
+      "check": {
+        "heard": "Whatever he asks you now, he's been waiting 22 years to ask it.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_7",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "So. Nico takes the chair when I am gone, or you keep the books for Carlton and he never knows. Which?",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_7.mp3",
+      "duration": 7.18,
+      "check": {
+        "heard": "So, Niko texts the chair when I am gone, or you keep the books for Carlton, and he never knows. Which...",
+        "score": 0.9
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_8",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Good. He will try you. When he does, do it kindly. For his mother.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_8.mp3",
+      "duration": 4.58,
+      "check": {
+        "heard": "Good. He will try you. When he does, do it kindly, for his mother.",
+        "score": 1
+      }
+    },
+    {
+      "id": "vince_sunday-lunch_9",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Then you are my partner, and he is your problem. Do it kindly. For his mother.",
+      "file": "dialogue/sunday-lunch/vince_sunday-lunch_9.mp3",
+      "duration": 5.93,
+      "check": {
+        "heard": "Then you are my partner, and he is your problem. Do it kindly, for his mother.\"",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_market-day_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Fruit and veg goes in at dawn. So does everything else.",
+      "file": "dialogue/market-day/player_market-day_1.mp3",
+      "duration": 4.34,
+      "check": {
+        "heard": "Fruit and veg goes in a dorm, so does everything else.",
+        "score": 0.82
+      }
+    },
+    {
+      "id": "davo_market-day_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Word is the bloke at lunch was paid out of this market. Three utes load here every morning. No plates, and nobody asks.",
+      "file": "dialogue/market-day/davo_market-day_1.mp3",
+      "duration": 6.94,
+      "check": {
+        "heard": "Word as the bulk at lunch was paid out of this market. Three utes load here every morning. No plates and nobody asks.\"",
+        "score": 0.91
+      }
+    },
+    {
+      "id": "player_market-day_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Whose?",
+      "file": "dialogue/market-day/player_market-day_2.mp3",
+      "duration": 0.72,
+      "check": {
+        "heard": "Booze.",
+        "score": 0
+      }
+    },
+    {
+      "id": "davo_market-day_2",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "That's what the phone is for. Get a picture of each, then see where the last one goes.",
+      "file": "dialogue/market-day/davo_market-day_2.mp3",
+      "duration": 4.44,
+      "check": {
+        "heard": "That's what the phone is for. Get a picture of each and see where the last one goes.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "davo_market-day_3",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "And Callum. Hang back. They know what a tail looks like.",
+      "file": "dialogue/market-day/davo_market-day_3.mp3",
+      "duration": 4.32,
+      "check": {
+        "heard": "and Kamen. Hang back. They know what a tail looks like.",
+        "score": 0.91
+      }
+    },
+    {
+      "id": "kaz_market-day_1",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "You were always the quiet one. It scared Vince more than me.",
+      "file": "dialogue/market-day/kaz_market-day_1.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "You were always the quiet one. It scared Vince more than me.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_market-day_1",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "The market. Five in the morning, forklifts everywhere, and three utes that never have plates on.",
+      "file": "dialogue/market-day/ruby_market-day_1.mp3",
+      "duration": 5.95,
+      "check": {
+        "heard": "The market, 5 in the morning, forklifts everywhere and 3 outs that never have plates on.",
+        "score": 0.81
+      }
+    },
+    {
+      "id": "ruby_market-day_2",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "I ran the numbers on what comes off them. It isn't fruit. Fruit doesn't pay for a rail yard.",
+      "file": "dialogue/market-day/ruby_market-day_2.mp3",
+      "duration": 5.42,
+      "check": {
+        "heard": "If I ran the numbers on what comes off them, it isn't fruit. Fruit doesn't pay for a rail yard.",
+        "score": 0.97
+      }
+    },
+    {
+      "id": "ruby_market-day_3",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Photograph them, then follow one. And stay back. People who load at dawn check their mirrors.",
+      "file": "dialogue/market-day/ruby_market-day_3.mp3",
+      "duration": 5.95,
+      "check": {
+        "heard": "Photograph them then follow one and stay back. People who load at dawn check their mirrors.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_market-day_4",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "That's three. The grey one is pulling out onto Victoria Street. Go.",
+      "file": "dialogue/market-day/davo_market-day_4.mp3",
+      "duration": 4.61,
+      "check": {
+        "heard": "That's three. The gray one is pulling out onto Victoria Street. Go.",
+        "score": 0.92
+      }
+    },
+    {
+      "id": "davo_market-day_5",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "West on Victoria Street. Not the freeway, then. Somewhere close.",
+      "file": "dialogue/market-day/davo_market-day_5.mp3",
+      "duration": 3.84,
+      "check": {
+        "heard": "West on Victoria Street, not the freeway then, somewhere close.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_market-day_6",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "North Melbourne. Twenty years ago this was all Kaz's uncle's. Ray Haddad. Tobacco, mostly.",
+      "file": "dialogue/market-day/davo_market-day_6.mp3",
+      "duration": 7.42,
+      "check": {
+        "heard": "North Melbourne. Twenty years ago, this was all Kaz's uncle's, Ray Hadad. Tobacco, mostly",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "davo_market-day_7",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Easy. Let a car get between you if you can.",
+      "file": "dialogue/market-day/davo_market-day_7.mp3",
+      "duration": 2.98,
+      "check": {
+        "heard": "Easy. Let a car get between you if you can.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_market-day_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Dudley Street. The rail yards. Well, I'll be. She never left.",
+      "file": "dialogue/market-day/davo_market-day_8.mp3",
+      "duration": 3.84,
+      "check": {
+        "heard": "Dudley Street, the rail yards. Well, I'll be. She never left.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_market-day_9",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "That's Kaz at the gate. She knew we were coming, mate.",
+      "file": "dialogue/market-day/davo_market-day_9.mp3",
+      "duration": 3.34,
+      "check": {
+        "heard": "That's Kaz at the gate. She knew we were coming, mate.",
+        "score": 1
+      }
+    },
+    {
+      "id": "kaz_market-day_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Twenty-two years, and you still follow utes.",
+      "file": "dialogue/market-day/kaz_market-day_2.mp3",
+      "duration": 3.05,
+      "check": {
+        "heard": "22 years and you still follow utes.",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "player_market-day_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "You still load them at the market.",
+      "file": "dialogue/market-day/player_market-day_3.mp3",
+      "duration": 3.26,
+      "check": {
+        "heard": "You still load them at the market? Wait.",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "kaz_market-day_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Uncle Ray's tobacco. Pays for the yard, pays for the boys. Pays for nothing I want.",
+      "file": "dialogue/market-day/kaz_market-day_3.mp3",
+      "duration": 5.66,
+      "check": {
+        "heard": "Uncle Ray's tobacco, pays for the yard, pays for the boys, pays for nothing I want.",
+        "score": 1
+      }
+    },
+    {
+      "id": "kaz_market-day_4",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "What do you want?",
+      "file": "dialogue/market-day/kaz_market-day_4.mp3",
+      "duration": 3.14,
+      "check": {
+        "heard": "What do you want? Ah...",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "player_market-day_4",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Ten percent of what goes through this gate, and nothing that goes through it in my name.",
+      "file": "dialogue/market-day/player_market-day_4.mp3",
+      "duration": 6.43,
+      "check": {
+        "heard": "10% of what goes through this gate and nothing that goes through it in my name.",
+        "score": 0.91
+      }
+    },
+    {
+      "id": "kaz_market-day_5",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Ten percent. Or what?",
+      "file": "dialogue/market-day/kaz_market-day_5.mp3",
+      "duration": 2.26,
+      "check": {
+        "heard": "10% or what?",
+        "score": 0.57
+      }
+    },
+    {
+      "id": "kaz_market-day_6",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Partners, then. Don't make me say it twice.",
+      "file": "dialogue/market-day/kaz_market-day_6.mp3",
+      "duration": 2.86,
+      "check": {
+        "heard": "Partners then don't make me say it twice",
+        "score": 1
+      }
+    },
+    {
+      "id": "kaz_market-day_7",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "There he is. Fine. You'll get your ten, and you'll count it yourself.",
+      "file": "dialogue/market-day/kaz_market-day_7.mp3",
+      "duration": 4.13,
+      "check": {
+        "heard": "There he is, fine. You'll get to 10 and you'll count it yourself.",
+        "score": 0.85
+      }
+    },
+    {
+      "id": "kaz_market-day_8",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Then we are done talking. Mind your back, Ferryman.",
+      "file": "dialogue/market-day/kaz_market-day_8.mp3",
+      "duration": 3.17,
+      "check": {
+        "heard": "Then we are done talking. Mind your back, Ferryman.",
+        "score": 1
+      }
+    },
+    {
+      "id": "ruby_doors_1",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Friday, eleven at night. The doors are counting, and so am I.",
+      "file": "dialogue/doors/ruby_doors_1.mp3",
+      "duration": 4.34,
+      "check": {
+        "heard": "Friday 11 at night. The doors are counting, and so am I.",
+        "score": 0.92
+      }
+    },
+    {
+      "id": "ruby_doors_2",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "You want a slice of the Grid, it starts at the rope. The big fella at Bourke Street runs the rest of them.",
+      "file": "dialogue/doors/ruby_doors_2.mp3",
+      "duration": 5.47,
+      "check": {
+        "heard": "You want a slice of the grid, it starts at the rope. The big fella, Bourke Street, runs the rest of them.",
+        "score": 0.98
+      }
+    },
+    {
+      "id": "player_doors_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "And the takings?",
+      "file": "dialogue/doors/player_doors_1.mp3",
+      "duration": 1.49,
+      "check": {
+        "heard": "And the tokens?",
+        "score": 0.67
+      }
+    },
+    {
+      "id": "ruby_doors_3",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Bianca Rowe walks the night's envelopes up to Terry. She is quick. Be quicker.",
+      "file": "dialogue/doors/ruby_doors_3.mp3",
+      "duration": 5.14,
+      "check": {
+        "heard": "Bianca Rowe walks the night's envelopes up to Terry. She is quick, be quicker.",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_doors_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "By dawn the street sweeper was the only one working King Street for free.",
+      "file": "dialogue/doors/player_doors_2.mp3",
+      "duration": 5.11,
+      "check": {
+        "heard": "By dawn the street sweeper was the only one working Kin Street for free.",
+        "score": 0.93
+      }
+    },
+    {
+      "id": "ruby_doors_4",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "King Street. Eleven clubs, and one firm on every door: Kingsgate. Terry Maguire.",
+      "file": "dialogue/doors/ruby_doors_4.mp3",
+      "duration": 7.13,
+      "check": {
+        "heard": "King Street, Eleven Clubs, and one firm on every doorland, Kingsgate, Terry McGuire.",
+        "score": 0.85
+      }
+    },
+    {
+      "id": "ruby_doors_5",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "A door is the only business in this town that is all cash and no stock. Whoever holds the rope holds the street.",
+      "file": "dialogue/doors/ruby_doors_5.mp3",
+      "duration": 6.02,
+      "check": {
+        "heard": "Adora is the only business in this town that is all cash and no stock. Whoever holds the rope holds the string.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "davo_doors_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Terry's all right. Terry's just never been told no by anyone he couldn't have thrown out.",
+      "file": "dialogue/doors/davo_doors_1.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "Terry's all right. Terry's just never been told no by anyone he couldn't have thrown out.",
+        "score": 1
+      }
+    },
+    {
+      "id": "bouncer_doors_1",
+      "character": "bouncer",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Private night, mate. Unless you're here about the door.",
+      "file": "dialogue/doors/bouncer_doors_1.mp3",
+      "duration": 3.72,
+      "check": {
+        "heard": "Private Mike, mate, unless you're here about the door.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "bouncer_doors_2",
+      "character": "bouncer",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Then I never saw who came through.",
+      "file": "dialogue/doors/bouncer_doors_2.mp3",
+      "duration": 2.9,
+      "check": {
+        "heard": "then I never saw who came through.",
+        "score": 1
+      }
+    },
+    {
+      "id": "bouncer_doors_3",
+      "character": "bouncer",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Yeah. Yeah, I heard you were back.",
+      "file": "dialogue/doors/bouncer_doors_3.mp3",
+      "duration": 2.62,
+      "check": {
+        "heard": "Yeah, yeah, I heard you were back.",
+        "score": 1
+      }
+    },
+    {
+      "id": "bouncer_doors_4",
+      "character": "bouncer",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Oi! That's Bianca! She's got the bag!",
+      "file": "dialogue/doors/bouncer_doors_4.mp3",
+      "duration": 3.31,
+      "check": {
+        "heard": "Oi, that's the anchor! She's got the bag!",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "terry_doors_1",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "That's my girl you've run to ground, and my envelopes. Terry Maguire. You'll be the ghost everyone's on about.",
+      "file": "dialogue/doors/terry_doors_1.mp3",
+      "duration": 7.3,
+      "check": {
+        "heard": "That's my bill you've run to ground, and my envelopes. Terry Maguire. You'll be the ghost everyone's on about.\"",
+        "score": 0.95
+      }
+    },
+    {
+      "id": "player_doors_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "I am the man who just spoke to your doors.",
+      "file": "dialogue/doors/player_doors_3.mp3",
+      "duration": 4.22,
+      "check": {
+        "heard": "I am the man who just spoke to your doors.",
+        "score": 1
+      }
+    },
+    {
+      "id": "terry_doors_2",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Doors talk to whoever's standing closest. I've four lads in that car who stand very close.",
+      "file": "dialogue/doors/terry_doors_2.mp3",
+      "duration": 5.5,
+      "check": {
+        "heard": "Bobs talk to whoever's standing closest, while four lads in that car are staying very close.",
+        "score": 0.75
+      }
+    },
+    {
+      "id": "player_doors_4",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Then let's keep this between people who can count.",
+      "file": "dialogue/doors/player_doors_4.mp3",
+      "duration": 4.13,
+      "check": {
+        "heard": "Then let's keep this between people who can count.",
+        "score": 1
+      }
+    },
+    {
+      "id": "terry_doors_3",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Go on, then. Count.",
+      "file": "dialogue/doors/terry_doors_3.mp3",
+      "duration": 3.43,
+      "check": {
+        "heard": "Go on then. Count. On disease.",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "terry_doors_4",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Half of King Street for a quiet life. I've signed worse.",
+      "file": "dialogue/doors/terry_doors_4.mp3",
+      "duration": 4.32,
+      "check": {
+        "heard": "Half of Kim Street for a quiet life, life signed worse!",
+        "score": 0.82
+      }
+    },
+    {
+      "id": "terry_doors_5",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "Wrong answer, son. Lads!",
+      "file": "dialogue/doors/terry_doors_5.mp3",
+      "duration": 2.23,
+      "check": {
+        "heard": "Wrong answer, son. What?!",
+        "score": 0.75
+      }
+    },
+    {
+      "id": "terry_doors_6",
+      "character": "terry",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "You're buying my runner? Take her. She was skimming anyway.",
+      "file": "dialogue/doors/terry_doors_6.mp3",
+      "duration": 4.08,
+      "check": {
+        "heard": "You're buying my runner. Take her. She was skimming anyway.",
+        "score": 1
+      }
+    },
+    {
+      "id": "marsh_the-ferryman-s-toll_1",
+      "character": "marsh",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Lemonade, thanks. I'm working. Detective Inspector Helen Marsh.",
+      "file": "dialogue/the-ferryman-s-toll/marsh_the-ferryman-s-toll_1.mp3",
+      "duration": 5.88,
+      "check": {
+        "heard": "Lemonade, thanks. I'm working. Detective Inspector Helen Marsh.",
+        "score": 1
+      }
+    },
+    {
+      "id": "marsh_the-ferryman-s-toll_2",
+      "character": "marsh",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "I read your file on the plane back from a conference. Twelve pages. Ten of them say 'unknown'.",
+      "file": "dialogue/the-ferryman-s-toll/marsh_the-ferryman-s-toll_2.mp3",
+      "duration": 7.32,
+      "check": {
+        "heard": "I read your file on the plane back from a conference, twelve pages. Ten of them say E-1-no.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "player_the-ferryman-s-toll_1",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Sounds like a short conference.",
+      "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_1.mp3",
+      "duration": 2.42,
+      "check": {
+        "heard": "Sounds like a short conference.",
+        "score": 1
+      }
+    },
+    {
+      "id": "marsh_the-ferryman-s-toll_3",
+      "character": "marsh",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "The warrant's for the ledger. Not you. Not yet.",
+      "file": "dialogue/the-ferryman-s-toll/marsh_the-ferryman-s-toll_3.mp3",
+      "duration": 4.3,
+      "check": {
+        "heard": "The warts for the ledger, not you, not yet.",
+        "score": 0.89
+      }
+    },
+    {
+      "id": "ruby_the-ferryman-s-toll_1",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "It's in your coat. Back door. Davo is on Flinders Street. Go.",
+      "file": "dialogue/the-ferryman-s-toll/ruby_the-ferryman-s-toll_1.mp3",
+      "duration": 4.42,
+      "check": {
+        "heard": "It's in your coat, back door, day goes on Flinders Street, go!",
+        "score": 0.83
+      }
+    },
+    {
+      "id": "player_the-ferryman-s-toll_2",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
+      "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_2.mp3",
+      "duration": 5.95,
+      "check": {
+        "heard": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
+        "score": 1
+      }
+    },
+    {
+      "id": "player_the-ferryman-s-toll_3",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "You don't take a city. You find out who you can trust with a piece of it.",
+      "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_3.mp3",
+      "duration": 4.92,
+      "check": {
+        "heard": "You don't take a city, you find out who you can trust with a piece of it.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_1",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Ruby rang. Three cars sitting on Flinders Lane with their lights off. That's not a booze bus.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_1.mp3",
+      "duration": 6.86,
+      "check": {
+        "heard": "Ruby rang, three cars sitting on Flinders Lane with her lights off. That's not a booze bus.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_2",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_2.mp3",
+      "duration": 7.13,
+      "check": {
+        "heard": "If it goes bad, I'll be on Flinders Street, the far side of Elizabeth, engine running. Don't come out the front.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_3",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "And don't let them have the ledger. Everything we've done since you got back is in that book.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_3.mp3",
+      "duration": 4.56,
+      "check": {
+        "heard": "then don't let them have the ledger. Everything we've done since you got back is in that book.",
+        "score": 0.94
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_4",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "That's Marsh's lot. Go. Go!",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_4.mp3",
+      "duration": 3.1,
+      "check": {
+        "heard": "That's Marsha's Lot, go, go!",
+        "score": 0.8
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_5",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "They knew which night. How did they know which night?",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_5.mp3",
+      "duration": 2.98,
+      "check": {
+        "heard": "They knew which night. How did they know which night?",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_6",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Don't go home. Don't go anywhere you've been.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_6.mp3",
+      "duration": 3.72,
+      "check": {
+        "heard": "Don't go home. Don't go anywhere you've been.",
+        "score": 1
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_7",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Clear. Dump the car by the station. They'll have the plates by now.",
+      "file": "dialogue/the-ferryman-s-toll/davo_the-ferryman-s-toll_7.mp3",
+      "duration": 3.6,
+      "check": {
+        "heard": "clear dump the car by the station rail and the plates by now",
+        "score": 0.85
+      }
+    },
+    {
+      "id": "davo_the-ferryman-s-toll_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "I'll walk it from here. You get in among the people at Fed Square and you stand very still."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_1",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Davo has been asking after a grey Comodo. I'm the bloke he asked. Sully. Thirty years in the job, four out of it."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_2",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "They knew which floorboard, Callum. Someone told them which floorboard."
+    },
+    {
+      "id": "player_the-ferryman-s-toll_4",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Someone inside."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_3",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Someone who wants you in a cell, not in the river. I would start with who knew about tonight."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_4",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Don't turn round. The name is Sully. Thirty years in the job, four out of it, and I still know a raid when I see one go wrong."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_5",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "That ledger can't stay on you. Who holds it?"
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_6",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "The bookkeeper. Sensible. Hope she is as loyal as she is neat."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_7",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "The old mate. They will look there first, and he will say nothing. Probably."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_8",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Trusting a copper. You have been away a long time."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_9",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Then only one man can give it up. Mind he does not."
+    },
+    {
+      "id": "davo_low-tide_15",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/low-tide",
+      "text": "It's Davo. I'm on Harbour Esplanade, at the bottom of Collins Street. Walk down to me. Don't wave."
+    },
+    {
+      "id": "vince_laneway-hustle_4",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/laneway-hustle",
+      "text": "It's Vince. Flinders Lane, corner of Elizabeth Street. Come now, and come alone."
+    },
+    {
+      "id": "vince_word-on-the-street_3",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/word-on-the-street",
+      "text": "Vince. I'm at the lock-up, Rathdowne and Queensberry. We need to talk about my book."
+    },
+    {
+      "id": "kaz_the-informant_4",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/the-informant",
+      "text": "You're the one asking about Vince's pages. Smith Street, corner of Gertrude. I'm buying."
+    },
+    {
+      "id": "kaz_westside-bikies_3",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/westside-bikies",
+      "text": "It's Kaz. Collins Street at Spencer, by the station. I know who has the pages."
+    },
+    {
+      "id": "kaz_tobacco-wars_4",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/tobacco-wars",
+      "text": "They burnt my shop. Clarendon Street at Whiteman, in Southbank. Now."
+    },
+    {
+      "id": "kaz_short-black_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/short-black",
+      "text": "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."
+    },
+    {
+      "id": "kaz_harbour-run_2",
+      "character": "kaz",
+      "category": "story",
+      "folder": "dialogue/harbour-run",
+      "text": "It's all coming down. Flinders Street at Queen. Hurry."
+    },
+    {
+      "id": "davo_the-quiet-room_8",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."
+    },
+    {
+      "id": "davo_the-quiet-room_9",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Gus is at the bar now. Flinders Lane at Elizabeth Street. If you want the place, today's the day."
+    },
+    {
+      "id": "vince_sunday-lunch_10",
+      "character": "vince",
+      "category": "story",
+      "folder": "dialogue/sunday-lunch",
+      "text": "Callum. Sunday lunch. Argyle Square, off Lygon Street. Come hungry, and come alone."
+    },
+    {
+      "id": "player_market-day_5",
+      "character": "player",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "She was always going to be at that gate. The only question was which side of it I would be standing on."
+    },
+    {
+      "id": "davo_market-day_10",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "Queen Vic Market, the Victoria Street end, corner of Queen. Early. Bring your phone, not your gun."
+    },
+    {
+      "id": "davo_market-day_11",
+      "character": "davo",
+      "category": "story",
+      "folder": "dialogue/market-day",
+      "text": "North Melbourne. Twenty-two years ago this was all Kaz's uncle's. Ray, out in Broadmeadows. Tobacco, mostly."
+    },
+    {
+      "id": "ruby_doors_6",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/doors",
+      "text": "King Street, tonight. Meet me at the Flinders Lane corner. Wear something a bouncer would respect."
+    },
+    {
+      "id": "ruby_the-ferryman-s-toll_2",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Come to the Quiet Room. Now. There are three cars in the lane with their lights off."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_10",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Davo has been asking after a grey Comodo. I'm the bloke he asked. Sully. Fifteen years in the job, twenty-one out of it."
+    },
+    {
+      "id": "sully_the-ferryman-s-toll_11",
+      "character": "sully",
+      "category": "story",
+      "folder": "dialogue/the-ferryman-s-toll",
+      "text": "Don't turn round. The name is Sully. Fifteen years in the job, twenty-one out of it, and I still know a raid when I see one go wrong."
     },
     {
       "id": "player_harbour-run_2",

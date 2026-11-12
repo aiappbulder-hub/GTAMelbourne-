@@ -263,7 +263,9 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   // device has it. Recordings, made offline with the Orpheus TTS (tools/voices/generate.py), replace this line by line.
   const SPEECH = { Davo: { pitch: 0.75, rate: 1.1, male: true }, You: { pitch: 0.85, rate: 1.12, male: true },
     Vince: { pitch: 0.7, rate: 1.05, male: true }, Kaz: { pitch: 1.05, rate: 1.15, male: false }, Mick: { pitch: 0.9, rate: 1.15, male: true },
-    Marsh: { pitch: 1.0, rate: 1.15, male: false }, Ruby: { pitch: 1.1, rate: 1.17, male: false } };
+    Marsh: { pitch: 1.0, rate: 1.15, male: false }, Ruby: { pitch: 1.1, rate: 1.17, male: false },
+    Gus: { pitch: 0.8, rate: 1.06, male: true }, Nico: { pitch: 1.1, rate: 1.2, male: true }, Terry: { pitch: 0.82, rate: 1.1, male: true },
+    Sully: { pitch: 0.72, rate: 1.05, male: true }, Shooter: { pitch: 1.2, rate: 1.25, male: true }, Bouncer: { pitch: 0.65, rate: 1.08, male: true } };
   let speechVoices = null;
   function pickVoice(male) {
     const all = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
@@ -318,6 +320,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     return best;
   }
   function event(kind, pos) {
+    if (isCinematic()) return; // nobody talks over a cut scene: no police barks or radio while one plays
     if (kind === 'gunfire' || kind === 'carjack') {
       const cop = pos && nearestPolice(pos.x, pos.z, 45);
       if (cop && clock - eventAt.bark > 6) {
