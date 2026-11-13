@@ -87,10 +87,18 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 - **Taking a car** (`js/gameplay.js`): you walk to the door, reach for it and sit before you can drive (about 1.3 s).
   A car with someone in it brakes to a stop, the driver is pulled out, goes down, gets up and runs. Getting out is a
   short step from the seat. F beside your own car (or one a job left for you) takes that one, not a passing car.
-- **Bridges** (`js/bridges.js`, `tools/melbourne/find-bridges.mjs`): Princes Bridge (three iron arches, bluestone piers,
-  lamp standards), Queens Bridge (five girder spans), Spencer St, Swan St and Charles Grimes bridges have decks, kerbs,
-  footpaths and solid railings. Decks are flat at road level, because traffic, trams and lane paint are drawn at a
-  fixed height. Kings Way's crossing isn't in the road data, and the footbridges aren't built yet.
+- **Bridges** (`js/bridges.js`, `tools/melbourne/find-bridges.mjs`, test `tools/melbourne/test-bridges.cjs`): Princes
+  Bridge (three iron arches, bluestone piers, lamp standards), Queens Bridge (five girder spans) and the Spencer St, Swan St,
+  Punt Rd, Kings Way, Charles Grimes, Dynon Rd and Wurundjeri Way (north) bridges have decks, kerbs, footpaths and solid
+  railings. Decks are flat at road level, because traffic, trams and lane paint are drawn at a fixed height; all bridge
+  geometry hangs off one `DECK_Y` constant in `bridges.js` (the height of the roadway, with the water and piers measured
+  from it) so terrain elevation can move it. `find-bridges.mjs --all` lists every wet stretch of road on the whole map;
+  `test-bridges.cjs` checks that each one lies on a deck, and walks and drives every bridge both ways. Known gaps: the
+  game has no water physics (the ground is y = 0 everywhere), so a person or car can also cross the river's surface with
+  no bridge; the AI traffic graph (`road-network.js`) drops every bridge edge (none joins a network of 12 edges, so
+  no AI car or tram-lane traffic uses the bridges yet); Kings Way's road data stops at the quay and resumes 170 m south
+  behind Southbank's buildings, so its deck ends on the south bank without a road; Footscray Rd's crossing lies past the
+  west edge of the map; the footbridges aren't built yet.
 - **The Book** (`js/empire.js`): press **K** or the Book button once the Quiet Room is yours.
   - *Ledger:* the eleven territories, your share of each (the Grid from the bar and the King St doors, Carlton from
     Vince, North Melbourne from Kaz), what that pays a day, and Kestrel's interest in you.

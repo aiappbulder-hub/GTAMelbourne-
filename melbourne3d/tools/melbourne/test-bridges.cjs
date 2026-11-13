@@ -81,6 +81,33 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
       ok(good, `${label} ${JSON.stringify(r)}`);
     }
   }
+  // 3. the railings hold: a person on the footpath at mid-span, and the car, pushed sideways at each side for 4 s
+  for (let bi = 0; bi < names.length; bi++) {
+    const r = await p.evaluate((bi) => {
+      const cm = __city.controllerManager, f = __city.bridges.bridges[bi];
+      const worst = {};
+      for (const who of ['person', 'car']) for (const side of [-1, 1]) {
+        // the middle of the deck's length, on the roadway's edge nearest `side`, facing out at 90 degrees
+        const sMid = (f.s0 + f.s1) / 2, o0 = side * (who === 'car' ? f.road / 2 - 2 : f.road / 2 + f.spec.foot / 2);
+        const x = f.ax + f.ux * sMid + f.uz * o0, z = f.az + f.uz * sMid - f.ux * o0;
+        const heading = Math.atan2(f.uz * side, -f.ux * side); // along +o
+        cm.setMode(who);
+        const e = cm.entities[who];
+        e.position.set(x, 0, z); e.heading = heading; e.speed = who === 'car' ? 6 : 0; e.vx = e.vz = 0;
+        cm.cameraYaw = heading; cm.keys.forward = 1; cm.keys.sprint = 1;
+        let maxO = 0;
+        for (let t = 0; t < 4; t += 0.05) { cm.update(0.05, t); maxO = Math.max(maxO, Math.abs((e.position.x - f.ax) * f.uz - (e.position.z - f.az) * f.ux)); }
+        cm.keys.forward = 0; cm.keys.sprint = 0;
+        worst[`${who}${side}`] = +(maxO - f.half).toFixed(2);
+      }
+      cm.resetInput && cm.resetInput();
+      cm.setMode('car');
+      return worst;
+    }, bi);
+    // the railing's inner face is at half + 0.22 - 0.05; the body (0.42 m person radius, the car's half-width) stays inside it
+    const good = Object.values(r).every((v) => v < 0.6);
+    ok(good, `${names[bi]}: railings hold (how far past the footpath edge: ${JSON.stringify(r)})`);
+  }
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 3)));
   await b.close();
 })().catch((e) => { console.error('ERR', e.message.slice(0, 300)); process.exit(1); });

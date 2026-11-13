@@ -5,7 +5,7 @@
 // water run are one crossing (GEO.roads splits roads at every graph node); parallel carriageways of the same bridge
 // are listed separately. Roads with a gap in the data over the river (King St / Kings Way, the eastern carriageway of
 // Charles Grimes Bridge) don't show up: see js/bridges.js.
-// Run: node tools/melbourne/find-bridges.mjs [--json]
+// Run: node tools/melbourne/find-bridges.mjs [--json] [--all]   (--all: the whole map, not only the Yarra's reach)
 import { ROADS, inWater } from '../../js/melbourne-config.js';
 
 const REACH = process.argv.includes("--all") ? { minX: -1e5, maxX: 1e5, minZ: -1e5, maxZ: 1e5 } : { minX: -2000, maxX: 1700, minZ: 200, maxZ: 1700 };
