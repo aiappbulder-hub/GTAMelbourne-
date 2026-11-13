@@ -10,6 +10,7 @@ const TILL_KEY = 'gta-melbourne3d-till-v1';
 const DAY = 48 * 60; // real seconds in a game day (two minutes an hour)
 const TILL_DAYS = 3; // the till holds this many days' take; then it waits for you
 const HQ = { x: -224, z: 120 };
+const RUBY = { x: -202, z: 135 }; // behind the bar in the Quiet Room (places.js QR_RUBY): she hands the till over there
 
 // The eleven territories: who holds each when you come back, and a day's money at 100% of it
 const TERRITORIES = [
@@ -122,7 +123,7 @@ const CSS = `
 @media (max-width: 560px) { .bk-panel { max-height: 92vh; } .bk-head h2 { font-size: 17px; } }
 `;
 
-export function createEmpire({ missionSystem, controllerManager }) {
+export function createEmpire({ missionSystem, controllerManager, interiors = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -248,7 +249,9 @@ export function createEmpire({ missionSystem, controllerManager }) {
     if (isOpen && tab === 'Ledger' && Math.floor(till / 10) !== Math.floor(before / 10)) render();
     // collecting: on foot at the Quiet Room, between jobs
     const p = controllerManager.getActiveEntity().position;
-    const near = controllerManager.activeMode === 'person' && Math.hypot(p.x - HQ.x, p.z - HQ.z) < 9 && !missionSystem.busy && !missionSystem.onJob;
+    // in the bar (js/interiors.js) the take is Ruby's to hand over, at the bar; where there is no bar, at the corner
+    const near = controllerManager.activeMode === 'person' && !missionSystem.busy && !missionSystem.onJob
+      && (interiors ? interiors.inside && Math.hypot(p.x - RUBY.x, p.z - RUBY.z) < 4.2 : Math.hypot(p.x - HQ.x, p.z - HQ.z) < 9);
     if (near && !inside && till >= 50) {
       const n = Math.floor(till / 10) * 10;
       till -= n;
@@ -263,6 +266,8 @@ export function createEmpire({ missionSystem, controllerManager }) {
   return {
     update,
     open,
+    /** There is enough in the till to collect (Ruby waits at the bar to hand it over) */
+    get tillReady() { return book().open && till >= 50; },
     get isOpen() { return isOpen; },
     /** For scripted checks */
     debug() { const bk = book(); return { open: bk.open, daily: bk.daily, heat: bk.heat, till, shares: Object.fromEntries(bk.territories.filter((t) => t.share).map((t) => [t.id, t.share])), people: bk.people.map((q) => `${q.name}:${q.mood}`), record: bk.record.length }; },

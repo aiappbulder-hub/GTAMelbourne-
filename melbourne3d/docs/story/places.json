@@ -893,6 +893,61 @@
    "territory": "GRID",
    "x": 120,
    "z": 270
+  },
+  {
+   "id": "QR_DOOR",
+   "label": "The Quiet Room, the street door on Elizabeth St",
+   "territory": "GRID",
+   "x": -218.3,
+   "z": 137
+  },
+  {
+   "id": "QR_BAR",
+   "label": "The Quiet Room, the customer side of the bar (inside, on the room's own floor)",
+   "territory": "GRID",
+   "x": -205.9,
+   "z": 136.5,
+   "y": 1500
+  },
+  {
+   "id": "QR_GUS",
+   "label": "The Quiet Room, behind the bar",
+   "territory": "GRID",
+   "x": -201.9,
+   "z": 136.5,
+   "y": 1500
+  },
+  {
+   "id": "QR_RUBY",
+   "label": "The Quiet Room, behind the bar, where Ruby counts the till",
+   "territory": "GRID",
+   "x": -202.0,
+   "z": 135.0,
+   "y": 1500
+  },
+  {
+   "id": "QR_UNDER",
+   "label": "The Quiet Room, under the bar",
+   "territory": "GRID",
+   "x": -205.9,
+   "z": 137.2,
+   "y": 1500
+  },
+  {
+   "id": "QR_LAMP",
+   "label": "The Quiet Room, the booth lamp",
+   "territory": "GRID",
+   "x": -210.4,
+   "z": 137.0,
+   "y": 1500
+  },
+  {
+   "id": "QR_PHONE",
+   "label": "The Quiet Room, the office phone by the back door",
+   "territory": "GRID",
+   "x": -205.2,
+   "z": 132.6,
+   "y": 1500
   }
  ]
 }

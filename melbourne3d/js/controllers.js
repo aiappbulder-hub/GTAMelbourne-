@@ -404,6 +404,23 @@ class ThirdPersonControllerManager {
     return { x: ent.position.x, z: ent.position.z };
   }
 
+  // The player, on foot, put at an exact spot (an interior: js/interiors.js, whose rooms the city's colliders don't reach)
+  placePerson(x, y, z, heading) {
+    const ent = this.entities.person;
+    this.setMode('person');
+    this.resetInput();
+    ent.position.set(x, y, z);
+    ent.heading = heading;
+    ent.speed = 0;
+    ent.verticalVel = 0;
+    ent._charHidden = false;
+    if (ent.mesh) { ent.mesh.visible = true; ent.mesh.position.copy(ent.position); ent.mesh.rotation.y = heading; }
+    ent.rig.reset(x, z, heading, personGround, this);
+    ent.crowd.begin();
+    ent.crowd.add(ent.rig, 0);
+    ent.crowd.end();
+  }
+
   // Find a fully clear arrival before moving the player. Sequential collision pushes can leave a player trapped
   // between overlapping buildings, so test whole candidate footprints instead; retain the old position if none fits.
   findTeleportPosition(x, z, heading, altitude) {

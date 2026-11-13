@@ -174,6 +174,7 @@ async function initApp() {
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
+  let interiors = null; // js/interiors.js: the Quiet Room
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
   try {
@@ -191,9 +192,9 @@ async function initApp() {
 
   function savePlayerState() {
     try {
-      const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, {
+      const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, interiors?.inside && mode === 'person' ? interiors.exitSpot : {
         x: entity.position.x, y: entity.position.y, z: entity.position.z, heading: entity.heading
-      }]));
+      }])); // (saved inside the Quiet Room: back at its street door)
       localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify({ version: 1, activeMode: controllerManager.activeMode, entities }));
     } catch { /* Storage may be disabled or full. */ }
   }
@@ -640,13 +641,17 @@ async function initApp() {
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
+  // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
+  interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
+  window.__city.interiors = interiors;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda, interiors }) : null;
   // The Book: territories, people and the daily take that Act I's choices bought (js/empire.js)
-  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager }) : null;
+  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager, interiors }) : null;
   window.__city.empire = empire;
   // The wanted level and the police (js/wanted.js)
   const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
   window.__city.wanted = wanted;
+  interiors?.attach({ missionSystem, wanted, empire });
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem, audioSystem, wanted
@@ -980,7 +985,7 @@ async function initApp() {
     }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
     // on foot, nobody walks through a car, a bus or a tram: pushed out of its footprint
-    if (IS_MELBOURNE && controllerManager.activeMode === 'person') {
+    if (IS_MELBOURNE && controllerManager.activeMode === 'person' && !interiors?.inside) {
       const pp = controllerManager.entities.person.position;
       const boxes = [];
       for (const v of [...trafficSystem.cars, ...(trafficSystem.buses || [])]) {
@@ -1009,6 +1014,7 @@ async function initApp() {
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
     missionSystem?.applyCamera(dt); // a job's cut scene takes the camera
+    interiors?.postCamera(cameraSystem.camera); // (and in the bar, the camera stays inside it)
     streetDetails.signalClock.value = elapsed;
     trafficSystem.update(
       dt,
@@ -1037,6 +1043,7 @@ async function initApp() {
     mapSystem.update();
     if (missionSystem) missionSystem.update(dt, elapsed);
     if (empire) empire.update(dt);
+    interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
