@@ -80,6 +80,14 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
     or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
   - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+- **Inside** (`js/interiors.js`): the Quiet Room, Gus's bar at Flinders Lane x Elizabeth St. A door on the building's
+  Elizabeth St face (sign, awning, a warm pool of light on the footpath): **F** (or tap the prompt) beside it on foot fades
+  to black and puts you in a small bar (counter and stools, bottle shelves, booth, tables, jukebox, back office door, neon),
+  lit by baked lamp light; **F** at the inside door goes out. The room is a sealed box a kilometre above the street, so no
+  traffic, people, rain or sky reach it; walls and furniture are solid, the camera is kept inside, the minimap is hidden and
+  the police are called off. A save made inside puts you back at the street door; the Jobs list and any teleport take you out.
+  In *The Quiet Room* you go in to buy the bar from Gus and to sweep it for Kestrel's bug (under the bar, the booth lamp, the
+  office phone); between jobs Ruby hands over the till at the bar. Test: `tools/melbourne/test-interior.cjs`.
 - **Between jobs**: a few seconds after a job (or after the game loads) your phone rings: a card says who is calling,
   what they want and where the pink marker is (distance and compass direction). It comes up again if you stand about.
 - **New game** (toolbar): asks first, then wipes cash, progress, choices and the till and starts the story again from

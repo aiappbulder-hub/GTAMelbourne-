@@ -2995,6 +2995,34 @@
         "score": 0.89
       },
       "retimed": true
+    },
+    {
+      "id": "gus_the-quiet-room_7",
+      "character": "gus",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Mind the third stool. It has rocked since 1987."
+    },
+    {
+      "id": "ruby_the-quiet-room_14",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Nothing. Next the booth lamp."
+    },
+    {
+      "id": "ruby_the-quiet-room_15",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "Clean. Try the office phone."
+    },
+    {
+      "id": "ruby_the-quiet-room_16",
+      "character": "ruby",
+      "category": "story",
+      "folder": "dialogue/the-quiet-room",
+      "text": "There. Inside the earpiece. That is a Kestrel bug, and it is still warm."
     }
   ]
 }

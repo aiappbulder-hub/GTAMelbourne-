@@ -2,7 +2,7 @@
 
 Progress is measured by what the player can do, not by files or features listed.
 
-**Deferred (out of scope until Act I plays well):** boats, trucks, interiors, the helicopter escape and advanced
+**Deferred (out of scope until Act I plays well):** boats, trucks, other interiors (the Quiet Room is built: see "Interiors" below), the helicopter escape and advanced
 pedestrian behaviour. Missions that relied on them are restaged without them (see "Restaging" below).
 
 ## Milestone 1: "Low Tide" is playable and the save survives a restart
@@ -93,4 +93,11 @@ no hidden score.
 | M9 | steal a prime mover | steal a ute (the existing `steal: 'pickup'`) carrying cartons |
 | M12 | gunmen in a dinghy | gunmen on the St Kilda breakwater |
 | M16 | helicopter escape | escape on foot to Hammer's car on Normanby Rd, then lose a tail |
-| Interiors | bars, offices | staged at the doorway, footpath or laneway outside |
+| Interiors | bars, offices | the Quiet Room is a real room (`js/interiors.js`); every other interior is still staged at the doorway, footpath or laneway outside |
+
+## Interiors: the Quiet Room (done)
+Gus's bar is a sealed, code-built room hung 1500 m above its real footprint (story places `QR_*`, with y = 1500), entered by
+F at its street door on Elizabeth St (fade to black, on foot only, not in a cut scene or with police about). The Quiet
+Room job's buy-the-bar choice and the bug sweep (under the bar, the booth lamp, the office phone) are played inside
+(steps `enter: true` and `inside: true` in `js/missions.js`; a job that moves on to a street step shows the player out), and
+Ruby hands the till over at the bar between jobs. Test: `tools/melbourne/test-interior.cjs`.

@@ -186,13 +186,18 @@ const MISSIONS = [
       ['You', 'Then we both know what day it is.']],
     outro: ['Ruby', "You don't have enough money to be this calm."],
     steps: [
-      { text: 'Gus is waiting on an offer.', choice: { who: 'Gus', text: "So. What's your offer?",
+      // (the bar is inside: the door is on Elizabeth St, js/interiors.js; `enter` is done once you are in, `inside` steps are played in the room)
+      { text: 'Go into the Quiet Room: the door on Elizabeth St, just south of the lane. Gus is waiting at the bar.', at: { place: 'QR_DOOR' }, r: 3, foot: true, enter: true },
+      { text: 'Gus is behind the bar. Walk up to it.', at: { place: 'QR_BAR' }, r: 1.7, foot: true, inside: true,
+        lines: [[0.8, 'Gus', 'Mind the third stool. It has rocked since 1987.']],
+        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'QR_GUS' }, face: 'player', anim: 'idle' }] },
+      { text: 'Gus is waiting on an offer.', inside: true, choice: { who: 'Gus', text: "So. What's your offer?",
         options: [
           { label: 'A fair price, and your name stays on the window.', cost: 12000, set: { quiet_room: 'fair' }, reply: "My father would have shaken your hand. Don't make me regret it." },
           { label: 'The bank wants it Friday. I want it today.', cost: 4000, set: { quiet_room: 'lean' }, reply: 'You people. Always the same. Take it.' },
           { label: "Stay on. Run the bar. I'll run the rest.", cost: 8000, set: { quiet_room: 'partner' }, reply: 'Then I hear things, and you hear them second. Deal.' }
         ] },
-        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'HQ', kerb: true }, face: 'player', anim: 'talk_assured' }] },
+        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'QR_GUS' }, face: 'player', anim: 'talk_assured' }] },
       { text: 'Your phone: Ruby Achterberg wants out of the Golden Reef suite at Southbank, now. Get in a car (F by any car, or the CAR button).', car: true,
         lines: [[0.4, 'Ruby', "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick."]] },
       { text: "Get to City Rd at Southbank Blvd, under Eureka, before Golden Reef's driver does.", at: { place: 'SB_CITY' }, r: 16, car: true, time: 130, wait: 2,
@@ -210,19 +215,23 @@ const MISSIONS = [
           [14, 'Davo', 'She talks like that all the time?'],
           [19, 'Ruby', 'Only when I am being paid. Am I being paid?'],
           [30, 'Ruby', 'Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty.']] },
-      { text: 'Ruby wants the place swept. On foot: check the cooler by the back door.', at: { place: 'HQ_COOLER' }, r: 3.5, wait: 3, foot: true,
+      { text: 'Get out and go into the Quiet Room with Ruby: the door on Elizabeth St.', at: { place: 'QR_DOOR' }, r: 3, foot: true, enter: true,
         actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
-      { text: 'Check the fuse box across the lane.', at: { place: 'HQ_FUSE' }, r: 3.5, wait: 3, foot: true,
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
-      { text: 'Check the jukebox by the window.', at: { place: 'HQ_JUKE' }, r: 3.5, wait: 3, foot: true,
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }],
-        say: 'Ruby: "There. Under the coin slot. That is a Kestrel bug, and it is still warm."' },
-      { text: 'Ruby is holding the bug.', choice: { who: 'Ruby', text: 'What do we do with it?',
+      { text: 'Ruby wants the place swept. Start under the bar.', at: { place: 'QR_UNDER' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "Nothing. Next the booth lamp."' },
+      { text: 'Check the lamp over the booth.', at: { place: 'QR_LAMP' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "Clean. Try the office phone."' },
+      { text: 'Check the phone by the office door.', at: { place: 'QR_PHONE' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "There. Inside the earpiece. That is a Kestrel bug, and it is still warm."' },
+      { text: 'Ruby is holding the bug.', inside: true, choice: { who: 'Ruby', text: 'What do we do with it?',
         options: [
           { label: 'Crush it.', set: { bug: 'destroyed' }, reply: "Clean. They'll know we found it." },
           { label: "Leave it. We'll tell it bedtime stories.", set: { bug: 'kept' }, reply: 'Then we mind what we say in here, and choose what they hear.' }
         ] },
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'talk_cool' }] }
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'talk_cool' }] }
     ]
   },
   {
@@ -482,7 +491,7 @@ body.cutscene .gm-skip { display: block; }
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null, stkilda = null }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null, stkilda = null, interiors = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -525,9 +534,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (!target || !cam) { elPointer.classList.remove('on'); return; }
     const p = playerPos();
     const d = Math.hypot(target.x - p.x, target.z - p.z);
-    _pv.set(target.x, 3, target.z).applyMatrix4(cam.matrixWorldInverse);
+    _pv.set(target.x, (target.y || 0) + 3, target.z).applyMatrix4(cam.matrixWorldInverse);
     const behind = _pv.z > 0; // camera space looks down -z
-    _pv.set(target.x, 3, target.z).project(cam);
+    _pv.set(target.x, (target.y || 0) + 3, target.z).project(cam);
     let nx = _pv.x, ny = _pv.y;
     if (behind) { nx = -nx; ny = -Math.abs(ny) - 1; }
     const W = window.innerWidth, H = window.innerHeight, M = 46;
@@ -792,7 +801,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let gameplay = null, traffic = null;
   const counters = { talk: 0, rob: 0 };
   const placeMarker = (m, p, r) => {
-    m.position.set(p.x, 0.2, p.z);
+    m.position.set(p.x, (p.y || 0) + 0.2, p.z); // (p.y: a place inside the Quiet Room, js/interiors.js)
     m.scale.set(r, 1, r);
     m.visible = true;
   };
@@ -852,7 +861,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (pts.length) p = pts[pts.length >> 1];
     } else if (at.place) {
       const q = PLACES[at.place];
-      if (q) p = { x: q.x, z: q.z };
+      if (q) p = q.y === undefined ? { x: q.x, z: q.z } : { x: q.x, z: q.z, y: q.y };
     } else if (typeof at.x === 'number') p = at;
     if (!p) { console.warn('[missions] no such place', at); p = { x: 0, z: 0 }; }
     if (at.kerb) p = footpathNear(p);
@@ -1481,10 +1490,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       done = stealOk;
     } else if (s.at && s.steal && !stealOk) {
       elObjective.textContent = `${s.text} (You need the ute.)`;
+    } else if (s.enter) {
+      done = !!interiors?.inside; // (the door of the Quiet Room: js/interiors.js)
     } else if (s.at) {
       const g = resolve(s.at);
       const inside = Math.hypot(p.x - g.x, p.z - g.z) < s.r;
-      const modeOk = (!s.car || driving()) && (!s.foot || controllerManager.activeMode === 'person');
+      const modeOk = (!s.car || driving()) && (!s.foot || controllerManager.activeMode === 'person') && (!s.inside || !!interiors?.inside);
       if (inside && !modeOk && s.foot) elObjective.textContent = `${s.text} (Get out of the car first.)`;
       if (inside && modeOk) {
         if (s.wait) {
@@ -1572,6 +1583,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     start,
     applyCamera,
     get inCut() { return !!cut; },
+    /** The step the job is on (or null) */
+    get step() { return mission && mission.si >= 0 ? mission.def.steps[mission.si] : null; },
     /** A job is under way */
     get onJob() { return !!mission; },
     /** No shooting, aiming, talking to people or getting into cars: a cut scene, a choice or a black card is up */

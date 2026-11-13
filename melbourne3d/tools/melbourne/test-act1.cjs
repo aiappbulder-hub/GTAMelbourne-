@@ -4,7 +4,7 @@
 // Prints PASS/FAIL per check; exits 1 on a FAIL. (A small window: under software rendering the game runs at a frame or
 // two a second, and the jobs' timers count game time; ff() runs the mission system's own clock forward between frames.)
 const { chromium } = require('playwright');
-const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 // FROM=12 node tools/melbourne/test-act1.cjs starts at that job (0-based) with the choices the earlier ones would have made
 const FROM = Math.max(8, Math.min(12, +process.env.FROM || 8));
 const SEED = [{ quiet_room: 'fair', bug: 'kept' }, { lunch_shooter: 'talked', carlton: 'books' }, { kaz: 'partner' }, { doors_first: 'lean', doors: 'take' }];
@@ -72,14 +72,19 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await begin(8, -221, 123);
   ok(await p.evaluate(() => __city.missions.busy), 'cut scene: the game is busy (no shooting)');
   await until(() => __city.missions.debug().cutLine >= 1 || !__city.missions.debug().inCut, 60000); ok(true, 'cut scene lines play on by themselves');
-  await skip(); await until(() => __city.missions.debug().choice, 10000);
+  await skip(); await step(0);
+  // (the bar is inside: in through the street door, up to Gus, then the offer)
+  await tp(-218.3, 137); await p.waitForTimeout(500); await p.evaluate(() => __city.interiors.use()); await step(1);
+  await p.evaluate(() => __city.controllerManager.placePerson(-205.9, 1500, 136.5, Math.PI / 2)); await p.waitForTimeout(600); await ff(2);
+  await until(() => __city.missions.debug().choice, 15000);
   await choose(0);
-  await step(1); st = await state(); ok(st.money === 28000 && st.flags.quiet_room === 'fair', `QR the fair price costs $12,000 ${JSON.stringify(st)}`);
-  await intoCar(); await step(2); ok(true, 'QR in a car: Ruby at Southbank');
-  await car(-455, 681); await p.waitForTimeout(1500); await ff(3); await step(3, 20000); ok((await dbg()).tail, 'QR Ruby picked up: the Territorial is behind');
-  await car(-1500, -900); await p.waitForTimeout(1500); await ff(12); await step(4, 20000); ok(!(await dbg()).tail, 'QR tail lost');
-  await car(-230, 118); await step(5); await outOfCar();
-  for (const n of [6, 7, 8]) { await toGoal(); await step(n, 30000); }
+  await step(3); st = await state(); ok(st.money === 28000 && st.flags.quiet_room === 'fair', `QR the fair price costs $12,000 ${JSON.stringify(st)}`);
+  await until(() => !__city.interiors.inside, 30000); await intoCar(); await step(4); ok(true, 'QR in a car: Ruby at Southbank');
+  await car(-455, 681); await p.waitForTimeout(1500); await ff(3); await step(5, 20000); ok((await dbg()).tail, 'QR Ruby picked up: the Territorial is behind');
+  await car(-1500, -900); await p.waitForTimeout(1500); await ff(12); await step(6, 20000); ok(!(await dbg()).tail, 'QR tail lost');
+  await car(-230, 118); await step(7); await outOfCar();
+  await tp(-218.3, 137); await p.waitForTimeout(500); await p.evaluate(() => __city.interiors.use()); await step(8);
+  for (const [n, [x, z]] of [[9, [-205.9, 137.2]], [10, [-210.4, 137]], [11, [-205.2, 132.6]]]) { await p.evaluate(([x, z]) => __city.controllerManager.placePerson(x, 1500, z, 0), [x, z]); await p.waitForTimeout(600); await ff(4); await step(n, 30000); }
   ok((await dbg()).choice, 'QR three spots searched: the bug');
   await choose(1);
   await until(() => !__city.missions.debug().mission, 10000);
@@ -180,7 +185,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(await p.evaluate(() => __city.empire.isOpen && /The Grid/.test(document.querySelector('.bk-body').textContent)), 'Book: K opens it on the ledger');
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   ok(!(await p.evaluate(() => __city.empire.isOpen)), 'Book: Esc closes it');
-  await p.evaluate(() => { __city.empire.setTill(1234); __city.teleportTo(-224, 122, 0); });
+  await p.evaluate(() => { __city.empire.setTill(1234); __city.interiors.enter(); __city.controllerManager.placePerson(-205.9, 1500, 135.5, Math.PI / 2); });
   await p.waitForFunction(() => __city.empire.debug().till < 100, null, { timeout: 120000 });
   const st3 = await state(); ok(st3.money === st.money + 1230, `Book: the take is collected at the Quiet Room (${st.money} -> ${st3.money})`);
   st = st3;

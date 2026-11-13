@@ -484,7 +484,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
   let approach = null; // walking to a car's door
   function tryEnter() {
-    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
+    if (missionSystem?.busy || document.body.classList.contains('in-room')) return; // not during a cut scene or with a choice up, nor indoors
     if (seq) return; // already getting in
     const r = nearestRide();
     if (!r) return;
@@ -940,7 +940,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     return best;
   }
   function talk() {
-    if (missionSystem?.busy) return; // not during a cut scene or with a choice up
+    if (missionSystem?.busy || document.body.classList.contains('in-room')) return; // not during a cut scene or with a choice up, nor indoors
     if (cm.activeMode !== 'person' || seq) return;
     const q = nearestPed(TALK_REACH);
     if (!q) return;
@@ -1249,7 +1249,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
     // context prompt
     let act = '', label = '';
-    if (onFoot && !approach && !seq) {
+    if (onFoot && !approach && !seq && !document.body.classList.contains('in-room')) {
       const r = nearestRide();
       if (r && r.kind === 'traffic' && r.dist < 5 && cast) cast.preload([driverModel(r.v)]); // (whoever's driving, ready to be dragged out)
       const q = nearestPed(TALK_REACH);
