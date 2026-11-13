@@ -104,6 +104,14 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   the route you drove and follows it with a siren; they are solid, you can't drive through them. Lose them (stay
   230 m clear for 10 s), cool off, or get BUSTED (stopped with a police car within 16 m for 2.5 s: 12% of your cash).
   There are twice as many police cars in the traffic.
+- **Traffic spread** (`js/traffic.js`): cars are kept within 400 m of the camera and put back (recycled) when they fall
+  outside it. A new spot is drawn in proportion to lane length over all the roads around (not per road piece), and of
+  several candidates the one farthest from every other vehicle wins (at least 28 m from the nearest, 22 m clear in its own
+  lane), so cars don't spawn in bunches. Moving fast, spawns favour the streets ahead. At a junction a driver favours the
+  emptier road, so cars fan out instead of piling down the same few streets. A car out of sight that has stood 12 s with
+  two or more cars bunched around it (or 30 s on its own) is moved on to an empty stretch. `node
+  tools/melbourne/measure-traffic.cjs` measures it (cars per 100 lane-m, gaps, bumper to bumper share, stuck cars,
+  roads empty or packed); serve `melbourne3d/` on port 8801 first.
 - **Horn** (`js/car-sounds.js`): hold **B** in a car, or the HORN button on touch screens. A two-tone horn for as long
   as you hold it.
 - **Voices** (`js/voice-manager.js`, `data/character-voices.json`): recorded lines play where they exist; any line without
