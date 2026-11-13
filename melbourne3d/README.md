@@ -118,7 +118,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   a recording is spoken by the browser's own voice (an Australian one where the device has it). Tools:
   `node tools/voices/sync-lines.mjs [--prune]` finds every line the story says and adds the missing ones to the voice
   data; `tools/voices/generate.py` records them offline. Pace is set per speaker (aim 2.6-3.0 words/s): `RATE` for
-  recordings (0.95-1.2; the player's slow takes sit at the 1.2 ceiling, a re-record would fix it properly), `SPEECH`
+  recordings (0.95-1.2; the player's slow takes are re-timed offline by `tools/voices/retime.mjs` (atempo, pitch kept, about 3 words/s) and play at 1.0), `SPEECH`
   rates for the browser voice; subtitles and cut-scene timing follow the adjusted length (`voices.playSeconds`).
 - **Save** (`gta-melbourne3d-save-v2`): cash, progress and story choices (`flags`). A save from the older ten-job story
   keeps its cash and choices and starts the new story from the top; an unreadable one starts a new game.

@@ -204,10 +204,10 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   }
 
   // Playback rate per recorded voice (pitch moves with it, so kept within 0.9-1.2). Measured pace of the takes
-  // (words/s over the whole clip, pauses included) x rate = what is heard. The player's takes are a slow read (2.3 w/s)
-  // and sit at the 1.2 ceiling (2.7 w/s); a re-record at ~2.9 w/s would be the proper fix. The women stay as they were
+  // (words/s over the whole clip, pauses included) x rate = what is heard. The player's takes were a slow read (2.3 w/s):
+  // they are re-timed offline to ~3.0 w/s, pitch kept (tools/voices/retime.mjs), so play at 1.0. The women stay as they were
   // (1.18); the other men, whose takes already run near 2.8-3.0 w/s, come back to about natural.
-  const RATE = { player: 1.2, ruby: 1.18, kaz: 1.18, marsh: 1.18, local_female: 1.18,
+  const RATE = { player: 1.0, ruby: 1.18, kaz: 1.18, marsh: 1.18, local_female: 1.18,
     davo: 0.95, vince: 1.0, mick: 1.0, local_male: 1.0, gus: 1.1, nico: 1.15, terry: 1.1, sully: 1.0, shooter: 1.0, bouncer: 1.1, police: 1.0 };
   const speedOf = (character) => RATE[character] ?? 1;
   // The sound of a voice: now if the audio is running, else as soon as it is (the browser only allows sound after the
