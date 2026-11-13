@@ -144,9 +144,31 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   - **F** gets into your taxi or takes any car in the traffic (walking to the driver's door, the right-hand side,
     from a few metres away), and gets out again. A taken car keeps its own body and paint and stays parked where you
     leave it.
-  - Guns: pistol, Uzi, shotgun (**Tab** to change, **G** to holster, **R** to reload). Hold the right mouse button to
-    aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot; without aiming, shots lock on to the nearest
-    person or car in front. People fall and stay down a while; everyone nearby runs; shot cars flee, then stall.
+  - Guns (`js/weapons.js` holds every weapon in one table: numbers, model, HUD icon; `js/combat.js` the hostiles):
+    pistol (**1**), Uzi (**2**), shotgun (**3**), M4 rifle (**4**), rocket launcher (**5**) and fists (**6**). On foot the
+    number keys pick one (in a car they keep their old jobs: modes and cameras), **Tab** (Shift+Tab back), the wheel while
+    aiming, the slot buttons on the weapon panel or the GUN button on touch screens cycle; **G** holsters, **R** reloads.
+    Hold the right mouse button (or **Q**) to aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot;
+    without aiming, shots lock on to the nearest person, hostile or car in front. People fall and stay down a while;
+    everyone nearby runs; shot cars flee, then stall.
+    - Pistol: accurate, 34 a shot, 12 rounds. Uzi: automatic, 16 a shot, wide spread, 32 rounds. Shotgun: eight pellets
+      of 15, deadly inside 8 m and useless past 26, 6 shells, slow pump. M4: automatic and accurate, 26 a shot, 90 m,
+      30 rounds. Rocket launcher: one rocket, 42 m/s, 2.6 s to reload; the blast (9 m) kills people and wrecks cars in
+      range, hurts hostiles and, close up, you. Fists: a punch for 24 (two punches put an ordinary person down).
+    - Drawing a weapon takes 0.3 s (it rises from the hip and the arms come up) with a click; the panel shows the six
+      slots, the icon, the name and the ammo and changes the moment you switch.
+  - **Hostiles shoot back** (`js/combat.js`): the Nomads of *Westside Bikies* (3, pistols and an Uzi) and *Tobacco Wars*
+    (3 at the warehouse, Uzi, shotgun, pistol) are armed people who spawn round you when the step starts, and *Harbour
+    Run* has 3 waiting at the boat (Uzi, pistol, M4) who open up as you come within 110 m. A hostile stands about until you
+    are in his sight range with a clear line (the same 3D trace your shots use), turns, raises his gun (0.5-0.9 s reaction),
+    then fires bursts with a flash, a tracer and the gun's sound, pauses and strafes (closes up if you are far, backs off if
+    you are close) and fires again. His aim error grows with distance, doubles if you run and is worse again if you are in
+    a car; a shot hurts only if the traced bullet really passes through you. He stops when you are dead, 75 m away or out of
+    sight for 10 s, and while a cut scene or choice is up. The Kestrel watchers and police stay as they were (the
+    watchers fail the job on gunfire; the police are off during a job and have no foot officers with guns).
+  - **Health and dying**: 100 health, bar above the weapon panel; a hit takes 4-14; 6 s without one and it comes back at 5 a second.
+    At 0: WASTED, a fade, then you wake up fit: on a job the job fails and you are back at its start marker; otherwise
+    where you fell, 8% poorer (up to $500), the police off you.
   - The **sports car**: the old game's HSB Clubbie R8 in red, parked on Elizabeth St by the first job ("Get the
     sports car" in the teleport menu brings it beside you). 0-100 km/h in 3 s, 281 km/h flat out, harder brakes, more
     grip; the view widens with speed and the speedo reads to 300.
@@ -188,9 +210,11 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   - Start it from the Jobs list or the blue marker in the pits. There's a grid and a 3-2-1 countdown.
   - Rivals follow a curvature speed profile set against your car, pass slower cars and tuck in behind.
   - The HUD shows lap, position and time; the top three places pay a prize.
-- **Guns in hand**: the player holds the pistol, Uzi or shotgun.
-  - Aiming (right mouse or Q) or firing raises the arms to point it, two-handed for the long guns.
-  - Shots flash from the muzzle.
+- **Guns in hand** (`js/people.js`): the player and every armed hostile hold the weapon's own model.
+  - The pistol is held in the right hand (a straight arm along the aim, the left hand coming under it); the long guns
+    (Uzi, shotgun, M4, rocket launcher) are held at the shoulder when aimed and across the chest, muzzle down, otherwise,
+    both hands solved to the grip and the fore-end; fists put both fists up when aiming and punch with the arm.
+  - Shots flash from the muzzle; a hostile's from his.
 - **The intro**:
   - Narrated in the player's own voice (Orpheus `cooper`, who also speaks your cut-scene lines).
   - Ground-level shots with the cast: Vince and his crew on Lygon Street, Kaz and her gang in Docklands at sunset,

@@ -2,6 +2,8 @@ import * as THREE from 'three/webgpu';
 import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 import { createCarSounds } from './car-sounds.js';
 import { SPORTS_DRIVE } from './controllers.js';
+import { WEAPONS, WEAPON_BY_ID, weaponIconSVG } from './weapons.js';
+import { createCombat } from './combat.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
 // The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
@@ -29,11 +31,6 @@ const CUSTOM_CARS = [
 //   person or car in front. Shots hit people, cars and walls; people nearby run.
 // - People: T talks to the person in front of you (they stop and turn to you); T with a gun drawn robs them.
 
-const WEAPONS = [
-  { id: 'pistol', name: 'Pistol', mag: 12, rate: 0.28, reload: 1.2, range: 60, pellets: 1, spread: 0.012, auto: false, sound: 'pistol' },
-  { id: 'uzi', name: 'Uzi', mag: 32, rate: 0.085, reload: 1.6, range: 45, pellets: 1, spread: 0.05, auto: true, sound: 'uzi' },
-  { id: 'shotgun', name: 'Shotgun', mag: 6, rate: 0.85, reload: 2.2, range: 26, pellets: 8, spread: 0.11, auto: false, sound: 'shotgun' }
-];
 const WALK_REACH = 9; // metres: walk to the door first
 // Getting in (seconds of game time): turn to the car, open the door, get in; with a driver in it, they're dragged out
 // first. Getting out: a short climb out of the seat (not for a mission's leaveCarNow, which is instant)
@@ -80,10 +77,35 @@ const CSS = `
   background: rgba(10,12,16,.78); color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; pointer-events: auto; cursor: pointer; white-space: nowrap; }
 .gp-prompt:empty { display: none; }
 .gp-prompt kbd { display: inline-block; min-width: 18px; margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #ffd23f; color: #111; font: 800 12px/1.2 Inter, sans-serif; text-align: center; }
-.gp-weapon { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(300px, 92vw); z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
+.gp-weapon { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(380px, 94vw); z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
   color: #fff; font: 700 13px/1.3 Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
 .gp-weapon b { display: block; font: 800 20px/1 'JetBrains Mono', monospace; color: #ffd23f; }
 .gp-weapon[hidden] { display: none; }
+.gp-slots { display: flex; gap: 4px; justify-content: center; margin-bottom: 6px; }
+.gp-slot { position: relative; width: 52px; height: 34px; padding: 2px 3px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.55); pointer-events: auto; cursor: pointer; }
+.gp-slot svg { width: 100%; height: 100%; }
+.gp-slot i { position: absolute; left: 3px; top: 1px; font: 800 9px/1 'JetBrains Mono', monospace; font-style: normal; color: rgba(255,255,255,.7); }
+.gp-slot.on { border-color: #ffd23f; background: rgba(255,210,63,.18); color: #ffd23f; }
+.gp-cur { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.gp-cur .gp-icon { width: 56px; height: 24px; color: #ffd23f; }
+.gp-cur .gp-icon svg { width: 100%; height: 100%; }
+.gp-cur .gp-name { font: 700 13px/1.1 Inter, system-ui, sans-serif; text-align: left; }
+.gp-cur b { display: block; }
+.gp-hp { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(220px, 70vw); height: 14px; z-index: 30; border-radius: 7px; background: rgba(10,12,16,.72); border: 1px solid rgba(255,255,255,.25); overflow: hidden; pointer-events: none; }
+.gp-hp i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(#e5483b, #b4231a); transition: width .12s; }
+.gp-hp span { position: absolute; left: 6px; top: 0; font: 800 9px/14px Inter, sans-serif; letter-spacing: .12em; color: #fff; text-shadow: 0 1px 2px #000; }
+.gp-hp.low i { background: linear-gradient(#ff2a1a, #a00); }
+.gp-hp[hidden] { display: none; }
+.gp-hurt { position: fixed; inset: 0; z-index: 28; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(180,0,0,0) 45%, rgba(180,0,0,.75) 100%); }
+.gp-wasted { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(ellipse at center, rgba(40,0,0,.55), rgba(0,0,0,.92)); }
+.gp-wasted b { font: 900 clamp(48px, 12vw, 120px)/1 Inter, system-ui, sans-serif; letter-spacing: .08em; color: #c8201a; text-shadow: 0 3px 20px #000; }
+.gp-wasted small { font: 700 16px Inter, sans-serif; color: #ddd; letter-spacing: .1em; text-transform: uppercase; }
+.gp-wasted[hidden] { display: none; }
+.gp-gun { position: fixed; right: 26px; bottom: 296px; z-index: 31; width: 62px; height: 46px; border-radius: 14px; border: 0; display: none; touch-action: none;
+  background: rgba(10,12,16,.7); color: #ffd23f; font: 800 13px/1 Inter, sans-serif; border: 2px solid rgba(255,255,255,.5); }
+body.touch-enabled .gp-gun.on { display: block; }
 .gp-hint { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; opacity: .85; }
 @media (max-width: 960px) { .gp-hint { display: none; } }
 body.touch-enabled .gp-hint { display: none; }
@@ -189,6 +211,51 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   hornBtn.type = 'button';
   hornBtn.textContent = 'HORN';
   document.body.append(hornBtn);
+  const gunBtn = document.createElement('button');
+  gunBtn.className = 'gp-gun';
+  gunBtn.type = 'button';
+  gunBtn.textContent = 'GUN';
+  document.body.append(gunBtn);
+  // The weapon panel: the six slots (tap or click one), then the weapon in hand: its icon, name and ammo
+  const elSlots = document.createElement('div');
+  elSlots.className = 'gp-slots';
+  const slotBtns = WEAPONS.map((w, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'gp-slot';
+    b.title = `${w.slot}: ${w.name}`;
+    b.innerHTML = `<i>${w.slot}</i>${weaponIconSVG(w.id)}`;
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); selectSlot(i); });
+    elSlots.append(b);
+    return b;
+  });
+  const elCur = document.createElement('div');
+  elCur.className = 'gp-cur';
+  const elIcon = document.createElement('div');
+  elIcon.className = 'gp-icon';
+  const elNameBox = document.createElement('div');
+  elNameBox.className = 'gp-name';
+  const elAmmo = document.createElement('b');
+  const elName = document.createElement('span');
+  elNameBox.append(elAmmo, elName);
+  elCur.append(elIcon, elNameBox);
+  const elHint = document.createElement('span');
+  elHint.className = 'gp-hint';
+  elWeapon.append(elSlots, elCur, elHint);
+  let hudKey = '', hudIcon = '';
+  function drawHud() {
+    const w = WEAPONS[wi];
+    const ammoText = !armed ? 'Holstered' : w.melee ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
+    const key = `${armed ? wi : -1}|${ammoText}`;
+    if (key === hudKey) return;
+    hudKey = key;
+    slotBtns.forEach((b, i) => b.classList.toggle('on', armed && i === wi));
+    const iconId = armed ? w.id : '';
+    if (iconId !== hudIcon) { hudIcon = iconId; elIcon.innerHTML = iconId ? weaponIconSVG(iconId) : ''; }
+    elAmmo.textContent = ammoText;
+    elName.textContent = armed ? w.name : 'G to draw your gun';
+    elHint.textContent = armed ? '1-6 or Tab: change weapon \u00B7 Right click or Q: aim \u00B7 Left click or J: fire \u00B7 R: reload' : '';
+  }
   const sounds = createCarSounds({ audioSystem });
   let hornHinted = false;
 
@@ -726,9 +793,14 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   });
   let tracerNext = 0;
   const flashMat = new THREE.MeshBasicNodeMaterial({ color: 0xffc860, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
-  const flash = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), flashMat);
-  flash.visible = false;
-  scene.add(flash);
+  const flashes = Array.from({ length: 6 }, () => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), flashMat);
+    m.visible = false;
+    m.userData.t = 0;
+    scene.add(m);
+    return m;
+  });
+  let flashNext = 0;
   const sparkMat = new THREE.MeshBasicNodeMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
   const sparks = Array.from({ length: 10 }, () => {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), sparkMat);
@@ -738,7 +810,6 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     return m;
   });
   let sparkNext = 0;
-  let flashT = 0;
 
   // gunshots synthesised with Web Audio (a filtered noise burst and a thump)
   let audio = null;
@@ -747,34 +818,79 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state === 'suspended') audio.resume();
       const t = audio.currentTime;
-      const len = kind === 'shotgun' ? 0.5 : kind === 'uzi' ? 0.12 : 0.28;
-      const buf = audio.createBuffer(1, Math.floor(audio.sampleRate * len), audio.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'shotgun' ? 2.2 : 3.5);
-      const src = audio.createBufferSource();
-      src.buffer = buf;
-      const filter = audio.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = (kind === 'shotgun' ? 2400 : kind === 'uzi' ? 4200 : 3400) / (1 + dist / 60);
-      const gain = audio.createGain();
-      gain.gain.setValueAtTime((kind === 'shotgun' ? 0.9 : 0.6) / (1 + dist / 25), t);
-      src.connect(filter).connect(gain).connect(audio.destination);
-      src.start(t);
-      const osc = audio.createOscillator();
-      const og = audio.createGain();
-      osc.frequency.setValueAtTime(kind === 'shotgun' ? 90 : 140, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-      og.gain.setValueAtTime(0.5 / (1 + dist / 25), t);
-      og.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      osc.connect(og).connect(audio.destination);
-      osc.start(t);
-      osc.stop(t + 0.16);
+      const att = 1 / (1 + dist / 25);
+      // a burst of noise through a filter, fading out
+      const noise = (len, freq, gain, power, type = 'lowpass') => {
+        const buf = audio.createBuffer(1, Math.floor(audio.sampleRate * len), audio.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, power);
+        const src = audio.createBufferSource();
+        src.buffer = buf;
+        const filter = audio.createBiquadFilter();
+        filter.type = type;
+        filter.frequency.value = freq;
+        const g = audio.createGain();
+        g.gain.setValueAtTime(gain, t);
+        src.connect(filter).connect(g).connect(audio.destination);
+        src.start(t);
+      };
+      // a falling tone (the thump of the shot)
+      const thump = (f0, f1, len, gain, at = 0, wave = 'sine') => {
+        const osc = audio.createOscillator();
+        const og = audio.createGain();
+        osc.type = wave;
+        osc.frequency.setValueAtTime(f0, t + at);
+        osc.frequency.exponentialRampToValueAtTime(f1, t + at + len);
+        og.gain.setValueAtTime(gain, t + at);
+        og.gain.exponentialRampToValueAtTime(0.001, t + at + len + 0.03);
+        osc.connect(og).connect(audio.destination);
+        osc.start(t + at);
+        osc.stop(t + at + len + 0.05);
+      };
+      const far = 1 + dist / 60;
+      switch (kind) {
+        case 'draw': // a metal click-clack
+          thump(1900, 900, 0.025, 0.12, 0, 'square');
+          thump(1300, 600, 0.03, 0.1, 0.07, 'square');
+          return;
+        case 'hurt':
+          thump(150, 55, 0.14, 0.4);
+          noise(0.1, 700, 0.25, 2);
+          return;
+        case 'punch':
+          noise(0.08, 900, 0.35, 2.5);
+          thump(120, 55, 0.09, 0.4);
+          return;
+        case 'boom':
+          noise(1.3, 520 / far, 1.0 * Math.max(0.25, att * 1.4), 1.6);
+          thump(70, 24, 0.7, 0.9 * Math.max(0.25, att * 1.4));
+          return;
+        case 'rocket':
+          noise(0.7, 900, 0.5, 1.2, 'bandpass');
+          thump(90, 40, 0.3, 0.5);
+          return;
+        case 'm4':
+          noise(0.16, 3800 / far, 0.65 * att, 3.2);
+          thump(130, 45, 0.11, 0.5 * att);
+          return;
+        case 'shotgun':
+          noise(0.5, 2400 / far, 0.9 * att, 2.2);
+          thump(90, 40, 0.12, 0.5 * att);
+          return;
+        case 'uzi':
+          noise(0.12, 4200 / far, 0.6 * att, 3.5);
+          thump(140, 40, 0.12, 0.5 * att);
+          return;
+        default: // pistol
+          noise(0.28, 3400 / far, 0.6 * att, 3.5);
+          thump(140, 40, 0.12, 0.5 * att);
+      }
     } catch { /* no audio */ }
   }
 
   // Where a shot from (ox, oy, oz) along the unit vector (dx, dy, dz) stops: the first person, car, wall or the ground
   // within range, in 3D (so a shot can pass over a head or a car roof, or go into the road). Starts `s0` m along.
-  function trace(ox, oy, oz, dx, dy, dz, range, s0 = 0.3) {
+  function trace(ox, oy, oz, dx, dy, dz, range, s0 = 0.3, solid = false) {
     const peds = trafficSystem.peds;
     const step = 0.4;
     for (let s = s0; s <= range; s += step) {
@@ -786,11 +902,17 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         if (c.polygon && !insidePoly(c.polygon.outer, px, pz)) continue;
         return { kind: 'wall', x: px, y: py, z: pz, dist: s };
       }
-      for (const p of peds) {
+      for (const p of (solid ? [] : peds)) {
         if (!p.placed || p.dead) continue;
         if (Math.abs(p.x - px) > 0.55 || Math.abs(p.z - pz) > 0.55) continue;
         const fy = cm.getGroundHeight(p.x, p.z, 'person') ?? 0;
         if (py >= fy - 0.05 && py <= fy + 1.9) return { kind: 'ped', p, x: px, y: py, z: pz, dist: s };
+      }
+      if (!solid) {
+        for (const g of combat.list) {
+          if (g.dead || Math.abs(g.x - px) > 0.55 || Math.abs(g.z - pz) > 0.55) continue;
+          if (py >= g.y - 0.05 && py <= g.y + 1.9) return { kind: 'gunman', g, x: px, y: py, z: pz, dist: s };
+        }
       }
       for (const v of trafficSystem.cars) {
         if (v.driven || !(v.edge || v.parked)) continue;
@@ -828,15 +950,43 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       if (score < bestScore) { bestScore = score; best = t; }
     };
     for (const q of trafficSystem.peds) if (q.placed && !q.dead) consider(q.x, q.z, { kind: 'ped', q, get x() { return q.x; }, get z() { return q.z; } });
+    for (const q of combat.list) if (!q.dead) consider(q.x, q.z, { kind: 'ped', q, get x() { return q.x; }, get z() { return q.z; } });
     if (!pedsOnly) for (const v of trafficSystem.cars) if (!v.driven && (v.edge || v.parked)) consider(v.x, v.z, { kind: 'car', v, get x() { return v.x; }, get z() { return v.z; } });
     return best;
   }
 
+  // Shots and blasts, drawn for anyone: the player's own and the hostiles' (js/combat.js)
+  const fx = {
+    tracer(ax, ay, az, bx, by, bz) {
+      const tr = tracers[tracerNext++ % tracers.length];
+      const pos = tr.geometry.attributes.position;
+      pos.setXYZ(0, ax, ay, az);
+      pos.setXYZ(1, bx, by, bz);
+      pos.needsUpdate = true;
+      tr.visible = true;
+      tr.userData.t = 0.06;
+    },
+    flash(x, y, z) {
+      const f = flashes[flashNext++ % flashes.length];
+      f.position.set(x, y, z);
+      f.visible = true;
+      f.userData.t = 0.05;
+    },
+    spark(x, y, z) {
+      const sp = sparks[sparkNext++ % sparks.length];
+      sp.position.set(x, y, z);
+      sp.visible = true;
+      sp.userData.t = 0.08;
+    },
+    bang: (kind, dist = 0) => bang(kind, dist)
+  };
+
   function fire() {
     if (missionSystem?.busy || document.body.classList.contains('cutscene') || document.body.classList.contains('cinematic')) return; // no shooting in a cut scene, the intro, or with a choice up
-    if (seq) return; // (getting into a car: both hands busy)
+    if (seq || dying) return; // (getting into a car: both hands busy)
     if (!armed || cm.activeMode !== 'person' || reloading > 0 || cooldown > 0) return;
     const w = WEAPONS[wi];
+    if (w.melee) return punch(w);
     if (ammo[wi] <= 0) { reloading = w.reload; return; }
     ammo[wi]--;
     cooldown = w.rate;
@@ -869,11 +1019,10 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     let mx = pp.x + Math.sin(yaw) * 0.55, mz = pp.z + Math.cos(yaw) * 0.55;
     let my = pp.y + 1.38;
     raisedT = 0.7; // the gun comes up to fire, and stays up a moment
+    kickNow = true;
     const mz0 = cast?.muzzle();
     if (mz0) { mx = mz0.x; my = mz0.y; mz = mz0.z; }
-    flash.position.set(mx, my, mz);
-    flash.visible = true;
-    flashT = 0.05;
+    fx.flash(mx, my, mz);
     bang(w.sound);
     if (!missionSystem?.onJob) voices?.event('gunfire', pp); // (no police chatter on a job)
     missionSystem?.onGunfire?.();
@@ -883,6 +1032,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (haveAim) { dir.set(aimPt.x - mx, aimPt.y - my, aimPt.z - mz); if (dir.lengthSq() < 0.25) dir.set(Math.sin(yaw), 0, Math.cos(yaw)); }
     dir.normalize();
     const baseYaw = Math.atan2(dir.x, dir.z), basePitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
+    const kick = w.kick ?? (w.id === 'shotgun' ? 0.05 : 0.012);
+    if (w.id === 'rocket') {
+      launchRocket(mx, my, mz, dir, w);
+      if (aimHeld) freePitch = Math.min(0.75, freePitch + kick);
+      if (ammo[wi] <= 0) reloading = w.reload;
+      return;
+    }
     let hitKind = null;
     const shotAt = new Set();
     for (let k = 0; k < w.pellets; k++) {
@@ -890,23 +1046,15 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       const pa = basePitch + (Math.random() - 0.5) * 2 * w.spread * 0.6;
       const cp = Math.cos(pa);
       const hit = trace(mx, my, mz, Math.sin(a) * cp, Math.sin(pa), Math.cos(a) * cp, w.range, 0.2);
-      if (k === 0) lastShot = { kind: hit.kind, x: hit.x, y: hit.y, z: hit.z, aim: haveAim ? [aimPt.x, aimPt.y, aimPt.z] : null, from: [mx, my, mz] };
-      const tr = tracers[tracerNext++ % tracers.length];
-      const pos = tr.geometry.attributes.position;
-      pos.setXYZ(0, mx, my, mz);
-      pos.setXYZ(1, hit.x, hit.y, hit.z);
-      pos.needsUpdate = true;
-      tr.visible = true;
-      tr.userData.t = 0.06;
-      if (hit.kind !== 'none') {
-        const sp = sparks[sparkNext++ % sparks.length];
-        sp.position.set(hit.x, hit.y, hit.z);
-        sp.visible = true;
-        sp.userData.t = 0.08;
-      }
+      if (k === 0) lastShot = { kind: hit.kind, x: hit.x, y: hit.y, z: hit.z, aim: haveAim ? [aimPt.x, aimPt.y, aimPt.z] : null, from: [mx, my, mz], weapon: w.id };
+      fx.tracer(mx, my, mz, hit.x, hit.y, hit.z);
+      if (hit.kind !== 'none') fx.spark(hit.x, hit.y, hit.z);
       if (hit.kind === 'ped') {
         hitKind = 'ped';
         if (!hit.p.dead) { trafficSystem.killPed(hit.p, pp.x, pp.z); wanted?.crime('kill', hit.p.x, hit.p.z); }
+      } else if (hit.kind === 'gunman') {
+        hitKind = 'ped';
+        combat.hurt(hit.g, w.dmg, pp.x, pp.z);
       } else if (hit.kind === 'car') {
         hitKind = hitKind || 'car';
         if (w.pellets === 1 || !shotAt.has(hit.v)) trafficSystem.shootCar(hit.v);
@@ -914,16 +1062,262 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       }
     }
     // recoil: the aim kicks up a little (the camera follows), more for the shotgun
-    if (aimHeld) freePitch = Math.min(0.75, freePitch + (w.id === 'shotgun' ? 0.05 : 0.012));
+    if (aimHeld) freePitch = Math.min(0.75, freePitch + kick);
     if (hitKind) { hitMarkT = 0.18; elCross.classList.add('hit'); }
     trafficSystem.scarePeds(pp.x, pp.z, 40, 10);
     if (ammo[wi] <= 0) reloading = w.reload;
   }
-  function switchWeapon(d) {
-    wi = (wi + d + WEAPONS.length) % WEAPONS.length;
+  // A punch: the swing takes 0.3 s and lands a moment in; whoever is nearest in front (a person, a hostile) takes it
+  let punchT = 0, punchLeft = false, punchPending = 0, kickNow = false;
+  function punch(w) {
+    cooldown = w.rate;
+    punchT = 0.3;
+    punchLeft = !punchLeft;
+    punchPending = 0.12;
+    bang('punch');
+  }
+  function punchLands() {
+    const w = WEAPON_BY_ID.fists, p = person.position;
+    let best = null, bd = w.range;
+    const consider = (o, kind) => {
+      const dx = o.x - p.x, dz = o.z - p.z, d = Math.hypot(dx, dz);
+      if (d > bd) return;
+      let a = Math.atan2(dx, dz) - person.heading;
+      a = Math.atan2(Math.sin(a), Math.cos(a));
+      if (Math.abs(a) > 0.95) return;
+      bd = d; best = { o, kind };
+    };
+    for (const q of trafficSystem.peds) if (q.placed && !q.dead) consider(q, 'ped');
+    for (const g of combat.list) if (!g.dead) consider(g, 'gunman');
+    wanted?.crime('hit', p.x, p.z);
+    if (!best) return;
+    hitMarkT = 0.18;
+    elCross.classList.add('hit');
+    lastShot = { kind: best.kind === 'gunman' ? 'gunman' : 'ped', x: best.o.x, y: p.y + 1.2, z: best.o.z, aim: null, from: [p.x, p.y + 1.2, p.z], weapon: 'fists' };
+    if (best.kind === 'gunman') combat.hurt(best.o, w.dmg, p.x, p.z);
+    else {
+      best.o.punches = (best.o.punches || 0) + 1;
+      if (best.o.punches >= 2) { trafficSystem.killPed(best.o, p.x, p.z); wanted?.crime('kill', best.o.x, best.o.z); }
+      else trafficSystem.scarePeds(best.o.x, best.o.z, 12, 10);
+    }
+  }
+
+  // Rockets: a slow projectile that explodes where it first meets a person, car, wall or the ground, or after 5 s
+  const rockets = [];
+  const rocketBody = new THREE.MeshStandardNodeMaterial({ color: 0x4a5a3a, roughness: 0.6, metalness: 0.3 });
+  const glowMat = new THREE.MeshBasicNodeMaterial({ color: 0xffa030, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+  const smokeMat = new THREE.MeshBasicNodeMaterial({ color: 0xb8b8b8, transparent: true, opacity: 0.55, depthWrite: false });
+  const puffs = Array.from({ length: 28 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 4), smokeMat); m.visible = false; m.userData.t = 0; scene.add(m); return m; });
+  let puffNext = 0;
+  function launchRocket(mx, my, mz, dir, w) {
+    const m = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.55, 8), rocketBody);
+    body.rotation.x = Math.PI / 2;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), rocketBody);
+    tip.rotation.x = Math.PI / 2;
+    tip.position.z = 0.35;
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), glowMat);
+    glow.position.z = -0.34;
+    m.add(body, tip, glow);
+    m.position.set(mx, my, mz);
+    m.lookAt(mx + dir.x, my + dir.y, mz + dir.z);
+    scene.add(m);
+    rockets.push({ m, x: mx, y: my, z: mz, dx: dir.x, dy: dir.y, dz: dir.z, v: w.speed, t: 0, puffT: 0, w });
+    bang('rocket');
+  }
+  function stepRockets(dt) {
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const r = rockets[i];
+      r.t += dt;
+      const step = r.v * dt;
+      const h = trace(r.x, r.y, r.z, r.dx, r.dy, r.dz, step + 0.3, 0.0);
+      if ((h.kind !== 'none' && h.dist <= step + 0.3) || r.t > 5) {
+        const at = h.kind !== 'none' ? h : { x: r.x, y: r.y, z: r.z };
+        scene.remove(r.m);
+        rockets.splice(i, 1);
+        explode(at.x, at.y, at.z, r.w.blast);
+        continue;
+      }
+      r.x += r.dx * step; r.y += r.dy * step; r.z += r.dz * step;
+      r.m.position.set(r.x, r.y, r.z);
+      r.puffT -= dt;
+      if (r.puffT <= 0) {
+        r.puffT = 0.035;
+        const pf = puffs[puffNext++ % puffs.length];
+        pf.position.set(r.x - r.dx * 0.4, r.y - r.dy * 0.4, r.z - r.dz * 0.4);
+        pf.scale.setScalar(1);
+        pf.visible = true;
+        pf.userData.t = 0.8;
+      }
+    }
+    for (const pf of puffs) if (pf.visible) { pf.userData.t -= dt; pf.scale.setScalar(Math.max(0.05, pf.userData.t / 0.8) * 1.6); if (pf.userData.t <= 0) pf.visible = false; }
+  }
+  // The blast: a fireball and a scorch mark, the boom, and damage to everyone and everything inside the radius
+  const fireballs = [0, 1, 2].map(() => {
+    const mat = new THREE.MeshBasicNodeMaterial({ color: 0xff8a20, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), mat);
+    m.visible = false; m.userData.t = 0; scene.add(m);
+    return m;
+  });
+  const scorches = [0, 1, 2, 3].map(() => {
+    const mat = new THREE.MeshBasicNodeMaterial({ color: 0x111111, transparent: true, opacity: 0.55, depthWrite: false });
+    const m = new THREE.Mesh(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), mat);
+    m.visible = false; m.renderOrder = 2; m.userData.t = 0; scene.add(m);
+    return m;
+  });
+  let fireNext = 0, scorchNext = 0;
+  const blastLog = []; // for checks: the blasts so far
+  function explode(x, y, z, b) {
+    const f = fireballs[fireNext++ % fireballs.length];
+    f.position.set(x, y + 0.4, z);
+    f.visible = true;
+    f.userData.t = 0.5;
+    f.userData.r = b.r * 0.55;
+    const sc = scorches[scorchNext++ % scorches.length];
+    sc.position.set(x, (cm.getGroundHeight(x, z, 'person') ?? 0) + 0.04, z);
+    sc.scale.setScalar(b.r * 0.4);
+    sc.visible = true;
+    sc.userData.t = 9;
+    bang('boom', Math.hypot(person.position.x - x, person.position.z - z));
+    const R = b.r;
+    let kills = 0;
+    for (const q of trafficSystem.peds) {
+      if (!q.placed || q.dead) continue;
+      if (Math.hypot(q.x - x, q.z - z) < R * 0.8) { trafficSystem.killPed(q, x, z); kills++; }
+    }
+    let cars = 0;
+    for (const v of trafficSystem.cars) {
+      if (v.driven || !(v.edge || v.parked)) continue;
+      if (Math.hypot(v.x - x, v.z - z) < R) { for (let k = 0; k < 8; k++) trafficSystem.shootCar(v); cars++; } // wrecked: it stalls where it is
+    }
+    combat.blast(x, y, z, R, b.dmg);
+    const pd = Math.hypot(person.position.x - x, person.position.z - z);
+    if (cm.activeMode === 'person' && pd < R * 0.75) hurtPlayer(b.dmg * 0.55 * (1 - pd / (R * 0.75)), x, z);
+    trafficSystem.scarePeds(x, z, 60, 10);
+    if (kills) wanted?.crime('kill', x, z);
+    wanted?.crime('shot', x, z);
+    missionSystem?.onGunfire?.();
+    blastLog.push({ x, y, z, r: R, kills, cars });
+  }
+  function stepBlasts(dt) {
+    for (const f of fireballs) if (f.visible) {
+      f.userData.t -= dt;
+      const k = 1 - Math.max(0, f.userData.t) / 0.5;
+      f.scale.setScalar(Math.max(0.1, f.userData.r * (0.25 + 0.75 * Math.sqrt(k))));
+      f.material.opacity = Math.max(0, 0.9 * (1 - k));
+      if (f.userData.t <= 0) f.visible = false;
+    }
+    for (const s of scorches) if (s.visible) { s.userData.t -= dt; s.material.opacity = Math.max(0, Math.min(0.55, s.userData.t / 9 * 0.8)); if (s.userData.t <= 0) s.visible = false; }
+  }
+  function switchTo(i) {
+    if (i === wi && armed) return;
+    wi = i;
     armed = true;
     reloading = 0;
+    cooldown = Math.max(cooldown, 0.3); // (the draw)
+    bang('draw');
+    drawHud();
   }
+  function switchWeapon(d) {
+    switchTo((wi + d + WEAPONS.length) % WEAPONS.length);
+  }
+  const selectSlot = (i) => { if (i >= 0 && i < WEAPONS.length) switchTo(i); };
+
+  // ------------------------------------------------------------------------------------------------------------------
+  // Health, the hostiles (js/combat.js) and dying
+  // ------------------------------------------------------------------------------------------------------------------
+  // 100 health; a hit takes 4-14 (what the hostile's gun does: js/weapons.js `npc.dmg`); 6 s without a hit and it comes
+  // back at 5 a second. At 0: WASTED. On a job that fails it and puts you back at the job's start marker; otherwise you
+  // wake where you fell, a little poorer, with the police off you.
+  const HP_MAX = 100;
+  let hp = HP_MAX, lastHurt = -99, hurtGlow = 0, dying = null, hpShown = -1;
+  const elHp = div('gp-hp');
+  elHp.innerHTML = '<i></i><span>HEALTH</span>';
+  const elHpFill = elHp.firstChild;
+  const elHurt = div('gp-hurt');
+  const elWasted = div('gp-wasted');
+  elWasted.innerHTML = '<b>WASTED</b><small></small>';
+  const document_ = document.body.classList;
+  function hurtPlayer(dmg, fromX, fromZ) {
+    if (dying || dmg <= 0 || document_.contains('cinematic') || document_.contains('in-room')) return;
+    hp = Math.max(0, hp - dmg);
+    lastHurt = clock;
+    hurtGlow = Math.min(1, hurtGlow + 0.45);
+    bang('hurt');
+    if (hp <= 0) die();
+  }
+  function die() {
+    const onJob = !!missionSystem?.onJob;
+    if (cm.activeMode === 'car') leaveCarNow();
+    triggerHeld = false;
+    stopMouseAim();
+    aimHeld = false;
+    dying = { t: 0, x: person.position.x, y: person.position.y, z: person.position.z, h: person.heading, onJob };
+    elWasted.querySelector('small').textContent = onJob ? 'The job is lost' : '';
+  }
+  function respawn() {
+    const d = dying;
+    dying = null;
+    cast?.setPlayerPose(null);
+    combat.clear();
+    for (const r of rockets.splice(0)) scene.remove(r.m);
+    let spot = { x: d.x, z: d.z, h: d.h };
+    if (d.onJob) {
+      const s = missionSystem.respawnSpot?.();
+      if (s) spot = { x: s.x, z: s.z, h: d.h };
+      missionSystem.failJob?.('You were shot.');
+    } else {
+      const money = missionSystem?.money ?? 0;
+      const fee = Math.min(500, Math.round((money * 0.08) / 10) * 10);
+      if (fee > 0) missionSystem.addMoney(-fee);
+      wanted?.reset?.();
+    }
+    const out = cm.teleportActiveTo(spot.x, spot.z, spot.h);
+    cameraSystem.resetForTeleport?.();
+    hp = HP_MAX;
+    lastHurt = -99;
+    ammo.forEach((_, i) => { ammo[i] = WEAPONS[i].mag; });
+    reloading = 0;
+    return out;
+  }
+  function stepHealth(dt) {
+    hurtGlow = Math.max(0, hurtGlow - dt * 0.9);
+    elHurt.style.opacity = String(Math.min(0.85, hurtGlow + (hp < 30 ? 0.18 + 0.08 * Math.sin(clock * 6) : 0)));
+    if (dying) {
+      dying.t += dt;
+      person.position.set(dying.x, dying.y, dying.z);
+      person.speed = 0;
+      cast?.setPlayerPose({ x: dying.x, y: dying.y, z: dying.z, heading: dying.h, anim: 'idle', timeScale: 0, fall: smooth(dying.t / 0.55) });
+      const k = Math.min(1, Math.max(0, (dying.t - 0.5) / 1.5));
+      elWasted.style.opacity = String(k);
+      elWasted.hidden = false;
+      if (dying.t > 3.6) respawn();
+      return;
+    }
+    if (!elWasted.hidden) {
+      elWasted.style.opacity = String(Math.max(0, +elWasted.style.opacity - dt * 1.5));
+      if (+elWasted.style.opacity <= 0) elWasted.hidden = true;
+    }
+    if (clock - lastHurt > 6 && hp < HP_MAX) hp = Math.min(HP_MAX, hp + 5 * dt);
+    const shown = Math.round(hp);
+    if (shown !== hpShown) {
+      hpShown = shown;
+      elHpFill.style.width = `${shown}%`;
+      elHp.classList.toggle('low', shown < 30);
+    }
+    elHp.hidden = !(cm.activeMode === 'person' || cm.activeMode === 'car') || (hp >= HP_MAX && clock - lastHurt > 4 && !combat.alive);
+  }
+  const world = {
+    player() {
+      const inCar = cm.activeMode === 'car';
+      const e = inCar ? car : person;
+      return { x: e.position.x, y: e.position.y, z: e.position.z, speed: Math.abs(e.speed || 0), inCar, dead: !!dying };
+    },
+    // no shooting at you in a cut scene or with a choice up, in the intro, or indoors
+    holdFire: () => !!missionSystem?.busy || document_.contains('cutscene') || document_.contains('cinematic') || document_.contains('in-room') || !!dying,
+    hurtPlayer
+  };
+  const combat = createCombat({ cm, cast, trafficSystem, trace, fx, world });
 
   // ------------------------------------------------------------------------------------------------------------------
   // Talking
@@ -999,12 +1393,22 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         break;
       case 'KeyG':
         armed = !armed;
+        drawHud();
         break;
       case 'KeyR':
-        if (ammo[wi] < WEAPONS[wi].mag) reloading = WEAPONS[wi].reload;
+        if (ammo[wi] < WEAPONS[wi].mag && !dying) { reloading = WEAPONS[wi].reload; bang('draw'); }
         break;
     }
   });
+  // 1-6 pick a weapon on foot (before main.js's mode and camera keys see them; with a choice up they pick the answer)
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || typing(e) || cm.activeMode !== 'person' || missionSystem?.busy || document.body.classList.contains('cinematic')) return;
+    const m = /^Digit([1-6])$/.exec(e.code);
+    if (!m) return;
+    e.stopImmediatePropagation();
+    if (!dying) selectSlot(+m[1] - 1);
+  }, true);
+  gunBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); switchWeapon(1); });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; if (e.code === 'KeyB') honk(false); });
   // the horn: B (held) in a car, or the HORN button on touch screens; people just ahead of a moving car take the hint
   function honk(on) {
@@ -1081,13 +1485,19 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   function update(dt) {
     clock += dt;
     cooldown = Math.max(0, cooldown - dt);
+    stepRockets(dt);
+    stepBlasts(dt);
+    if (punchT > 0) punchT = Math.max(0, punchT - dt);
+    if (punchPending > 0 && (punchPending -= dt) <= 0) punchLands();
+    stepHealth(dt);
+    combat.update(dt);
     if (reloading > 0) {
       reloading -= dt;
       if (reloading <= 0) ammo[wi] = WEAPONS[wi].mag;
     }
     const onFoot = cm.activeMode === 'person';
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
-    cm.aiming = onFoot && armed && aimHeld && !missionSystem?.busy && !seq;
+    cm.aiming = onFoot && armed && aimHeld && !missionSystem?.busy && !seq && !dying;
     if (cm.aiming) {
       // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
       // degrees of it draws the aim onto them; E jumps the aim to the next one along
@@ -1120,11 +1530,14 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     elCross.hidden = !cm.aiming;
     // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
     raisedT = Math.max(0, raisedT - dt);
-    cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut, aiming: cm.aiming || raisedT > 0,
-      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0 });
+    cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut && !dying, aiming: cm.aiming || raisedT > 0,
+      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0,
+      punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow });
+    kickNow = false;
     elCross.classList.toggle('lock', !!lockTarget);
     if (hitMarkT > 0 && (hitMarkT -= dt) <= 0) elCross.classList.remove('hit');
     if (triggerHeld && WEAPONS[wi].auto) fire();
+    gunBtn.classList.toggle('on', onFoot);
 
     // a car in the traffic the player is going for, braking to a stop
     if (halted) {
@@ -1226,7 +1639,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
 
     // effects
-    if (flashT > 0) { flashT -= dt; if (flashT <= 0) flash.visible = false; }
+    for (const f of flashes) if (f.visible) { f.userData.t -= dt; if (f.userData.t <= 0) f.visible = false; }
     for (const tr of tracers) if (tr.visible) { tr.userData.t -= dt; if (tr.userData.t <= 0) tr.visible = false; }
     for (const sp of sparks) if (sp.visible) { sp.userData.t -= dt; if (sp.userData.t <= 0) sp.visible = false; }
 
@@ -1272,18 +1685,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     hornBtn.classList.toggle('on', cm.activeMode === 'car');
     if (cm.activeMode === 'car' && !hornHinted && !document.body.classList.contains('cinematic')) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }
     if (cm.activeMode !== 'car' && sounds.hornOn) sounds.horn(false);
-    if (onFoot) {
-      const w = WEAPONS[wi];
-      elWeapon.textContent = '';
-      const b = document.createElement('b');
-      b.textContent = !armed ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
-      if (armed) {
-        const hint = document.createElement('span');
-        hint.className = 'gp-hint';
-        hint.textContent = 'Right click or Q: aim · Left click or J: shoot · E: next target · Tab: change';
-        elWeapon.append(b, document.createTextNode(w.name), hint);
-      } else elWeapon.append(b, document.createTextNode('G to draw your gun'));
-    }
+    if (onFoot) drawHud();
   }
 
   /** When the HUD's mode buttons change mode: keep the cars consistent (main.js calls this first) */
@@ -1324,9 +1726,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       return null;
     },
     // for scripted checks
-    fire, switchWeapon, talk, tryEnter, exitCar,
+    fire, switchWeapon, selectSlot, talk, tryEnter, exitCar, combat, hurtPlayer, explode, blastLog,
+    get health() { return hp; },
+    set health(v) { hp = v; },
     get state() {
-      return { lastShot, armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
+      return { lastShot, armed, wi, weapon: WEAPONS[wi].id, hp, dying: !!dying, rockets: rockets.length, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
         steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
     }
   };
