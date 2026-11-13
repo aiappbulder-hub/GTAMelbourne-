@@ -7,6 +7,7 @@ import { PLACES } from './story/places.js';
 import { createPursuer } from './pursuit.js';
 import { createLeader } from './story/leader.js';
 import { ROUTES } from './story/routes.js';
+import { describeChoice } from './story/choices.js';
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
 // after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
@@ -446,6 +447,20 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   background: rgba(255,255,255,.06); color: #fff; font: 600 15px/1.3 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; }
 .gm-choice button:hover, .gm-choice button:focus-visible { background: rgba(255,79,163,.22); border-color: #ff4fa3; outline: none; }
 .gm-choice button i { font-style: normal; color: #ffd23f; margin-right: 8px; }
+.gm-choice { max-height: calc(100vh - 130px); max-height: calc(100dvh - 130px); overflow-y: auto; }
+.gm-choice .gm-ask { font-weight: 700; font-size: 17px; line-height: 1.35; }
+.gm-choice .gm-said { margin-top: 4px; color: #b9c0cc; font-size: 14px; font-style: italic; }
+.gm-choice button { display: flex; align-items: flex-start; gap: 10px; min-height: 56px; }
+.gm-choice button i { flex: none; width: 26px; height: 26px; margin: 1px 0 0; border-radius: 50%; background: #ffd23f; color: #111; text-align: center; line-height: 26px; font-weight: 800; }
+.gm-choice button span { display: block; min-width: 0; }
+.gm-choice button strong { display: block; font-weight: 700; }
+.gm-choice button small { display: block; margin-top: 3px; font: 500 13px/1.35 Inter, system-ui, sans-serif; color: #c9d0db; }
+.gm-choice .gm-hint { margin-top: 10px; font-size: 12.5px; color: #ffcf6e; text-align: center; }
+.gm-chosen { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(560px, 92vw); z-index: 33; padding: 10px 14px; border-radius: 12px;
+  background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .6); color: #fff; font: 500 13.5px/1.4 Inter, system-ui, sans-serif; pointer-events: none; }
+.gm-chosen[hidden] { display: none; }
+.gm-chosen b { display: block; color: #8ee07a; font-size: 14px; }
+@media (max-width: 600px) { .gm-choice { bottom: 70px; padding: 12px; } .gm-choice button { padding: 12px 10px; } }
 .gm-call { position: fixed; left: 50%; top: 150px; transform: translate(-50%, -12px); width: min(560px, 92vw); z-index: 32; padding: 12px 16px 12px 58px;
   border-radius: 14px; background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .55); color: #fff; font: 500 15px/1.4 Inter, system-ui, sans-serif;
   box-shadow: 0 10px 40px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; }
@@ -494,6 +509,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   elCall.addEventListener('click', () => { callUp = 0; elCall.classList.remove('on'); });
   const elChoice = el('gm-choice');
   elChoice.hidden = true;
+  const elChosen = el('gm-chosen');
+  elChosen.hidden = true;
   // A pointer to the marker that matters (the next job, or the objective): over it when it's on screen, pinned to
   // the screen's edge and turned towards it when it isn't
   const elPointer = el('gm-pointer');
@@ -677,36 +694,70 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // the choice panel: buttons, or keys 1-3
   let choiceOpen = null; // { def, pick(i) }
   function openChoice(c, onPick) {
+    const d = describeChoice(c), n = c.options.length;
     elChoice.innerHTML = '';
+    elChoice.scrollTop = 0;
     const b = document.createElement('b');
-    b.textContent = c.who;
-    const t = document.createElement('div');
-    t.textContent = c.text;
-    elChoice.append(b, t);
+    b.textContent = `${d.who} is asking you`;
+    const q = document.createElement('div');
+    q.className = 'gm-ask';
+    q.textContent = d.ask || c.text;
+    const said = document.createElement('div');
+    said.className = 'gm-said';
+    said.textContent = `“${c.text}”`;
+    elChoice.append(b, q);
+    if (d.ask) elChoice.append(said);
     const pick = (i) => {
       if (!choiceOpen || !c.options[i]) return;
       if (c.options[i].cost > save.money && (c.options[i].cost || 0) !== Math.min(...c.options.map((o) => o.cost || 0))) return;
       choiceOpen = null;
       elChoice.hidden = true;
+      showChosen(c.options[i], d.notes[i], i);
       onPick(c.options[i]);
     };
     // an option that costs more than the player has can't be picked (the cheapest always can: it takes what there is)
     const cheapest = Math.min(...c.options.map((o) => o.cost || 0));
     const can = (o) => !(o.cost > save.money) || (o.cost || 0) === cheapest;
+    const dollars = (v) => `$${v.toLocaleString('en-AU')}`;
     c.options.forEach((o, i) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       const k = document.createElement('i');
       k.textContent = String(i + 1);
-      btn.append(k, document.createTextNode(o.cost ? `${o.label} ($${o.cost.toLocaleString('en-AU')})` : o.label));
+      const main = document.createElement('span');
+      const lab = document.createElement('strong');
+      lab.textContent = o.label;
+      main.append(lab);
+      const note = document.createElement('small');
+      const cost = !o.cost ? '' : !can(o) ? `Needs ${dollars(o.cost)} (you have ${dollars(save.money)}). `
+        : o.cost > save.money ? `Costs ${dollars(o.cost)}: you only have ${dollars(save.money)}, so it takes that. ` : `Costs ${dollars(o.cost)}. `;
+      note.textContent = `${cost}${d.notes[i] || ''}`.trim();
+      if (note.textContent) main.append(note);
+      btn.append(k, main);
       btn.disabled = !can(o);
       if (btn.disabled) btn.style.opacity = '0.45';
       btn.addEventListener('click', () => pick(i));
       elChoice.append(btn);
     });
+    const hint = document.createElement('div');
+    hint.className = 'gm-hint';
+    hint.textContent = `Pick one: press ${n > 1 ? `1–${n}` : '1'} or tap it. It is saved and you can’t change it later.`;
+    elChoice.append(hint);
     elChoice.hidden = false;
     choiceOpen = { def: c, pick };
     voices?.sayText(c.text, { subtitle: false, who: c.who });
+  }
+  // a short confirmation of what was just chosen
+  let chosenT = 0;
+  function showChosen(o, note, i) {
+    elChosen.textContent = '';
+    const t = document.createElement('b');
+    t.textContent = `✓ You chose ${i + 1}: ${o.label}`;
+    elChosen.append(t);
+    if (note) { const s2 = document.createElement('span'); s2.textContent = note; elChosen.append(s2); }
+    elChosen.hidden = false;
+    clearTimeout(chosenT);
+    chosenT = setTimeout(() => { elChosen.hidden = true; }, 6000);
   }
   window.addEventListener('keydown', (e) => {
     if (!choiceOpen) return;
