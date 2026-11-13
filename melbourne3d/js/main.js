@@ -607,7 +607,7 @@ async function initApp() {
     return destination;
   }
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
-  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, selectCamera: (id) => selectCamera(id, true) };
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,

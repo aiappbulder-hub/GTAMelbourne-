@@ -8,7 +8,7 @@
 // Run: node tools/melbourne/find-bridges.mjs [--json]
 import { ROADS, inWater } from '../../js/melbourne-config.js';
 
-const REACH = { minX: -2000, maxX: 1700, minZ: 200, maxZ: 1700 };
+const REACH = process.argv.includes("--all") ? { minX: -1e5, maxX: 1e5, minZ: -1e5, maxZ: 1e5 } : { minX: -2000, maxX: 1700, minZ: 200, maxZ: 1700 };
 const STEP = 1;
 const MIN_LEN = 6; // shorter wet runs are kerb wiggles along a quay, not crossings
 
