@@ -11,6 +11,7 @@ import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Q } from './quality.js';
+import { WEAPON_BY_ID, buildWeaponModel } from './weapons.js';
 
 const BASE = new URL('../assets/people/', import.meta.url);
 
@@ -358,32 +359,19 @@ export function createCast({ scene, controllerManager }) {
   const pick = (i, list) => [...list.slice(i % list.length), ...list.slice(0, i % list.length)];
 
   // ---------------------------------------------------------------------------------------------------------------
-  // Guns in the player's hands: simple models of the three weapons (built pointing down +z), placed each frame at the
-  // right hand, and the arms raised to point them when aiming or firing (a two-bone aim for each arm, after the clip)
-  const gunMetal = new THREE.MeshStandardNodeMaterial({ color: 0x1b1c1e, roughness: 0.35, metalness: 0.8 });
-  const gunGrip = new THREE.MeshStandardNodeMaterial({ color: 0x2b2420, roughness: 0.7 });
-  const box = (w, h, d, x, y, z, m = gunMetal) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; return b; };
-  const GUNS = {
-    pistol: [box(0.03, 0.035, 0.19, 0, 0.02, 0.06), box(0.028, 0.1, 0.035, 0, -0.04, -0.01, gunGrip), box(0.02, 0.015, 0.03, 0, -0.01, 0.03)],
-    uzi: [box(0.045, 0.06, 0.24, 0, 0.02, 0.05), box(0.012, 0.012, 0.08, 0, 0.03, 0.2), box(0.03, 0.14, 0.03, 0, -0.06, 0.04), box(0.03, 0.09, 0.03, 0, -0.04, -0.05, gunGrip)],
-    shotgun: [box(0.035, 0.035, 0.72, 0, 0.03, 0.22), box(0.03, 0.03, 0.4, 0, 0.0, 0.28, gunGrip), box(0.04, 0.09, 0.3, 0, -0.03, -0.2, gunGrip)]
+  // Guns in hands (the player's and armed hostiles'): the models of js/weapons.js (pointing down +z, the origin in the right
+  // palm), drawn each frame in the hand (or at the shoulder for the long guns), the arms solved to hold them
+  const newGunState = () => ({ id: 'pistol', armed: false, aiming: false, yaw: 0, pitch: 0, raise: 0, drawK: 1, shownId: null, models: {},
+    muzzle: new THREE.Vector3(), muzzleValid: false, punch: 0, punchLeft: false, kick: 0 });
+  const weapon = newGunState(); // the player's
+  const gunModel = (gs, id) => {
+    let g = gs.models[id];
+    if (!g) { g = buildWeaponModel(id); g.visible = false; scene.add(g); gs.models[id] = g; }
+    return g;
   };
-  const TWO_HANDED = { pistol: true, uzi: true, shotgun: true };
-  const guns = {};
-  for (const [id, parts] of Object.entries(GUNS)) {
-    const g = new THREE.Group();
-    g.name = `Gun:${id}`;
-    parts.forEach((p) => g.add(p));
-    g.visible = false;
-    scene.add(g);
-    guns[id] = g;
-  }
-  const muzzleAt = { pistol: 0.17, uzi: 0.25, shotgun: 0.58 };
-  let weapon = { id: 'pistol', armed: false, aiming: false, yaw: 0, raise: 0 };
+  const hideGuns = (gs) => { for (const g of Object.values(gs.models)) g.visible = false; gs.muzzleValid = false; };
   const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
   const _q = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qw = new THREE.Quaternion();
-  const muzzle = new THREE.Vector3();
-  let muzzleValid = false;
   // turn bone so the direction to child points along dir (world), by w (0..1)
   function pointBone(bone, child, dir, w) {
     bone.updateWorldMatrix(true, false);
@@ -428,26 +416,6 @@ export function createCast({ scene, controllerManager }) {
         if (a.shape && d[a.shape] !== undefined) w[d[a.shape]] = a.mouth * 0.8;
         a.mouthWas = a.mouth > 0.01;
       }
-    }
-  }
-  function aimArms(a, dir, w, twoHanded) {
-    const B = bonesOf(a);
-    if (!B.R_UpperArm || !B.R_Forearm || !B.R_Hand) return;
-    // the right arm straight out along the aim, a touch down
-    pointBone(B.R_UpperArm, B.R_Forearm, dir, w);
-    pointBone(B.R_Forearm, B.R_Hand, dir, w);
-    if (twoHanded && B.L_UpperArm && B.L_Forearm && B.L_Hand) {
-      // the left hand comes across to the gun: its upper arm towards a point short of the right hand, its forearm
-      // onto the gun just ahead of the right hand
-      B.R_Hand.getWorldPosition(_d);
-      B.L_UpperArm.getWorldPosition(_a);
-      const grip = _d.clone().addScaledVector(dir, 0.1);
-      const elbowAim = _b.subVectors(grip, _a).normalize().clone();
-      elbowAim.y -= 0.35;
-      elbowAim.normalize();
-      pointBone(B.L_UpperArm, B.L_Forearm, elbowAim, w);
-      B.L_Forearm.getWorldPosition(_a);
-      pointBone(B.L_Forearm, B.L_Hand, _c.subVectors(grip, _a).normalize().clone(), w);
     }
   }
   // A mobile phone: on a call (the hand at the ear) or texting (held in front of the chest, screen up). Ara people have no
@@ -511,30 +479,82 @@ export function createCast({ scene, controllerManager }) {
     ph.visible = a.group.visible;
     ph.updateMatrixWorld(true);
   }
-  function poseGun(a, dt) {
-    for (const g of Object.values(guns)) g.visible = false;
-    muzzleValid = false;
-    if (!weapon.armed || !guns[weapon.id]) return;
-    weapon.raise += ((weapon.aiming ? 1 : 0) - weapon.raise) * Math.min(1, dt * 14);
-    const cp = Math.cos(weapon.pitch || 0);
-    const dir = _d.set(Math.sin(weapon.yaw) * cp, Math.sin(weapon.pitch || 0) - 0.04, Math.cos(weapon.yaw) * cp).normalize().clone();
-    if (weapon.raise > 0.02) aimArms(a, dir, weapon.raise, TWO_HANDED[weapon.id] && weapon.id !== 'pistol' || weapon.raise > 0.5);
+  const smoothK = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 * k); };
+  // Holding the weapon gs describes (the player's, or a hostile's): the model in the hand (a short draw when the weapon
+  // changes: it rises from the hip and the arms come up), the arms solved to hold it, the muzzle for the flash and tracers.
+  //  - the pistol: the right arm straight along the aim, the left hand coming under it when aimed; lowered, it hangs
+  //    along the forearm
+  //  - the long guns: held at the shoulder (stock in, muzzle along the aim) when aimed, across the chest muzzle down when
+  //    not; both hands are solved to it (the right to the grip, the left to the fore-end)
+  //  - fists: a punch is the arm solved out in front over the swing; aimed, both fists up
+  function poseGun(a, gs, dt) {
+    hideGuns(gs);
+    gs.kick = Math.max(0, gs.kick - dt * 7);
+    const spec = WEAPON_BY_ID[gs.id];
+    if (!gs.armed || !spec) { gs.raise = 0; gs.shownId = null; return; }
+    if (gs.shownId !== gs.id) { gs.shownId = gs.id; gs.drawK = 0; }
+    gs.drawK = Math.min(1, gs.drawK + dt / 0.32);
+    const draw = smoothK(gs.drawK);
+    gs.raise += ((gs.aiming ? 1 : 0) - gs.raise) * Math.min(1, dt * 14);
     const B = bonesOf(a);
-    if (!B.R_Hand || !B.R_Forearm) return;
-    B.R_Hand.updateWorldMatrix(true, false);
-    B.R_Hand.getWorldPosition(_a);
-    B.R_Forearm.getWorldPosition(_b);
-    // lowered: along the forearm, hanging; raised: along the aim
-    const along = _c.subVectors(_a, _b).normalize();
-    const look = along.lerp(dir, weapon.raise).normalize();
-    const g = guns[weapon.id];
-    g.position.copy(_a).addScaledVector(look, 0.07);
-    g.position.y -= 0.02;
-    g.lookAt(_b.copy(g.position).add(look));
+    if (!B.R_Hand || !B.R_Forearm || !B.R_UpperArm) return;
+    const pitch = gs.pitch + gs.kick * (spec.kick ? 3 : 1.5) * 0.06;
+    const cp = Math.cos(pitch);
+    const dir = new THREE.Vector3(Math.sin(gs.yaw) * cp, Math.sin(pitch) - 0.04, Math.cos(gs.yaw) * cp).normalize();
+    const fw = new THREE.Vector3(Math.sin(gs.yaw), 0, Math.cos(gs.yaw)), right = new THREE.Vector3(-Math.cos(gs.yaw), 0, Math.sin(gs.yaw));
+    if (spec.melee) {
+      const head = a.head || (a.head = a.root.getObjectByName('Head'));
+      if (!head) return;
+      const H = head.getWorldPosition(new THREE.Vector3());
+      const guard = gs.raise > 0.3 || gs.punch > 0;
+      if (guard) for (const left of [false, true]) {
+        const punching = gs.punch > 0 && left === gs.punchLeft, w = punching ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
+        const T = H.clone().addScaledVector(fw, 0.28 + 0.5 * w).addScaledVector(right, (left ? 1 : -1) * (punching ? 0.04 : 0.14)).add(new THREE.Vector3(0, -0.3 - (punching ? 0 : 0.08), 0));
+        reachArm(a, { x: T.x, y: T.y, z: T.z, left }, Math.max(0.75 * Math.max(gs.raise, 0.5), w));
+      }
+      return;
+    }
+    const g = gunModel(gs, gs.id);
+    let look;
+    const G = new THREE.Vector3();
+    if (spec.twoHanded) {
+      const S = B.R_UpperArm.getWorldPosition(new THREE.Vector3());
+      const lowDir = new THREE.Vector3(fw.x * 0.55, -0.83, fw.z * 0.55).normalize();
+      look = lowDir.lerp(dir, gs.raise).normalize();
+      const aimG = S.clone().addScaledVector(dir, spec.hold.f).addScaledVector(right, spec.hold.s).add(new THREE.Vector3(0, spec.hold.u, 0));
+      const lowG = S.clone().addScaledVector(fw, 0.17).addScaledVector(right, -0.09).add(new THREE.Vector3(0, -0.3, 0));
+      G.copy(lowG).lerp(aimG, gs.raise);
+      G.y -= (1 - draw) * 0.32;
+      const grip = G.clone().addScaledVector(look, -spec.hand.fwd);
+      const fore = G.clone().addScaledVector(look, spec.support - spec.hand.fwd * 0.5);
+      fore.y -= 0.025;
+      reachArm(a, { x: grip.x, y: grip.y, z: grip.z, left: false }, draw);
+      reachArm(a, { x: fore.x, y: fore.y, z: fore.z, left: true }, draw);
+    } else {
+      if (gs.raise > 0.02) {
+        pointBone(B.R_UpperArm, B.R_Forearm, dir, gs.raise * draw);
+        pointBone(B.R_Forearm, B.R_Hand, dir, gs.raise * draw);
+      }
+      B.R_Hand.updateWorldMatrix(true, false);
+      const hp = B.R_Hand.getWorldPosition(new THREE.Vector3()), fp = B.R_Forearm.getWorldPosition(new THREE.Vector3());
+      look = hp.clone().sub(fp).normalize().lerp(dir, gs.raise).normalize();
+      G.copy(hp).addScaledVector(look, spec.hand.fwd);
+      G.y -= spec.hand.down * (1 - gs.raise * 0.5);
+      G.y -= (1 - draw) * 0.28;
+      if (gs.raise > 0.5) { // the other hand comes under the grip
+        const lp = G.clone().addScaledVector(look, -0.07);
+        lp.y -= 0.07;
+        reachArm(a, { x: lp.x, y: lp.y, z: lp.z, left: true }, smoothK((gs.raise - 0.5) * 2) * draw);
+      }
+    }
+    g.position.copy(G);
+    g.scale.setScalar(0.45 + 0.55 * draw);
+    g.lookAt(G.x + look.x, G.y + look.y, G.z + look.z);
     g.visible = true;
     g.updateMatrixWorld(true);
-    muzzle.copy(g.position).addScaledVector(look, muzzleAt[weapon.id]);
-    muzzleValid = true;
+    gs.muzzle.copy(G).addScaledVector(look, spec.muzzle * g.scale.x);
+    gs.muzzle.y += 0.04;
+    gs.muzzleValid = true;
   }
 
   // One arm reaching for a point in the world (a car's door handle, a driver's collar): the rig has no reaching clip, so
@@ -593,25 +613,25 @@ export function createCast({ scene, controllerManager }) {
       a.turnT = 0;
       a.lastHeading = p.heading; // (no turn clip kicks in from the jump back to the controller's heading afterwards)
       a.onceUntil = 0; // a wave or a cheer doesn't hold the sequence up
+      a.fall = o.fall || 0; // (shot dead: down on their back)
       play(a, has(a, o.anim) ? o.anim : 'idle', o.timeScale || 1, o.fade ?? 0.3);
       place(a, o.x, o.y, o.z, o.heading, dt, false);
       a.mixer.update(dt);
       faceLife(a, dt);
       a.group.updateMatrixWorld(true);
       if (o.reach && o.reach.w > 0.01) reachArm(a, o.reach, Math.min(1, o.reach.w));
-      for (const g of Object.values(guns)) g.visible = false; // (the gun is away while both hands are busy)
-      muzzleValid = false;
+      hideGuns(weapon); // (the gun is away while both hands are busy)
       return;
     }
     if (controllerManager.activeMode !== 'person') {
       playerActor.group.visible = false;
       p.castModel = false;
-      for (const g of Object.values(guns)) g.visible = false;
-      muzzleValid = false;
+      hideGuns(weapon);
       return;
     }
     p.castModel = true; // controllers.js stops drawing its procedural stand-in
     const a = playerActor;
+    a.fall = 0;
     a.still = Math.abs(p.speed) < 0.1 ? a.still + dt : 0;
     // turning on the spot (how fast the heading swings while standing): the turn clips, not sliding round on the idle
     let turnRate = 0;
@@ -640,7 +660,7 @@ export function createCast({ scene, controllerManager }) {
     a.mixer.update(dt);
     faceLife(a, dt);
     a.group.updateMatrixWorld(true);
-    poseGun(a, dt);
+    poseGun(a, weapon, dt);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -718,6 +738,42 @@ export function createCast({ scene, controllerManager }) {
     a.poseT = clock;
     place(a, pose.x, pose.y ?? 0, pose.z, a.heading, 0.016, false);
   }
+  // An armed hostile (js/combat.js), drawn each frame while wanted: key → one person (model id), o = { x, y, z, heading,
+  // speed, weapon, armed, aiming, yaw, pitch, dead, fire, dt }; null: gone. Returns { muzzle } once the model is in (null
+  // before: they don't shoot until they can be seen)
+  const gunmen = new Map();
+  function setGunman(key, id, o) {
+    let a = gunmen.get(key);
+    if (!o) { if (a) { a.group.visible = false; hideGuns(a.gs); } return null; }
+    if (!templates.has(id)) { loadPerson(id); return null; }
+    if (!a || a.id !== id) {
+      if (a) { a.group.visible = false; hideGuns(a.gs); }
+      a = makeActor(id, LEVEL.shadows);
+      if (!a) return null;
+      a.gs = newGunState();
+      gunmen.set(key, a);
+    }
+    const dt = o.dt || 0.016;
+    if (o.dead) {
+      a.fall = Math.min(1, a.fall + dt / 0.55);
+      if (a.cur) a.cur.timeScale = Math.max(0, 1 - a.fall * 2);
+    } else {
+      a.fall = 0;
+      if (o.speed > 0.3) gait(a, o.speed);
+      else if (o.aiming && has(a, 'aim')) play(a, 'aim');
+      else if (o.armed && has(a, 'ready')) play(a, 'ready');
+      else play(a, 'idle');
+    }
+    place(a, o.x, o.y, o.z, o.dead ? a.heading : o.heading, dt, a.group.visible);
+    a.mixer.update(dt);
+    faceLife(a, dt, false);
+    a.group.updateMatrixWorld(true);
+    const gs = a.gs;
+    gs.id = o.weapon; gs.armed = !!o.armed && !o.dead; gs.aiming = !!o.aiming; gs.yaw = o.yaw ?? o.heading; gs.pitch = o.pitch || 0;
+    if (o.fire) gs.kick = 1;
+    poseGun(a, gs, dt);
+    return { muzzle: gs.muzzleValid ? gs.muzzle : null, held: Object.entries(gs.models).find(([, g]) => g.visible)?.[0] || null };
+  }
   // The player sitting down (a scene): drawn at the seat whatever mode they're in
   let playerSeat = null, playerSeatAnim = 'sit';
   function setPlayerSeat(seat, anim = 'sit') { playerSeat = seat; playerSeatAnim = anim; }
@@ -727,9 +783,19 @@ export function createCast({ scene, controllerManager }) {
     /** Start fetching people a scene will want soon (the intro's extras) */
     preload(ids) { for (const id of ids) if (id) loadPerson(id); },
     /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
-    setPlayerWeapon(w) { weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; weapon.pitch = w.pitch || 0; },
+    setPlayerWeapon(w) {
+      weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; weapon.pitch = w.pitch || 0;
+      weapon.punch = w.punch || 0; weapon.punchLeft = !!w.punchLeft;
+      if (w.kick) weapon.kick = 1;
+    },
+    /** For checks: the weapon model in the player's hand now */
+    heldGun() {
+      const held = Object.entries(weapon.models).find(([, g]) => g.visible)?.[0] || null;
+      return { held, drawK: weapon.drawK, raise: weapon.raise, muzzle: weapon.muzzleValid };
+    },
+    setGunman,
     /** Where the gun's muzzle is (for the flash and tracers), or null */
-    muzzle() { return muzzleValid ? muzzle : null; },
+    muzzle() { return weapon.muzzleValid ? weapon.muzzle : null; },
     setSeated,
     setPlayerSeat,
     get ready() { return templates.has(PLAYER) && !!clips.m; },

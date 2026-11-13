@@ -18,7 +18,8 @@ import { describeChoice } from './story/choices.js';
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
 // streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: u } the point a fraction u of the
 // way round the Albert Park Grand Prix circuit from its start line (js/race-track.js), off: metres in towards the lake.
-// Steps can also ask for: targets: n (take out the n people nearest the player, red beams over them), steal: 'pickup'
+// Steps can also ask for: targets: n (take out n armed hostiles who spawn round the player and shoot back; weapons: [...] their guns; red beams over them),
+// ambush: { n, weapons } (n armed men at the marker who open up as you come within 110 m), steal: 'pickup'
 // (be driving a car of that kind taken from the traffic, or 'any'), talkTo: n (talk to n people), rob: n (hold up n
 // people: aim and T).
 // A job's steps: { text, at: place, r: metres, car: true (must be driving), time: seconds,
@@ -121,7 +122,7 @@ const MISSIONS = [
       ['Kaz', "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."]],
     steps: [
       { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
-      { text: 'The Nomads are guarding it. Take them out.', targets: 3 },
+      { text: 'The Nomads are guarding it. Take them out.', targets: 3, weapons: ['pistol', 'uzi', 'pistol'] },
       { text: 'Grab the bag, the pages and the cash. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
       { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
     ]
@@ -134,6 +135,7 @@ const MISSIONS = [
       ['Kaz', 'Set the charge, grab the pages, then get well clear. Make it loud.']],
     steps: [
       { text: 'Get to the Nomads\' warehouse on the South Wharf, by the Polly Woodside.', at: { place: 'POLLY_WOODSIDE' }, r: 16, time: 90 },
+      { text: 'The Nomads\' guards open up. Take them out.', targets: 3, weapons: ['uzi', 'shotgun', 'pistol'] },
       { text: 'Set the charge and grab the pages: stay in the marker on foot.', at: { place: 'POLLY_WOODSIDE' }, r: 7, wait: 5, foot: true },
       { text: 'It\'s going to blow! Get 250 m clear.', away: 250, time: 25 }
     ]
@@ -160,7 +162,7 @@ const MISSIONS = [
     cut: [['Kaz', 'Kestrel raided the Brighton house. They know the book is gone, and so do both crews.'],
       ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
     steps: [
-      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
+      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150, ambush: { n: 3, weapons: ['uzi', 'pistol', 'm4'] } }
     ],
     // back in the present, and the choice Davo asked about at the Quiet Room door has its answer
     after: { card: ['2026', 'Twenty-two years later'],
@@ -788,6 +790,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       cast?.setPlayerAction(null);
       voices?.stopStory();
     }
+    gameplay?.combat?.clear();
     pursuer.stop();
     leader.stop();
     hideWatchers();
@@ -1090,10 +1093,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     m.from = { x: playerPos().x, z: playerPos().z };
     m.count0 = { talk: counters.talk, rob: counters.rob };
     m.targets = null;
+    m.ambushed = false;
     if (s.targets && traffic) {
       // the people nearest the player become the targets
       const p = playerPos();
-      m.targets = traffic.peds.filter((q) => q.placed && !q.dead)
+      // armed hostiles round the player (js/combat.js: they notice, aim and shoot back); if none could be placed, the people nearest
+      const armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
+      m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
     m.stepT = 0;
@@ -1422,6 +1428,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (m.timer <= 0) return fail('Out of time.');
     } else elTimer.hidden = true;
 
+    if (s.ambush && !m.ambushed && s.at && gameplay?.combat) { // armed men waiting at the marker open up as you come near
+      const ag = resolve(s.at);
+      if (Math.hypot(p.x - ag.x, p.z - ag.z) < (s.ambush.near || 110)) { m.ambushed = true; gameplay.combat.spawnGroup(ag, s.ambush.n, s.ambush.weapons, (x, z) => !!blockAt(x, z), [10, 22]); }
+    }
     let done = false;
     if (s.evade) {
       const d = pursuer.distance();
@@ -1553,6 +1563,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const st = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
       if (st && st.watch) fail(st.shotText || 'Kestrel made you. They heard the shots.');
     },
+    /** The player was killed (js/gameplay.js): where they wake, and the job lost */
+    respawnSpot() { return giverSpot(mission ? mission.def : MISSIONS[cur()]); },
+    failJob(why) { if (mission) fail(why); },
     onTalk(robbed) { if (robbed) counters.rob++; else counters.talk++; },
     addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,
