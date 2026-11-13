@@ -51,7 +51,7 @@ export const BRIDGES = [
   // Dynon Road and Wurundjeri Way over the creek (Footscray's Dynon): a carriageway each way, 9 to 20 m apart
   { name: 'Dynon Road Bridge', style: 'girder', a: [-2114.4, -1962.9], b: [-2167.4, -2007.4], road: 18, foot: 2.5, spans: 2 },
   { name: 'Wurundjeri Way Bridge (north)', style: 'girder', a: [-2159.4, -2068.2], b: [-2104.5, -2014.7], road: 21, foot: 2.5, spans: 2 },
-  { name: 'Charles Grimes Bridge', style: 'girder', a: [-1854, 362], b: [-1845, 228], road: 12, foot: 3, spans: 4 },
+  { name: 'Charles Grimes Bridge', style: 'girder', a: [-1854, 362], b: [-1844.3, 218], road: 12, foot: 3, spans: 4 },
   { name: 'Charles Grimes Bridge (east, south half)', style: 'girder', a: [-1834.2, 368.2], b: [-1825.5, 321], road: 12, foot: 3, spans: 2 },
   { name: 'Charles Grimes Bridge (east, north half)', style: 'girder', a: [-1827.9, 326.3], b: [-1768.8, 254.6], road: 12, foot: 3, spans: 3 }
 ];
