@@ -49,6 +49,7 @@ const smooth = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 *
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const lerpAngle = (a, b, k) => a + wrapAngle(b - a) * k;
 const TALK_REACH = 3.6;
+const CROSS_Y = 0.46; // the crosshair's height on screen (fraction from the top), see .gp-cross
 const LOCK_CONE = 0.62; // radians either side of the facing for lock-on without aiming
 const LOCK_RANGE = 40;
 
@@ -90,6 +91,7 @@ body.touch-enabled .gp-hint { display: none; }
   border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
 .gp-cross.lock { border-color: #ff4040; }
+.gp-cross.hit::before { content: ''; position: absolute; left: -7px; top: -7px; width: 32px; height: 32px; background: linear-gradient(45deg, transparent 46%, #ff3b30 46%, #ff3b30 54%, transparent 54%), linear-gradient(-45deg, transparent 46%, #ff3b30 46%, #ff3b30 54%, transparent 54%); }
 .gp-cross[hidden] { display: none; }
 .gp-horn { position: fixed; right: 20px; bottom: 214px; z-index: 31; width: 74px; height: 74px; border-radius: 50%; border: 0; display: none; touch-action: none;
   background: rgba(255,210,63,.86); color: #111; font: 800 15px/1 Inter, system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
@@ -674,7 +676,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let armed = true;
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
-  let cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
+  let lastShot = null, hitMarkT = 0, cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
   let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0;
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
   const AIM_SENS = 0.0032; // radians per pixel
@@ -770,31 +772,37 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     } catch { /* no audio */ }
   }
 
-  // Where a shot from (x, z) along (dx, dz) stops: the first person, car or wall within range
-  function trace(x, z, dx, dz, range) {
+  // Where a shot from (ox, oy, oz) along the unit vector (dx, dy, dz) stops: the first person, car, wall or the ground
+  // within range, in 3D (so a shot can pass over a head or a car roof, or go into the road). Starts `s0` m along.
+  function trace(ox, oy, oz, dx, dy, dz, range, s0 = 0.3) {
     const peds = trafficSystem.peds;
-    const step = 0.5;
-    for (let s = 0.6; s <= range; s += step) {
-      const px = x + dx * s, pz = z + dz * s;
-      // walls
+    const step = 0.4;
+    for (let s = s0; s <= range; s += step) {
+      const px = ox + dx * s, py = oy + dy * s, pz = oz + dz * s;
+      const gy = cm.getGroundHeight(px, pz, 'person') ?? 0;
+      if (py < gy) return { kind: 'ground', x: px, y: gy, z: pz, dist: s };
       for (const c of cm.nearColliders(px, pz, 0.5)) {
-        if ((c.minY ?? 0) > 2 || px < c.minX || px > c.maxX || pz < c.minZ || pz > c.maxZ) continue;
+        if ((c.minY ?? 0) > py || (c.maxY !== undefined && c.maxY < py) || px < c.minX || px > c.maxX || pz < c.minZ || pz > c.maxZ) continue;
         if (c.polygon && !insidePoly(c.polygon.outer, px, pz)) continue;
-        return { kind: 'wall', x: px, z: pz, dist: s };
+        return { kind: 'wall', x: px, y: py, z: pz, dist: s };
       }
       for (const p of peds) {
         if (!p.placed || p.dead) continue;
-        if (Math.abs(p.x - px) < 0.45 && Math.abs(p.z - pz) < 0.45) return { kind: 'ped', p, x: px, z: pz, dist: s };
+        if (Math.abs(p.x - px) > 0.55 || Math.abs(p.z - pz) > 0.55) continue;
+        const fy = cm.getGroundHeight(p.x, p.z, 'person') ?? 0;
+        if (py >= fy - 0.05 && py <= fy + 1.9) return { kind: 'ped', p, x: px, y: py, z: pz, dist: s };
       }
       for (const v of trafficSystem.cars) {
         if (v.driven || !(v.edge || v.parked)) continue;
-        const ox = px - v.x, oz = pz - v.z;
+        const ox2 = px - v.x, oz2 = pz - v.z;
+        if (Math.abs(ox2) > 6 || Math.abs(oz2) > 6) continue;
         const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
-        const along = ox * fx + oz * fz, across = ox * fz - oz * fx;
-        if (Math.abs(along) < (v.halfL ?? 2.2) && Math.abs(across) < v.halfWidth) return { kind: 'car', v, x: px, z: pz, dist: s };
+        const along = ox2 * fx + oz2 * fz, across = ox2 * fz - oz2 * fx;
+        const fy = cm.getGroundHeight(v.x, v.z, 'person') ?? 0;
+        if (Math.abs(along) < (v.halfL ?? 2.2) && Math.abs(across) < (v.halfWidth ?? 0.9) + 0.1 && py >= fy && py <= fy + 1.7) return { kind: 'car', v, x: px, y: py, z: pz, dist: s };
       }
     }
-    return { kind: 'none', x: x + dx * range, z: z + dz * range, dist: range };
+    return { kind: 'none', x: ox + dx * range, y: oy + dy * range, z: oz + dz * range, dist: range };
   }
   function insidePoly(poly, x, z) {
     let inside = false;
@@ -832,14 +840,34 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (ammo[wi] <= 0) { reloading = w.reload; return; }
     ammo[wi]--;
     cooldown = w.rate;
-    // aim: where the camera looks (aiming), else at the lock-on target, else straight ahead
-    let yaw = person.heading;
-    if (aimHeld && cm.cameraYaw !== null) yaw = cm.cameraYaw;
+    // Where the shot is aimed: locked on, the target's chest; else aiming, the point under the crosshair (a ray from the
+    // camera through it, as far as the first thing it meets, so a shot from the muzzle at the shoulder still lands where
+    // the crosshair is, at any range); else (free fire) the nearest person or car in front, else straight ahead
+    const pp = person.position;
+    // (the lock is looked up afresh at the trigger: the last frame's can be stale when people and cars are moving)
+    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, 0.11, true) || findTarget(freeYaw, 0.07);
     const t = lockTarget || (!aimHeld && findTarget(person.heading, LOCK_CONE));
-    if (t) yaw = Math.atan2(t.x - person.position.x, t.z - person.position.z);
+    let yaw = person.heading;
+    const aimPt = new THREE.Vector3();
+    let haveAim = false;
+    if (t) {
+      const gy = cm.getGroundHeight(t.x, t.z, 'person') ?? pp.y;
+      aimPt.set(t.x, gy + (t.kind === 'ped' ? 1.25 : 0.9), t.z);
+      haveAim = true;
+    } else if (aimHeld && cameraSystem.camera) {
+      const cam = cameraSystem.camera;
+      cam.updateMatrixWorld();
+      const o = cam.getWorldPosition(new THREE.Vector3());
+      const d = new THREE.Vector3(0, 1 - 2 * CROSS_Y, 0.5).unproject(cam).sub(o).normalize();
+      const along = Math.max(0, (pp.x - o.x) * d.x + (pp.z - o.z) * d.z); // (skip what's between the camera and the player)
+      const h = trace(o.x, o.y, o.z, d.x, d.y, d.z, w.range + along, along + 0.5);
+      aimPt.set(h.x, h.y, h.z);
+      haveAim = true;
+    }
+    if (haveAim && Math.hypot(aimPt.x - pp.x, aimPt.z - pp.z) > 0.6) yaw = Math.atan2(aimPt.x - pp.x, aimPt.z - pp.z);
     person.heading = yaw;
-    let mx = person.position.x + Math.sin(yaw) * 0.55, mz = person.position.z + Math.cos(yaw) * 0.55;
-    let my = person.position.y + 1.38;
+    let mx = pp.x + Math.sin(yaw) * 0.55, mz = pp.z + Math.cos(yaw) * 0.55;
+    let my = pp.y + 1.38;
     raisedT = 0.7; // the gun comes up to fire, and stays up a moment
     const mz0 = cast?.muzzle();
     if (mz0) { mx = mz0.x; my = mz0.y; mz = mz0.z; }
@@ -847,46 +875,48 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     flash.visible = true;
     flashT = 0.05;
     bang(w.sound);
-    if (!missionSystem?.onJob) voices?.event('gunfire', person.position); // (no police chatter on a job)
+    if (!missionSystem?.onJob) voices?.event('gunfire', pp); // (no police chatter on a job)
     missionSystem?.onGunfire?.();
-    wanted?.crime('shot', person.position.x, person.position.z);
-    const pitch = aimHeld ? cm.aimPitch || 0 : t ? Math.atan2((t.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), Math.hypot(t.x - person.position.x, t.z - person.position.z) || 1) : 0;
+    wanted?.crime('shot', pp.x, pp.z);
+    // the shot's direction: from the muzzle to the aim point (straight along the facing if there is none)
+    const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    if (haveAim) { dir.set(aimPt.x - mx, aimPt.y - my, aimPt.z - mz); if (dir.lengthSq() < 0.25) dir.set(Math.sin(yaw), 0, Math.cos(yaw)); }
+    dir.normalize();
+    const baseYaw = Math.atan2(dir.x, dir.z), basePitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
+    let hitKind = null;
+    const shotAt = new Set();
     for (let k = 0; k < w.pellets; k++) {
-      const a = yaw + (Math.random() - 0.5) * 2 * w.spread;
-      const pa = pitch + (Math.random() - 0.5) * 2 * w.spread * 0.6;
-      const dx = Math.sin(a), dz = Math.cos(a);
-      let hit = trace(person.position.x, person.position.z, dx, dz, w.range);
-      // the height the shot is at where it reaches what it hit: over a person's head or a car's roof, under them into
-      // the road, it misses (and carries on to the range, or the ground)
-      const hd = Math.hypot(hit.x - person.position.x, hit.z - person.position.z);
-      const hy = person.position.y + 1.4 + Math.tan(pa) * hd;
-      if ((hit.kind === 'ped' && (hy < 0 || hy > 2.0)) || (hit.kind === 'car' && (hy < 0 || hy > 1.7))) {
-        hit = { kind: 'none', x: person.position.x + dx * w.range, z: person.position.z + dz * w.range };
-      }
-      const endD = Math.hypot(hit.x - person.position.x, hit.z - person.position.z);
-      let endY = person.position.y + 1.4 + Math.tan(pa) * endD;
-      if (endY < 0) { // into the ground first
-        const g = (person.position.y + 1.4) / Math.max(1e-3, -Math.tan(pa));
-        hit = { kind: 'none', x: person.position.x + dx * g, z: person.position.z + dz * g };
-        endY = 0.02;
-      }
+      const a = baseYaw + (Math.random() - 0.5) * 2 * w.spread;
+      const pa = basePitch + (Math.random() - 0.5) * 2 * w.spread * 0.6;
+      const cp = Math.cos(pa);
+      const hit = trace(mx, my, mz, Math.sin(a) * cp, Math.sin(pa), Math.cos(a) * cp, w.range, 0.2);
+      if (k === 0) lastShot = { kind: hit.kind, x: hit.x, y: hit.y, z: hit.z, aim: haveAim ? [aimPt.x, aimPt.y, aimPt.z] : null, from: [mx, my, mz] };
       const tr = tracers[tracerNext++ % tracers.length];
       const pos = tr.geometry.attributes.position;
       pos.setXYZ(0, mx, my, mz);
-      pos.setXYZ(1, hit.x, endY, hit.z);
+      pos.setXYZ(1, hit.x, hit.y, hit.z);
       pos.needsUpdate = true;
       tr.visible = true;
       tr.userData.t = 0.06;
       if (hit.kind !== 'none') {
         const sp = sparks[sparkNext++ % sparks.length];
-        sp.position.set(hit.x, endY, hit.z);
+        sp.position.set(hit.x, hit.y, hit.z);
         sp.visible = true;
         sp.userData.t = 0.08;
       }
-      if (hit.kind === 'ped') { trafficSystem.killPed(hit.p, person.position.x, person.position.z); wanted?.crime('kill', hit.p.x, hit.p.z); }
-      else if (hit.kind === 'car') trafficSystem.shootCar(hit.v);
+      if (hit.kind === 'ped') {
+        hitKind = 'ped';
+        if (!hit.p.dead) { trafficSystem.killPed(hit.p, pp.x, pp.z); wanted?.crime('kill', hit.p.x, hit.p.z); }
+      } else if (hit.kind === 'car') {
+        hitKind = hitKind || 'car';
+        if (w.pellets === 1 || !shotAt.has(hit.v)) trafficSystem.shootCar(hit.v);
+        shotAt.add(hit.v);
+      }
     }
-    trafficSystem.scarePeds(person.position.x, person.position.z, 40, 10);
+    // recoil: the aim kicks up a little (the camera follows), more for the shotgun
+    if (aimHeld) freePitch = Math.min(0.75, freePitch + (w.id === 'shotgun' ? 0.05 : 0.012));
+    if (hitKind) { hitMarkT = 0.18; elCross.classList.add('hit'); }
+    trafficSystem.scarePeds(pp.x, pp.z, 40, 10);
     if (ammo[wi] <= 0) reloading = w.reload;
   }
   function switchWeapon(d) {
@@ -1037,6 +1067,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   canvas.addEventListener('wheel', (e) => { if (cm.activeMode === 'person' && aimHeld) { e.preventDefault(); switchWeapon(Math.sign(e.deltaY)); } }, { passive: false });
   fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); triggerHeld = true; fire(); });
   fireBtn.addEventListener('pointerup', () => { triggerHeld = false; });
+  fireBtn.addEventListener('pointercancel', () => { triggerHeld = false; });
+  fireBtn.addEventListener('pointerleave', () => { triggerHeld = false; });
   elPrompt.addEventListener('click', () => {
     if (elPrompt.dataset.act === 'enter') tryEnter();
     else if (elPrompt.dataset.act === 'exit') exitCar();
@@ -1091,6 +1123,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut, aiming: cm.aiming || raisedT > 0,
       yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0 });
     elCross.classList.toggle('lock', !!lockTarget);
+    if (hitMarkT > 0 && (hitMarkT -= dt) <= 0) elCross.classList.remove('hit');
     if (triggerHeld && WEAPONS[wi].auto) fire();
 
     // a car in the traffic the player is going for, braking to a stop
@@ -1291,9 +1324,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       return null;
     },
     // for scripted checks
-    fire, talk, tryEnter, exitCar,
+    fire, switchWeapon, talk, tryEnter, exitCar,
     get state() {
-      return { armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
+      return { lastShot, armed, wi, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
         steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
     }
   };
