@@ -615,6 +615,12 @@ body.hud-minimized .icon-show {
   color: var(--text-3);
 }
 
+.job-progress { padding: 0 10px 6px; }
+.job-row.job-done .pop-name { color: #4fbf6a; }
+.job-row.job-next { background: rgba(255, 61, 154, 0.14); box-shadow: inset 3px 0 0 #ff3d9a; }
+.job-row.job-next .pop-sub { color: #ff6fb4; font-weight: 700; }
+.job-row.job-locked { opacity: 0.45; cursor: not-allowed; }
+
 /* ------------------------------------------------------------------------------------------------------------------
    Bottom left: NYC street-name signs over the GPS radar
    ------------------------------------------------------------------------------------------------------------------ */

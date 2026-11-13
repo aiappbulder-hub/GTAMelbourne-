@@ -419,6 +419,7 @@ const CSS = `
   padding: 10px 16px; border-radius: 12px; background: rgba(10, 12, 16, 0.78); color: #fff; font: 600 15px/1.35 Inter, system-ui, sans-serif;
   text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.35); pointer-events: none; }
 .gm-objective:empty { display: none; }
+.gm-objective[data-job]::before { content: attr(data-job); display: block; margin-bottom: 2px; color: #ff4fa3; font: 800 11px/1.2 Inter, system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .gm-timer { position: fixed; right: 18px; top: 84px; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.78);
   color: #ffd23f; font: 800 22px/1 'JetBrains Mono', monospace; pointer-events: none; }
 .gm-timer[hidden], .gm-cut[hidden] { display: none; }
@@ -578,6 +579,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   });
   const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   let save = clean(read(SAVE_KEY) || read(SAVE_KEY_V1));
+  // The job the pink marker and the phone point at: the furthest one reached (save.progress), or an earlier one picked in the Jobs
+  // list to play again (which must never wind the saved progress back)
+  let focus = null;
+  const cur = () => (focus !== null && focus < save.progress ? focus : save.progress);
   let persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
   persist();
   const showMoney = () => { elMoney.textContent = `$${save.money.toLocaleString('en-AU')}`; };
@@ -1125,6 +1130,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       });
     }
     elObjective.textContent = s.text;
+    { const ns = m.def.steps.filter((q) => flagsMatch(q.when)); elObjective.dataset.job = `Job ${m.i + 1} of ${MISSIONS.length} \u00B7 ${m.def.name} \u00B7 step ${ns.indexOf(s) + 1}/${ns.length}`; }
     if (s.at) {
       const p = resolve(s.at);
       placeMarker(goalMarker, p, s.r);
@@ -1194,18 +1200,21 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (def.outro) { voices?.sayText(def.outro[1], { who: def.outro[0] }); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
+    focus = null;
     persist();
     showMoney();
     mission = null;
     elObjective.textContent = '';
+    delete elObjective.dataset.job;
     elTimer.hidden = true;
     goalMarker.visible = false;
     for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
-    if (save.progress >= MISSIONS.length) {
-      big('MISSION PASSED', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
+    const n = MISSIONS.indexOf(def) + 1, rew = `+$${def.reward.toLocaleString('en-AU')}`;
+    if (n === MISSIONS.length && save.progress >= MISSIONS.length) {
+      big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
       sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
-    } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
+    } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
@@ -1213,12 +1222,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     cleanup();
     mission = null;
     elObjective.textContent = '';
+    delete elObjective.dataset.job;
     elTimer.hidden = true;
     goalMarker.visible = false;
     for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
-    big('MISSION FAILED', '#e5383b', 3);
-    sub(why, 4);
+    big('MISSION FAILED', '#e5383b', 3, 'Nothing is lost: walk back into the pink marker to try again');
+    sub(why, 5);
   }
 
   function update(dt, elapsed) {
@@ -1237,9 +1247,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const p = playerPos();
     // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
     if (cast) {
-      const def = mission ? mission.def : MISSIONS[save.progress];
+      const def = mission ? mission.def : MISSIONS[cur()];
       const inScene = !!(def && def.scene);
-      if (def && !mission) preloadCast(def, save.progress);
+      if (def && !mission) preloadCast(def, cur());
       if (stkilda) {
         // the café: Kaz and Mick at their table before the job (and when you bring the watches back), all three in it
         const st = def && inScene ? resolve(def.start) : null;
@@ -1281,21 +1291,21 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
     if (!mission) {
       // the next job's marker
-      if (save.progress < MISSIONS.length) {
-        const def = MISSIONS[save.progress];
+      if (cur() < MISSIONS.length) {
+        const def = MISSIONS[cur()];
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
         // the call that sends you there
         if (def.call && !cut && !cardUp && bigT <= 0 && subT <= 0 && d > 9 && !document.body.classList.contains('cinematic')) {
           callT += dt;
-          if (called !== save.progress && callT > 3.5) { called = save.progress; callT = 0; ring(def, st); }
-          else if (called === save.progress && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again
+          if (called !== cur() && callT > 3.5) { called = cur(); callT = 0; ring(def, st); }
+          else if (called === cur() && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again
         }
         if (callUp > 0) { callUp -= dt; if (callUp <= 0 || d < 9) elCall.classList.remove('on'); }
         // someone in the car on the way there, talking (once per job)
         if (def.ride && driving() && !cut && !cardUp && d > 30 && callUp < 4) {
-          if (ride.job !== save.progress) ride = { job: save.progress, t: 0, said: 0 };
+          if (ride.job !== cur()) ride = { job: cur(), t: 0, said: 0 };
           ride.t += dt;
           while (ride.said < def.ride.length && ride.t >= def.ride[ride.said][0]) {
             const [, who, text] = def.ride[ride.said++];
@@ -1303,7 +1313,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
             voices?.sayText(text, { subtitle: false, who });
           }
         }
-        if (!cut && d < 8 && bigT <= 0 && !cardUp) start(save.progress);
+        if (!cut && d < 8 && bigT <= 0 && !cardUp) start(cur());
         else if (!cut) {
           // say where the next job is, and put it on the map
           const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -1313,7 +1323,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
           const dist = d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 10) * 10} m`;
           const text = `Next job: ${def.name} (${def.giver}). Go to the pink marker, ${dist} ${dir}.`;
           if (elObjective.textContent !== text) elObjective.textContent = text;
-          if (mapSystem && (!mapSystem.waypoint || mapSystem.waypoint.job !== save.progress)) mapSystem.waypoint = { x: st.x, z: st.z, name: def.name, job: save.progress };
+          elObjective.dataset.job = `Job ${cur() + 1} of ${MISSIONS.length}${cur() < save.progress ? ' \u00B7 replay' : ''} \u00B7 next`;
+          if (mapSystem && (!mapSystem.waypoint || mapSystem.waypoint.job !== cur())) mapSystem.waypoint = { x: st.x, z: st.z, name: def.name, job: cur() };
         }
       } else startMarker.visible = false;
       return;
@@ -1567,16 +1578,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     /** Start a job now, wherever the player is (the Jobs list) */
     startNow(i) {
       if (mission) fail('You walked off the job.');
-      save.progress = i;
-      persist();
+      if (i > save.progress) { save.progress = i; persist(); } // (ahead of the story: for checks; the Jobs list keeps these locked)
+      focus = i < save.progress ? i : null;
       start(i);
       return resolve(MISSIONS[i].start);
     },
     /** Jump to a job: its start marker becomes the next one (the pause/jobs list) */
     jumpTo(i) {
       if (mission) fail('You walked off the job.');
-      save.progress = i;
-      persist();
+      if (i > save.progress) { save.progress = i; persist(); }
+      focus = i < save.progress ? i : null;
       return resolve(MISSIONS[i].start);
     }
   };
