@@ -55,7 +55,7 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
     // the lead cars standing >20 s that are not held by a red light (or a stop sign) are the real deadlocks
     const ph = (e) => { const t = __T.t % 60; return e.axisIndex === 0 ? (t < 26 ? 'green' : t < 30 ? 'amber' : 'red') : (t < 30 ? 'red' : t < 56 ? 'green' : 'amber'); };
     let leadStuckNoRed = 0, leadStuck = 0;
-    for (const e of edges) e.occ.forEach((list) => { const o = list[list.length - 1]; if (o && o.v.wait > 20 && near(o.v.x, o.v.z)) { leadStuck++; if (!e.to.signal || ph(e) === 'green') leadStuckNoRed++; } });
+    for (const e of edges) e.occ.forEach((list) => { const o = list[list.length - 1]; if (o && o.v.wait > 45 && near(o.v.x, o.v.z)) { leadStuck++; if (!e.to.signal || ph(e) === 'green') leadStuckNoRed++; } });
     const stuckAll = [...ts.cars, ...ts.buses].filter((c) => c.edge && c.wait > 60).length;
     perEdge.sort((u, v) => v[0] - u[0]); const top = perEdge.slice(0, Math.max(1, Math.ceil(perEdge.length * 0.1))).reduce((s, q) => s + q[0], 0);
     const mv = all.filter((c) => c.speed > 0.5).length;
@@ -72,9 +72,14 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
     await p.waitForTimeout(500);
     const frames = Math.round(SIM / (0.05 * 20));
     await raf(4);
-    await raf(frames, Math.round(frames * 0.5));
+    await raf(Math.round(frames * 0.4), 0);
+    await p.evaluate(() => { __T.on = true; });
+    // four snapshots about 18 s apart (a single one depends on the light phase), averaged
+    const snaps = [];
+    for (let k = 0; k < 4; k++) { await raf(Math.round(frames * 0.2), 0); snaps.push(await measure(x, z)); }
+    const avg = {}; for (const key of Object.keys(snaps[0])) avg[key] = +(snaps.reduce((a, q) => a + q[key], 0) / snaps.length).toFixed(2);
     if (process.env.DUMP) await p.evaluate(() => { window.__dump = true; window.__pairs = []; });
-    const r = await measure(x, z);
+    const r = avg;
     const ev = await p.evaluate(() => { const e = __T.ev; let bunch = 0; e.forEach((a, i) => { if (e.some((o, j) => j !== i && Math.abs(o.t - a.t) < 3 && Math.hypot(o.x - a.x, o.z - a.z) < 25)) bunch++; }); return { respawns: e.length, bunchedPct: e.length ? Math.round(bunch / e.length * 100) : 0 }; });
     log(name.padEnd(8), 'stand', JSON.stringify({ ...r, ...ev }));
     if (process.env.DUMP) log(JSON.stringify(await p.evaluate(() => window.__pairs || [])));
