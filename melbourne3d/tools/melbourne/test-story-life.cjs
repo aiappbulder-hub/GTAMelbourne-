@@ -31,7 +31,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     const names = new Set(['idle', 'walk', 'talk', 'listen', 'nod', 'shrug', 'talk_cool', 'talk_assured', 'talk_angry', 'talk_excited', 'talk_nervous', 'phone', 'wave']);
     const lines = (ls) => { for (const l of ls || []) if (l[2]) names.add(l[2]); };
     for (const m of __city.missions.missions) {
-      lines(m.cut); lines(m.after && [m.after.line]);
+      lines(m.cut);
       for (const s of m.steps) {
         lines(s.talk && s.talk.lines);
         for (const a of s.actors || []) names.add(a.anim || 'idle');
@@ -72,7 +72,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(m.vis && m.range > 0.02, `Low Tide cut: the player's pose changes (${m.clip}, range ${m.range.toFixed(3)})`);
   await p.evaluate(() => __city.missions.skipCut());
   // Act I's Rocketbox cast: Gus at The Quiet Room (job 9)
-  await p.evaluate(() => { __city.missions.setFlag('davo_tails_kestrel', true); const q = __city.missions.jumpTo(8); __city.teleportTo(q.x + 2, q.z + 2, 0); });
+  await p.evaluate(() => { __city.missions.addMoney(30000); __city.missions.setFlag('davo_tails_kestrel', true); const q = __city.missions.jumpTo(8); __city.teleportTo(q.x + 2, q.z + 2, 0); });
   await until(() => __city.missions.debug().inCut || __city.missions.debug().mission, 400000);
   await until(() => __city.missions.debug().inCut, 400000);
   await p.waitForTimeout(2500);
@@ -84,7 +84,6 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
   // 3. the choice panel
   await p.evaluate(() => __city.missions.skipCut());
-  await p.evaluate(() => __city.missions.addMoney(30000));
   const toChoice = async () => {
     for (let k = 0; k < 40 && !(await p.evaluate(() => __city.missions.debug().choice)); k++) {
       const g2 = await p.evaluate(() => __city.missions.debug().goal);
@@ -125,8 +124,10 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const rows = await p.evaluate(() => [...document.querySelectorAll('.job-row')].map((r) => ({ cls: r.className.replace(/.*(job-\w+)$/, '$1'), name: r.querySelector('.pop-name').textContent, dis: r.disabled })));
   const nDone = rows.filter((r) => r.cls === 'job-done').length, nNext = rows.filter((r) => r.cls === 'job-next').length, nLocked = rows.filter((r) => r.cls === 'job-locked' && r.dis).length;
   ok(rows.length === 13 && nDone === prog && nNext === (prog < 13 ? 1 : 0) && nLocked === 13 - prog - (prog < 13 ? 1 : 0), `Jobs list: ${nDone} done, ${nNext} next, ${nLocked} locked at progress ${prog}`);
-  await p.setViewportSize({ width: 640, height: 400 });
-  await p.evaluate(() => document.getElementById('teleport-popover').showPopover());
+  await p.setViewportSize({ width: 380, height: 760 });
+  await p.waitForTimeout(5000); // (the 'walked off the job' banner goes)
+  await p.evaluate(() => { document.getElementById('teleport-popover').showPopover(); document.querySelector('.job-progress').scrollIntoView(); });
+  await p.waitForTimeout(600);
   if (SHOTS) await p.screenshot({ path: `${SHOTS}/jobs.png` });
 
   ok(errs.length === 0, `no page errors ${JSON.stringify(errs.slice(0, 5))}`);

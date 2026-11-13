@@ -461,7 +461,8 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .6); color: #fff; font: 500 13.5px/1.4 Inter, system-ui, sans-serif; pointer-events: none; }
 .gm-chosen[hidden] { display: none; }
 .gm-chosen b { display: block; color: #8ee07a; font-size: 14px; }
-@media (max-width: 600px) { .gm-choice { bottom: 70px; padding: 12px; } .gm-choice button { padding: 12px 10px; } }
+@media (max-width: 600px) { .gm-choice { bottom: 66px; padding: 10px 12px; max-height: calc(100dvh - 134px); } .gm-choice .gm-ask { font-size: 15px; } .gm-choice .gm-said { font-size: 12.5px; }
+  .gm-choice button { padding: 8px 10px; margin-top: 6px; min-height: 48px; } .gm-choice button small { font-size: 12px; line-height: 1.3; } .gm-choice .gm-hint { margin-top: 8px; font-size: 12px; } }
 .gm-call { position: fixed; left: 50%; top: 150px; transform: translate(-50%, -12px); width: min(560px, 92vw); z-index: 32; padding: 12px 16px 12px 58px;
   border-radius: 14px; background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .55); color: #fff; font: 500 15px/1.4 Inter, system-ui, sans-serif;
   box-shadow: 0 10px 40px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; }
