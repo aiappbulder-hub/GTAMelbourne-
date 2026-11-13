@@ -461,7 +461,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     cast.preload?.(SHOTS.flatMap((sh) => (sh.actors || []).map((a) => a.id)));
     // each shot long enough for its recorded lines
     for (const sh of SHOTS) {
-      const need = sh.lines.reduce((n, [, text]) => n + (voices?.lines?.find((l) => l.text === text)?.duration || 0) + 0.7, 0.4);
+      const need = sh.lines.reduce((n, [, text]) => n + (() => { const l = voices?.lines?.find((x) => x.text === text); return l ? voices.playSeconds(l) : 0; })() + 0.7, 0.4);
       sh.secs = Math.max(sh.secs, need);
     }
     totalSecs = SHOTS.reduce((n, sh) => n + sh.secs, 0);
