@@ -102,6 +102,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     e.position.x = SPOT.x; e.position.z = SPOT.z; e.heading = 0; e.speed = 0;
     const g = gm.spawn({ x: SPOT.x, z: SPOT.z + 28, weapon: 'pistol', hp: 100, sight: 0.1 });
     const q = peds[0];
+    for (const o of peds.slice(1)) if (Math.abs(o.x - SPOT.x) < 40 && Math.abs(o.z - SPOT.z) < 60) o.x += 150; // (nobody wanders into the rocket's path)
     q.x = g.x + 3; q.z = g.z + 1;
     gp.selectSlot(4);
     for (let t = 0; t < 1; t += 0.05) { gp.update(0.05); __city.cast.posePlayer(0.05); }
