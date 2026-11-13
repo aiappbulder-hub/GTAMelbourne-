@@ -27,7 +27,7 @@ const { chromium } = require('playwright');
     await p.evaluate((name) => {
       const f = __city.bridges.bridges.find((q) => q.name.startsWith(name));
       const mid = (f.s0 + f.s1) / 2;
-      __city.teleportTo(f.ax + f.ux * mid, f.az + f.uz * mid, 0);
+      __city.teleportTo(f.ax + f.ux * (mid - 170), f.az + f.uz * (mid - 170), 0); // (spawns are 100 m or more from the camera: stand back so the deck is in range)
       const seen = new Map(), cross = [];
       window.__X = { name: f.name, cross, n: 0 };
       __T.track = (t) => {
@@ -40,15 +40,18 @@ const { chromium } = require('playwright');
             if (!r) seen.set(c, (r = { first: s, path: [] }));
             r.path.push([+t.toFixed(0), +s.toFixed(0), +c.speed.toFixed(1)]);
             if (r.path.length > 400) r.path.shift();
-            if ((r.first < f.s0 + 8 && s > f.s1 - 8) || (r.first > f.s1 - 8 && s < f.s0 + 8)) {
-              if (!cross.some((q) => q.c === c && q.t > t - 30)) { cross.push({ c, t, from: r.first | 0, to: s | 0, path: r.path.filter((_, i) => i % 40 === 0) }); }
-              seen.delete(c);
+            const end = s < f.s0 + 8 ? 0 : s > f.s1 - 8 ? 1 : -1;
+            if (end >= 0) {
+              if (r.end !== undefined && r.end !== end && !cross.some((q) => q.c === c && q.t > t - 30)) cross.push({ c, t, from: r.end ? f.s1 | 0 : f.s0 | 0, to: s | 0, path: r.path.filter((_, i) => i % 25 === 0) });
+              r.end = end;
+              r.path = [];
             }
           } else seen.delete(c);
         }
       };
     }, name);
-    await p.evaluate((fr) => new Promise((r) => { let n = 0; const f = () => (++n < fr ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }), 600);
+    await p.evaluate((fr) => new Promise((r) => { let n = 0; const f = () => (++n < fr ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }), +(process.env.FRAMES || 600));
+    if (process.env.DEBUG) console.log(JSON.stringify(await p.evaluate(() => { const f = __city.bridges.bridges.find((q) => q.name.startsWith(__X.name.split(' ')[0])); return __city.trafficSystem.cars.filter((c) => c.edge).map((c) => { const dx = c.x - f.ax, dz = c.z - f.az; return [dx * f.ux + dz * f.uz | 0, dx * f.uz - dz * f.ux | 0, +c.speed.toFixed(1), c.wait | 0]; }).filter((q) => q[0] > f.s0 - 80 && q[0] < f.s1 + 80 && Math.abs(q[1]) < 30); })));
     const r = await p.evaluate(() => { __T.track = null; return { name: __X.name, crossings: __X.cross.length, first: __X.cross[0] && { from: __X.cross[0].from, to: __X.cross[0].to, path: __X.cross[0].path } }; });
     console.log(JSON.stringify(r));
   }

@@ -3,7 +3,7 @@ import { Q } from './quality.js';
 import { buildRoadNetwork } from './road-network.js';
 import { createPedestrianSystem } from './pedestrian-system.js';
 import { vehicleContact, resolveVehicleContact, sweptVehicleContact } from './vehicle-physics.js';
-import { signalPhase, walkSignal } from './city-config.js';
+import { signalPhase, walkSignal, districtAt } from './city-config.js';
 import { IS_MELBOURNE } from './city.js';
 // The turn across oncoming traffic, which gives way to it: left where traffic keeps right (New York), right where it
 // keeps left (Melbourne)
@@ -532,6 +532,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   const player = { active: false, entity: null, x: 0, z: 0, vx: 0, vz: 0, fx: 0, fz: 1,
     halfW: 0.86, halfL: 2.18 };
   const nearEdges = [];
+  // The Hoddle Grid is kept to a lighter flow than the suburbs: its streets are narrow and the player drives them
+  const inCbd = IS_MELBOURNE ? (x, z) => districtAt(x, z) === 'cbd' : () => false;
+  const CBD_CARS = Math.max(8, Math.round(NUM_CARS * 0.15)); // at most this many vehicles in the grid at once
+  let cbdCount = 0;
   const nearCum = []; // running total of lane metres over nearEdges: spawn points are drawn in proportion to road length
   const nearSignals = [];
   const pedestrianSystem = createPedestrianSystem(network, {
@@ -742,7 +746,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const dx = e.sx + e.dx * s - focusX, dz = e.sz + e.dz * s - focusZ;
       if (dx * dx + dz * dz < NEAR_RADIUS * NEAR_RADIUS) {
         nearEdges.push(e);
-        cum += Math.min(e.len, 2 * NEAR_RADIUS) * e.lanes.length;
+        cum += Math.min(e.len, 2 * NEAR_RADIUS) * e.lanes.length * (inCbd(e.sx + e.dx * e.len / 2, e.sz + e.dz * e.len / 2) ? 0.4 : 1);
         nearCum.push(cum);
       }
     }
@@ -1776,6 +1780,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       // moving fast, the streets ahead are the ones about to be seen: fewer cars are put behind
       if (focusSpeed > 8 && ((x - focusX) * focusVX + (z - focusZ) * focusVZ) < 0 && Math.random() < Math.min(0.85, focusSpeed / 40)) continue;
       if (!laneClear(e.occ[lane], s, v.half + 22)) continue;
+      if (cbdCount >= CBD_CARS && inCbd(x, z)) continue;
       // distance to the nearest other vehicle in any lane or street: the farther the better
       let nn = 1e9;
       for (const o of vehicles) {
@@ -1791,6 +1796,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     }
     if (!best) return false;
     place(v, be, bl, bs);
+    if (inCbd(v.x, v.z)) cbdCount++;
     return true;
   }
 
@@ -2140,6 +2146,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     // 1. Cars & buses
     // Limit attempted placements, not just successes, and rotate through the pool so an awkward location
     // cannot monopolize a frame. Previous-frame lane lists protect spawn spacing; rebuild before driving.
+    cbdCount = 0;
+    for (const v of vehicles) if (v.edge && !v.driven && inCbd(v.x, v.z)) cbdCount++;
     let budget = jump ? vehicles.length : 4;
     for (let scanned = 0; scanned < vehicles.length && budget > 0; scanned++) {
       const v = vehicles[vehicleCursor];
@@ -2151,7 +2159,10 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       }
       const d = v.edge ? Math.hypot(v.x - focusX, v.z - focusZ) : Infinity;
       // (a car that has sat still for half a minute, out of the player's way, is moved on: no standing jams)
-      if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS) && !(d > 45 && !jump && stuckAway(v))) continue;
+      // (and over the grid's share, one that nobody sees is moved out to the roads beyond it)
+      const crowded = cbdCount > CBD_CARS && d > 60 && !jump && inCbd(v.x, v.z) && !visible(v.x, v.z, v.half + 4);
+      if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS) && !(d > 45 && !jump && stuckAway(v)) && !crowded) continue;
+      if (crowded) cbdCount--;
       budget--;
       spawnVehicle(v, jump ? 0 : 100, NEAR_RADIUS, !jump);
     }
