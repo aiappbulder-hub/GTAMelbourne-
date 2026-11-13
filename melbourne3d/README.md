@@ -59,6 +59,18 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
     into the crowd at Federation Square, Sully, and who keeps the ledger). Then a card: **Act II**.
   - Choices cost money where they should, are saved as story flags, and some change what comes next (Sully greets
     you differently if Davo asked about the grey Comodo; "all of it" on King St means running for it).
+  - A choice's panel says who is asking, the question in plain words, and under each option what it costs and what it
+    changes (`js/story/choices.js`, written from what `js/empire.js` and `js/missions.js` do with the flag; where an
+    option only sets the Book's Record, it says so). Keys 1-4 or tap; a confirmation shows after.
+  - Progress you can see: the Jobs list marks each job done (tap to play it again), next (pink) or locked; the objective
+    line is headed "Job N of 13 · name · step i/n" (or "next" between jobs); a pass shows "Job N of 13". Replaying an
+    earlier job from the list never winds the saved progress back, and a failed job costs nothing (walk back into the pink
+    marker). Progress and choices are saved when a job is passed or a choice is made, not mid-job.
+  - The cast moves in every scene: a name with no clip for a body plays its idle, and the console names it once
+    (`[people] <body> has no "x" clip`). Ara bodies have no phone, listening or fidget clips (they idle). Act I's
+    Rocketbox people (Gus, Ruby, Marsh, Terry, Sully, Bianca, the driver, the bouncer) need their `.glb` in
+    `assets/people/`; a job's whole cast is fetched while it is the next job. `tools/melbourne/test-story-life.cjs`
+    checks both.
   - Someone rides with you: on the way to each Act I job, Davo or Ruby talks it through in the car, and they keep
     talking on the drives inside the jobs.
   - Cut scenes play through by themselves (Enter or a click moves on sooner, Esc skips), and you can't shoot, aim or

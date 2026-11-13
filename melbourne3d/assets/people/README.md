@@ -22,7 +22,7 @@ hold the clips by bone name (idle, walk, run, sprint, talk, phone, crouch), shar
 
 ## Trimmed
 
-Only the Rocketbox people the game can still fetch are kept: the two intro police (`Police_Male_01`, `Police_Male_03`), the two
+Only the Rocketbox people the game can still fetch are kept (the story's Act I cast too: `Male_Adult_07` Gus, `Business_Female_01` Ruby, `Business_Female_02` Marsh, `Business_Male_02` Terry, `Male_Adult_12` Sully, `Female_Adult_06` Bianca, `Male_Adult_18` the driver, `Male_Adult_17` the bouncer; they had been deleted, so those scenes had nobody in them): the two intro police (`Police_Male_01`, `Police_Male_03`), the two
 Kestrel watchers (`Male_Adult_14`, `Female_Adult_09`), and the six the `?classic` switch uses (`Male_Adult_03`, `04`, `05`, `09`,
 `10`, `Female_Adult_04`). The street crowd is the procedural one (`CROWD = false` in `js/people.js`), so the other 31 were never
 loaded. They are in git history: `git checkout 1d90ec3 -- melbourne3d/assets/people`.
