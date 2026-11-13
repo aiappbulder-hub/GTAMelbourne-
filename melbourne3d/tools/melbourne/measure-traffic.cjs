@@ -56,6 +56,7 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
     const ph = (e) => { const t = __T.t % 60; return e.axisIndex === 0 ? (t < 26 ? 'green' : t < 30 ? 'amber' : 'red') : (t < 30 ? 'red' : t < 56 ? 'green' : 'amber'); };
     let leadStuckNoRed = 0, leadStuck = 0;
     for (const e of edges) e.occ.forEach((list) => { const o = list[list.length - 1]; if (o && o.v.wait > 45 && near(o.v.x, o.v.z)) { leadStuck++; if (!e.to.signal || ph(e) === 'green') leadStuckNoRed++; } });
+    if (window.__dump) for (const e of edges) e.occ.forEach((list) => { const o = list[list.length - 1]; if (o && o.v.wait > 45 && near(o.v.x, o.v.z)) { const v = o.v, m = v.move, f = m && m.to; (window.__pairs = window.__pairs || []).push({ x: +v.x.toFixed(0), z: +v.z.toFixed(0), w: +v.wait.toFixed(0), s: +v.s.toFixed(0), len: +e.len.toFixed(0), sig: !!e.to.signal, ph: ph(e), turn: m && m.turn, claimed: v.claimed, yl: v.yielding, bus: !!v.bus, toLen: f && +f.len.toFixed(0), toOcc: f && f.occ.map((l) => l.length), box: e.to.box && e.to.box.slice(), crossing: e.to.crossing && e.to.crossing.slice(), lanes: e.lanes.length, lane: v.lane }); } });
     const stuckAll = [...ts.cars, ...ts.buses].filter((c) => c.edge && c.wait > 60).length;
     perEdge.sort((u, v) => v[0] - u[0]); const top = perEdge.slice(0, Math.max(1, Math.ceil(perEdge.length * 0.1))).reduce((s, q) => s + q[0], 0);
     const mv = all.filter((c) => c.speed > 0.5).length;
