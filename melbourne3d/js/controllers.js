@@ -1394,8 +1394,8 @@ class ThirdPersonControllerManager {
 
   updateHelicopter(dt, elapsed) {
     const h = this.entities.helicopter;
-    const maxHorizSpeed = 52.0;
-    const maxVertSpeed = 16.0;
+    const maxHorizSpeed = 140.0;
+    const maxVertSpeed = 34.0;
 
     let fwdInput = 0;
     if (this.keys.forward) fwdInput = this.keys.forward;
@@ -1410,14 +1410,14 @@ class ThirdPersonControllerManager {
     else if (this.keys.down) vertInput = -this.keys.down;
 
     if (fwdInput !== 0) {
-      h.speed += fwdInput * 24.0 * dt;
+      h.speed += fwdInput * 75.0 * dt;
       h.speed = Math.max(-maxHorizSpeed * 0.6, Math.min(maxHorizSpeed, h.speed));
     } else {
       h.speed *= Math.max(0, 1 - dt * 1.8);
     }
 
     if (vertInput !== 0) {
-      h.verticalSpeed += vertInput * 22.0 * dt;
+      h.verticalSpeed += vertInput * 48.0 * dt;
       h.verticalSpeed = Math.max(-maxVertSpeed, Math.min(maxVertSpeed, h.verticalSpeed));
     } else {
       h.verticalSpeed *= Math.max(0, 1 - dt * 3.5);

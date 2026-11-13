@@ -591,11 +591,12 @@
       "folder": "voices/player",
       "text": "So what do you need?",
       "file": "voices/player/player_line_1.mp3",
-      "duration": 2.16,
+      "duration": 1.66,
       "check": {
         "heard": "So, what do you need? All. All.",
         "score": 0.83
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_line_4",
@@ -604,11 +605,12 @@
       "folder": "voices/player",
       "text": "I go where the money is.",
       "file": "voices/player/player_line_4.mp3",
-      "duration": 2.16,
+      "duration": 1.99,
       "check": {
         "heard": "I go where the money is? Read, say.",
         "score": 0.86
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_line_6",
@@ -616,12 +618,13 @@
       "category": "story",
       "folder": "voices/player",
       "text": "That's not my fight.",
-      "duration": 1.42,
+      "duration": 1.34,
       "check": {
         "heard": "That's not my fight.",
         "score": 1
       },
-      "file": "voices/player/player_line_6.mp3"
+      "file": "voices/player/player_line_6.mp3",
+      "retimed": true
     },
     {
       "id": "player_line_7",
@@ -630,11 +633,12 @@
       "folder": "voices/player",
       "text": "Melbourne. Four seasons in one day, and somebody fighting over every one of them.",
       "file": "voices/player/player_line_7.mp3",
-      "duration": 6.55,
+      "duration": 4.68,
       "check": {
         "heard": "wall ball four seasons in one day and somebody fighting over every one of them",
         "score": 0.9
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_low-tide_1",
@@ -643,11 +647,12 @@
       "folder": "dialogue/low-tide",
       "text": "Twenty-two years. The skyline's taller. The river's the same colour.",
       "file": "dialogue/low-tide/player_low-tide_1.mp3",
-      "duration": 6.1,
+      "duration": 4.08,
       "check": {
         "heard": "22 years, the skyline's taller, the river's the same colour.",
         "score": 0.86
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_1",
@@ -669,11 +674,12 @@
       "folder": "dialogue/low-tide",
       "text": "You got sober.",
       "file": "dialogue/low-tide/player_low-tide_2.mp3",
-      "duration": 2.04,
+      "duration": 1.37,
       "check": {
         "heard": "You got sober?",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_2",
@@ -695,11 +701,12 @@
       "folder": "dialogue/low-tide",
       "text": "Where is the car?",
       "file": "dialogue/low-tide/player_low-tide_3.mp3",
-      "duration": 3.07,
+      "duration": 2.06,
       "check": {
         "heard": "Where is the car?",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_3",
@@ -721,11 +728,12 @@
       "folder": "dialogue/low-tide",
       "text": "Both.",
       "file": "dialogue/low-tide/player_low-tide_4.mp3",
-      "duration": 0.55,
+      "duration": 0.38,
       "check": {
         "heard": "BOTH!",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_4",
@@ -747,11 +755,12 @@
       "folder": "dialogue/low-tide",
       "text": "Every empire starts with a lease nobody else wants.",
       "file": "dialogue/low-tide/player_low-tide_5.mp3",
-      "duration": 4.3,
+      "duration": 3.02,
       "check": {
         "heard": "Every empire starts with a lease nobody else wants.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_low-tide_6",
@@ -760,11 +769,12 @@
       "folder": "dialogue/low-tide",
       "text": "It started in 2004, with a phone call from Vince Lombardo.",
       "file": "dialogue/low-tide/player_low-tide_6.mp3",
-      "duration": 4.87,
+      "duration": 3.7,
       "check": {
         "heard": "It started in 2004 with a phone call from Vince Lombardo.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_5",
@@ -942,11 +952,12 @@
       "folder": "dialogue/word-on-the-street",
       "text": "Where do I start?",
       "file": "dialogue/word-on-the-street/player_word-on-the-street_1.mp3",
-      "duration": 3.43,
+      "duration": 2.23,
       "check": {
         "heard": "Where do I start? Oh!",
         "score": 0.89
-      }
+      },
+      "retimed": true
     },
     {
       "id": "vince_word-on-the-street_2",
@@ -994,11 +1005,12 @@
       "folder": "dialogue/the-informant",
       "text": "Why would I do that for you?",
       "file": "dialogue/the-informant/player_the-informant_1.mp3",
-      "duration": 2.78,
+      "duration": 2.35,
       "check": {
         "heard": "Why would I do that for you?",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "kaz_the-informant_3",
@@ -1033,11 +1045,12 @@
       "folder": "dialogue/westside-bikies",
       "text": "And?",
       "file": "dialogue/westside-bikies/player_westside-bikies_1.mp3",
-      "duration": 0.62,
+      "duration": 0.43,
       "check": {
         "heard": "And?",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "kaz_westside-bikies_2",
@@ -1124,11 +1137,12 @@
       "folder": "dialogue/short-black",
       "text": "Of what?",
       "file": "dialogue/short-black/player_short-black_1.mp3",
-      "duration": 1.1,
+      "duration": 0.74,
       "check": {
         "heard": "Of what?",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "mick_short-black_2",
@@ -1163,11 +1177,12 @@
       "folder": "dialogue/harbour-run",
       "text": "That's how long it takes a book like that to get heavy.",
       "file": "dialogue/harbour-run/player_harbour-run_1.mp3",
-      "duration": 3.12,
+      "duration": 3.1,
       "check": {
         "heard": "That's how long it takes a book like that to get heavy.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_intro_5",
@@ -1180,7 +1195,8 @@
       "check": {
         "heard": "22 years ago I left this city by boat with a book that two gangs and the police would've killed for.",
         "score": 0.86
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_intro_6",
@@ -1189,11 +1205,12 @@
       "folder": "dialogue/intro",
       "text": "Vince Lombardo kept that book. His Lygon Street Crew ran Carlton and Fitzroy. Old families, old rules, good coffee.",
       "file": "dialogue/intro/player_intro_6.mp3",
-      "duration": 9.89,
+      "duration": 6.53,
       "check": {
         "heard": "Vince Lombardo kept that book. His Lydon Street crew ran Carlton and Fitzroy. Old families. Old rules. Good coffee.",
         "score": 0.95
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_intro_7",
@@ -1202,11 +1219,12 @@
       "folder": "dialogue/intro",
       "text": "Out west, the Broadmeadows firm wanted the lot. Six years of war: chop shops torched, tobacco trucks gone.",
       "file": "dialogue/intro/player_intro_7.mp3",
-      "duration": 9.48,
+      "duration": 6.34,
       "check": {
         "heard": "Out West, the Broadmeadows firm wanted the lot, six years of warden chop shops torched, tobacco tracks gone.",
         "score": 0.89
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_intro_8",
@@ -1215,11 +1233,12 @@
       "folder": "dialogue/intro",
       "text": "And Taskforce Kestrel was closing in on all of them.",
       "file": "dialogue/intro/player_intro_8.mp3",
-      "duration": 4.2,
+      "duration": 3.34,
       "check": {
         "heard": "and Tusk Force Kestrel was closing in on all of them.",
         "score": 0.86
-      }
+      },
+      "retimed": true
     },
     {
       "id": "vince_intro_1",
@@ -1254,11 +1273,12 @@
       "folder": "dialogue/intro",
       "text": "Twenty-two years, and he still tells me where to stand.",
       "file": "dialogue/intro/player_intro_9.mp3",
-      "duration": 4.13,
+      "duration": 3.34,
       "check": {
         "heard": "22 years, and he still tells me where to stand?",
         "score": 0.86
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_intro_10",
@@ -1267,11 +1287,12 @@
       "folder": "dialogue/intro",
       "text": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
       "file": "dialogue/intro/player_intro_10.mp3",
-      "duration": 4.99,
+      "duration": 3.7,
       "check": {
         "heard": "Davo is waiting on Harbour Esplanade. Walk to the pink marker.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_low-tide_14",
@@ -1319,11 +1340,12 @@
       "folder": "dialogue/the-quiet-room",
       "text": "A bar. With a quiet room out the back.",
       "file": "dialogue/the-quiet-room/player_the-quiet-room_1.mp3",
-      "duration": 3.36,
+      "duration": 3,
       "check": {
         "heard": "A bar with a quiet room out the back.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "gus_the-quiet-room_2",
@@ -1345,11 +1367,12 @@
       "folder": "dialogue/the-quiet-room",
       "text": "Then we both know what day it is.",
       "file": "dialogue/the-quiet-room/player_the-quiet-room_2.mp3",
-      "duration": 2.95,
+      "duration": 2.69,
       "check": {
         "heard": "then we both know what day it is, like",
         "score": 0.94
-      }
+      },
+      "retimed": true
     },
     {
       "id": "ruby_the-quiet-room_1",
@@ -1735,11 +1758,12 @@
       "folder": "dialogue/sunday-lunch",
       "text": "I didn't come back for Carlton.",
       "file": "dialogue/sunday-lunch/player_sunday-lunch_1.mp3",
-      "duration": 3.12,
+      "duration": 2.09,
       "check": {
         "heard": "I didn't come back for Carlton!",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "vince_sunday-lunch_5",
@@ -1761,11 +1785,12 @@
       "folder": "dialogue/sunday-lunch",
       "text": "In Carlton, a promise to a dying man outranks a contract.",
       "file": "dialogue/sunday-lunch/player_sunday-lunch_2.mp3",
-      "duration": 5.09,
+      "duration": 3.7,
       "check": {
         "heard": "In Galtona, a promise to a dying man outranks a contract.",
         "score": 0.91
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_sunday-lunch_1",
@@ -1982,11 +2007,12 @@
       "folder": "dialogue/market-day",
       "text": "Fruit and veg goes in at dawn. So does everything else.",
       "file": "dialogue/market-day/player_market-day_1.mp3",
-      "duration": 4.34,
+      "duration": 3.67,
       "check": {
         "heard": "Fruit and veg goes in a dorm, so does everything else.",
         "score": 0.82
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_market-day_1",
@@ -2008,11 +2034,12 @@
       "folder": "dialogue/market-day",
       "text": "Whose?",
       "file": "dialogue/market-day/player_market-day_2.mp3",
-      "duration": 0.72,
+      "duration": 0.48,
       "check": {
         "heard": "Booze.",
         "score": 0
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_market-day_2",
@@ -2190,11 +2217,12 @@
       "folder": "dialogue/market-day",
       "text": "You still load them at the market.",
       "file": "dialogue/market-day/player_market-day_3.mp3",
-      "duration": 3.26,
+      "duration": 2.35,
       "check": {
         "heard": "You still load them at the market? Wait.",
         "score": 0.93
-      }
+      },
+      "retimed": true
     },
     {
       "id": "kaz_market-day_3",
@@ -2229,11 +2257,12 @@
       "folder": "dialogue/market-day",
       "text": "Ten percent of what goes through this gate, and nothing that goes through it in my name.",
       "file": "dialogue/market-day/player_market-day_4.mp3",
-      "duration": 6.43,
+      "duration": 5.66,
       "check": {
         "heard": "10% of what goes through this gate and nothing that goes through it in my name.",
         "score": 0.91
-      }
+      },
+      "retimed": true
     },
     {
       "id": "kaz_market-day_5",
@@ -2320,11 +2349,12 @@
       "folder": "dialogue/doors",
       "text": "And the takings?",
       "file": "dialogue/doors/player_doors_1.mp3",
-      "duration": 1.49,
+      "duration": 1.03,
       "check": {
         "heard": "And the tokens?",
         "score": 0.67
-      }
+      },
+      "retimed": true
     },
     {
       "id": "ruby_doors_3",
@@ -2346,11 +2376,12 @@
       "folder": "dialogue/doors",
       "text": "By dawn the street sweeper was the only one working King Street for free.",
       "file": "dialogue/doors/player_doors_2.mp3",
-      "duration": 5.11,
+      "duration": 4.66,
       "check": {
         "heard": "By dawn the street sweeper was the only one working Kin Street for free.",
         "score": 0.93
-      }
+      },
+      "retimed": true
     },
     {
       "id": "ruby_doors_4",
@@ -2463,11 +2494,12 @@
       "folder": "dialogue/doors",
       "text": "I am the man who just spoke to your doors.",
       "file": "dialogue/doors/player_doors_3.mp3",
-      "duration": 4.22,
+      "duration": 3.36,
       "check": {
         "heard": "I am the man who just spoke to your doors.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "terry_doors_2",
@@ -2489,11 +2521,12 @@
       "folder": "dialogue/doors",
       "text": "Then let's keep this between people who can count.",
       "file": "dialogue/doors/player_doors_4.mp3",
-      "duration": 4.13,
+      "duration": 3.02,
       "check": {
         "heard": "Then let's keep this between people who can count.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "terry_doors_3",
@@ -2580,11 +2613,12 @@
       "folder": "dialogue/the-ferryman-s-toll",
       "text": "Sounds like a short conference.",
       "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_1.mp3",
-      "duration": 2.42,
+      "duration": 1.7,
       "check": {
         "heard": "Sounds like a short conference.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "marsh_the-ferryman-s-toll_3",
@@ -2619,11 +2653,12 @@
       "folder": "dialogue/the-ferryman-s-toll",
       "text": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
       "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_2.mp3",
-      "duration": 5.95,
+      "duration": 3.74,
       "check": {
         "heard": "Someone inside wanted me caught. Not killed. Caught. That narrows it.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_the-ferryman-s-toll_3",
@@ -2632,11 +2667,12 @@
       "folder": "dialogue/the-ferryman-s-toll",
       "text": "You don't take a city. You find out who you can trust with a piece of it.",
       "file": "dialogue/the-ferryman-s-toll/player_the-ferryman-s-toll_3.mp3",
-      "duration": 4.92,
+      "duration": 4.9,
       "check": {
         "heard": "You don't take a city, you find out who you can trust with a piece of it.",
         "score": 1
-      }
+      },
+      "retimed": true
     },
     {
       "id": "davo_the-ferryman-s-toll_1",
@@ -2939,11 +2975,12 @@
       "folder": "dialogue/harbour-run",
       "text": "Davo's friend rang while I was remembering. The grey Comodo was Kestrel's. It always is.",
       "file": "dialogue/harbour-run/player_harbour-run_2.mp3",
-      "duration": 6.91,
+      "duration": 5.02,
       "check": {
         "heard": "Davo's friend rang while I was remembering. The grey Komodo was Kestrels. It always is.",
         "score": 0.87
-      }
+      },
+      "retimed": true
     },
     {
       "id": "player_harbour-run_3",
@@ -2952,11 +2989,12 @@
       "folder": "dialogue/harbour-run",
       "text": "I let Kestrel watch. After twenty-two years, they could wait one more night.",
       "file": "dialogue/harbour-run/player_harbour-run_3.mp3",
-      "duration": 5.78,
+      "duration": 4.34,
       "check": {
         "heard": "I let Kestrel watch. After 22 years, they could wait one more night.",
         "score": 0.89
-      }
+      },
+      "retimed": true
     }
   ]
 }

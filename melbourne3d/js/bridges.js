@@ -21,7 +21,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WATER, blockAt, ISLAND_BOUNDS } from './melbourne-config.js';
 import { createRoadSurfaceMaterial, createSidewalkMaterial, createCurbMaterial, createParkLampGlobeMaterial } from './tsl-materials.js';
 
-const WL = ISLAND_BOUNDS.waterLevel; // the river's surface (-1.6 m)
+// The deck's height in the world: the roadway's top. Every piece below is built in a frame whose y = 0 is the deck's top
+// (placed at DECK_Y), so the water, in that frame, sits at WL; terrain elevation later changes only this constant.
+const DECK_Y = 0;
+const WL = ISLAND_BOUNDS.waterLevel - DECK_Y; // the river's surface, below the deck (-1.6 m)
 const FOOT_Y = ISLAND_BOUNDS.sidewalkHeight; // footpath top, as the kerb islands (0.22 m)
 
 // Each bridge's axis (two points on it, either side of the river: the deck is trimmed to the water found along it),
@@ -40,7 +43,15 @@ export const BRIDGES = [
   // data; the eastern one, curving in from Wurundjeri Way along the north bank, is a gap in it (from (-1831, 351) by
   // (-1826, 324) to (-1779, 267)), built here as two straight pieces meeting at the bend, overlapping by 3 m so the
   // outside of the bend has no gap (the railings are left out wherever they fall on another deck)
-  { name: 'Charles Grimes Bridge', style: 'girder', a: [-1854, 362], b: [-1845, 228], road: 12, foot: 3, spans: 4 },
+  // Punt Road: one two-way carriageway, 19 m, Richmond to South Yarra (the data's road runs 90 m over the water)
+  { name: 'Punt Road Bridge', style: 'girder', a: [1288.5, 2048.6], b: [1230.2, 2164.4], road: 19, foot: 3, spans: 4 },
+  // Kings Way: the two carriageways (x -934 and -924) end at the north quay with nothing across; the deck reaches the
+  // south bank (the road data has no Kings Way again until Whiteman St, 170 m south, behind Southbank's buildings)
+  { name: 'Kings Way Bridge', style: 'girder', a: [-929, 365], b: [-929, 520], road: 19, foot: 3, spans: 3 },
+  // Dynon Road and Wurundjeri Way over the creek (Footscray's Dynon): a carriageway each way, 9 to 20 m apart
+  { name: 'Dynon Road Bridge', style: 'girder', a: [-2114.4, -1962.9], b: [-2167.4, -2007.4], road: 18, foot: 2.5, spans: 2 },
+  { name: 'Wurundjeri Way Bridge (north)', style: 'girder', a: [-2159.4, -2068.2], b: [-2104.5, -2014.7], road: 21, foot: 2.5, spans: 2 },
+  { name: 'Charles Grimes Bridge', style: 'girder', a: [-1854, 362], b: [-1844.3, 218], road: 12, foot: 3, spans: 4 },
   { name: 'Charles Grimes Bridge (east, south half)', style: 'girder', a: [-1834.2, 368.2], b: [-1825.5, 321], road: 12, foot: 3, spans: 2 },
   { name: 'Charles Grimes Bridge (east, north half)', style: 'girder', a: [-1827.9, 326.3], b: [-1768.8, 254.6], road: 12, foot: 3, spans: 3 }
 ];
@@ -313,7 +324,7 @@ function buildBridge(F, others, C) {
   }
 
   // move the pieces into the world: rotate the local frame (z along the axis) onto the bridge's heading
-  const m = new THREE.Matrix4().makeRotationY(Math.atan2(ux, uz)).setPosition(ax, 0, az);
+  const m = new THREE.Matrix4().makeRotationY(Math.atan2(ux, uz)).setPosition(ax, DECK_Y, az);
   for (const [key, list] of local.parts) for (const g of list) C.add(key, g.applyMatrix4(m));
 
   // the railings are solid: an oriented box along each stretch of railing, 1 m thick, its inner face on the balustrade
@@ -324,7 +335,7 @@ function buildBridge(F, others, C) {
     const hz = (r1 - r0) / 2, hx = 0.5;
     const ex = Math.abs(uz) * hx + Math.abs(ux) * hz, ez = Math.abs(ux) * hx + Math.abs(uz) * hz;
     colliders.push({
-      minX: c.x - ex, maxX: c.x + ex, minZ: c.z - ez, maxZ: c.z + ez, minY: -0.5, maxY: 1.4,
+      minX: c.x - ex, maxX: c.x + ex, minZ: c.z - ez, maxZ: c.z + ez, minY: DECK_Y - 0.5, maxY: DECK_Y + 1.4,
       // controllers.js buildingContact: local x = dx*cs - dz*sn (across), local z = dx*sn + dz*cs (along)
       obb: { cx: c.x, cz: c.z, hx, hz, cs: uz, sn: ux }, bridge: spec.name
     });
@@ -380,10 +391,10 @@ export function createBridges({ scene }) {
       const s = dx * b.ux + dz * b.uz;
       const o = dx * b.uz - dz * b.ux;
       if (s < b.s0 || s > b.s1 || Math.abs(o) > b.half + 0.45) continue;
-      const deck = mode === 'person' && Math.abs(o) > b.road / 2 ? FOOT_Y : 0;
-      if (deck > 0) return deck;
+      const deck = mode === 'person' && Math.abs(o) > b.road / 2 ? DECK_Y + FOOT_Y : DECK_Y;
+      if (deck > DECK_Y) return deck;
       const blk = mode === 'person' ? blockAt(x, z) : null;
-      return blk && !(blk.park > 0.6 && !blk.median) ? FOOT_Y : 0;
+      return blk && !(blk.park > 0.6 && !blk.median) ? DECK_Y + FOOT_Y : DECK_Y;
     }
     return null;
   }
