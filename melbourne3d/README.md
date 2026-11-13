@@ -166,7 +166,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
     a car; a shot hurts only if the traced bullet really passes through you. He stops when you are dead, 75 m away or out of
     sight for 10 s, and while a cut scene or choice is up. The Kestrel watchers and police stay as they were (the
     watchers fail the job on gunfire; the police are off during a job and have no foot officers with guns).
-  - **Health and dying**: 100 health, bar bottom left; a hit takes 4-14; 6 s without one and it comes back at 5 a second.
+  - **Health and dying**: 100 health, bar above the weapon panel; a hit takes 4-14; 6 s without one and it comes back at 5 a second.
     At 0: WASTED, a fade, then you wake up fit: on a job the job fails and you are back at its start marker; otherwise
     where you fell, 8% poorer (up to $500), the police off you.
   - The **sports car**: the old game's HSB Clubbie R8 in red, parked on Elizabeth St by the first job ("Get the

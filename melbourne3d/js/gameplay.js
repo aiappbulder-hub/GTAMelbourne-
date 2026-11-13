@@ -92,7 +92,7 @@ const CSS = `
 .gp-cur .gp-icon svg { width: 100%; height: 100%; }
 .gp-cur .gp-name { font: 700 13px/1.1 Inter, system-ui, sans-serif; text-align: left; }
 .gp-cur b { display: block; }
-.gp-hp { position: fixed; left: 14px; bottom: 14px; width: 168px; height: 14px; z-index: 30; border-radius: 7px; background: rgba(10,12,16,.72); border: 1px solid rgba(255,255,255,.25); overflow: hidden; pointer-events: none; }
+.gp-hp { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(220px, 70vw); height: 14px; z-index: 30; border-radius: 7px; background: rgba(10,12,16,.72); border: 1px solid rgba(255,255,255,.25); overflow: hidden; pointer-events: none; }
 .gp-hp i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(#e5483b, #b4231a); transition: width .12s; }
 .gp-hp span { position: absolute; left: 6px; top: 0; font: 800 9px/14px Inter, sans-serif; letter-spacing: .12em; color: #fff; text-shadow: 0 1px 2px #000; }
 .gp-hp.low i { background: linear-gradient(#ff2a1a, #a00); }

@@ -35,7 +35,7 @@ export const WEAPONS = [
     parts: [C(0.016, 0.64, 0, 0.06, 0.3), C(0.014, 0.42, 0, 0.025, 0.31), B(0.045, 0.045, 0.16, 0, 0.0, 0.3, 'grip'), B(0.045, 0.07, 0.2, 0, 0.05, 0.02), B(0.04, 0.1, 0.3, 0, 0.0, -0.25, 'grip'), B(0.028, 0.08, 0.035, 0, -0.04, 0.0, 'grip')] },
   { id: 'm4', slot: 4, name: 'M4 Rifle', mag: 30, rate: 0.11, reload: 1.9, range: 90, pellets: 1, spread: 0.012, dmg: 26, auto: true, sound: 'm4',
     muzzle: 0.62, support: 0.38, hand: { fwd: 0.06, down: 0.03 }, hold: { f: 0.36, s: -0.11, u: -0.1 }, twoHanded: true, kick: 0.012,
-    npc: { rate: 0.16, burst: 4, err: 0.04, dmg: 6, range: 60, sight: 45 },
+    npc: { rate: 0.16, burst: 4, err: 0.04, dmg: 5, range: 60, sight: 45 },
     parts: [B(0.045, 0.075, 0.3, 0, 0.055, 0.1, 'dark'), B(0.052, 0.052, 0.28, 0, 0.05, 0.4, 'dark'), C(0.008, 0.16, 0, 0.055, 0.58), B(0.042, 0.085, 0.24, 0, 0.035, -0.2), B(0.02, 0.03, 0.22, 0, 0.105, 0.12), B(0.03, 0.15, 0.05, 0, -0.08, 0.1), B(0.03, 0.1, 0.04, 0, -0.04, -0.025, 'grip')] },
   { id: 'rocket', slot: 5, name: 'Rocket Launcher', mag: 1, rate: 1.4, reload: 2.6, range: 140, pellets: 1, spread: 0.004, dmg: 120, auto: false, sound: 'rocket',
     speed: 42, blast: { r: 9, dmg: 150 }, muzzle: 0.6, support: 0.28, hand: { fwd: 0.04, down: 0.06 }, hold: { f: 0.3, s: -0.04, u: -0.02 }, twoHanded: true, kick: 0.05,
