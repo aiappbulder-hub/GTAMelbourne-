@@ -47,16 +47,21 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
       if (cnt / (e.len * e.lanes.length) * 100 > 6) packed++;
     }
     const nn = [];
-    all.forEach((a, i) => { let d = 1e9; all.forEach((o, j) => { if (i === j) return; const e = Math.hypot(a.x - o.x, a.z - o.z); d = Math.min(d, e); if (j > i && e < (a.half + o.half) * 0.8 && !(a.bus && o.bus)) overlap++; }); nn.push(d); });
+    gaps.forEach((g) => { if (g < 0) overlap++; });
+    all.forEach((a, i) => { let d = 1e9; all.forEach((o, j) => { if (i === j) return; const e = Math.hypot(a.x - o.x, a.z - o.z); d = Math.min(d, e); if (false) { overlap++; if (window.__dump) (window.__pairs = window.__pairs || []).push([a, o].map((c) => ({ x: +c.x.toFixed(0), z: +c.z.toFixed(0), sp: +c.speed.toFixed(1), w: +c.wait.toFixed(0), conn: !!c.conn, lane: c.lane, s: +c.s.toFixed(0), len: +c.edge.len.toFixed(0), nl: c.edge.lanes.length, bus: !!c.bus, yl: !!c.yielding, ev: c.evade, pk: !!c.parked, dr: !!c.driven }))); } }); nn.push(d); });
     nn.sort((u, v) => u - v); gaps.sort((u, v) => u - v);
     const pc = (arr, q) => +(arr[Math.floor(arr.length * q)] ?? 0).toFixed(1);
     for (const c of all) if (c.wait > 20) stuck++;
+    // the lead cars standing >20 s that are not held by a red light (or a stop sign) are the real deadlocks
+    const ph = (e) => { const t = __T.t % 60; return e.axisIndex === 0 ? (t < 26 ? 'green' : t < 30 ? 'amber' : 'red') : (t < 30 ? 'red' : t < 56 ? 'green' : 'amber'); };
+    let leadStuckNoRed = 0, leadStuck = 0;
+    for (const e of edges) e.occ.forEach((list) => { const o = list[list.length - 1]; if (o && o.v.wait > 20 && near(o.v.x, o.v.z)) { leadStuck++; if (!e.to.signal || ph(e) === 'green') leadStuckNoRed++; } });
     const stuckAll = [...ts.cars, ...ts.buses].filter((c) => c.edge && c.wait > 60).length;
     perEdge.sort((u, v) => v[0] - u[0]); const top = perEdge.slice(0, Math.max(1, Math.ceil(perEdge.length * 0.1))).reduce((s, q) => s + q[0], 0);
     const mv = all.filter((c) => c.speed > 0.5).length;
     return { n: all.length, per100mLane: +(all.length / laneLen * 100).toFixed(2), roads, emptyPct: +(empty / roads * 100).toFixed(0), packedPct: +(packed / roads * 100).toFixed(0),
       nnMed: pc(nn, 0.5), nnP10: pc(nn, 0.1), nnLt6Pct: +(nn.filter((d) => d < 6).length / nn.length * 100).toFixed(0), laneGapMed: pc(gaps, 0.5), laneGapP10: pc(gaps, 0.1),
-      bumperPct: +(bb / Math.max(1, gaps.length) * 100).toFixed(0), queuedBB: queued, stuck20: stuck, stuck60All: stuckAll, overlap, top10roadsShare: +(top / Math.max(1, all.length) * 100).toFixed(0), movingPct: +(mv / Math.max(1, all.length) * 100).toFixed(0) };
+      bumperPct: +(bb / Math.max(1, gaps.length) * 100).toFixed(0), queuedBB: queued, stuck20: stuck, leadStuck, leadStuckNoRed, stuck60All: stuckAll, overlap, top10roadsShare: +(top / Math.max(1, all.length) * 100).toFixed(0), movingPct: +(mv / Math.max(1, all.length) * 100).toFixed(0) };
   }, [cx, cz]);
   const raf = (fr, half) => p.evaluate(([fr, half]) => new Promise((r) => { let n = 0; const f = () => { if (half && n === half) __T.on = true; ++n < fr ? requestAnimationFrame(f) : r(); }; requestAnimationFrame(f); }), [fr, half || 0]);
   const pick = (process.env.SPOTS || Object.keys(SPOTS).join(',')).split(',');
@@ -68,9 +73,11 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
     const frames = Math.round(SIM / (0.05 * 20));
     await raf(4);
     await raf(frames, Math.round(frames * 0.5));
+    if (process.env.DUMP) await p.evaluate(() => { window.__dump = true; window.__pairs = []; });
     const r = await measure(x, z);
-    const ev = await p.evaluate(() => { const e = __T.ev; let bunch = 0; e.forEach((a, i) => { if (e.some((o, j) => j !== i && Math.abs(o.t - a.t) < 5 && Math.hypot(o.x - a.x, o.z - a.z) < 60)) bunch++; }); return { respawns: e.length, bunchedPct: e.length ? Math.round(bunch / e.length * 100) : 0 }; });
+    const ev = await p.evaluate(() => { const e = __T.ev; let bunch = 0; e.forEach((a, i) => { if (e.some((o, j) => j !== i && Math.abs(o.t - a.t) < 3 && Math.hypot(o.x - a.x, o.z - a.z) < 25)) bunch++; }); return { respawns: e.length, bunchedPct: e.length ? Math.round(bunch / e.length * 100) : 0 }; });
     log(name.padEnd(8), 'stand', JSON.stringify({ ...r, ...ev }));
+    if (process.env.DUMP) log(JSON.stringify(await p.evaluate(() => window.__pairs || [])));
     if (process.env.DRIVE) {
       await p.evaluate(([x, z]) => { Object.assign(__T, { mode: 'drive', fx: x, fz: z, on: false }); }, [x, z]);
       await raf(40);

@@ -588,6 +588,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   let stWalk = false;
   const phaseOf = (e) => (e.axisIndex === 0 ? avePhase : stPhase);
   let focusX = 0;
+  let focusVX = 0; // how the focus (the camera) is moving, smoothed
+  let focusVZ = 0;
+  let focusSpeed = 0;
   let focusZ = 140;
 
   // Lane lists hold pooled { v, s } entries sorted by position s along the lane, rebuilt every frame
@@ -1770,6 +1773,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const d = Math.hypot(x - focusX, z - focusZ);
       if (d < rMin || d > rMax || (protectView && nearView(x, z, v.half + 4, VEHICLE_SPAWN_DISTANCE))) continue;
       if (player.active && Math.hypot(x - player.x, z - player.z) < 25) continue;
+      // moving fast, the streets ahead are the ones about to be seen: fewer cars are put behind
+      if (focusSpeed > 8 && ((x - focusX) * focusVX + (z - focusZ) * focusVZ) < 0 && Math.random() < Math.min(0.85, focusSpeed / 40)) continue;
       if (!laneClear(e.occ[lane], s, v.half + 22)) continue;
       // distance to the nearest other vehicle in any lane or street: the farther the better
       let nn = 1e9;
@@ -2104,6 +2109,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     focusZ = focusPos ? focusPos.z : 140;
     // a jump of the camera (teleport, first frame): everything far away can be placed anywhere around it
     const jump = Math.hypot(focusX - lastFocusX, focusZ - lastFocusZ) > 140;
+    if (dt > 0 && !jump) {
+      const k = Math.min(1, dt * 2);
+      focusVX += ((focusX - lastFocusX) / dt - focusVX) * k;
+      focusVZ += ((focusZ - lastFocusZ) / dt - focusVZ) * k;
+      focusSpeed = Math.hypot(focusVX, focusVZ);
+    } else if (jump) {
+      focusVX = focusVZ = focusSpeed = 0;
+    }
     lastFocusX = focusX;
     lastFocusZ = focusZ;
     refreshNear();
