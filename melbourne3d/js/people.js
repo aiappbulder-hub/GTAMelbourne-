@@ -146,6 +146,7 @@ export function createCast({ scene, controllerManager }) {
     await Promise.all([loadClips('m'), loadClips('f'), loadPerson(PLAYER)]);
     // (Davo is one job's: he loads when it wants him)
     await Promise.all([...EAGER_CAST.map((n) => loadPerson(STORY_CAST[n])), loadStory('m'), loadStory('f'), loadStory('m', 'sit'), loadStory('f', 'sit')]);
+    storyLoaded = true;
     // (the street crowd is the procedural people of js/pedestrians.js: their walking is generated, feet planted, never
     // looping, and they cost little; Rocketbox people are for the story's cast, where faces matter. Extras for a scene
     // load when the scene first wants them, in setActor)
@@ -202,6 +203,19 @@ export function createCast({ scene, controllerManager }) {
     }
     return a.acts[name];
   }
+  // a name with no clip for this body plays the idle (never a frozen pose); each is named once in the console. Ara's bodies
+  // have no phone, listening or fidget clips by design (ARA_CLIPS), so those are not reported for them
+  let storyLoaded = false;
+  const missing = new Map(); // body id → names asked for with no clip
+  const ARA_OK = new Set(['phone', 'text', 'look', 'wait', 'listen', 'listen_angry', 'angry_idle', 'nervous_idle', 'thoughtful', 'nod', 'deny', 'shrug', 'crouch']);
+  function noteMissing(a, name) {
+    if (!storyLoaded || a.ara && ARA_OK.has(name)) return;
+    let set = missing.get(a.id);
+    if (!set) missing.set(a.id, set = new Set());
+    if (set.has(name)) return;
+    set.add(name);
+    console.warn(`[people] ${a.id} has no "${name}" clip: playing the idle instead. Missing for it so far: ${[...set].join(', ')}`);
+  }
   function play(a, name, timeScale = 1, fade = 0.3) {
     // a gesture playing once finishes before anything but a new gesture (or death) takes over; walking cuts it short
     const moving = name === 'walk' || name === 'run' || name === 'sprint';
@@ -217,7 +231,7 @@ export function createCast({ scene, controllerManager }) {
         const opts = group.filter((n) => has(a, n) && action(a, n) !== act);
         if (opts.length) { act = action(a, opts[Math.floor(Math.random() * opts.length)]); fade = 0.9; }
       }
-    } else act = action(a, name) || a.acts.idle;
+    } else { act = action(a, name); if (!act) { noteMissing(a, name); act = a.acts.idle; } }
     const again = a.logical === name; // (a gesture still being asked for after it ended stays at its last frame, no restart)
     a.logical = name;
     if (!act) return;
@@ -730,6 +744,19 @@ export function createCast({ scene, controllerManager }) {
     posePlayer,
     setGiver,
     get actors() { return live; },
+    /** for checks: does this body (a model id) have a clip of this name, and a few bones' rotations summed (a pose that
+     *  changes between two looks is moving). `who` is a story name ('Davo'), 'player' or an extra's key. */
+    probe(who, name) {
+      const a = who === 'player' ? playerActor : story[who] || extras.get(who);
+      if (!a) return null;
+      let sig = 0;
+      a.root.traverse((o) => { if (o.isBone) sig += o.quaternion.x * 3 + o.quaternion.y * 5 + o.quaternion.z * 7 + o.quaternion.w; });
+      return { id: a.id, clip: a.cur?.getClip().name || null, has: name ? has(a, name) : undefined, visible: a.group.visible, sig };
+    },
+    /** is the story clip set in */
+    get storyLoaded() { return storyLoaded; },
+    /** which clips a body (model id) has: `clipsFor('Male_Adult_09')` */
+    clipNames(id) { return Object.keys(ownClips.get(id) || clips[isFemale(id) ? 'f' : 'm'] || {}); },
     setPlayerAction,
     /** Draw the player at a pose of the car sequence's (js/gameplay.js) while on foot: { x, y, z, heading, anim,
      *  timeScale, reach }, reach an arm's target { x, y, z, w (0..1), left }; null hands back to the controller */

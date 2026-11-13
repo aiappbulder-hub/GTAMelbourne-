@@ -117,6 +117,19 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   st = await p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
   ok(st.prog === 1 && st.flags.davo_tails_kestrel === true && st.money === 14345, `1.1 survives a restart ${JSON.stringify(st)}`);
 
+  // the hand-over: the next job (Laneway Hustle) is the pink marker, the Jobs list says so, replaying Low Tide keeps the progress,
+  // and walking into the marker starts it
+  const nxt = await p.evaluate(() => ({ line: document.querySelector('.job-progress')?.textContent, rows: [...document.querySelectorAll('.job-row')].slice(0, 3).map((r) => r.className.replace(/.*(job-\w+)$/, '$1')) }));
+  ok(/1 of 13 jobs done. Next: Laneway Hustle/.test(nxt.line) && nxt.rows.join() === 'job-done,job-next,job-locked', `Jobs list: done / next / locked ${JSON.stringify(nxt)}`);
+  await p.evaluate(() => { const q = __city.missions.jumpTo(0); __city.teleportTo(q.x + 40, q.z + 40, 0); });
+  ok((await p.evaluate(() => __city.missions.progress)) === 1, 'replaying an old job from the list does not wind progress back');
+  await p.evaluate(() => { __city.missions.jumpTo(1); const g = __city.missions.jumpTo(1); __city.teleportTo(g.x + 40, g.z + 40, 0); });
+  await p.waitForTimeout(1500);
+  const markerLine = await p.evaluate(() => document.querySelector('.gm-objective')?.textContent);
+  ok(/Next job: Laneway Hustle/.test(markerLine), `the objective points at the next job: "${markerLine}"`);
+  await p.evaluate(() => { const g = __city.missions.jumpTo(1); __city.teleportTo(g.x + 2, g.z + 2, 0); });
+  await waitFor(() => __city.missions.debug().mission === 'Laneway Hustle', 40000); ok(true, 'walking into the pink marker starts the next job');
+
   // corrupt save: a new game, no error
   await p.evaluate(() => { localStorage.setItem('gta-melbourne3d-save-v2', '{bad json'); localStorage.removeItem('gta-melbourne3d-save-v1'); });
   await p.reload(); await ready();
