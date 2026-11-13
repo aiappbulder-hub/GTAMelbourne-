@@ -2,7 +2,7 @@
 name: art-director
 description: "Owns visual identity — style guides, art bible, asset standards, color palettes, UI visual direction."
 tools: Read, Glob, Grep, Write, Edit, WebSearch
-model: inherit
+model: sonnet
 maxTurns: 20
 disallowedTools: Bash
 memory: project

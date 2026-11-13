@@ -2,7 +2,7 @@
 name: level-designer
 description: "Spatial design for levels and areas — encounter layouts, pacing, difficulty, layout planning, environmental storytelling."
 tools: Read, Glob, Grep, Write, Edit
-model: inherit
+model: sonnet
 maxTurns: 20
 disallowedTools: Bash
 memory: project

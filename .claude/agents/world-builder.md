@@ -2,7 +2,7 @@
 name: world-builder
 description: "World builder for lore — factions, cultures, history, geography, ecology, world rules. Faction design, lore consistency checks."
 tools: Read, Glob, Grep, Write, Edit
-model: inherit
+model: sonnet
 maxTurns: 20
 disallowedTools: Bash
 memory: project

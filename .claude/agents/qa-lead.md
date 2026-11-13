@@ -2,7 +2,7 @@
 name: qa-lead
 description: "Test strategy and process — test plan creation, bug severity assessment, regression planning, release quality gates, readiness evaluation."
 tools: Read, Glob, Grep, Write, Edit, Bash
-model: inherit
+model: sonnet
 maxTurns: 20
 skills: [bug-report, release-checklist]
 memory: project
