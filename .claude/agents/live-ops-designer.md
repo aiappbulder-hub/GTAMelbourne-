@@ -2,7 +2,7 @@
 name: live-ops-designer
 description: "Post-launch content — seasonal events, battle passes, content cadence, retention, engagement analytics. Keeps the game fresh."
 tools: Read, Glob, Grep, Write, Edit
-model: inherit
+model: sonnet
 maxTurns: 20
 disallowedTools: Bash
 ---

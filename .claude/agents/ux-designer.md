@@ -2,7 +2,7 @@
 name: ux-designer
 description: "User experience flows, interaction design, information architecture — user flow mapping, interaction pattern design, onboarding, accessibility requirements."
 tools: Read, Glob, Grep, Write, Edit, WebSearch
-model: inherit
+model: sonnet
 maxTurns: 20
 disallowedTools: Bash
 memory: project

@@ -607,7 +607,7 @@ async function initApp() {
     return destination;
   }
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
-  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, selectCamera: (id) => selectCamera(id, true) };
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,
@@ -739,18 +739,22 @@ async function initApp() {
       rb.addEventListener('click', () => { closePopovers(); race.start(); });
       pop.append(rb);
     }
+    // where the story is up to: a line, and each job done, next (the pink marker) or locked until the one before it is done
+    const prog = document.createElement('div');
+    prog.className = 'pop-sub job-progress';
+    title.after(prog);
+    const rows = [];
     missionSystem.missions.forEach((m, i) => {
       const b = document.createElement('button');
-      b.className = 'pop-item tp-btn';
+      b.className = 'pop-item tp-btn job-row';
       b.type = 'button';
       const n = document.createElement('span');
       n.className = 'pop-name';
-      n.textContent = `${i + 1}. ${m.name}`;
       const sub = document.createElement('span');
       sub.className = 'pop-sub';
-      sub.textContent = `${m.giver} · ${m.crew} · $${m.reward.toLocaleString('en-AU')}`;
       b.append(n, sub);
       b.addEventListener('click', () => {
+        if (i > missionSystem.progress) return; // locked
         // go to the job and start it straight away
         const p = missionSystem.jumpTo(i);
         teleportTo(p.x + 3, p.z + 3, Math.atan2(-3, -3));
@@ -758,7 +762,29 @@ async function initApp() {
         missionSystem.startNow(i);
       });
       pop.append(b);
+      rows.push({ b, n, sub, m, i });
     });
+    const refreshJobs = () => {
+      const pr = missionSystem.progress, total = rows.length;
+      const line = pr >= total ? `All ${total} jobs done` : `${pr} of ${total} jobs done. Next: ${rows[pr].m.name}`;
+      if (prog.textContent !== line) prog.textContent = line;
+      for (const { b, n, sub, m, i } of rows) {
+        const state = i < pr ? 'done' : i === pr ? 'next' : 'locked';
+        const nm = `${state === 'done' ? '\u2713 ' : state === 'locked' ? '\u{1F512} ' : '\u25B6 '}${i + 1}. ${m.name}`;
+        const sb = state === 'done' ? `Done \u00B7 tap to play it again \u00B7 ${m.giver} \u00B7 ${m.crew}`
+          : state === 'next' ? `NEXT \u00B7 ${m.giver} \u00B7 ${m.crew} \u00B7 $${m.reward.toLocaleString('en-AU')}`
+          : `Locked \u00B7 finish ${i}. ${rows[i - 1].m.name} first`;
+        if (n.textContent !== nm) n.textContent = nm;
+        if (sub.textContent !== sb) sub.textContent = sb;
+        b.classList.toggle('job-done', state === 'done');
+        b.classList.toggle('job-next', state === 'next');
+        b.classList.toggle('job-locked', state === 'locked');
+        b.disabled = state === 'locked';
+      }
+    };
+    refreshJobs();
+    setInterval(refreshJobs, 700);
+    window.__city.refreshJobs = refreshJobs;
   }
 
   teleportButtons.forEach((btn) => {

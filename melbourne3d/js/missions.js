@@ -7,6 +7,7 @@ import { PLACES } from './story/places.js';
 import { createPursuer } from './pursuit.js';
 import { createLeader } from './story/leader.js';
 import { ROUTES } from './story/routes.js';
+import { describeChoice } from './story/choices.js';
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
 // after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
@@ -418,6 +419,7 @@ const CSS = `
   padding: 10px 16px; border-radius: 12px; background: rgba(10, 12, 16, 0.78); color: #fff; font: 600 15px/1.35 Inter, system-ui, sans-serif;
   text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.35); pointer-events: none; }
 .gm-objective:empty { display: none; }
+.gm-objective[data-job]::before { content: attr(data-job); display: block; margin-bottom: 2px; color: #ff4fa3; font: 800 11px/1.2 Inter, system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .gm-timer { position: fixed; right: 18px; top: 84px; z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.78);
   color: #ffd23f; font: 800 22px/1 'JetBrains Mono', monospace; pointer-events: none; }
 .gm-timer[hidden], .gm-cut[hidden] { display: none; }
@@ -446,6 +448,21 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
   background: rgba(255,255,255,.06); color: #fff; font: 600 15px/1.3 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; }
 .gm-choice button:hover, .gm-choice button:focus-visible { background: rgba(255,79,163,.22); border-color: #ff4fa3; outline: none; }
 .gm-choice button i { font-style: normal; color: #ffd23f; margin-right: 8px; }
+.gm-choice { max-height: calc(100vh - 130px); max-height: calc(100dvh - 130px); overflow-y: auto; }
+.gm-choice .gm-ask { font-weight: 700; font-size: 17px; line-height: 1.35; }
+.gm-choice .gm-said { margin-top: 4px; color: #b9c0cc; font-size: 14px; font-style: italic; }
+.gm-choice button { display: flex; align-items: flex-start; gap: 10px; min-height: 56px; }
+.gm-choice button i { flex: none; width: 26px; height: 26px; margin: 1px 0 0; border-radius: 50%; background: #ffd23f; color: #111; text-align: center; line-height: 26px; font-weight: 800; }
+.gm-choice button span { display: block; min-width: 0; }
+.gm-choice button strong { display: block; font-weight: 700; }
+.gm-choice button small { display: block; margin-top: 3px; font: 500 13px/1.35 Inter, system-ui, sans-serif; color: #c9d0db; }
+.gm-choice .gm-hint { margin-top: 10px; font-size: 12.5px; color: #ffcf6e; text-align: center; }
+.gm-chosen { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(560px, 92vw); z-index: 33; padding: 10px 14px; border-radius: 12px;
+  background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .6); color: #fff; font: 500 13.5px/1.4 Inter, system-ui, sans-serif; pointer-events: none; }
+.gm-chosen[hidden] { display: none; }
+.gm-chosen b { display: block; color: #8ee07a; font-size: 14px; }
+@media (max-width: 600px) { .gm-choice { bottom: 66px; padding: 10px 12px; max-height: calc(100dvh - 134px); } .gm-choice .gm-ask { font-size: 15px; } .gm-choice .gm-said { font-size: 12.5px; }
+  .gm-choice button { padding: 8px 10px; margin-top: 6px; min-height: 48px; } .gm-choice button small { font-size: 12px; line-height: 1.3; } .gm-choice .gm-hint { margin-top: 8px; font-size: 12px; } }
 .gm-call { position: fixed; left: 50%; top: 150px; transform: translate(-50%, -12px); width: min(560px, 92vw); z-index: 32; padding: 12px 16px 12px 58px;
   border-radius: 14px; background: rgba(8, 10, 14, 0.92); border: 1px solid rgba(142, 224, 122, .55); color: #fff; font: 500 15px/1.4 Inter, system-ui, sans-serif;
   box-shadow: 0 10px 40px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; }
@@ -494,6 +511,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   elCall.addEventListener('click', () => { callUp = 0; elCall.classList.remove('on'); });
   const elChoice = el('gm-choice');
   elChoice.hidden = true;
+  const elChosen = el('gm-chosen');
+  elChosen.hidden = true;
   // A pointer to the marker that matters (the next job, or the objective): over it when it's on screen, pinned to
   // the screen's edge and turned towards it when it isn't
   const elPointer = el('gm-pointer');
@@ -561,6 +580,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   });
   const read = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   let save = clean(read(SAVE_KEY) || read(SAVE_KEY_V1));
+  // The job the pink marker and the phone point at: the furthest one reached (save.progress), or an earlier one picked in the Jobs
+  // list to play again (which must never wind the saved progress back)
+  let focus = null;
+  const cur = () => (focus !== null && focus < save.progress ? focus : save.progress);
   let persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
   persist();
   const showMoney = () => { elMoney.textContent = `$${save.money.toLocaleString('en-AU')}`; };
@@ -593,6 +616,19 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // Doors: Bianca's run, down King St's east footpath and along Collins St's north one to William St
     DOORS_RUN: [[-923, -203], [-923, -4], [-722, -4]] };
   if (cast) cast.preload([STORY_CAST.Davo]);
+  // everyone a job's scenes want is fetched while it is the next one, so nobody appears late (or not at all) in the cut scene
+  const preloaded = new Set();
+  function preloadCast(def, i) {
+    if (!cast || preloaded.has(i)) return;
+    preloaded.add(i);
+    const who = new Set([def.giver, ...(def.with || []), ...(def.cut || []).map((l) => l[0])]);
+    for (const st of def.steps || []) {
+      for (const a of st.actors || []) who.add(a.who);
+      if (st.talk) { who.add(st.talk.who); for (const w of st.talk.with || []) who.add(w); for (const l of st.talk.lines || []) who.add(l[0]); }
+      if (st.choice) who.add(st.choice.who);
+    }
+    cast.preload([...who].map((n) => STORY_CAST[n]));
+  }
   // the rest of the cast standing with the giver in a cut scene (a job's `with`), put away when it ends
   let cutExtras = new Set();
   function hideCutExtras() { for (const k of cutExtras) cast?.setActor(k, null, null); cutExtras = new Set(); }
@@ -664,36 +700,70 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // the choice panel: buttons, or keys 1-3
   let choiceOpen = null; // { def, pick(i) }
   function openChoice(c, onPick) {
+    const d = describeChoice(c), n = c.options.length;
     elChoice.innerHTML = '';
+    elChoice.scrollTop = 0;
     const b = document.createElement('b');
-    b.textContent = c.who;
-    const t = document.createElement('div');
-    t.textContent = c.text;
-    elChoice.append(b, t);
+    b.textContent = `${d.who} is asking you`;
+    const q = document.createElement('div');
+    q.className = 'gm-ask';
+    q.textContent = d.ask || c.text;
+    const said = document.createElement('div');
+    said.className = 'gm-said';
+    said.textContent = `“${c.text}”`;
+    elChoice.append(b, q);
+    if (d.ask) elChoice.append(said);
     const pick = (i) => {
       if (!choiceOpen || !c.options[i]) return;
       if (c.options[i].cost > save.money && (c.options[i].cost || 0) !== Math.min(...c.options.map((o) => o.cost || 0))) return;
       choiceOpen = null;
       elChoice.hidden = true;
+      showChosen(c.options[i], d.notes[i], i);
       onPick(c.options[i]);
     };
     // an option that costs more than the player has can't be picked (the cheapest always can: it takes what there is)
     const cheapest = Math.min(...c.options.map((o) => o.cost || 0));
     const can = (o) => !(o.cost > save.money) || (o.cost || 0) === cheapest;
+    const dollars = (v) => `$${v.toLocaleString('en-AU')}`;
     c.options.forEach((o, i) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       const k = document.createElement('i');
       k.textContent = String(i + 1);
-      btn.append(k, document.createTextNode(o.cost ? `${o.label} ($${o.cost.toLocaleString('en-AU')})` : o.label));
+      const main = document.createElement('span');
+      const lab = document.createElement('strong');
+      lab.textContent = o.label;
+      main.append(lab);
+      const note = document.createElement('small');
+      const cost = !o.cost ? '' : !can(o) ? `Needs ${dollars(o.cost)} (you have ${dollars(save.money)}). `
+        : o.cost > save.money ? `Costs ${dollars(o.cost)}: you only have ${dollars(save.money)}, so it takes that. ` : `Costs ${dollars(o.cost)}. `;
+      note.textContent = `${cost}${d.notes[i] || ''}`.trim();
+      if (note.textContent) main.append(note);
+      btn.append(k, main);
       btn.disabled = !can(o);
       if (btn.disabled) btn.style.opacity = '0.45';
       btn.addEventListener('click', () => pick(i));
       elChoice.append(btn);
     });
+    const hint = document.createElement('div');
+    hint.className = 'gm-hint';
+    hint.textContent = `Pick one: press ${n > 1 ? `1–${n}` : '1'} or tap it. It is saved and you can’t change it later.`;
+    elChoice.append(hint);
     elChoice.hidden = false;
     choiceOpen = { def: c, pick };
     voices?.sayText(c.text, { subtitle: false, who: c.who });
+  }
+  // a short confirmation of what was just chosen
+  let chosenT = 0;
+  function showChosen(o, note, i) {
+    elChosen.textContent = '';
+    const t = document.createElement('b');
+    t.textContent = `✓ You chose ${i + 1}: ${o.label}`;
+    elChosen.append(t);
+    if (note) { const s2 = document.createElement('span'); s2.textContent = note; elChosen.append(s2); }
+    elChosen.hidden = false;
+    clearTimeout(chosenT);
+    chosenT = setTimeout(() => { elChosen.hidden = true; }, 6000);
   }
   window.addEventListener('keydown', (e) => {
     if (!choiceOpen) return;
@@ -1061,6 +1131,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       });
     }
     elObjective.textContent = s.text;
+    { const ns = m.def.steps.filter((q) => flagsMatch(q.when)); elObjective.dataset.job = `Job ${m.i + 1} of ${MISSIONS.length} \u00B7 ${m.def.name} \u00B7 step ${ns.indexOf(s) + 1}/${ns.length}`; }
     if (s.at) {
       const p = resolve(s.at);
       placeMarker(goalMarker, p, s.r);
@@ -1130,18 +1201,21 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (def.outro) { voices?.sayText(def.outro[1], { who: def.outro[0] }); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
+    focus = null;
     persist();
     showMoney();
     mission = null;
     elObjective.textContent = '';
+    delete elObjective.dataset.job;
     elTimer.hidden = true;
     goalMarker.visible = false;
     for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
-    if (save.progress >= MISSIONS.length) {
-      big('MISSION PASSED', '#ffd23f', 5, `+$${def.reward.toLocaleString('en-AU')}`);
+    const n = MISSIONS.indexOf(def) + 1, rew = `+$${def.reward.toLocaleString('en-AU')}`;
+    if (n === MISSIONS.length && save.progress >= MISSIONS.length) {
+      big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
       sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
-    } else big('MISSION PASSED', '#ffd23f', 3.5, `+$${def.reward.toLocaleString('en-AU')}`);
+    } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
@@ -1149,12 +1223,13 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     cleanup();
     mission = null;
     elObjective.textContent = '';
+    delete elObjective.dataset.job;
     elTimer.hidden = true;
     goalMarker.visible = false;
     for (const t of targetMarkers) t.visible = false;
     if (mapSystem) mapSystem.waypoint = null;
-    big('MISSION FAILED', '#e5383b', 3);
-    sub(why, 4);
+    big('MISSION FAILED', '#e5383b', 3, 'Nothing is lost: walk back into the pink marker to try again');
+    sub(why, 5);
   }
 
   function update(dt, elapsed) {
@@ -1173,8 +1248,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const p = playerPos();
     // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
     if (cast) {
-      const def = mission ? mission.def : MISSIONS[save.progress];
+      const def = mission ? mission.def : MISSIONS[cur()];
       const inScene = !!(def && def.scene);
+      if (def && !mission) preloadCast(def, cur());
       if (stkilda) {
         // the café: Kaz and Mick at their table before the job (and when you bring the watches back), all three in it
         const st = def && inScene ? resolve(def.start) : null;
@@ -1216,21 +1292,21 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
     if (!mission) {
       // the next job's marker
-      if (save.progress < MISSIONS.length) {
-        const def = MISSIONS[save.progress];
+      if (cur() < MISSIONS.length) {
+        const def = MISSIONS[cur()];
         const st = resolve(def.start);
         placeMarker(startMarker, st, 5);
         const d = Math.hypot(p.x - st.x, p.z - st.z);
         // the call that sends you there
         if (def.call && !cut && !cardUp && bigT <= 0 && subT <= 0 && d > 9 && !document.body.classList.contains('cinematic')) {
           callT += dt;
-          if (called !== save.progress && callT > 3.5) { called = save.progress; callT = 0; ring(def, st); }
-          else if (called === save.progress && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again
+          if (called !== cur() && callT > 3.5) { called = cur(); callT = 0; ring(def, st); }
+          else if (called === cur() && callT > 150 && !driving()) { callT = 0; ring(def, st, true); } // still standing about: the card again
         }
         if (callUp > 0) { callUp -= dt; if (callUp <= 0 || d < 9) elCall.classList.remove('on'); }
         // someone in the car on the way there, talking (once per job)
         if (def.ride && driving() && !cut && !cardUp && d > 30 && callUp < 4) {
-          if (ride.job !== save.progress) ride = { job: save.progress, t: 0, said: 0 };
+          if (ride.job !== cur()) ride = { job: cur(), t: 0, said: 0 };
           ride.t += dt;
           while (ride.said < def.ride.length && ride.t >= def.ride[ride.said][0]) {
             const [, who, text] = def.ride[ride.said++];
@@ -1238,7 +1314,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
             voices?.sayText(text, { subtitle: false, who });
           }
         }
-        if (!cut && d < 8 && bigT <= 0 && !cardUp) start(save.progress);
+        if (!cut && d < 8 && bigT <= 0 && !cardUp) start(cur());
         else if (!cut) {
           // say where the next job is, and put it on the map
           const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -1248,7 +1324,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
           const dist = d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 10) * 10} m`;
           const text = `Next job: ${def.name} (${def.giver}). Go to the pink marker, ${dist} ${dir}.`;
           if (elObjective.textContent !== text) elObjective.textContent = text;
-          if (mapSystem && (!mapSystem.waypoint || mapSystem.waypoint.job !== save.progress)) mapSystem.waypoint = { x: st.x, z: st.z, name: def.name, job: save.progress };
+          elObjective.dataset.job = `Job ${cur() + 1} of ${MISSIONS.length}${cur() < save.progress ? ' \u00B7 replay' : ''} \u00B7 next`;
+          if (mapSystem && (!mapSystem.waypoint || mapSystem.waypoint.job !== cur())) mapSystem.waypoint = { x: st.x, z: st.z, name: def.name, job: cur() };
         }
       } else startMarker.visible = false;
       return;
@@ -1502,16 +1579,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     /** Start a job now, wherever the player is (the Jobs list) */
     startNow(i) {
       if (mission) fail('You walked off the job.');
-      save.progress = i;
-      persist();
+      if (i > save.progress) { save.progress = i; persist(); } // (ahead of the story: for checks; the Jobs list keeps these locked)
+      focus = i < save.progress ? i : null;
       start(i);
       return resolve(MISSIONS[i].start);
     },
     /** Jump to a job: its start marker becomes the next one (the pause/jobs list) */
     jumpTo(i) {
       if (mission) fail('You walked off the job.');
-      save.progress = i;
-      persist();
+      if (i > save.progress) { save.progress = i; persist(); }
+      focus = i < save.progress ? i : null;
       return resolve(MISSIONS[i].start);
     }
   };

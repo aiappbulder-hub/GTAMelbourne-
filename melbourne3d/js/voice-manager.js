@@ -43,7 +43,7 @@ const key = (text) => words(text).join(' ');
 function silent() {
   const none = () => null;
   return { ready: false, sayText: none, say: none, talkLine: none, event: none, stopStory() {}, stopAll() {}, update() {},
-    volume: 0, setVolume() {}, subtitles: true, setSubtitles() {}, ambient: false, setAmbient() {}, lines: [] };
+    playSeconds: (l) => l?.duration || 3, volume: 0, setVolume() {}, subtitles: true, setSubtitles() {}, ambient: false, setAmbient() {}, lines: [] };
 }
 
 export async function createVoiceManager({ audioSystem, cameraSystem, trafficSystem, controllerManager = null, isCinematic = () => false } = {}) {
@@ -178,7 +178,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     active.filter((v) => v.line.character === line.character && v.line.category !== 'chat' && cat !== 'chat').forEach((v) => stop(v));
     note(line);
 
-    const v = { line, ch, channel, prio, follow: opts.at || null, t: 0, dur: (line.duration || 3) / SPEED, sub: null, onEnd: opts.onEnd, src: null, gain: null,
+    const v = { line, ch, channel, prio, follow: opts.at || null, t: 0, dur: (line.duration || 3) / speedOf(line.character), sub: null, onEnd: opts.onEnd, src: null, gain: null,
       opts, tag: opts.tag || null, starting: false };
     active.push(v);
     if (subtitles && opts.subtitle !== false) {
@@ -203,8 +203,13 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     return { line, duration: v.dur };
   }
 
-  // The recorded takes are a little slow and drawn out: every clip plays this much faster (pitch rises a touch)
-  const SPEED = 1.18;
+  // Playback rate per recorded voice (pitch moves with it, so kept within 0.9-1.2). Measured pace of the takes
+  // (words/s over the whole clip, pauses included) x rate = what is heard. The player's takes were a slow read (2.3 w/s):
+  // they are re-timed offline to ~3.0 w/s, pitch kept (tools/voices/retime.mjs), so play at 1.0. The women stay as they were
+  // (1.18); the other men, whose takes already run near 2.8-3.0 w/s, come back to about natural.
+  const RATE = { player: 1.0, ruby: 1.18, kaz: 1.18, marsh: 1.18, local_female: 1.18,
+    davo: 0.95, vince: 1.0, mick: 1.0, local_male: 1.0, gus: 1.1, nico: 1.15, terry: 1.1, sully: 1.0, shooter: 1.0, bouncer: 1.1, police: 1.0 };
+  const speedOf = (character) => RATE[character] ?? 1;
   // The sound of a voice: now if the audio is running, else as soon as it is (the browser only allows sound after the
   // player's first key or tap, and a cut scene may already be up by then): it then starts where the line has got to
   function startSound(v) {
@@ -220,7 +225,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       if (channel === 'ambient' && performance.now() - t0 > 1500) return stop(v, 0);
       const src = c.createBufferSource();
       src.buffer = buffer;
-      src.playbackRate.value = SPEED;
+      src.playbackRate.value = speedOf(line.character);
       const gain = c.createGain();
       gain.gain.value = ch.gain ?? 1;
       let node = src;
@@ -246,8 +251,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       src.onended = () => { if (active.includes(v) && v.src === src) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); } };
       v.src = src;
       v.gain = gain;
-      v.dur = buffer.duration / SPEED;
-      const offset = Math.min(v.t * SPEED, Math.max(0, buffer.duration - 0.2));
+      v.dur = buffer.duration / speedOf(line.character);
+      const offset = Math.min(v.t * speedOf(line.character), Math.max(0, buffer.duration - 0.2));
       src.start(0, offset);
     }).catch(() => { v.starting = false; /* a missing clip: the subtitle runs out on its own */ });
   }
@@ -261,11 +266,12 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
 
   // A line with no recording (the new story's) is spoken by the browser's own speech voice: an Australian one if the
   // device has it. Recordings, made offline with the Orpheus TTS (tools/voices/generate.py), replace this line by line.
-  const SPEECH = { Davo: { pitch: 0.75, rate: 1.1, male: true }, You: { pitch: 0.85, rate: 1.12, male: true },
-    Vince: { pitch: 0.7, rate: 1.05, male: true }, Kaz: { pitch: 1.05, rate: 1.15, male: false }, Mick: { pitch: 0.9, rate: 1.15, male: true },
+  // (rate 1 is about 2.7 words/s: the men near natural, You a little brisk, the women as they were)
+  const SPEECH = { Davo: { pitch: 0.75, rate: 1.0, male: true }, You: { pitch: 0.85, rate: 1.2, male: true },
+    Vince: { pitch: 0.7, rate: 0.95, male: true }, Kaz: { pitch: 1.05, rate: 1.15, male: false }, Mick: { pitch: 0.9, rate: 1.0, male: true },
     Marsh: { pitch: 1.0, rate: 1.15, male: false }, Ruby: { pitch: 1.1, rate: 1.17, male: false },
-    Gus: { pitch: 0.8, rate: 1.06, male: true }, Nico: { pitch: 1.1, rate: 1.2, male: true }, Terry: { pitch: 0.82, rate: 1.1, male: true },
-    Sully: { pitch: 0.72, rate: 1.05, male: true }, Shooter: { pitch: 1.2, rate: 1.25, male: true }, Bouncer: { pitch: 0.65, rate: 1.08, male: true } };
+    Gus: { pitch: 0.8, rate: 0.95, male: true }, Nico: { pitch: 1.1, rate: 1.0, male: true }, Terry: { pitch: 0.82, rate: 0.95, male: true },
+    Sully: { pitch: 0.72, rate: 0.92, male: true }, Shooter: { pitch: 1.2, rate: 1.05, male: true }, Bouncer: { pitch: 0.65, rate: 0.95, male: true } };
   let speechVoices = null;
   function pickVoice(male) {
     const all = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
@@ -295,7 +301,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       u.rate = cfg.rate;
       u.volume = Math.min(1, volume);
       speechSynthesis.speak(u);
-      return { line: null, duration: Math.max(1.5, text.length / 14) };
+      return { line: null, duration: Math.max(1.5, text.length / 14 / cfg.rate) };
     } catch { return null; }
   }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', () => { speechVoices = null; });
@@ -305,7 +311,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     const character = ped?.female ? 'local_female' : 'local_male';
     const line = pick(character, 'talk');
     if (!line) return null;
-    return { text: line.text, duration: (line.duration || 3) / SPEED, play: () => say(line, { at: ped, subtitle: false }) };
+    return { text: line.text, duration: (line.duration || 3) / speedOf(line.character), play: () => say(line, { at: ped, subtitle: false }) };
   }
 
   // World events: police radio after gunfire or a carjacking, and a nearby police car's officer shouting
@@ -428,6 +434,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   return {
     ready: true,
     lines,
+    /** How long a recorded line is heard, at its speaker's playback rate */
+    playSeconds: (line) => (line.duration || 3) / speedOf(line.character),
     characters,
     say,
     sayText,
