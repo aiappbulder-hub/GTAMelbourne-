@@ -31,7 +31,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
     const id = model || MODELS[serial % MODELS.length];
     const g = { kind: 'gunman', key: `gunman${serial++}`, model: id, x, z, y: groundAt(x, z), heading, yaw: heading, pitch: 0, weapon, hp, maxHp: hp, dead: false,
       placed: true, alert: !!aggro, sees: false, seeT: Math.random() * 0.3, lastSeen: 0, react: 0, phase: 'idle', phaseT: 0, shots: 0, shotT: 0, strafe: Math.random() < 0.5 ? 1 : -1,
-      strafeT: rand(1, 2.5), speed: 0, aiming: false, fired: false, hurtT: 0, deadT: 0, sight: sight || WEAPON_BY_ID[weapon].npc.sight, visible: false };
+      strafeT: rand(1, 2.5), speed: 0, aiming: false, fired: false, hurtT: 0, deadT: 0, sight: sight || WEAPON_BY_ID[weapon].npc.sight, visible: false, shotsFired: 0, held: null };
     cast?.preload?.([id]);
     list.push(g);
     return g;
@@ -157,6 +157,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
               const m = g.muzzle || { x: g.x + Math.sin(g.heading) * 0.6, y: g.y + 1.35, z: g.z + Math.cos(g.heading) * 0.6 };
               shoot(g, m, { x: P.x, y: P.y + (P.inCar ? 0.8 : 1.15), z: P.z, speed: P.speed, inCar: P.inCar }, w, n);
               g.fired = true;
+              g.shotsFired++;
               g.shots--;
               g.shotT = n.rate;
               if (g.shots <= 0) { g.phase = 'pause'; g.phaseT = rand(0.9, 1.8) * (n.burst === 1 ? 0.7 : 1); }
@@ -183,6 +184,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       const r2 = cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, speed: g.speed, weapon: g.weapon, armed: true,
         aiming: g.aiming && engaged, yaw: g.heading, pitch, fire: g.fired, dt });
       g.visible = !!r2;
+      g.held = r2?.held || null;
       g.muzzle = r2?.muzzle ? { x: r2.muzzle.x, y: r2.muzzle.y, z: r2.muzzle.z } : null;
     }
   }
@@ -191,6 +193,6 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
     list, spawn, spawnGroup, clear, hurt, blast, update,
     get alive() { return list.filter((g) => !g.dead).length; },
     /** For checks */
-    debug() { return list.map((g) => ({ key: g.key, x: g.x, z: g.z, hp: g.hp, dead: g.dead, alert: g.alert, sees: g.sees, phase: g.phase, aiming: g.aiming, visible: g.visible })); }
+    debug() { return list.map((g) => ({ key: g.key, x: g.x, z: g.z, hp: g.hp, dead: g.dead, alert: g.alert, sees: g.sees, phase: g.phase, aiming: g.aiming, visible: g.visible, held: g.held, shots: g.shotsFired })); }
   };
 }

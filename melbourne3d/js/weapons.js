@@ -31,7 +31,7 @@ export const WEAPONS = [
     parts: [B(0.05, 0.07, 0.26, 0, 0.05, 0.1), C(0.008, 0.1, 0, 0.055, 0.28), B(0.03, 0.16, 0.035, 0, -0.07, 0.05), B(0.03, 0.1, 0.035, 0, -0.03, -0.03, 'grip'), B(0.02, 0.02, 0.1, 0, 0.09, 0.08)] },
   { id: 'shotgun', slot: 3, name: 'Shotgun', mag: 6, rate: 0.85, reload: 2.2, range: 26, pellets: 8, spread: 0.11, dmg: 15, auto: false, sound: 'shotgun',
     muzzle: 0.6, support: 0.3, hand: { fwd: 0.06, down: 0.03 }, hold: { f: 0.34, s: -0.11, u: -0.1 }, twoHanded: true,
-    npc: { rate: 1.1, burst: 1, err: 0.06, dmg: 14, range: 24, sight: 30, pellets: 4 },
+    npc: { rate: 1.1, burst: 1, err: 0.06, dmg: 9, range: 24, sight: 30, pellets: 4 },
     parts: [C(0.016, 0.64, 0, 0.06, 0.3), C(0.014, 0.42, 0, 0.025, 0.31), B(0.045, 0.045, 0.16, 0, 0.0, 0.3, 'grip'), B(0.045, 0.07, 0.2, 0, 0.05, 0.02), B(0.04, 0.1, 0.3, 0, 0.0, -0.25, 'grip'), B(0.028, 0.08, 0.035, 0, -0.04, 0.0, 'grip')] },
   { id: 'm4', slot: 4, name: 'M4 Rifle', mag: 30, rate: 0.11, reload: 1.9, range: 90, pellets: 1, spread: 0.012, dmg: 26, auto: true, sound: 'm4',
     muzzle: 0.62, support: 0.38, hand: { fwd: 0.06, down: 0.03 }, hold: { f: 0.36, s: -0.11, u: -0.1 }, twoHanded: true, kick: 0.012,
