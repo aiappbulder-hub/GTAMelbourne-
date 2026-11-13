@@ -143,6 +143,8 @@ const MISSIONS = [
   {
     // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
     id: 'M7', act: '2004', name: 'Short Black', call: ['Kaz', "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."], giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
+    // straight on from Tobacco Wars: a short black card, then the player is at the café table (no trek to a marker)
+    chain: true, begin: { card: ['ST KILDA', 'Acland Street · the Short Black'], quick: true },
     cut: [['Kaz', "Sit down. You're making the locals nervous."],
       ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
       ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.'],
@@ -1074,7 +1076,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elBlack.classList.add('on');
     gameplay?.leaveCarNow?.();
     if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
-    later(opts?.fromIntro ? 1.5 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
+    if (opts?.chain) { // handed over from the job before: set down at the start, whatever was going on and wherever the player was
+      const st = resolve(def.start), tp = window.__city?.teleportTo;
+      if (tp) tp(st.x, st.z, 0);
+    }
+    later(opts?.fromIntro ? 1.5 : b.quick ? 1.6 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
       if (mission !== m) return;
       m.blackout = false;
       elBlack.classList.remove('on');
@@ -1231,6 +1237,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
       sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
+    // the next job runs on from this one (def.chain): it starts by itself once MISSION PASSED has been read
+    const nxt = MISSIONS[n];
+    if (nxt && nxt.chain && save.progress === n) {
+      called = n; // (no phone call to send you there: it's about to begin)
+      later(3.6, () => { if (!mission && !cut && !choiceOpen && cur() === n && MISSIONS[n] === nxt) start(n, { chain: true }); });
+    }
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }

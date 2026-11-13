@@ -74,6 +74,27 @@ export function characterFor(i, female, role) {
 }
 export const isFemale = (id) => /Female/.test(id) || id === 'ara:kaz' || id === 'ara:cons';
 
+// The captured "Sit idle (chair)" is a 1.6 s loop with the hips and legs swaying about +-8 degrees, so anyone seated rocks in
+// their chair. Hold the pelvis, legs and spine still at the clip's average pose; the neck, head and arms keep a gentle
+// share of their motion (the talk and listen gestures)
+const SEAT_STILL = /^(Hips|Spine\d?|.*UpLeg|.*Leg|.*Foot|.*ToeBase|.*Shoulder)\./;
+function calmSeat(clip) {
+  for (const t of clip.tracks) {
+    const size = t.getValueSize(), n = t.times.length;
+    if (!/\.(quaternion|position)$/.test(t.name) || n < 2) continue;
+    const k = SEAT_STILL.test(t.name) ? 0 : /^(Neck|Head)\./.test(t.name) ? 0.6 : 0.4;
+    const mean = new Array(size).fill(0);
+    for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) mean[c] += t.values[i * size + c] / n;
+    if (size === 4) { const l = Math.hypot(...mean) || 1; for (let c = 0; c < 4; c++) mean[c] /= l; }
+    for (let i = 0; i < n; i++) {
+      const v = new Array(size);
+      for (let c = 0; c < size; c++) v[c] = mean[c] + (t.values[i * size + c] - mean[c]) * k;
+      if (size === 4) { const l = Math.hypot(...v) || 1; for (let c = 0; c < 4; c++) v[c] /= l; }
+      for (let c = 0; c < size; c++) t.values[i * size + c] = v[c];
+    }
+  }
+}
+
 export function createCast({ scene, controllerManager }) {
   const loader = new GLTFLoader();
   const templates = new Map(); // id → glTF scene
@@ -87,6 +108,7 @@ export function createCast({ scene, controllerManager }) {
       loading.set(id, loader.loadAsync(url.href).then(async (g) => {
         if (ara && g.animations.length) {
           const byName = Object.fromEntries(g.animations.map((c) => [c.name, c]));
+          if (byName['Sit idle (chair)']) calmSeat(byName['Sit idle (chair)']);
           ownClips.set(id, Object.fromEntries(Object.entries(ARA_CLIPS).filter(([, n]) => byName[n]).map(([k, n]) => [k, byName[n]])));
         } else if (ara) {
           // no clips of their own: the player's (the same rig), the hips' travel scaled to this body's leg length
