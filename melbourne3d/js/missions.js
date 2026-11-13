@@ -593,6 +593,19 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // Doors: Bianca's run, down King St's east footpath and along Collins St's north one to William St
     DOORS_RUN: [[-923, -203], [-923, -4], [-722, -4]] };
   if (cast) cast.preload([STORY_CAST.Davo]);
+  // everyone a job's scenes want is fetched while it is the next one, so nobody appears late (or not at all) in the cut scene
+  const preloaded = new Set();
+  function preloadCast(def, i) {
+    if (!cast || preloaded.has(i)) return;
+    preloaded.add(i);
+    const who = new Set([def.giver, ...(def.with || []), ...(def.cut || []).map((l) => l[0])]);
+    for (const st of def.steps || []) {
+      for (const a of st.actors || []) who.add(a.who);
+      if (st.talk) { who.add(st.talk.who); for (const w of st.talk.with || []) who.add(w); for (const l of st.talk.lines || []) who.add(l[0]); }
+      if (st.choice) who.add(st.choice.who);
+    }
+    cast.preload([...who].map((n) => STORY_CAST[n]));
+  }
   // the rest of the cast standing with the giver in a cut scene (a job's `with`), put away when it ends
   let cutExtras = new Set();
   function hideCutExtras() { for (const k of cutExtras) cast?.setActor(k, null, null); cutExtras = new Set(); }
@@ -1175,6 +1188,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (cast) {
       const def = mission ? mission.def : MISSIONS[save.progress];
       const inScene = !!(def && def.scene);
+      if (def && !mission) preloadCast(def, save.progress);
       if (stkilda) {
         // the café: Kaz and Mick at their table before the job (and when you bring the watches back), all three in it
         const st = def && inScene ? resolve(def.start) : null;
