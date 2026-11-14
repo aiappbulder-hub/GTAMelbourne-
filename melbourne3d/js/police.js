@@ -99,6 +99,7 @@ export function createPolice({ scene, controllerManager, wanted, gameplay, missi
     const root = p.root;
     if (!root || root.userData.vicpol) return;
     root.userData.vicpol = true;
+    root.traverse((o) => { if (o.isMesh && o.material?.name === 'Livery-Yellow') { o.material = o.material.clone(); o.material.color.setHex(0xf4f6f8); } }); // blue and white chequer, not blue and yellow
     // the roof, from the glass: measured with the car at the origin facing +z
     const keep = { p: root.position.clone(), r: root.rotation.clone() };
     root.position.set(0, 0, 0);
