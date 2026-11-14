@@ -638,6 +638,7 @@ async function initApp() {
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
+  window.__city.stkilda = stkilda;
   window.__city.audio = audioSystem;
   // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
   interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
