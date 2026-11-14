@@ -379,6 +379,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
   // seconds between one line ending and the next starting (a little longer after a question)
   const gapAfter = (text) => (/\?["')]*\s*$/.test(text) ? 0.5 : 0.25);
   const SHOT_TAIL = 0.15;
+  const real = () => performance.now() / 1000; // (the ends of clips are real time; a slow frame rate stretches game time)
   let active = false, shot = 0, t = 0, lineK = -1, lastEnded = -1, lineEnd = -1;
   const A = new THREE.Vector3(), B = new THREE.Vector3(), L1 = new THREE.Vector3(), L2 = new THREE.Vector3();
   const person = controllerManager.entities.person;
@@ -558,7 +559,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     // lines in turn: each starts when the one before has been said (the clip's real end if it has sounded, else its
     // length) plus a short breath, never later than its scheduled time
     let k = lineK;
-    while (k + 1 < s.lines.length && (t >= (s.starts?.[k + 1] ?? 1e9) || (k === lineEnd && lastEnded >= 0 && t >= lastEnded + gapAfter(s.lines[k][1])))) k++;
+    while (k + 1 < s.lines.length && (t >= (s.starts?.[k + 1] ?? 1e9) || (k === lineEnd && lastEnded >= 0 && real() >= lastEnded + gapAfter(s.lines[k][1])))) k++;
     if (k < 0) k = 0;
     if (k !== lineK) {
       lineK = k;
@@ -572,12 +573,12 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       // Vince's call, recorded (down the phone line)
       const shotNo = shot;
       voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro', who: /^vince/i.test(who) ? 'Vince' : 'You',
-        onEnd: (ok) => { if (ok && active && shot === shotNo && lineK === k) { lineEnd = k; lastEnded = t; } } });
+        onEnd: (ok) => { if (ok && active && shot === shotNo && lineK === k) { lineEnd = k; lastEnded = real(); } } });
     }
     if (s.title) title.style.opacity = t > 0.6 ? '1' : '0';
     // fade to black over the cut
     fade.style.opacity = t > s.secs - 0.45 && shot < SHOTS.length - 1 ? '1' : '0';
-    const lastDone = s.lines.length && lineK === s.lines.length - 1 && lineEnd === lineK && lastEnded >= 0 && t >= lastEnded + SHOT_TAIL;
+    const lastDone = s.lines.length && lineK === s.lines.length - 1 && lineEnd === lineK && lastEnded >= 0 && real() >= lastEnded + SHOT_TAIL;
     if (t >= s.secs || lastDone) {
       shot++;
       t = 0;

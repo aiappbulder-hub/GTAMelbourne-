@@ -1689,6 +1689,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     /** The step the job is on (or null) */
     /** For scripted checks: the open job's steps, and a way to jump to one */
     get steps() { return mission ? mission.def.steps : null; },
+    debugAdvance(sec) { if (mission) mission.stepT += sec; },
     debugGotoStep(i) { if (mission) { mission.si = i - 1; nextStep(); } },
     get step() { return mission && mission.si >= 0 ? mission.def.steps[mission.si] : null; },
     /** A job is under way */
