@@ -1611,7 +1611,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         clear: mission ? mission.clear || 0 : 0, ride: ride.said, tail: pursuer.active ? { ...pursuer.position, parked: pursuer.parked, dist: pursuer.distance() } : null,
         choice: !!choiceOpen, inCut: !!cut, cutLine: cut ? cut.k : -1, blackout: !!(mission && mission.blackout), lost: mission ? mission.lost || 0 : 0,
         lead: leader.active ? { ...leader.position, moving: leader.moving, arrived: leader.arrived, dist: leader.distance() } : null,
-        goal: goalMarker.visible ? { x: goalMarker.position.x, z: goalMarker.position.z } : null };
+        goal: goalMarker.visible ? { x: goalMarker.position.x, y: goalMarker.position.y - 0.2, z: goalMarker.position.z } : null };
     },
     /** What the last chapter card showed, and a way to run one now (scripted checks) */
     get lastCard() { return lastCard; },
