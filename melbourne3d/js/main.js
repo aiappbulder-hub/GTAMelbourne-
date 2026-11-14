@@ -174,6 +174,8 @@ async function initApp() {
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
+  let helipad = null; // js/helipad.js
+  let interiors = null; // js/interiors.js: the Quiet Room
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
   try {
@@ -191,9 +193,9 @@ async function initApp() {
 
   function savePlayerState() {
     try {
-      const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, {
+      const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, interiors?.inside && mode === 'person' ? interiors.exitSpot : {
         x: entity.position.x, y: entity.position.y, z: entity.position.z, heading: entity.heading
-      }]));
+      }])); // (saved inside the Quiet Room: back at its street door)
       localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify({ version: 1, activeMode: controllerManager.activeMode, entities }));
     } catch { /* Storage may be disabled or full. */ }
   }
@@ -395,7 +397,7 @@ async function initApp() {
   // Keyboard guide for each mode: [keys, action]
   const controlHints = {
     person: IS_MELBOURNE
-      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
+      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['Shift', '1-4'], 'Mode'], [['V'], 'Camera'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
       : [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
     car: IS_MELBOURNE
       ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Space'], 'Handbrake'], [['F'], 'Get out'], [['B'], 'Horn']]
@@ -599,19 +601,16 @@ async function initApp() {
     gamepadControls.reset();
     cameraSystem.resetForTeleport();
     selectCamera('chase', true);
-    mapSystem.waypoint = {
-      x: destination.x,
-      z: destination.z,
-      name: getLocationLabel(destination.x, destination.z)
-    };
+    // (a job's objective stays the waypoint after a teleport, so the GPS route to it starts from the new spot)
     return destination;
   }
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
-  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, selectCamera: (id) => selectCamera(id, true) };
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, get map() { return mapSystem; }, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,
     cameraSystem,
+    trafficSystem,
     allBlocks: cityBlocks.allBlocks,
     onToggle: (open) => {
       controllerManager.resetInput();
@@ -640,19 +639,29 @@ async function initApp() {
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
   window.__city.audio = audioSystem;
-  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda }) : null;
+  // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
+  interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
+  window.__city.interiors = interiors;
+  const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda, interiors }) : null;
   // The Book: territories, people and the daily take that Act I's choices bought (js/empire.js)
-  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager }) : null;
+  const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager, interiors }) : null;
   window.__city.empire = empire;
   // The wanted level and the police (js/wanted.js)
   const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
   window.__city.wanted = wanted;
+  interiors?.attach({ missionSystem, wanted, empire });
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem, audioSystem, wanted
   }) : null;
   window.__city.gameplay = gameplay;
+  // A pack of bikies on motorbikes, free roam and a job's call (js/bikies.js)
+  const bikies = gameplay ? (await import('./bikies.js')).createBikies({ scene, trafficSystem, controllerManager, gameplay, missionSystem, cameraSystem, audioSystem, cast: castSystem }) : null;
+  if (bikies) { gameplay.bikies = bikies; window.__city.bikies = bikies; scene.add(bikies.group); }
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
+  // The heliport by Crown, with the player's helicopter parked on it (js/helipad.js)
+  helipad = IS_MELBOURNE ? (await import('./helipad.js')).createHelipad({ scene, controllerManager, mapSystem, selectMode }) : null;
+  window.__city.helipad = helipad;
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
   window.__city.race = race;
@@ -661,6 +670,8 @@ async function initApp() {
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
   }) : null;
   window.__city.intro = intro;
+  // Car radio and background music, all synthesised (js/music.js)
+  if (IS_MELBOURNE) window.__city.music = (await import('./music.js')).createMusic({ audioSystem, controllerManager, voices, missionSystem, wanted, gameplay });
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
@@ -812,7 +823,7 @@ async function initApp() {
     });
   }
 
-  // Global keyboard shortcuts for modes (1-4), cameras (V / 5-0), and HUD (H)
+  // Global keyboard shortcuts for modes (1-4; Shift+1-4 on foot, where 1-6 are weapons), cameras (V / 5-0; Shift+5-0 on foot), and HUD (H)
   window.addEventListener('keydown', (e) => {
     if (isTypingInField(e)) return;
     switch (e.code) {
@@ -980,7 +991,7 @@ async function initApp() {
     }
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
     // on foot, nobody walks through a car, a bus or a tram: pushed out of its footprint
-    if (IS_MELBOURNE && controllerManager.activeMode === 'person') {
+    if (IS_MELBOURNE && controllerManager.activeMode === 'person' && !interiors?.inside) {
       const pp = controllerManager.entities.person.position;
       const boxes = [];
       for (const v of [...trafficSystem.cars, ...(trafficSystem.buses || [])]) {
@@ -1009,6 +1020,7 @@ async function initApp() {
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
     missionSystem?.applyCamera(dt); // a job's cut scene takes the camera
+    interiors?.postCamera(cameraSystem.camera); // (and in the bar, the camera stays inside it)
     streetDetails.signalClock.value = elapsed;
     trafficSystem.update(
       dt,
@@ -1035,9 +1047,12 @@ async function initApp() {
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
+    helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);
     if (empire) empire.update(dt);
+    interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
+    bikies?.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);

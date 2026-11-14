@@ -605,6 +605,78 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
     }
     edges = edges.filter((e) => e.lanes.length);
   }
+  // River bridges (Melbourne): the drawn roads over the Yarra are broken into short one-way chains that nothing leads
+  // into or out of, so all of them fell to the connectivity cut (7.). Each bridge here is rebuilt as a two-way road over
+  // its deck, extended a little beyond both ends, and tied to the nearest road of the (strongly connected) network on
+  // each bank where that works (`joins`: which ends; the others get a small turn-round loop). [name, deck end a, deck end b, lanes each way, joins]
+  if (IS_MELBOURNE) {
+    const BRIDGES = [
+      ['Princes', 5, 385, 7, 515, 1, 'ab'], ['Queens', -593, 320, -628, 426, 1, ''], ['Spencer St', -1153.5, 420, -1153, 542, 2, ''],
+      ['Swan St', 560, 1100, 667, 1148, 1, 'ab'], ['Punt Rd', 1288.5, 2048.6, 1230.2, 2164.4, 1, 'ab'], ['Charles Grimes', -1854, 362, -1844.3, 218, 1, 'ab']
+    ];
+    const nextOf = () => {
+      const outs = new Map();
+      for (const e of edges) {
+        if (!outs.has(e.from)) outs.set(e.from, []);
+        outs.get(e.from).push(e);
+      }
+      return (e) => (outs.get(e.to) || []).filter((f) => f.to !== e.from && e.dx * f.dx + e.dz * f.dz >= -0.5);
+    };
+    const onDeck = (e, ax, az, ux, uz, L, half) => {
+      const mx = e.x0 + e.dx * e.span / 2 - ax;
+      const mz = e.z0 + e.dz * e.span / 2 - az;
+      const t = mx * ux + mz * uz;
+      return t > -12 && t < L + 12 && Math.abs(mx * uz - mz * ux) <= half + 6;
+    };
+    const rawEdge = (from, to, lanes, half) => {
+      const span = Math.hypot(to.x - from.x, to.z - from.z);
+      if (span < 8) return;
+      const dx = (to.x - from.x) / span;
+      const dz = (to.z - from.z) / span;
+      edges.push({ from, to, axis: 'ave', x0: from.x, z0: from.z, dx, dz, rx: -dz, rz: dx, span, half, lanes: side(lanes), moves: [], general: true, cand: side(lanes), divided: false, bridge: true });
+    };
+    const twoWay = (a, b, lanes, half) => { rawEdge(a, b, lanes, half); rawEdge(b, a, lanes, half); };
+    for (const [, x0, z0, x1, z1, nl, joins] of BRIDGES) {
+      const L = Math.hypot(x1 - x0, z1 - z0);
+      const ux = (x1 - x0) / L;
+      const uz = (z1 - z0) / L;
+      const half = nl > 1 ? 9 : 6;
+      const lanes = nl > 1 ? [1.8, 5.4] : [1.8];
+      edges = edges.filter((e) => !onDeck(e, x0, z0, ux, uz, L, half));
+      const ext = 45;
+      const mk = (x, z) => { const n = { x, z, hx: 0, hz: 0, signal: false, in: [], out: [], general: true }; nodes.push(n); return n; };
+      const P0 = mk(x0 - ux * ext, z0 - uz * ext);
+      const P1 = mk(x0, z0);
+      const P2 = mk(x1, z1);
+      const P3 = mk(x1 + ux * ext, z1 + uz * ext);
+      twoWay(P0, P1, lanes, half); twoWay(P1, P2, lanes, half); twoWay(P2, P3, lanes, half);
+      const live = largestComponent(edges, nextOf(), 12);
+      const pool = [];
+      const seen = new Set();
+      for (const e of edges) {
+        if (e.bridge) continue;
+        for (const n of [e.from, e.to]) if (!seen.has(n)) { seen.add(n); pool.push([n, live.has(e)]); }
+      }
+      for (const [P, dir, end] of [[P0, -1, 'a'], [P3, 1, 'b']]) {
+        // the nearest road of the big network within 200 m...
+        let best = null;
+        let bd = 200;
+        for (const [n, isLive] of pool) {
+          if (!joins.includes(end)) break;
+          const d = Math.hypot(n.x - P.x, n.z - P.z);
+          if (isLive && !n.general && d < bd) { bd = d; best = n; }
+        }
+        if (best) { twoWay(P, best, lanes, half); continue; }
+        // ...else (no road to join yet) a small loop at the end of the bridge, where cars turn round
+        const dx = ux * dir;
+        const dz = uz * dir;
+        const A = mk(P.x + dx * 24, P.z + dz * 24);
+        const B = mk(A.x - dz * 24, A.z + dx * 24);
+        const C = mk(P.x - dz * 24, P.z + dx * 24);
+        rawEdge(P, A, lanes, half); rawEdge(A, B, lanes, half); rawEdge(B, C, lanes, half); rawEdge(C, P, lanes, half);
+      }
+    }
+  }
   // Edges no vehicle could both reach and leave (dead ends, and roads reached only from them) are dropped once the
   // moves are known (7.); know them already, so that no road keeps clear of a dead one merging with it or forking off it
   {
@@ -791,6 +863,7 @@ function buildRoadNetwork(sidewalks, obstacles, signalIntersections = []) {
   const lateral = (e, i) => e.x0 * e.rx + e.z0 * e.rz + e.lanes[i];
   const ORDER = { L: 0, S: 1, R: 2 };
   function pathClear(e, i, f, j) {
+    if (e.bridge || f.bridge) return true; // (the bridge roads joined above: their turns are not tested)
     const c = makeCurve(e, i, f, j);
     const p = { x: 0, z: 0, dx: 0, dz: 0 };
     const street = e.general || f.general; // through a centreline junction: tested like its lanes

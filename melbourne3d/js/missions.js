@@ -18,7 +18,8 @@ import { describeChoice } from './story/choices.js';
 // Places: { grid: ['Flinders St', 'Spencer St'] } a Hoddle Grid corner, { cross: ['STREET A', 'STREET B'] } where two
 // streets meet (OSM names), { road: 'STREET' } the middle of a street, { circuit: u } the point a fraction u of the
 // way round the Albert Park Grand Prix circuit from its start line (js/race-track.js), off: metres in towards the lake.
-// Steps can also ask for: targets: n (take out the n people nearest the player, red beams over them), steal: 'pickup'
+// Steps can also ask for: targets: n (take out n armed hostiles who spawn round the player and shoot back; weapons: [...] their guns; red beams over them),
+// ambush: { n, weapons } (n armed men at the marker who open up as you come within 110 m), steal: 'pickup'
 // (be driving a car of that kind taken from the traffic, or 'any'), talkTo: n (talk to n people), rob: n (hold up n
 // people: aim and T).
 // A job's steps: { text, at: place, r: metres, car: true (must be driving), time: seconds,
@@ -121,7 +122,7 @@ const MISSIONS = [
       ['Kaz', "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."]],
     steps: [
       { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
-      { text: 'The Nomads are guarding it. Take them out.', targets: 3 },
+      { text: 'The Nomads see you coming: a pack of bikies on choppers. Take them out.', targets: 4, bikies: true, weapons: ['pistol', 'uzi', 'pistol', 'uzi'] },
       { text: 'Grab the bag, the pages and the cash. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
       { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
     ]
@@ -134,6 +135,7 @@ const MISSIONS = [
       ['Kaz', 'Set the charge, grab the pages, then get well clear. Make it loud.']],
     steps: [
       { text: 'Get to the Nomads\' warehouse on the South Wharf, by the Polly Woodside.', at: { place: 'POLLY_WOODSIDE' }, r: 16, time: 90 },
+      { text: 'The Nomads\' guards open up. Take them out.', targets: 3, weapons: ['uzi', 'shotgun', 'pistol'] },
       { text: 'Set the charge and grab the pages: stay in the marker on foot.', at: { place: 'POLLY_WOODSIDE' }, r: 7, wait: 5, foot: true },
       { text: 'It\'s going to blow! Get 250 m clear.', away: 250, time: 25 }
     ]
@@ -141,6 +143,8 @@ const MISSIONS = [
   {
     // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
     id: 'M7', act: '2004', name: 'Short Black', call: ['Kaz', "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."], giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
+    // straight on from Tobacco Wars: a short black card, then the player is at the café table (no trek to a marker)
+    chain: true, begin: { card: ['ST KILDA', 'Acland Street · the Short Black'], quick: true },
     cut: [['Kaz', "Sit down. You're making the locals nervous."],
       ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
       ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.'],
@@ -157,10 +161,11 @@ const MISSIONS = [
   },
   {
     id: 'M8', act: '2004', name: 'Harbour Run', call: ['Kaz', "It's all coming down. Flinders Street at Queen. Hurry."], giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
+    chain: true, begin: { card: ['FLINDERS STREET', 'Kestrel raided the Brighton house'], quick: true }, // (straight on from the café, five kilometres away)
     cut: [['Kaz', 'Kestrel raided the Brighton house. They know the book is gone, and so do both crews.'],
       ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
     steps: [
-      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150 }
+      { text: 'Get to the boat off Harbour Esplanade, Docklands!', at: { cross: ['HARBOUR ESPLANADE', 'COLLINS STREET'] }, r: 14, time: 150, ambush: { n: 3, weapons: ['uzi', 'pistol', 'm4'] } }
     ],
     // back in the present, and the choice Davo asked about at the Quiet Room door has its answer
     after: { card: ['2026', 'Twenty-two years later'],
@@ -177,6 +182,7 @@ const MISSIONS = [
   // ---------------------------------------------------------------------------------------------------------------
   {
     id: 'A2', act: 'Act I', name: 'The Quiet Room', call: ['Davo', "Gus is at the bar now. Flinders Lane at Elizabeth Street. If you want the place, today's the day."], giver: 'Gus', crew: 'The Crossing', start: { place: 'HQ' }, reward: 3000,
+    chain: true, begin: { card: ['THE QUIET ROOM', 'Flinders Lane · Elizabeth Street'], quick: true }, // (straight on from the 2026 card)
     ride: [[3, 'Davo', "Gus Pappas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank."],
       [14, 'Davo', "He'll sell. He just wants to be asked properly. Or not. Up to you."],
       [28, 'Davo', "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."]],
@@ -186,13 +192,18 @@ const MISSIONS = [
       ['You', 'Then we both know what day it is.']],
     outro: ['Ruby', "You don't have enough money to be this calm."],
     steps: [
-      { text: 'Gus is waiting on an offer.', choice: { who: 'Gus', text: "So. What's your offer?",
+      // (the bar is inside: the door is on Elizabeth St, js/interiors.js; `enter` is done once you are in, `inside` steps are played in the room)
+      { text: 'Go into the Quiet Room: the door on Elizabeth St, just south of the lane. Gus is waiting at the bar.', at: { place: 'QR_DOOR' }, r: 3, foot: true, enter: true },
+      { text: 'Gus is behind the bar. Walk up to it.', at: { place: 'QR_BAR' }, r: 1.7, foot: true, inside: true,
+        lines: [[0.8, 'Gus', 'Mind the third stool. It has rocked since 1987.']],
+        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'QR_GUS' }, face: 'player', anim: 'idle' }] },
+      { text: 'Gus is waiting on an offer.', inside: true, choice: { who: 'Gus', text: "So. What's your offer?",
         options: [
           { label: 'A fair price, and your name stays on the window.', cost: 12000, set: { quiet_room: 'fair' }, reply: "My father would have shaken your hand. Don't make me regret it." },
           { label: 'The bank wants it Friday. I want it today.', cost: 4000, set: { quiet_room: 'lean' }, reply: 'You people. Always the same. Take it.' },
           { label: "Stay on. Run the bar. I'll run the rest.", cost: 8000, set: { quiet_room: 'partner' }, reply: 'Then I hear things, and you hear them second. Deal.' }
         ] },
-        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'HQ', kerb: true }, face: 'player', anim: 'talk_assured' }] },
+        actors: [{ key: 'a_gus', who: 'Gus', at: { place: 'QR_GUS' }, face: 'player', anim: 'talk_assured' }] },
       { text: 'Your phone: Ruby Achterberg wants out of the Golden Reef suite at Southbank, now. Get in a car (F by any car, or the CAR button).', car: true,
         lines: [[0.4, 'Ruby', "It's Ruby. You said to call if I ever wanted out. I want out. Under Eureka, the City Road side. Be quick."]] },
       { text: "Get to City Rd at Southbank Blvd, under Eureka, before Golden Reef's driver does.", at: { place: 'SB_CITY' }, r: 16, car: true, time: 130, wait: 2,
@@ -210,19 +221,23 @@ const MISSIONS = [
           [14, 'Davo', 'She talks like that all the time?'],
           [19, 'Ruby', 'Only when I am being paid. Am I being paid?'],
           [30, 'Ruby', 'Before anyone says anything useful in that bar, I sweep it. Kestrel had a week with the place empty.']] },
-      { text: 'Ruby wants the place swept. On foot: check the cooler by the back door.', at: { place: 'HQ_COOLER' }, r: 3.5, wait: 3, foot: true,
+      { text: 'Get out and go into the Quiet Room with Ruby: the door on Elizabeth St.', at: { place: 'QR_DOOR' }, r: 3, foot: true, enter: true,
         actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
-      { text: 'Check the fuse box across the lane.', at: { place: 'HQ_FUSE' }, r: 3.5, wait: 3, foot: true,
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }] },
-      { text: 'Check the jukebox by the window.', at: { place: 'HQ_JUKE' }, r: 3.5, wait: 3, foot: true,
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'look' }],
-        say: 'Ruby: "There. Under the coin slot. That is a Kestrel bug, and it is still warm."' },
-      { text: 'Ruby is holding the bug.', choice: { who: 'Ruby', text: 'What do we do with it?',
+      { text: 'Ruby wants the place swept. Start under the bar.', at: { place: 'QR_UNDER' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "Nothing. Next the booth lamp."' },
+      { text: 'Check the lamp over the booth.', at: { place: 'QR_LAMP' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "Clean. Try the office phone."' },
+      { text: 'Check the phone by the office door.', at: { place: 'QR_PHONE' }, r: 1.6, wait: 3, foot: true, inside: true,
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'look' }],
+        say: 'Ruby: "There. Inside the earpiece. That is a Kestrel bug, and it is still warm."' },
+      { text: 'Ruby is holding the bug.', inside: true, choice: { who: 'Ruby', text: 'What do we do with it?',
         options: [
           { label: 'Crush it.', set: { bug: 'destroyed' }, reply: "Clean. They'll know we found it." },
           { label: "Leave it. We'll tell it bedtime stories.", set: { bug: 'kept' }, reply: 'Then we mind what we say in here, and choose what they hear.' }
         ] },
-        actors: [{ key: 'a_ruby', who: 'Ruby', near: 'player', anim: 'talk_cool' }] }
+        actors: [{ key: 'a_ruby', who: 'Ruby', at: { place: 'QR_BAR' }, off: [-3, -1.2], face: 'player', anim: 'talk_cool' }] }
     ]
   },
   {
@@ -482,7 +497,7 @@ body.cutscene .gm-skip { display: block; }
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
 
-export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null, stkilda = null }) {
+export function createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem = null, voices = null, cast = null, stkilda = null, interiors = null }) {
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);
@@ -525,9 +540,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (!target || !cam) { elPointer.classList.remove('on'); return; }
     const p = playerPos();
     const d = Math.hypot(target.x - p.x, target.z - p.z);
-    _pv.set(target.x, 3, target.z).applyMatrix4(cam.matrixWorldInverse);
+    _pv.set(target.x, (target.y || 0) + 3, target.z).applyMatrix4(cam.matrixWorldInverse);
     const behind = _pv.z > 0; // camera space looks down -z
-    _pv.set(target.x, 3, target.z).project(cam);
+    _pv.set(target.x, (target.y || 0) + 3, target.z).project(cam);
     let nx = _pv.x, ny = _pv.y;
     if (behind) { nx = -nx; ny = -Math.abs(ny) - 1; }
     const W = window.innerWidth, H = window.innerHeight, M = 46;
@@ -779,6 +794,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       cast?.setPlayerAction(null);
       voices?.stopStory();
     }
+    gameplay?.combat?.clear();
     pursuer.stop();
     leader.stop();
     hideWatchers();
@@ -792,7 +808,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let gameplay = null, traffic = null;
   const counters = { talk: 0, rob: 0 };
   const placeMarker = (m, p, r) => {
-    m.position.set(p.x, 0.2, p.z);
+    m.position.set(p.x, (p.y || 0) + 0.2, p.z); // (p.y: a place inside the Quiet Room, js/interiors.js)
     m.scale.set(r, 1, r);
     m.visible = true;
   };
@@ -852,7 +868,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (pts.length) p = pts[pts.length >> 1];
     } else if (at.place) {
       const q = PLACES[at.place];
-      if (q) p = { x: q.x, z: q.z };
+      if (q) p = q.y === undefined ? { x: q.x, z: q.z } : { x: q.x, z: q.z, y: q.y };
     } else if (typeof at.x === 'number') p = at;
     if (!p) { console.warn('[missions] no such place', at); p = { x: 0, z: 0 }; }
     if (at.kerb) p = footpathNear(p);
@@ -1049,7 +1065,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (def.cut) showCut(def.cut, go);
       else go();
     };
-    const b = def.begin;
+    const b = def.begin || (opts?.chain ? { quick: true } : null);
     if (!b) return open();
     // a black card while the scene is set: out of any car, the job's car parked where it waits
     m.blackout = true;
@@ -1062,7 +1078,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elBlack.classList.add('on');
     gameplay?.leaveCarNow?.();
     if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
-    later(opts?.fromIntro ? 1.5 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
+    { // handed over from the job before, or replayed from the Jobs list: set down at the start, whatever was going on and wherever the player was
+      const st = resolve(def.start), tp = window.__city?.teleportTo, pp = playerPos();
+      if (tp && (opts?.chain || Math.hypot(pp.x - st.x, pp.z - st.z) > 40)) tp(st.x, st.z, 0);
+    }
+    later(opts?.fromIntro ? 1.5 : b.quick ? 1.6 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
       if (mission !== m) return;
       m.blackout = false;
       elBlack.classList.remove('on');
@@ -1081,10 +1101,15 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     m.from = { x: playerPos().x, z: playerPos().z };
     m.count0 = { talk: counters.talk, rob: counters.rob };
     m.targets = null;
+    m.ambushed = false;
     if (s.targets && traffic) {
       // the people nearest the player become the targets
       const p = playerPos();
-      m.targets = traffic.peds.filter((q) => q.placed && !q.dead)
+      // armed hostiles round the player (js/combat.js: they notice, aim and shoot back); if none could be placed, the people nearest
+      // (s.bikies: they arrive as a pack of bikies on motorbikes who ride up, get off and fight: js/bikies.js)
+      let armed = s.bikies && gameplay?.bikies ? gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range: [90, 150], hidden: false }) : null;
+      if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
+      m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
     m.stepT = 0;
@@ -1145,6 +1170,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   // a black card between chapters (2004, 2026) with the Ferryman's voice over it; no job starts under it
   let cardUp = false;
+  let chainJob = null; // { n, t }: the next job (def.chain) starts by itself t seconds after the last one passed (and any chapter card)
   let ride = { job: -1, t: 0, said: 0 }; // the passenger's talk on the way to the next job
   // The phone call that sends you to the next job: a card with who is ringing, what they say and where to go. It rings
   // a few seconds after the last job (or after the game loads), and again if you've done nothing about it for a while
@@ -1216,6 +1242,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
       sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
+    // the next job runs on from this one (def.chain): it starts by itself once MISSION PASSED has been read
+    const nxt = MISSIONS[n];
+    if (nxt && nxt.chain && save.progress === n) {
+      called = n; // (no phone call to send you there: it's about to begin)
+      chainJob = { n, t: 3.6 };
+    }
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
@@ -1290,6 +1322,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else if (!mission && startMarker.visible) point(startMarker.position, '#ff3d9a');
     else point(null);
 
+    if (chainJob) {
+      if (mission || focus !== null && focus !== chainJob.n || cur() !== chainJob.n) chainJob = null;
+      else if (!cut && !choiceOpen && !cardUp && bigT <= 0 && (chainJob.t -= dt) <= 0) { const n = chainJob.n; chainJob = null; start(n, { chain: true }); }
+    }
     if (!mission) {
       // the next job's marker
       if (cur() < MISSIONS.length) {
@@ -1334,6 +1370,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (cut || mission.si < 0) { if (!cut || cut.step) showActors([]); return; }
     const m = mission, s = m.def.steps[m.si];
     m.stepT += dt;
+    // an inside step's goal is in the room (y 1500): with the player out on the street, the marker and the GPS point at the street door instead
+    if (s.inside || (s.at && resolve(s.at).y > 1000)) {
+      const out = !interiors?.inside, key = `${m.si}:${out}`;
+      if (m.doorPtr !== key) {
+        m.doorPtr = key;
+        const g = out ? resolve({ place: 'QR_DOOR' }) : s.at ? resolve(s.at) : null;
+        if (g) {
+          placeMarker(goalMarker, g, out ? 3 : s.r);
+          if (mapSystem) mapSystem.waypoint = { x: g.x, z: g.z, name: getLocationLabel(g.x, g.z) };
+        } else { goalMarker.visible = false; if (mapSystem) mapSystem.waypoint = null; }
+      }
+    }
     // story actors and watchers for this step
     const acts = [];
     for (const a of s.actors || []) {
@@ -1413,6 +1461,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (m.timer <= 0) return fail('Out of time.');
     } else elTimer.hidden = true;
 
+    if (s.ambush && !m.ambushed && s.at && gameplay?.combat) { // armed men waiting at the marker open up as you come near
+      const ag = resolve(s.at);
+      if (Math.hypot(p.x - ag.x, p.z - ag.z) < (s.ambush.near || 110)) { m.ambushed = true; gameplay.combat.spawnGroup(ag, s.ambush.n, s.ambush.weapons, (x, z) => !!blockAt(x, z), [10, 22]); }
+    }
     let done = false;
     if (s.evade) {
       const d = pursuer.distance();
@@ -1481,10 +1533,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       done = stealOk;
     } else if (s.at && s.steal && !stealOk) {
       elObjective.textContent = `${s.text} (You need the ute.)`;
+    } else if (s.enter) {
+      done = !!interiors?.inside; // (the door of the Quiet Room: js/interiors.js)
     } else if (s.at) {
       const g = resolve(s.at);
       const inside = Math.hypot(p.x - g.x, p.z - g.z) < s.r;
-      const modeOk = (!s.car || driving()) && (!s.foot || controllerManager.activeMode === 'person');
+      const modeOk = (!s.car || driving()) && (!s.foot || controllerManager.activeMode === 'person') && (!s.inside || !!interiors?.inside);
       if (inside && !modeOk && s.foot) elObjective.textContent = `${s.text} (Get out of the car first.)`;
       if (inside && modeOk) {
         if (s.wait) {
@@ -1542,6 +1596,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const st = mission && !cut && mission.si >= 0 ? mission.def.steps[mission.si] : null;
       if (st && st.watch) fail(st.shotText || 'Kestrel made you. They heard the shots.');
     },
+    /** The player was killed (js/gameplay.js): where they wake, and the job lost */
+    respawnSpot() { return giverSpot(mission ? mission.def : MISSIONS[cur()]); },
+    failJob(why) { if (mission) fail(why); },
     onTalk(robbed) { if (robbed) counters.rob++; else counters.talk++; },
     addMoney(n) { save.money += n; persist(); showMoney(); },
     missions: MISSIONS,
@@ -1556,7 +1613,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         clear: mission ? mission.clear || 0 : 0, ride: ride.said, tail: pursuer.active ? { ...pursuer.position, parked: pursuer.parked, dist: pursuer.distance() } : null,
         choice: !!choiceOpen, inCut: !!cut, cutLine: cut ? cut.k : -1, blackout: !!(mission && mission.blackout), lost: mission ? mission.lost || 0 : 0,
         lead: leader.active ? { ...leader.position, moving: leader.moving, arrived: leader.arrived, dist: leader.distance() } : null,
-        goal: goalMarker.visible ? { x: goalMarker.position.x, z: goalMarker.position.z } : null };
+        goal: goalMarker.visible ? { x: goalMarker.position.x, y: goalMarker.position.y - 0.2, z: goalMarker.position.z } : null };
     },
     /** What the last chapter card showed, and a way to run one now (scripted checks) */
     get lastCard() { return lastCard; },
@@ -1572,6 +1629,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     start,
     applyCamera,
     get inCut() { return !!cut; },
+    /** The step the job is on (or null) */
+    get step() { return mission && mission.si >= 0 ? mission.def.steps[mission.si] : null; },
     /** A job is under way */
     get onJob() { return !!mission; },
     /** No shooting, aiming, talking to people or getting into cars: a cut scene, a choice or a black card is up */

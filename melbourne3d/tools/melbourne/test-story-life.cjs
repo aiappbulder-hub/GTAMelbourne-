@@ -6,12 +6,12 @@
 // Low Tide, Gus in The Quiet Room); (3) the choice panel has who/question/options with consequences and a hint, and
 // choosing shows a confirmation; (4) the Jobs list shows done / next / locked and replaying an old job keeps progress.
 const { chromium } = require('playwright');
-const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 const SHOTS = process.env.SHOTS || '';
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ctx = await b.newContext({ viewport: { width: 640, height: 400 } });
+  const ctx = await b.newContext({ viewport: { width: 360, height: 230 } });
   await ctx.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.clear(); }
   });
@@ -87,7 +87,13 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const toChoice = async () => {
     for (let k = 0; k < 40 && !(await p.evaluate(() => __city.missions.debug().choice)); k++) {
       const g2 = await p.evaluate(() => __city.missions.debug().goal);
-      if (g2) await p.evaluate((g3) => __city.teleportTo(g3.x, g3.z, 0), g2);
+      // (the Quiet Room's first steps are inside the bar: walk to the door, go in, then stand where the goal is on the room's floor)
+      if (g2) await p.evaluate((g3) => {
+        const I = __city.interiors, cm = __city.controllerManager;
+        if (g3.y > 1000) { if (!I.inside) { I.enter(); } cm.placePerson(g3.x, 1500, g3.z, Math.PI / 2); }
+        else if (I.inside) { cm.placePerson(-212, 1500, 136.5, Math.PI / 2); }
+        else { __city.teleportTo(g3.x, g3.z, 0); I.enter(); cm.placePerson(-212, 1500, 136.5, Math.PI / 2); }
+      }, { ...g2, y: g2.y });
       await p.evaluate(() => { for (let t = 0; t < 4 && __city.missions.debug().mission; t += 0.05) __city.missions.update(0.05, performance.now() / 1000 + t); });
       if (await p.evaluate(() => __city.missions.debug().inCut)) await p.evaluate(() => __city.missions.skipCut());
       await p.waitForTimeout(500);
