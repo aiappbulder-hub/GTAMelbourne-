@@ -120,7 +120,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       if (g.dead) {
         g.deadT += dt;
         if (g.deadT > 45) { cast?.setGunman(g.key, g.model, null); list.splice(i, 1); continue; }
-        g.visible = !!cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, dead: true, weapon: g.weapon, vest: g.biker, dt });
+        g.visible = !!cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, dead: true, weapon: g.weapon, vest: g.biker, officer: !!g.cop, dt });
         continue;
       }
       if (g.mounted) { g.fired = false; continue; } // riding a bike: js/bikies.js moves and draws him until he gets off
@@ -132,10 +132,13 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
         g.sees = !P.dead && d < (g.alert ? g.sight * 1.5 : g.sight) && los(g.x, g.y + 1.5, g.z, P.x, P.y + (P.inCar ? 0.9 : 1.2), P.z);
       }
       if (g.sees && !calm) { if (!g.alert) { g.alert = true; g.react = rand(0.5, 0.9); } g.lastSeen = 0; } else g.lastSeen += dt;
-      if (g.alert && (P.dead || d > 75 || g.lastSeen > 10)) { g.alert = false; g.phase = 'idle'; g.aiming = false; }
-      const engaged = g.alert && !calm && !P.dead;
+      // (an officer, js/police.js: `g.cop` = { fire, move, face } is set each frame from outside: on foot he runs and faces where
+      // he is told, and only shoots while `fire` is on, with the same fight as any gunman)
+      if (g.cop?.fire && !g.alert && !calm) { g.alert = true; g.react = rand(0.3, 0.6); }
+      if (g.alert && (P.dead || ((d > 75 || g.lastSeen > 10) && !g.cop?.fire))) { g.alert = false; g.phase = 'idle'; g.aiming = false; }
+      const engaged = (g.cop ? g.cop.fire && g.alert : g.alert) && !calm && !P.dead;
       // facing: round to the player when engaged
-      const want = engaged || g.hurtT > 0 ? Math.atan2(dxp, dzp) : g.heading;
+      const want = engaged || g.hurtT > 0 ? Math.atan2(dxp, dzp) : g.cop?.face ?? g.heading;
       let dh = Math.atan2(Math.sin(want - g.heading), Math.cos(want - g.heading));
       g.heading += Math.max(-7 * dt, Math.min(7 * dt, dh));
       let move = 0, side = 0;
@@ -169,6 +172,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
           move = 3.4;
         }
       } else if (g.phase !== 'idle') { g.phase = 'idle'; g.aiming = false; }
+      if (g.cop && !engaged) { move = g.cop.move || 0; if (g.phase !== 'idle') { g.phase = 'idle'; g.aiming = false; } }
       // moving (not through walls)
       const f = { x: Math.sin(g.heading), z: Math.cos(g.heading) }, r = { x: -f.z, z: f.x };
       const vx = f.x * move + r.x * side, vz = f.z * move + r.z * side;
@@ -182,8 +186,8 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       g.speed += (Math.hypot(vx, vz) - g.speed) * Math.min(1, dt * 6);
       g.y = groundAt(g.x, g.z);
       const pitch = engaged ? Math.atan2(P.y + 1.1 - (g.y + 1.45), Math.max(1, d)) : 0;
-      const r2 = cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, speed: g.speed, weapon: g.weapon, armed: true,
-        aiming: g.aiming && engaged, vest: g.biker, yaw: g.heading, pitch, fire: g.fired, dt });
+      const r2 = cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, speed: g.speed, weapon: g.weapon, armed: g.cop ? !!g.cop.fire : true,
+        aiming: g.aiming && engaged, vest: g.biker, officer: !!g.cop, yaw: g.heading, pitch, fire: g.fired, dt });
       g.visible = !!r2;
       g.held = r2?.held || null;
       g.muzzle = r2?.muzzle ? { x: r2.muzzle.x, y: r2.muzzle.y, z: r2.muzzle.z } : null;
