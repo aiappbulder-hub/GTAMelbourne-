@@ -174,6 +174,7 @@ async function initApp() {
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
+  let helipad = null; // js/helipad.js
   let interiors = null; // js/interiors.js: the Quiet Room
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
@@ -655,6 +656,9 @@ async function initApp() {
   }) : null;
   window.__city.gameplay = gameplay;
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
+  // The heliport by Crown, with the player's helicopter parked on it (js/helipad.js)
+  helipad = IS_MELBOURNE ? (await import('./helipad.js')).createHelipad({ scene, controllerManager, mapSystem, selectMode }) : null;
+  window.__city.helipad = helipad;
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
   window.__city.race = race;
@@ -1038,6 +1042,7 @@ async function initApp() {
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
+    helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
