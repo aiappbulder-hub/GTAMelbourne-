@@ -24,7 +24,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
   const list = [];
   let serial = 0;
   const groundAt = (x, z) => cm.getGroundHeight(x, z, 'person') ?? 0;
-  const free = (x, z, r = 0.5) => cm.nearColliders(x, z, r).every((c) => !(x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r && (c.minY ?? 0) < 2 && (c.maxY === undefined || c.maxY > 0.3)));
+  const free = (x, z, r = 0.5) => cm.nearColliders(x, z, r).every((c) => !(x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r && (c.minY ?? 0) - (c.groundY ?? 0) < 2 && (c.maxY === undefined || c.maxY > 0.3)));
 
   /** One armed hostile at (x, z) */
   function spawn({ x, z, weapon = 'pistol', model, hp = 90, heading = 0, sight, aggro = false }) {

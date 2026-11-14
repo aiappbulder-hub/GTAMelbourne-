@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { WALL_KINDS } from './tsl-materials.js';
 import { polygonContains } from './building-collision.js';
+import { terrainHeight } from './terrain.js';
 
 function partyWallHeight(record, a, b, neighbours) {
   const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
@@ -28,7 +29,8 @@ function createBuildingFootprints(material, records, getNeighbours) {
     const key = Math.floor(record.cx / 1000) + ',' + Math.floor(record.cz / 1000);
     let cell = cells.get(key);
     if (!cell) cells.set(key, (cell = { positions: [], normals: [], indices: [], boxes: [], walls: [] }));
-    const height = record.height, top = height + 0.22;
+    const base = record.baseY || 0; // lifted rigidly on a hill, with a skirt down to the ground on the low side
+    const height = record.height, top = height + 0.22 + base, y0 = 0.22 + base;
     const seed = Math.floor(record.seed ?? index * 29) % 1000 + 0.1 + 0.8 * (record.tone ?? 0.5);
     const neighbours = getNeighbours && height <= 60 ? getNeighbours(record) : [];
 
@@ -53,7 +55,7 @@ function createBuildingFootprints(material, records, getNeighbours) {
           const exposedHeight = adjacentHeight ? Math.max(0, top - adjacentHeight) : height;
           // Match the positive-world-axis tangent used by the shared interior-map view ray.
           const reverse = (Math.abs(dz) >= Math.abs(dx) ? dz : dx) < 0;
-          cell.positions.push(a.x, 0.22, a.y, b.x, 0.22, b.y, a.x, top, a.y, b.x, top, b.y);
+          cell.positions.push(a.x, y0, a.y, b.x, y0, b.y, a.x, top, a.y, b.x, top, b.y);
           for (let k = 0; k < 4; k++) {
             cell.normals.push(-dz / width, 0, dx / width);
             // Footprint walls use the box's unused depth for the exposed height above adjoining roofs.
@@ -61,6 +63,18 @@ function createBuildingFootprints(material, records, getNeighbours) {
             cell.walls.push(reverse ? 1 - k % 2 : k % 2, k < 2 ? height : 0, kind);
           }
           cell.indices.push(offset, offset + 1, offset + 2, offset + 2, offset + 1, offset + 3);
+          // the skirt: a blank wall from the base down to the footpath on the ground (0.17 m under its top)
+          const ga = terrainHeight(a.x, a.y) + 0.05, gb = terrainHeight(b.x, b.y) + 0.05;
+          if (base > 0.02 && (y0 - ga > 0.02 || y0 - gb > 0.02)) {
+            const so = cell.positions.length / 3;
+            cell.positions.push(a.x, Math.min(ga, y0), a.y, b.x, Math.min(gb, y0), b.y, a.x, y0, a.y, b.x, y0, b.y);
+            for (let k = 0; k < 4; k++) {
+              cell.normals.push(-dz / width, 0, dx / width);
+              cell.boxes.push(width, height, 0, seed);
+              cell.walls.push(reverse ? 1 - k % 2 : k % 2, height, WALL_KINDS.lotLine);
+            }
+            cell.indices.push(so, so + 1, so + 2, so + 2, so + 1, so + 3);
+          }
         }
       });
       const triangles = THREE.ShapeUtils.triangulateShape(rings[0], rings.slice(1));

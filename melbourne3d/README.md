@@ -33,6 +33,13 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 - `buildCityGrid` hands Melbourne to `buildMelbourneGrid` (in `js/city-grid.js`): the land deck with the Yarra,
   Victoria Harbour and the lakes cut out, bluestone quay walls, every kerb island's footpath, and the parks.
 - The road network keeps every strongly connected network of 12 edges or more. `?debugroads` leaves its inputs and edges on `globalThis.__roadInputs` / `__roadEdges` for checking.
+- **Terrain** (`js/terrain.js`): gentle real hills (up to ~35 m: Carlton and Parkville, Flagstaff, Parliament's rise, the
+  Domain), flat at the river, the bay, every bridge and the helipad, at most about 8% steep. `terrainHeight(x, z)` reads a
+  25 m grid (`js/melbourne-terrain-data.js`, made by `tools/melbourne/build-terrain.mjs` from ~50 hand-set spot heights).
+  Ground, roads, markings and tram rails are draped at build time (`drapeGeometry`); buildings are lifted rigidly with a
+  skirt down to the low side; trees, lamps and props lift per instance; `getGroundHeight`, the cars (pitch and roll on the
+  wheels), traffic, bikies, people, cameras and missions follow it. `?flat` forces 0 everywhere (the old flat city).
+  `tools/melbourne/test-terrain.cjs` checks it.
 - `window.__city` exposes the scene, controllers, cameras, traffic and `teleportTo` for scripted checks.
 
 ## Game

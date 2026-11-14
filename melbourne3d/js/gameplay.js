@@ -342,13 +342,14 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     taxiClone = carMesh.clone(true);
     taxiClone.traverse((o) => { if (o.isLight) o.visible = false; });
     taxiClone.position.copy(car.position);
-    taxiClone.rotation.set(0, car.heading, 0);
+    taxiClone.rotation.order = 'YXZ';
+    taxiClone.rotation.set(car.kerbPitch || 0, car.heading, car.kerbRoll || 0);
     taxiClone.name = 'ParkedTaxi';
     scene.add(taxiClone);
     taxiClone.updateMatrixWorld(true);
   }
   function placeCarEntity(x, z, heading) {
-    car.position.set(x, 0, z);
+    car.position.set(x, cm.getGroundHeight(x, z, 'car'), z);
     car.heading = heading;
     car.speed = 0;
     car.vx = 0;
@@ -438,7 +439,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     go('person');
     if (riding === null && lastRide !== 'taxi') carMesh.visible = false;
-    person.position.set(d.x, 0.22, d.z);
+    person.position.set(d.x, cm.getGroundHeight(d.x, d.z, 'person'), d.z);
     person.speed = 0;
     if (instant || !cast) { person.heading = car.heading + Math.PI / 2; return; }
     // out of the seat and up beside the door, facing the way the car faces
@@ -453,7 +454,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const x = p.x + Math.cos(h) * 3.5, z = p.z - Math.sin(h) * 3.5;
     if (id === 'taxi') {
       if (cm.activeMode === 'car' && riding === 'taxi') return;
-      if (taxiClone) { taxiClone.position.set(x, 0, z); taxiClone.rotation.set(0, h, 0); taxiClone.updateMatrixWorld(true); }
+      if (taxiClone) { taxiClone.position.set(x, cm.getGroundHeight(x, z, 'car'), z); taxiClone.rotation.set(0, h, 0); taxiClone.updateMatrixWorld(true); }
       else if (riding === 'taxi' || lastRide === 'taxi') { placeCarEntity(x, z, h); carMesh.visible = true; }
       missionSystem?.sub?.('Your taxi is waiting. Walk up and press F.', 3);
       return;
@@ -469,7 +470,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     sports.x = x;
     sports.z = z;
     sports.heading = heading;
-    sports.y = 0;
+    sports.y = cm.getGroundHeight(x, z, 'car');
     sports.pitch = sports.roll = 0;
     placeSports();
     return def;
@@ -694,7 +695,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const fx = Math.sin(c.h), fz = Math.cos(c.h), ox = -Math.cos(c.h), oz = Math.sin(c.h);
     // away from the car and back along it (not in front of where the player will drive)
     const rx = ox - fx * 0.6, rz = oz - fz * 0.6;
-    jacked = { id, key: `carjack:${id}`, t: 0, c, y: v.y || 0, seat: besideCar(c, 0.05, 0.38), out1: besideCar(c, 0.1, 1.9), out2: besideCar(c, 0.1, 2.6),
+    jacked = { id, key: `carjack:${id}`, t: 0, c, y: v.y ?? cm.getGroundHeight(v.x, v.z, 'person'), seat: besideCar(c, 0.05, 0.38), out1: besideCar(c, 0.1, 1.9), out2: besideCar(c, 0.1, 2.6),
       runH: Math.atan2(rx, rz), at: null, run: null };
   }
   function stepJacked(dt) {

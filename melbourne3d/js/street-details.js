@@ -17,6 +17,7 @@ import {
 } from './city-config.js';
 import { cityUniforms, createSteamMaterial, createTreeGrateMaterial, createGodRayMaterial } from './tsl-materials.js';
 import { createTreeField } from './trees.js';
+import { terrainHeight, liftInstances } from './terrain.js';
 import { REAL_TREES } from './city-trees.js';
 import { placeStreetTrees } from './tree-placements.js';
 import { pavedPlazaRects, centralParkClearings, parkTreeSites, parkLampSites } from './city-grid.js';
@@ -941,6 +942,10 @@ function buildStreetDetails(scene, colliders = []) {
     }
     return cells;
   }
+  // everything stands on the terrain (js/terrain.js): the light sources and what they shine at, then the props below
+  for (const s of cobraLampSites) { s.y += terrainHeight(s.x, s.z); s.th = terrainHeight(s.tx, s.tz); }
+  for (const s of streetPointSites) s.y += terrainHeight(s.x, s.z);
+  for (const s of audioSignals) s.y += terrainHeight(s.x, s.z);
   const cobraCells = indexLights(cobraLampSites);
   const pointCells = indexLights(streetPointSites);
 
@@ -1004,7 +1009,7 @@ function buildStreetDetails(scene, colliders = []) {
       const fade = smoothFade(s._effDist, cobraCutoff * 0.62, cobraCutoff);
       const spot = streetlightSpotPool[i];
       spot.position.set(s.x, s.y, s.z);
-      spot.target.position.set(s.tx, 0.0, s.tz);
+      spot.target.position.set(s.tx, s.th || 0.0, s.tz);
       spot.target.updateMatrixWorld();
       spot.intensity = 88.0 * lampScale * fade;
     }
@@ -1034,6 +1039,7 @@ function buildStreetDetails(scene, colliders = []) {
     }
   }
 
+  group.traverse((o) => { if (o.isInstancedMesh && !o.parent?.name?.startsWith('TreeCell_')) liftInstances(o); });
   scene.add(group);
   return { group, footprints, signalClock, signalIntersections, audioSignals, treeField, update };
 }

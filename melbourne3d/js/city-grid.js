@@ -57,6 +57,7 @@ import {
   createTunnelShadeMaterial
 } from './tsl-materials.js';
 import { createRoadPaintChunkBuilder } from './road-paint.js';
+import { drapeGroup } from './terrain.js';
 import { GEO } from './geodata.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q } from './quality.js';
@@ -3721,6 +3722,7 @@ function buildMelbourneGrid(scene) {
     const swInstanced = new THREE.InstancedMesh(unitBox, sidewalkMat, rectSlabs.length);
     const curbInstanced = new THREE.InstancedMesh(unitBox, curbMat, rectSlabs.length);
     swInstanced.receiveShadow = curbInstanced.receiveShadow = true;
+    swInstanced.userData.bakeToDrape = curbInstanced.userData.bakeToDrape = true; // (js/terrain.js)
     rectSlabs.forEach((blk, i) => {
       dummy.position.set(blk.cx, 0.125, blk.cz);
       dummy.scale.set(blk.w - 0.5, 0.19, blk.d - 0.5);
@@ -3839,6 +3841,7 @@ function buildMelbourneGrid(scene) {
 
   const roadPaint = createRoadPaintChunkBuilder('RoadMarkings');
   batchStaticGroupMeshes(group, new Set([waterMat, roadMat, lawnMat]));
+  drapeGroup(group, { skip: new Set([waterMesh]) }); // the hills (js/terrain.js)
   scene.add(group);
   console.info(`[melbourne] ground: ${waters.length} water bodies, ${BLOCKS.length} kerb islands (${rectSlabs.length} rectangular), ${pavedRects.length} parks, ${treeSites.length} park trees, ${lampMatrices.length} lamps`);
   return { group, sidewalks: roadSidewalks, footprints, highwayLanes: [], colliders: [], roadPaint };

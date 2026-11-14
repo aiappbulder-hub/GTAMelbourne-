@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { terrainHeight, drapeGeometry } from './terrain.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEO } from './geodata.js';
@@ -59,11 +60,13 @@ function buildTracks(group) {
   // the strips are wound either way round: make every normal point up
   const n = railGeo.attributes.normal;
   for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0);
+  drapeGeometry(railGeo, { maxEdge: 12.5, lift: 0.03 }); // along the hills (js/terrain.js)
   const railMesh = new THREE.Mesh(railGeo, new THREE.MeshStandardNodeMaterial({ color: 0x8a8c8f, metalness: 0.85, roughness: 0.32 }));
   railMesh.receiveShadow = true;
   railMesh.name = 'TramRails';
   group.add(railMesh);
   const wireGeo = new THREE.BufferGeometry();
+  for (let i = 0; i < wires.length; i += 3) wires[i + 1] += terrainHeight(wires[i], wires[i + 2]);
   wireGeo.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
   const wireMesh = new THREE.LineSegments(wireGeo, new THREE.LineBasicNodeMaterial({ color: 0x1d1f22 }));
   wireMesh.name = 'TramWires';
@@ -160,14 +163,15 @@ export async function createTramSystem(scene) {
   });
 
   const A = new THREE.Vector2(), B = new THREE.Vector2(), M4 = new THREE.Matrix4(), Qn = new THREE.Quaternion();
-  const UP = new THREE.Vector3(0, 1, 0), POS = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
+  const EUL = new THREE.Euler(), POS = new THREE.Vector3(), ONE = new THREE.Vector3(1, 1, 1);
   function place(i, t) {
     const l = t.line;
     l.sample(t.s + 4, A);
     l.sample(t.s - 4, B);
     const yaw = Math.atan2(A.x - B.x, A.y - B.y);
-    Qn.setFromAxisAngle(UP, yaw);
-    POS.set((A.x + B.x) / 2, 0, (A.y + B.y) / 2);
+    const hA = terrainHeight(A.x, A.y), hB = terrainHeight(B.x, B.y);
+    Qn.setFromEuler(EUL.set(-Math.atan2(hA - hB, 8), yaw, 0, 'YXZ')); // the body follows the slope
+    POS.set((A.x + B.x) / 2, (hA + hB) / 2, (A.y + B.y) / 2);
     t.cx = POS.x; t.cz = POS.z; t.yaw = yaw; // its footprint (for the traffic and the player, footprints())
     M4.compose(POS, Qn, ONE);
     for (const m of meshes) m.setMatrixAt(i, M4);
