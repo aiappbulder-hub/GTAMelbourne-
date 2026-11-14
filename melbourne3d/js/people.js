@@ -796,6 +796,46 @@ export function createCast({ scene, controllerManager }) {
     poseGun(a, gs, dt);
     return { muzzle: gs.muzzleValid ? gs.muzzle : null, held: Object.entries(gs.models).find(([, g]) => g.visible)?.[0] || null };
   }
+  // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
+  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [{x,y,z} left,
+  // right] (in the bike's space), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
+  // the bike. Returns false until the model is in.
+  const riders = new Map();
+  function setRider(key, id, o) {
+    let a = riders.get(key);
+    if (!o) { if (a) { a.group.visible = false; if (a.group.parent) a.group.parent.remove(a.group); } return true; }
+    if (!templates.has(id)) { loadPerson(id); return false; }
+    if (!a || a.id !== id) {
+      if (a) a.group.visible = false;
+      a = makeActor(id, LEVEL.shadows);
+      if (!a) return false;
+      riders.set(key, a);
+    }
+    const dt = o.dt || 0.016;
+    if (a.group.parent !== o.parent) o.parent.add(a.group);
+    play(a, has(a, 'sit') ? 'sit' : 'idle');
+    a.mixer.update(dt);
+    a.group.rotation.set(0, 0, 0);
+    a.group.scale.setScalar(1);
+    a.group.position.set(0, 0, 0);
+    a.group.visible = true;
+    a.group.updateMatrixWorld(true);
+    // the hips' height above the person's feet, measured once from the seated clip, then the person set so they land on the seat
+    const hips = a.hipsBone || (a.hipsBone = a.root.getObjectByName('Bip01_Pelvis') || a.root.getObjectByName('Bip01') || a.root.getObjectByName('Hips'));
+    if (hips && a.hipH === undefined) { const p = hips.getWorldPosition(new THREE.Vector3()); a.group.worldToLocal(p); a.hipH = p.y; a.hipZ = p.z; }
+    a.group.position.set(0, o.seat.y - (a.hipH || 0.5), o.seat.z - (a.hipZ || 0));
+    a.heading = 0;
+    o.parent.updateMatrixWorld(true);
+    a.group.updateMatrixWorld(true);
+    const head = o.parent.getWorldDirection(_f.set(0, 0, 1)); // the bike's forward, for the arms' elbows
+    a.heading = Math.atan2(head.x, head.z);
+    if (o.grips) for (let i = 0; i < 2; i++) {
+      const g = o.grips[i], w = o.parent.localToWorld(new THREE.Vector3(g.x, g.y, g.z));
+      reachArm(a, { x: w.x, y: w.y, z: w.z, left: i === 0 }, 1);
+    }
+    faceLife(a, dt, false);
+    return true;
+  }
   // The player sitting down (a scene): drawn at the seat whatever mode they're in
   let playerSeat = null, playerSeatAnim = 'sit';
   function setPlayerSeat(seat, anim = 'sit') { playerSeat = seat; playerSeatAnim = anim; }
@@ -816,6 +856,7 @@ export function createCast({ scene, controllerManager }) {
       return { held, drawK: weapon.drawK, raise: weapon.raise, muzzle: weapon.muzzleValid };
     },
     setGunman,
+    setRider,
     /** Where the gun's muzzle is (for the flash and tracers), or null */
     muzzle() { return weapon.muzzleValid ? weapon.muzzle : null; },
     setSeated,
