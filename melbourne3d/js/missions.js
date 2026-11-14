@@ -122,7 +122,7 @@ const MISSIONS = [
       ['Kaz', "They've hidden the pages and their takings on a boat in Docklands. Get there before they move it."]],
     steps: [
       { text: 'Get to the Nomads\' boat off Harbour Esplanade, Docklands.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 16, time: 110 },
-      { text: 'The Nomads are guarding it. Take them out.', targets: 3, weapons: ['pistol', 'uzi', 'pistol'] },
+      { text: 'The Nomads see you coming: a pack of bikies on choppers. Take them out.', targets: 4, bikies: true, weapons: ['pistol', 'uzi', 'pistol', 'uzi'] },
       { text: 'Grab the bag, the pages and the cash. Stay in the marker on foot while you take it.', at: { cross: ['HARBOUR ESPLANADE', 'BOURKE STREET'] }, r: 8, wait: 4, foot: true },
       { text: 'Get the bag to Kaz\'s mechanic on Clarendon St, Southbank.', at: { cross: ['WHITEMAN STREET', 'CLARENDON STREET'] }, r: 16, car: true, time: 120 }
     ]
@@ -1106,7 +1106,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       // the people nearest the player become the targets
       const p = playerPos();
       // armed hostiles round the player (js/combat.js: they notice, aim and shoot back); if none could be placed, the people nearest
-      const armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
+      // (s.bikies: they arrive as a pack of bikies on motorbikes who ride up, get off and fight: js/bikies.js)
+      let armed = s.bikies && gameplay?.bikies ? gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range: [90, 150], hidden: false }) : null;
+      if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
       m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }

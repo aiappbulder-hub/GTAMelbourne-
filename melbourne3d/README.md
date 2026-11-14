@@ -37,6 +37,12 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 
 ## Game
 
+- **Bikies** (`js/bikies.js`): a pack of 4-6 chopper riders rides the main roads in free roam (one pack at a time, every few
+  minutes, never during a job). A virtual leader follows the road network's lanes and each bike follows its trail in a
+  staggered formation. Shoot at them, hit one, punch one or ram a bike and the pack turns hostile: they pull up, get off and
+  fight with `js/combat.js`; a rider killed on the bike comes off it. The Westside Bikies job uses it (`bikies: true` on its
+  targets step). `window.__city.bikies.spawnPack()` forces one; `tools/melbourne/test-bikies.cjs` checks it.
+
 - **Characters** (`js/character-presets.js`): five named Melbourne presets (a local, a street criminal, a local woman,
   a bikie, a Victoria Police officer) on the shared person rig, given to the first five pedestrians.
 - **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the
