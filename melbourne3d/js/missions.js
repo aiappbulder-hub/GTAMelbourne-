@@ -1078,9 +1078,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elBlack.classList.add('on');
     gameplay?.leaveCarNow?.();
     if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
-    if (opts?.chain) { // handed over from the job before: set down at the start, whatever was going on and wherever the player was
-      const st = resolve(def.start), tp = window.__city?.teleportTo;
-      if (tp) tp(st.x, st.z, 0);
+    { // handed over from the job before, or replayed from the Jobs list: set down at the start, whatever was going on and wherever the player was
+      const st = resolve(def.start), tp = window.__city?.teleportTo, pp = playerPos();
+      if (tp && (opts?.chain || Math.hypot(pp.x - st.x, pp.z - st.z) > 40)) tp(st.x, st.z, 0);
     }
     later(opts?.fromIntro ? 1.5 : b.quick ? 1.6 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
       if (mission !== m) return;
@@ -1368,6 +1368,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (cut || mission.si < 0) { if (!cut || cut.step) showActors([]); return; }
     const m = mission, s = m.def.steps[m.si];
     m.stepT += dt;
+    // an inside step's goal is in the room (y 1500): with the player out on the street, the marker and the GPS point at the street door instead
+    if (s.inside || (s.at && resolve(s.at).y > 1000)) {
+      const out = !interiors?.inside, key = `${m.si}:${out}`;
+      if (m.doorPtr !== key) {
+        m.doorPtr = key;
+        const g = out ? resolve({ place: 'QR_DOOR' }) : s.at ? resolve(s.at) : null;
+        if (g) {
+          placeMarker(goalMarker, g, out ? 3 : s.r);
+          if (mapSystem) mapSystem.waypoint = { x: g.x, z: g.z, name: getLocationLabel(g.x, g.z) };
+        } else { goalMarker.visible = false; if (mapSystem) mapSystem.waypoint = null; }
+      }
+    }
     // story actors and watchers for this step
     const acts = [];
     for (const a of s.actors || []) {

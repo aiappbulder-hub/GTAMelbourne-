@@ -6,12 +6,12 @@
 // Low Tide, Gus in The Quiet Room); (3) the choice panel has who/question/options with consequences and a hint, and
 // choosing shows a confirmation; (4) the Jobs list shows done / next / locked and replaying an old job keeps progress.
 const { chromium } = require('playwright');
-const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 const SHOTS = process.env.SHOTS || '';
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ctx = await b.newContext({ viewport: { width: 640, height: 400 } });
+  const ctx = await b.newContext({ viewport: { width: 360, height: 230 } });
   await ctx.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.clear(); }
   });

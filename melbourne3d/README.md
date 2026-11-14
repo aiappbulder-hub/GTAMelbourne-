@@ -154,7 +154,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
     leave it.
   - Guns (`js/weapons.js` holds every weapon in one table: numbers, model, HUD icon; `js/combat.js` the hostiles):
     pistol (**1**), Uzi (**2**), shotgun (**3**), M4 rifle (**4**), rocket launcher (**5**) and fists (**6**). On foot the
-    number keys pick one (in a car they keep their old jobs: modes and cameras), **Tab** (Shift+Tab back), the wheel while
+    number keys pick one (in a car they keep their old jobs: modes and cameras; on foot Shift+1-4 switch mode and V cycles cameras), **Tab** (Shift+Tab back), the wheel while
     aiming, the slot buttons on the weapon panel or the GUN button on touch screens cycle; **G** holsters, **R** reloads.
     Hold the right mouse button (or **Q**) to aim (crosshair, lock-on), click or **J** (or FIRE on touch) to shoot;
     without aiming, shots lock on to the nearest person, hostile or car in front. People fall and stay down a while;

@@ -1400,9 +1400,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         break;
     }
   });
-  // 1-6 pick a weapon on foot (before main.js's mode and camera keys see them; with a choice up they pick the answer)
+  // 1-6 pick a weapon on foot (Shift+1-6 stay the mode and camera keys; before main.js's mode and camera keys see them; with a choice up they pick the answer)
   window.addEventListener('keydown', (e) => {
-    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || typing(e) || cm.activeMode !== 'person' || missionSystem?.busy || document.body.classList.contains('cinematic')) return;
+    if (e.repeat || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || typing(e) || cm.activeMode !== 'person' || missionSystem?.busy || document.body.classList.contains('cinematic')) return;
     const m = /^Digit([1-6])$/.exec(e.code);
     if (!m) return;
     e.stopImmediatePropagation();
