@@ -1245,6 +1245,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     lastHurt = clock;
     hurtGlow = Math.min(1, hurtGlow + 0.45);
     bang('hurt');
+    if (fromX !== undefined) cast?.flinch?.(Math.sign(Math.sin(Math.atan2(fromX - person.position.x, fromZ - person.position.z) - person.heading)) || 1);
+    else cast?.flinch?.();
     if (hp <= 0) die();
   }
   function die() {
@@ -1288,7 +1290,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       dying.t += dt;
       person.position.set(dying.x, dying.y, dying.z);
       person.speed = 0;
-      cast?.setPlayerPose({ x: dying.x, y: dying.y, z: dying.z, heading: dying.h, anim: 'idle', timeScale: 0, fall: smooth(dying.t / 0.55) });
+      cast?.setPlayerPose({ x: dying.x, y: dying.y, z: dying.z, heading: dying.h, anim: 'die', timeScale: 1, fade: 0.12, fall: smooth(dying.t / 0.55) });
       const k = Math.min(1, Math.max(0, (dying.t - 0.5) / 1.5));
       elWasted.style.opacity = String(k);
       elWasted.hidden = false;
@@ -1533,7 +1535,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     raisedT = Math.max(0, raisedT - dt);
     cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut && !dying, aiming: cm.aiming || raisedT > 0,
       yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0,
-      punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow });
+      punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow, reload: reloading > 0 && WEAPONS[wi].reload > 0 ? 1 - reloading / WEAPONS[wi].reload : 0 });
     kickNow = false;
     elCross.classList.toggle('lock', !!lockTarget);
     if (hitMarkT > 0 && (hitMarkT -= dt) <= 0) elCross.classList.remove('hit');
