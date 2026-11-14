@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { LANDMARK_SITES } from './city-config.js';
+import { terrainRange } from './terrain.js';
 
 // Melbourne's landmarks: the old game's Blender models (models/landmarks/*.json, made by tools/make_landmarks.py)
 // stood on their real sites (js/melbourne-geodata.js `landmarks`, from OpenStreetMap). The models were built in the old
@@ -28,6 +29,7 @@ export async function buildMelbourneLandmarks(scene) {
   scene.add(group);
   const colliders = [];
   const loader = new GLTFLoader();
+  const plinthMat = new THREE.MeshStandardNodeMaterial({ color: 0x8b877e, roughness: 0.9 });
   const box = new THREE.Box3(), size = new THREE.Vector3();
   await Promise.all(LANDMARKS.map(async ([id, site, long, short, height, axis]) => {
     const s = LANDMARK_SITES[site];
@@ -61,10 +63,19 @@ export async function buildMelbourneLandmarks(scene) {
     pivot.add(holder);
     // turn it when its long side should run along the other axis
     if (axis === 'z') pivot.rotation.y = Math.PI / 2;
-    pivot.position.set(s.x, 0.0, s.z);
-    group.add(pivot);
     const hx = (axis === 'x' ? long : short) / 2, hz = (axis === 'x' ? short : long) / 2;
-    colliders.push({ minX: s.x - hx, maxX: s.x + hx, minZ: s.z - hz, maxZ: s.z + hz, minY: 0, maxY: height, landmark: id });
+    // on a hill: lifted rigidly to the highest ground under it (less 0.3 m), on a plinth down to the lowest
+    const { lo, hi } = terrainRange({ minX: s.x - hx, maxX: s.x + hx, minZ: s.z - hz, maxZ: s.z + hz });
+    const base = Math.max(lo, hi - 0.3);
+    pivot.position.set(s.x, base, s.z);
+    group.add(pivot);
+    if (base - lo > 0.05) {
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 - 0.4, base - lo + 0.5, hz * 2 - 0.4), plinthMat);
+      plinth.position.set(s.x, (base + lo - 0.5) / 2, s.z);
+      plinth.receiveShadow = plinth.castShadow = true;
+      group.add(plinth);
+    }
+    colliders.push({ minX: s.x - hx, maxX: s.x + hx, minZ: s.z - hz, maxZ: s.z + hz, minY: lo - 3, groundY: lo - 3, maxY: base + height, landmark: id });
   }));
   console.info(`[landmarks] ${group.children.length} Melbourne landmarks placed`);
   return { group, colliders };

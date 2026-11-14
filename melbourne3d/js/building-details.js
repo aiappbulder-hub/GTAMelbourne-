@@ -30,7 +30,8 @@ function containsBox(polygon, x, z, w, d, cs, sn) {
 }
 
 function addBuildingDetails(b, detail, { masonry, rand, neighbours }) {
-  const roofY = b.height + 0.22;
+  const base = b.baseY || 0; // the building's lift on a hill
+  const roofY = b.height + 0.22 + base;
   const streetReserves = [];
   const edges = b.polygons.flatMap((polygon) => polygon.outer.map((a, i, ring) => {
     const c = ring[(i + 1) % ring.length], dx = c.x - a.x, dz = c.z - a.z;
@@ -101,11 +102,11 @@ function addBuildingDetails(b, detail, { masonry, rand, neighbours }) {
       const ry = Math.atan2(sn, cs);
       let item;
       if (!detail.scaffoldSheds.length && rand() < 0.06) {
-        item = { x: x + e.nx * 2, y: 0.22, z: z + e.nz * 2, w: 3.8, d, ry };
+        item = { x: x + e.nx * 2, y: 0.22 + base, z: z + e.nz * 2, w: 3.8, d, ry };
         detail.scaffoldSheds.push(item);
       } else {
         if (!b.storefronts) continue;
-        item = { x: x + e.nx, y: 3.8, z: z + e.nz, w: 1.8, d, colorIdx: Math.floor(rand() * 5), ry };
+        item = { x: x + e.nx, y: 3.8 + base, z: z + e.nz, w: 1.8, d, colorIdx: Math.floor(rand() * 5), ry };
         detail.awnings.push(item);
       }
       const outer = boxCorners(item.x, item.z, item.w, item.d, cs, sn);

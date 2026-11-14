@@ -277,7 +277,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
       for (let d = 6; d <= 125 && clear; d += 3) {
         const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
         if ((cm.getGroundHeight(x, z, 'person') ?? -9) < -0.3) { clear = false; break; }
-        for (const c of cm.nearColliders(x, z, 1.2)) if ((c.minY ?? 0) < 2 && (c.maxY === undefined || c.maxY > 0.3) && x > c.minX - 1.2 && x < c.maxX + 1.2 && z > c.minZ - 1.2 && z < c.maxZ + 1.2) { clear = false; break; }
+        for (const c of cm.nearColliders(x, z, 1.2)) if ((c.minY ?? 0) - (c.groundY ?? 0) < 2 && (c.maxY === undefined || c.maxY > 0.3) && x > c.minX - 1.2 && x < c.maxX + 1.2 && z > c.minZ - 1.2 && z < c.maxZ + 1.2) { clear = false; break; }
       }
       if (!clear) continue;
       const fh = a + Math.PI, x0 = cx + Math.sin(a) * 125, z0 = cz + Math.cos(a) * 125;
