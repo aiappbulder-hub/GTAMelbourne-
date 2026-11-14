@@ -50,7 +50,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     ok(d.units >= 1 && d.nearest > 40, `a police car comes, from back along your route (${Math.round(d.nearest)} m)`);
     // 2. stand still: it closes in and busts you
     const cash0 = await p.evaluate(() => __city.missions.money);
-    await waitFor(() => __city.wanted.debug().stars === 0, 400000);
+    // (the headless browser runs at ~2 fps, so the sim is stepped by hand: up to 400 s of game time at 20 Hz, stopping once BUSTED clears the stars)
+    for (let k = 0; k < 8 && (await dbg()).stars > 0; k++) await p.evaluate(() => { for (let i = 0; i < 1000 && __city.wanted.debug().stars > 0; i++) __city.wanted.update(0.05); });
     const cash1 = await p.evaluate(() => __city.missions.money);
     log('after', JSON.stringify(await dbg()), 'cash', cash0, '->', cash1);
     ok(cash1 < cash0, `standing still with police beside you is BUSTED: fined $${cash0 - cash1}`);
