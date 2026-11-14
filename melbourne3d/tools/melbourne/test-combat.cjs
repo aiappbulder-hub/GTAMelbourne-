@@ -146,7 +146,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok((await p.evaluate(() => __city.cast.heldGun())).held === null, 'holstered: nothing in hand');
 
   // ---- (d) a fight job: Westside Bikies' Nomads are armed, shoot back, and dying fails the job -----------------------
-  const simJob = (secs) => p.evaluate((secs) => { for (let t = 0; t < secs; t += 0.05) { __city.missions.update(0.05, performance.now() / 1000 + t); __city.gameplay.update(0.05); __city.cast.posePlayer(0.05); } }, secs);
+  const simJob = (secs) => p.evaluate((secs) => { for (let t = 0; t < secs; t += 0.05) { __city.missions.update(0.05, performance.now() / 1000 + t); __city.gameplay.update(0.05); __city.bikies?.update(0.05); __city.cast.posePlayer(0.05); } }, secs);
   const m5 = await p.evaluate(() => __city.missions.missions.findIndex((m) => m.name === 'Westside Bikies'));
   await p.evaluate((i) => { __city.gameplay.leaveCarNow(); __city.teleportTo(-240.68, -221, 0); __city.missions.startNow(i); }, m5);
   await simJob(1);
@@ -157,8 +157,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   for (let i = 0; i < 30 && (await p.evaluate(() => __city.missions.debug().step)) < 1; i++) await simJob(1);
   const job = await p.evaluate(() => ({ d: __city.missions.debug(), hostiles: __city.gameplay.combat.debug().map((g) => g.key + ':' + g.hp), step: document.querySelector('.gm-objective').textContent }));
   log('job', JSON.stringify(job));
-  ok(job.d.step === 1 && job.hostiles.length === 3, 'the Nomads step spawns three armed hostiles (' + job.hostiles.join(' ') + ')');
-  ok(/3 left/.test(job.step), 'the objective counts them: ' + job.step);
+  ok(job.d.step === 1 && job.hostiles.length === 4, 'the Nomads step spawns four armed bikies (' + job.hostiles.join(' ') + ')');
+  ok(/4 left/.test(job.step), 'the objective counts them: ' + job.step);
   await p.evaluate(() => { __city.gameplay.health = 100; });
   let hpJob = 100;
   for (let i = 0; i < 60 && hpJob >= 100; i++) { await simJob(0.5); hpJob = await p.evaluate(() => __city.gameplay.state.hp); if (i % 8 === 7) await p.waitForTimeout(500); }
@@ -178,7 +178,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   for (let i = 0; i < 30 && (await p.evaluate(() => __city.missions.debug().step)) < 1; i++) await simJob(1);
   await p.evaluate(() => { for (const g of __city.gameplay.combat.list) __city.gameplay.combat.hurt(g, 999, 0, 0); });
   await simJob(1);
-  ok((await p.evaluate(() => __city.missions.debug().step)) === 2, 'killing all three passes the step');
+  ok((await p.evaluate(() => __city.missions.debug().step)) === 2, 'killing all four passes the step');
 
   ok(errs.length === 0, 'no page errors ' + JSON.stringify(errs.slice(0, 4)));
   await b.close();
