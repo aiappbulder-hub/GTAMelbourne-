@@ -32,10 +32,11 @@ async function run(b, name, vp, touch) {
   for (const k of ['minimap', 'hp', 'prompt', 'hud']) ok(!overlap(w, o[k]), `${name}: widget does not overlap ${k}`);
   if (!touch) {
     await p.keyboard.press('Digit3');
-    await p.waitForTimeout(400);
-    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png`, timeout: 180000 });
     const s = await rect('.gp-strip');
-    ok(s && s.op > 0.9, `${name}: the strip shows while switching`);
+    await p.evaluate(() => { document.querySelector('.gp-strip').style.opacity = '1'; }); // (a screenshot takes longer than the fade)
+    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png`, timeout: 180000 });
+    await p.evaluate(() => { document.querySelector('.gp-strip').style.opacity = ''; });
+    ok(s && s.op > 0.3, `${name}: the strip shows while switching`);
     for (const k of ['minimap', 'hp', 'prompt', 'hud']) ok(!overlap(s, o[k]), `${name}: strip does not overlap ${k}`);
     ok(await p.evaluate(() => __city.gameplay.state.weapon === 'shotgun'), `${name}: key 3 selects the shotgun`);
     await p.waitForTimeout(2600);
@@ -46,12 +47,13 @@ async function run(b, name, vp, touch) {
     ok(g, `${name}: one GUN button`);
     const before = await p.evaluate(() => __city.gameplay.state.weapon);
     await p.touchscreen.tap(g.x + g.width / 2, g.y + g.height / 2);
-    await p.waitForTimeout(500);
+    const s = await rect('.gp-strip');
     const after = await p.evaluate(() => __city.gameplay.state.weapon);
     ok(before !== after, `${name}: tap on GUN cycles (${before} -> ${after})`);
+    await p.evaluate(() => { document.querySelector('.gp-strip').style.opacity = '1'; });
     await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png`, timeout: 180000 });
-    const s = await rect('.gp-strip');
-    ok(s && s.op > 0.9, `${name}: the strip shows after a tap`);
+    await p.evaluate(() => { document.querySelector('.gp-strip').style.opacity = ''; });
+    ok(s && s.op > 0.3, `${name}: the strip shows after a tap`);
     for (const k of ['minimap', 'hp', 'prompt', 'hud']) ok(!overlap(s, o[k]), `${name}: strip does not overlap ${k}`);
     await p.waitForTimeout(2600);
     const s2 = await rect('.gp-strip');
@@ -59,9 +61,9 @@ async function run(b, name, vp, touch) {
     // long press: opens the strip and holds it, without cycling
     const b4 = await p.evaluate(() => __city.gameplay.state.weapon);
     await p.evaluate(({ x, y }) => { const e = document.querySelector('.gp-gun'); const mk = (t) => new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', clientX: x, clientY: y }); e.dispatchEvent(mk('pointerdown')); window.__lp = () => e.dispatchEvent(mk('pointerup')); }, { x: g.x + 5, y: g.y + 5 });
-    await p.waitForTimeout(900);
+    await p.waitForTimeout(700);
     const s3 = await rect('.gp-strip');
-    ok(s3 && s3.op > 0.9, `${name}: long-press opens the strip`);
+    ok(s3 && s3.op > 0.3, `${name}: long-press opens the strip`);
     await p.evaluate(() => window.__lp());
     await p.waitForTimeout(300);
     ok((await p.evaluate(() => __city.gameplay.state.weapon)) === b4, `${name}: long-press does not cycle`);

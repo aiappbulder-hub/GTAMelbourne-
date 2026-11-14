@@ -538,11 +538,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   // Light traffic: a quarter of the fleet at most is out at once (one or two cars to a street block, a bus now and
   // then), and only on the main roads: narrow streets and laneways stay empty.
   // (it was 22% of the fleet over the whole 390 m disc: two or three cars in sight in the grid, none in the suburbs)
-  const MAX_CARS_OUT = Math.min(36, Math.max(12, Math.round(NUM_CARS * 0.4)));
+  const MAX_CARS_OUT = Math.min(44, Math.max(12, Math.round(NUM_CARS * 0.45)));
   const MAX_BUSES_OUT = Math.min(2, NUM_BUSES);
   const MAX_PER_SEGMENT = 3;
   // (the suburbs' roads are mostly single-lane collectors of half-width 4-6 m: only the narrowest ones (laneways, 2.4-2.6 m) are left out)
   const mainRoad = (e) => e.axis === 'ave' || e.lanes.length >= 2 || e.half >= 4;
+  let carCap = MAX_CARS_OUT;
   const segmentLoad = (e) => { let n = 0; for (const l of e.occ) n += l.length; return n; };
   let carsOut = 0;
   let busesOut = 0;
@@ -766,6 +767,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const dx = n.x - focusX, dz = n.z - focusZ;
       if (n.signal && dx * dx + dz * dz < NEAR_RADIUS * NEAR_RADIUS) nearSignals.push(n);
     }
+    // where the network is sparse (the suburbs' few joined roads) fewer cars are out: about one to 400 lane metres, so they
+    // are never packed onto a handful of streets
+    carCap = clamp(Math.round(cum / 400), 3, MAX_CARS_OUT);
   }
 
   // Where the player is relative to v: metres ahead, metres to the right, and how fast it moves v's way
@@ -1772,7 +1776,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   function spawnVehicle(v, rMin, rMax, protectView) {
     const total = nearCum.length ? nearCum[nearCum.length - 1] : 0;
     if (total <= 0) return false;
-    if (v.bus ? busesOut >= MAX_BUSES_OUT : carsOut >= MAX_CARS_OUT) return false;
+    if (v.bus ? busesOut >= MAX_BUSES_OUT : carsOut >= carCap) return false;
     if (!jumping && trafficClock - lastSpawnAt < SPAWN_EVERY) return false;
     let best = null, bestScore = SPAWN_GAP, be = null, bl = 0, bs = 0;
     for (let attempt = 0; attempt < 16; attempt++) {
@@ -2200,7 +2204,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       // (a car that has sat still for half a minute, out of the player's way, is moved on: no standing jams)
       // (and over the grid's share, one that nobody sees is moved out to the roads beyond it)
       // over the light-traffic limit: one out of sight is simply taken off the road (it comes back when room opens)
-      if (v.edge && !jump && (v.bus ? busesOut > MAX_BUSES_OUT : carsOut > MAX_CARS_OUT) && d > 45 && !visible(v.x, v.z, v.half + 4)) {
+      if (v.edge && !jump && (v.bus ? busesOut > MAX_BUSES_OUT : carsOut > carCap) && d > 45 && !visible(v.x, v.z, v.half + 4)) {
         if (v.bus) busesOut--; else carsOut--;
         v.edge = null; v.move = null; v.conn = null; v.trail = null; v.commit = null; v.claimed = false; v.speed = 0;
         continue;
@@ -2209,6 +2213,13 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS) && !(d > 45 && !jump && stuckAway(v)) && !crowded) continue;
       if (crowded) cbdCount--;
       budget--;
+      // a car left far behind gives up its place in the fleet count before it is re-spawned near the player: otherwise
+      // the cars out beyond the disc held every slot and nothing ever spawned where the player was (no traffic after a
+      // long drive or a teleport)
+      if (v.edge) {
+        if (v.bus) busesOut--; else carsOut--;
+        v.edge = null; v.move = null; v.conn = null; v.trail = null; v.commit = null; v.claimed = false; v.speed = 0;
+      }
       spawnVehicle(v, jump ? 0 : 70, NEAR_RADIUS, !jump);
     }
     buildOccupancy();
