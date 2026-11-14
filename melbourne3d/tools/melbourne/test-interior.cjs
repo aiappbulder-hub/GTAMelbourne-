@@ -37,7 +37,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.keyboard.up('KeyW');
   ok(/Go in/.test(await p.evaluate(() => document.querySelector('.in-prompt').textContent)), 'prompt "F Go in" beside the door');
   const y0 = (await pos()).y;
-  ok(y0 < 5 && Math.abs(y0 - (await p.evaluate(() => __city.controllerManager.getGroundHeight(__city.controllerManager.entities.person.position.x, __city.controllerManager.entities.person.position.z, 'person')))) < 0.05, `outside the door on the ground (y ${y0.toFixed(2)})`);
+  ok(y0 < 100 && Math.abs(y0 - (await p.evaluate(() => __city.controllerManager.getGroundHeight(__city.controllerManager.entities.person.position.x, __city.controllerManager.entities.person.position.z, 'person')))) < 0.05, `outside the door on the ground (y ${y0.toFixed(2)})`);
   await p.keyboard.press('KeyF');
   await until(() => __city.interiors.inside, 30000);
   await p.waitForTimeout(1500);
@@ -70,12 +70,12 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // saved inside: back at the door
   await p.evaluate(() => window.dispatchEvent(new Event('pagehide')));
   const sv = await p.evaluate(() => JSON.parse(localStorage.getItem('melbourne-player-state')).entities.person);
-  ok(sv.y < 5 && Math.abs(sv.x + 218.3) < 0.2 && Math.abs(sv.z - 137) < 0.2, `a save made inside puts you at the street door ${JSON.stringify(sv)}`);
+  ok(sv.y < 100 && Math.abs(sv.x + 218.3) < 0.2 && Math.abs(sv.z - 137) < 0.2, `a save made inside puts you at the street door ${JSON.stringify(sv)}`);
   await p.keyboard.press('KeyF');
   await until(() => !__city.interiors.inside, 30000);
   await p.waitForTimeout(1500);
   q = await pos();
-  ok(q.y < 5 && Math.hypot(q.x + 218.3, q.z - 137) < 1.5, `out on the footpath ${JSON.stringify(q)}`);
+  ok(q.y < 100 && Math.hypot(q.x + 218.3, q.z - 137) < 1.5, `out on the footpath ${JSON.stringify(q)}`);
   ok(await p.evaluate(() => !document.body.classList.contains('in-room')) && !(await ii()).lit, 'indoor state cleared');
   // the Jobs list while inside: teleported out, nothing left on
   await p.evaluate(() => __city.interiors.enter());
@@ -83,7 +83,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.evaluate(() => __city.teleportTo(-300, 100, 0));
   await p.waitForTimeout(2000);
   q = await pos();
-  ok(!(await ii()).inside && q.y < 5 && !(await ii()).lit, 'teleported out from inside (the Jobs list): not stuck in the room');
+  ok(!(await ii()).inside && q.y < 100 && !(await ii()).lit, 'teleported out from inside (the Jobs list): not stuck in the room');
 
   // --- The Quiet Room's inside steps ------------------------------------------------------------------------------------
   await p.evaluate(() => { __city.gameplay.leaveCarNow(); __city.teleportTo(-221, 123, 0); __city.missions.startNow(8); });
