@@ -1,5 +1,5 @@
 // tools/melbourne/check-places.mjs: every story place (js/story/places.js) must be on the playable map: inside
-// GEO.bounds, at least 60 m from its edge, and not on water (unless marked onWater, like the end of St Kilda Pier).
+// GEO.bounds, at least 60 m from its edge, not inside a building (the landmark centres and interior floors with a y excepted) and not on water (unless marked onWater, like the end of St Kilda Pier).
 // Prints each place's district. Exits 1 on any failure. Run: node tools/melbourne/check-places.mjs
 import { readFile } from 'node:fs/promises';
 // the building data loads with fetch(); give node a file: fetch so it can be read here
@@ -31,6 +31,8 @@ function edgeDist(x, z) {
   return m;
 }
 // buildings a place may sit inside on purpose (interiors, landmarks, stadiums): inside:true on the place, or a y (interior floor)
+// landmark centres that are not used as a job's marker or a spawn point (they label the district map): a building's middle is fine
+const LANDMARK_CENTRES = new Set(['STHCROSS', 'FEDSQ', 'STATELIB', 'QVM', 'PARLIAMENT', 'STPATS', 'CROWN', 'EUREKA', 'SHRINE']);
 function buildingAt(x, z) {
   for (const b of REAL_BUILDINGS) {
     if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
@@ -46,7 +48,7 @@ for (const [id, p] of Object.entries(PLACES)) {
     if (!inside(p.x, p.z)) problems.push('outside the map');
     else if (edgeDist(p.x, p.z) < 60) problems.push(`${Math.round(edgeDist(p.x, p.z))} m from the map edge`);
     if (inWater(p.x, p.z) && !p.onWater) problems.push('on water');
-    if (p.y === undefined && !p.inBuilding && buildingAt(p.x, p.z)) problems.push('inside a building');
+    if (p.y === undefined && !p.inBuilding && !LANDMARK_CENTRES.has(id) && buildingAt(p.x, p.z)) problems.push('inside a building');
   }
   if (problems.length) bad++;
   console.log(`${problems.length ? 'FAIL' : 'ok  '} ${id.padEnd(15)} ${String(districtAt(p.x, p.z)).padEnd(16)} ${p.label}${problems.length ? '  <- ' + problems.join(', ') : ''}`);
