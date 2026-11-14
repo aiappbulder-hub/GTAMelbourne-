@@ -143,6 +143,8 @@ const MISSIONS = [
   {
     // a sit-down over coffee in St Kilda (js/stkilda.js plays the scene at the café's front table)
     id: 'M7', act: '2004', name: 'Short Black', call: ['Kaz', "Coffee. Acland Street, St Kilda, the Short Black. There's a man you should meet."], giver: 'Kaz', crew: 'Broadmeadows', scene: 'cafe', start: { cafe: true }, reward: 5500,
+    // straight on from Tobacco Wars: a short black card, then the player is at the café table (no trek to a marker)
+    chain: true, begin: { card: ['ST KILDA', 'Acland Street · the Short Black'], quick: true },
     cut: [['Kaz', "Sit down. You're making the locals nervous."],
       ['Mick', 'Best flat white south of the river, and you lot want to talk shop.'],
       ['Kaz', 'This is Mick. Mick moves things. Watches, phones, whatever falls off a truck. Today he is moving paper.'],
@@ -159,6 +161,7 @@ const MISSIONS = [
   },
   {
     id: 'M8', act: '2004', name: 'Harbour Run', call: ['Kaz', "It's all coming down. Flinders Street at Queen. Hurry."], giver: 'Kaz', crew: 'Broadmeadows', start: { grid: ['Flinders St', 'Queen St'] }, reward: 10000,
+    chain: true, begin: { card: ['FLINDERS STREET', 'Kestrel raided the Brighton house'], quick: true }, // (straight on from the café, five kilometres away)
     cut: [['Kaz', 'Kestrel raided the Brighton house. They know the book is gone, and so do both crews.'],
       ['Kaz', "There's a boat waiting off Harbour Esplanade. Be on it in two and a half minutes, or don't bother."]],
     steps: [
@@ -179,6 +182,7 @@ const MISSIONS = [
   // ---------------------------------------------------------------------------------------------------------------
   {
     id: 'A2', act: 'Act I', name: 'The Quiet Room', call: ['Davo', "Gus is at the bar now. Flinders Lane at Elizabeth Street. If you want the place, today's the day."], giver: 'Gus', crew: 'The Crossing', start: { place: 'HQ' }, reward: 3000,
+    chain: true, begin: { card: ['THE QUIET ROOM', 'Flinders Lane · Elizabeth Street'], quick: true }, // (straight on from the 2026 card)
     ride: [[3, 'Davo', "Gus Pappas. His old man poured beers in that bar for thirty years. Gus has poured them for the bank."],
       [14, 'Davo', "He'll sell. He just wants to be asked properly. Or not. Up to you."],
       [28, 'Davo', "And Ruby Achterberg has been ringing. Does the numbers for the Golden Reef crowd at Southbank. Says you gave her a way to reach you, years back."]],
@@ -1061,7 +1065,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (def.cut) showCut(def.cut, go);
       else go();
     };
-    const b = def.begin;
+    const b = def.begin || (opts?.chain ? { quick: true } : null);
     if (!b) return open();
     // a black card while the scene is set: out of any car, the job's car parked where it waits
     m.blackout = true;
@@ -1074,7 +1078,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elBlack.classList.add('on');
     gameplay?.leaveCarNow?.();
     if (b.car && gameplay?.placeCar) { const c = resolve({ place: b.car.place }); gameplay.placeCar(b.car.id, c.x, c.z, b.car.heading || 0); }
-    later(opts?.fromIntro ? 1.5 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
+    if (opts?.chain) { // handed over from the job before: set down at the start, whatever was going on and wherever the player was
+      const st = resolve(def.start), tp = window.__city?.teleportTo;
+      if (tp) tp(st.x, st.z, 0);
+    }
+    later(opts?.fromIntro ? 1.5 : b.quick ? 1.6 : 3.2, () => { // (straight from the intro: a beat of black, not a second title card)
       if (mission !== m) return;
       m.blackout = false;
       elBlack.classList.remove('on');
@@ -1160,6 +1168,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   }
   // a black card between chapters (2004, 2026) with the Ferryman's voice over it; no job starts under it
   let cardUp = false;
+  let chainJob = null; // { n, t }: the next job (def.chain) starts by itself t seconds after the last one passed (and any chapter card)
   let ride = { job: -1, t: 0, said: 0 }; // the passenger's talk on the way to the next job
   // The phone call that sends you to the next job: a card with who is ringing, what they say and where to go. It rings
   // a few seconds after the last job (or after the game loads), and again if you've done nothing about it for a while
@@ -1231,6 +1240,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
       sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
+    // the next job runs on from this one (def.chain): it starts by itself once MISSION PASSED has been read
+    const nxt = MISSIONS[n];
+    if (nxt && nxt.chain && save.progress === n) {
+      called = n; // (no phone call to send you there: it's about to begin)
+      chainJob = { n, t: 3.6 };
+    }
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
@@ -1305,6 +1320,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else if (!mission && startMarker.visible) point(startMarker.position, '#ff3d9a');
     else point(null);
 
+    if (chainJob) {
+      if (mission || focus !== null && focus !== chainJob.n || cur() !== chainJob.n) chainJob = null;
+      else if (!cut && !choiceOpen && !cardUp && bigT <= 0 && (chainJob.t -= dt) <= 0) { const n = chainJob.n; chainJob = null; start(n, { chain: true }); }
+    }
     if (!mission) {
       // the next job's marker
       if (cur() < MISSIONS.length) {
