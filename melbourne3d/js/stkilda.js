@@ -16,7 +16,8 @@ const PIER_DECK_Y = 1.1;
 const PIER_HALF = 3.2;
 export const PIER_END = { x: -1872, z: 5160 };
 // near the café strip of Acland Street, between Carlisle and Barkly Streets
-const ACLAND_NEAR = { x: -985, z: 5470 };
+// (a point on the street's real centreline in the map data, on land about 3 m above the water: -1015, 5373)
+const ACLAND_NEAR = { x: -1015, z: 5373 };
 
 export function createStKilda({ scene, cast, controllerManager }) {
   const group = new THREE.Group();
@@ -109,7 +110,9 @@ export function createStKilda({ scene, cast, controllerManager }) {
     // across the street from the road: nx, nz points from the road into the footpath
     const nx = uz * side, nz = -ux * side;
     const at = (along, out) => ({ x: px + ux * along + nx * (kerb + out), z: pz + uz * along + nz * (kerb + out) });
-    return { ux, uz, nx, nz, kerb, at, y: 0.22, road: { x: px, z: pz } };
+    // the footpath's height there: the terrain under the café (the old fixed 0.22 buried everything 3 m under the hill)
+    const gy = controllerManager?.getGroundHeight?.(px + nx * (kerb + 1.6), pz + nz * (kerb + 1.6), 'person');
+    return { ux, uz, nx, nz, kerb, at, y: Number.isFinite(gy) ? gy : 0.22, road: { x: px, z: pz } };
   }
 
   const props = new THREE.Group();

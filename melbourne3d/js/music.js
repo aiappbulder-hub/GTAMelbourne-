@@ -34,15 +34,22 @@ function makeKit(ctx) {
     for (let i = 0; i < d.length; i++) { const k = i / d.length; lp += (rr() * 2 - 1 - lp) * (0.55 - 0.45 * k); d[i] = lp * (1 - k) ** 2.6 * 1.6; }
   }
   const curve = (k) => { const a = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; a[i] = Math.tanh(k * x) / Math.tanh(k); } return a; };
-  return { noise, impulse, driveCurve: curve(5), softCurve: curve(2.2) };
+  return { noise, impulse, driveCurve: curve(3), softCurve: curve(2.2) };
 }
 
+// An amp envelope that never jumps: it starts at ~0, the release begins from the value the decay has really reached (not
+// from the sustain level), and the tail is ramped to exactly 0 before the oscillators stop. Returns the time to stop at.
 function env(g, t, peak, a, d, s, hold, r) {
   g.setValueAtTime(0.0001, t);
   g.linearRampToValueAtTime(peak, t + a);
   g.setTargetAtTime(peak * s, t + a, d / 3);
-  g.setValueAtTime(peak * s, t + a + hold);
-  g.setTargetAtTime(0.0001, t + a + hold, r / 3);
+  const tRel = t + a + hold, vRel = peak * s + peak * (1 - s) * Math.exp(-hold / (d / 3));
+  g.setValueAtTime(vRel, tRel);
+  g.setTargetAtTime(0.0001, tRel, r / 3);
+  const tEnd = tRel + r * 1.2;
+  g.setValueAtTime(0.0001 + vRel * Math.exp(-3.6), tEnd);
+  g.linearRampToValueAtTime(0, tEnd + 0.03);
+  return tEnd + 0.04;
 }
 
 /** One pitched note: stacked detuned oscillators -> lowpass (with an opening envelope) -> amp envelope -> destinations */
@@ -57,11 +64,11 @@ function tone(ctx, kit, o) {
   lp.frequency.setValueAtTime(top, o.t);
   lp.frequency.setTargetAtTime(base, o.t + 0.005, o.lpDecay ?? 0.15);
   let node = lp;
-  if (o.drive) { const ws = ctx.createWaveShaper(); ws.curve = kit.driveCurve; lp.connect(ws); node = ws; }
+  if (o.drive) { const ws = ctx.createWaveShaper(); ws.curve = kit.driveCurve; ws.oversample = '4x'; lp.connect(ws); const tame = ctx.createBiquadFilter(); tame.type = 'lowpass'; tame.frequency.value = 4500; tame.Q.value = 0.5; ws.connect(tame); node = tame; } // (the lowpass takes the fizz off the clipped edges)
   node.connect(amp);
-  env(amp.gain, o.t, o.vel ?? 0.2, a, o.d ?? 0.3, o.s ?? 0.7, Math.max(0.01, dur - a), rel);
-  const end = o.t + dur + rel * 1.2 + 0.1;
+  const end = env(amp.gain, o.t, o.vel ?? 0.2, a, o.d ?? 0.3, o.s ?? 0.7, Math.max(0.01, dur - a), rel);
   const dets = o.detune ?? [0];
+  let last = null;
   for (let i = 0; i < dets.length; i++) {
     const os = ctx.createOscillator();
     os.type = o.type ?? 'sawtooth';
@@ -70,18 +77,21 @@ function tone(ctx, kit, o) {
     if (o.vib) { os.frequency.setValueAtTime(mtof(o.m), o.t); }
     const og = ctx.createGain(); og.gain.value = 1 / dets.length ** 0.7;
     os.connect(og).connect(lp);
-    os.start(o.t); os.stop(end);
+    os.start(o.t); os.stop(end); last = os;
   }
   if (o.sub) {
     const os = ctx.createOscillator(); os.type = 'sine'; os.frequency.value = mtof(o.m - 12);
     const og = ctx.createGain(); og.gain.value = o.sub;
-    os.connect(og).connect(amp); os.start(o.t); os.stop(end);
+    os.connect(og).connect(amp); os.start(o.t); os.stop(end); last = os;
   }
   let p = head;
   if (o.pan) { const pn = ctx.createStereoPanner(); pn.pan.value = o.pan; p.connect(pn); p = pn; }
   p.connect(o.to);
-  if (o.rev) { const s = ctx.createGain(); s.gain.value = o.rev; p.connect(s).connect(o.fx.rev); }
-  if (o.dly) { const s = ctx.createGain(); s.gain.value = o.dly; p.connect(s).connect(o.fx.dly); }
+  let sendD = null, sendR = null;
+  if (o.rev) { sendR = ctx.createGain(); sendR.gain.value = o.rev; p.connect(sendR).connect(o.fx.rev); }
+  if (o.dly) { sendD = ctx.createGain(); sendD.gain.value = o.dly; p.connect(sendD).connect(o.fx.dly); }
+  // once the last oscillator has ended, take the note's nodes out of the graph (nothing piles up)
+  if (last) last.onended = () => { try { p.disconnect(); amp.disconnect(); sendR?.disconnect(); sendD?.disconnect(); } catch { /* gone */ } };
 }
 
 function kick(ctx, to, t, vel = 1, o = {}) {
@@ -91,7 +101,8 @@ function kick(ctx, to, t, vel = 1, o = {}) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(vel * (o.vol ?? 0.9), t + 0.004);
   g.gain.setTargetAtTime(0.0001, t + 0.01, (o.decay ?? 0.16) / 3.5);
-  os.connect(g).connect(to); os.start(t); os.stop(t + (o.decay ?? 0.16) * 1.6 + 0.05);
+  os.connect(g).connect(to); os.start(t); os.stop(t + (o.decay ?? 0.16) * 2.6 + 0.05);
+  os.onended = () => g.disconnect();
 }
 function noiseHit(ctx, kit, to, t, o) {
   const src = ctx.createBufferSource(); src.buffer = kit.noise; src.loopStart = 0;
@@ -101,7 +112,8 @@ function noiseHit(ctx, kit, to, t, o) {
   g.gain.linearRampToValueAtTime(o.vel, t + (o.a ?? 0.002));
   g.gain.setTargetAtTime(0.0001, t + (o.a ?? 0.002), o.decay / 3);
   src.connect(f).connect(g).connect(to);
-  src.start(t, (t * 7.31) % 1.5); src.stop(t + o.decay * 1.8 + 0.05);
+  src.start(t, (t * 7.31) % 1.5); src.stop(t + o.decay * 2.8 + 0.05);
+  src.onended = () => { try { g.disconnect(); } catch { /* gone */ } };
   return g;
 }
 function snare(ctx, kit, B, t, vel = 1, o = {}) {
@@ -259,7 +271,7 @@ const STYLES = {
   },
 
   rock: {
-    name: 'Westgate 104', tag: 'Driving rock', bpm: 126, key: 40, scale: MINOR, duck: 0.12, level: 0.55, delay: 0.75,
+    name: 'Westgate 104', tag: 'Driving rock', bpm: 126, key: 40, scale: MINOR, duck: 0.12, level: 0.45, delay: 0.75,
     sections: [
       { n: 4, drums: 1, gtr: 1, bass: 1, pg: 0 }, { n: 4, drums: 1, gtr: 1, bass: 1, pg: 0, lead: 0 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 1 },
       { n: 4, drums: 1, gtr: 1, bass: 1, pg: 2 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 1 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 3 }
@@ -277,7 +289,7 @@ const STYLES = {
       }
       if (sec.bass) {
         const root = Math.min(...chord) - 12 > 46 ? Math.min(...chord) - 24 : Math.min(...chord) - 12;
-        for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.7, m: root + ((sec.bass && i === 14 && B.bar % 2) ? 7 : 0), type: 'sawtooth', lp: 520, lpEnv: 2, q: 1.5, vel: 0.2, a: 0.004, s: 0.85, r: 0.05, sub: 0.5, drive: 1 });
+        for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.7, m: root + ((sec.bass && i === 14 && B.bar % 2) ? 7 : 0), type: 'sawtooth', lp: 520, lpEnv: 2, q: 1.5, vel: 0.2, a: 0.004, s: 0.85, r: 0.05, sub: 0.5 });
       }
       if (sec.gtr) {
         // distorted power chords: palm-muted eighths in verses, open ringing chords in choruses
@@ -334,7 +346,7 @@ const STYLES = {
       }
       if (sec.riser) {
         const g = noiseHit(ctx, kit, B.dry, B.t0, { f: 400, vel: 0.001, decay: B.spb * 4, type: 'bandpass', q: 2 });
-        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.14, B.t0 + B.spb * 4); g.gain.setValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.01);
+        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.14, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.15);
         if (B.bar % 4 === 3) for (let i = 8; i < 16; i++) snare(ctx, kit, B, at(B, i), 0.2 + i * 0.03, { tone: 240 });
       }
     }
@@ -376,7 +388,7 @@ const STYLES = {
     bar(B) {
       const { ctx, kit, sec, chord, r } = B;
       const root = Math.min(...chord);
-      for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.6, m: root - 12 + (sec.pulse === 2 && i % 8 === 6 ? 12 : 0), type: 'sawtooth', lp: 260 + 240 * Math.sin((B.bar * 16 + i) / 9) ** 2, lpEnv: 3, lpDecay: 0.12, q: 5, vel: 0.2, a: 0.003, s: 0.8, r: 0.05, sub: 0.8, drive: 1 });
+      for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.6, m: root - 12 + (sec.pulse === 2 && i % 8 === 6 ? 12 : 0), type: 'sawtooth', lp: 260 + 240 * Math.sin((B.bar * 16 + i) / 9) ** 2, lpEnv: 3, lpDecay: 0.12, q: 5, vel: 0.2, a: 0.003, s: 0.8, r: 0.05, sub: 0.8 });
       for (const i of [0, 8]) { kick(ctx, B.dry, at(B, i), 0.8, { f0: 100, f1: 38, decay: 0.3 }); B.kickAt(at(B, i)); }
       if (sec.pulse === 2) for (const i of [4, 12]) { kick(ctx, B.dry, at(B, i), 0.5, { f0: 90, f1: 40 }); noiseHit(ctx, kit, B.dry, at(B, i), { f: 900, type: 'bandpass', q: 1.5, vel: 0.3, decay: 0.12 }); }
       for (let i = 0; i < 16; i++) if (i % 2 || r() < 0.3) hat(ctx, kit, B, at(B, i), 0.04 + 0.04 * r());
@@ -384,7 +396,7 @@ const STYLES = {
       if (sec.hits && (B.bar % 2 === 1 || sec.hits === 2)) for (const n of [12, 13, 18]) tone(ctx, kit, { to: B.dry, fx: B.fx, t: at(B, sec.hits === 2 ? 10 : 6), dur: 0.5, m: root + 24 + n, type: 'square', lp: 1200, lpEnv: 2, lpDecay: 0.2, vel: 0.03, a: 0.01, s: 0.4, r: 0.5, rev: 0.6, dly: 0.5 });
       if (sec.riser && B.bar % 4 === 3) {
         const g = noiseHit(ctx, kit, B.dry, B.t0, { f: 1500, vel: 0.001, decay: 3, type: 'bandpass', q: 3 });
-        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.12, B.t0 + B.spb * 4); g.gain.setValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.01);
+        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.12, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.15);
       }
       for (const m of chord) tone(ctx, kit, { to: B.dry, fx: B.fx, t: B.t0, dur: B.spb * 4, m: m + 12, type: 'sawtooth', detune: [-18, 18], lp: 500, vel: 0.03, a: 0.8, s: 0.9, r: 1, rev: 0.4 });
     }
@@ -402,9 +414,10 @@ export function createEngine(ctx, destination) {
   const mix = ctx.createGain();
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -17; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.008; comp.release.value = 0.2;
-  const soft = ctx.createWaveShaper(); soft.curve = kit.softCurve; // keeps peaks under full scale
-  const trim = ctx.createGain(); trim.gain.value = 0.85;
-  mix.connect(comp).connect(soft).connect(trim).connect(destination);
+  const soft = ctx.createWaveShaper(); soft.curve = kit.softCurve; soft.oversample = '4x'; // keeps peaks under full scale
+  const trim = ctx.createGain(); trim.gain.value = 0.78;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 28; hp.Q.value = 0.5; // no DC or sub-bass rumble into the compressor
+  mix.connect(hp).connect(comp).connect(soft).connect(trim).connect(destination);
   // shared reverb and a filtered feedback delay
   const revIn = ctx.createGain(), rev = ctx.createConvolver(); rev.buffer = kit.impulse;
   const revOut = ctx.createGain(); revOut.gain.value = 0.9;
@@ -414,7 +427,7 @@ export function createEngine(ctx, destination) {
   dlyIn.connect(dly); dly.connect(dlp).connect(fb).connect(dly); dlp.connect(mix);
   const fx = { rev: revIn, dly: dlyIn };
   const tracks = [];
-  let lookahead = 1.1;
+  let lookahead = 1.6; // seconds of music queued ahead: a stalled main thread (a slow frame) cannot run the queue dry
 
   function startTrack(id, { fade = 1.5, at: t0 = ctx.currentTime + 0.05 } = {}) {
     const style = STYLES[id];
@@ -451,7 +464,7 @@ export function createEngine(ctx, destination) {
       r: rng(hash(bar, cycle, secIdx, st.bpm)),
       kickAt(t) {
         if (!st.duck) return;
-        const g = tr.scGain; g.setValueAtTime(1 - st.duck, t); g.linearRampToValueAtTime(1, t + 0.28);
+        const g = tr.scGain; g.setTargetAtTime(1 - st.duck, t, 0.004); g.setTargetAtTime(1, t + 0.03, 0.1); // (a step down was a click on every kick)
       }
     };
     (st.bar).call(st, B);
@@ -512,7 +525,7 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
   const api = { supported: !!Ctor };
   if (!Ctor) return Object.assign(api, { state: { playing: false, station: null, level: 0 } });
 
-  let ctx = null, eng = null, master = null, duckG = null, analyser = null, buf = null;
+  let masterSet = -1, ctx = null, eng = null, master = null, duckG = null, analyser = null, buf = null;
   let gestured = false, timer = 0, scene = 'none', station = settings.station, inCar = false, ducked = 1;
   let toastEl = null, toastT = 0, suspended = false, wantSuspend = false;
 
@@ -531,7 +544,10 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
     duckG = ctx.createGain();
     analyser = ctx.createAnalyser(); analyser.fftSize = 1024; buf = new Float32Array(1024);
     eng = createEngine(ctx, duckG);
-    duckG.connect(master); master.connect(ctx.destination); master.connect(analyser);
+    // a last-resort limiter after the volume: whatever the mix does, nothing reaches the converter hotter than about -1 dBFS
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.12;
+    duckG.connect(master); master.connect(limiter); limiter.connect(ctx.destination); master.connect(analyser);
     return true;
   }
   const level = () => { if (!analyser || ctx.state !== 'running') return 0; analyser.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return Math.sqrt(s / buf.length); };
@@ -554,7 +570,7 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
     if (!ensure()) return;
     const mute = silent();
     if (mute && !suspended) {
-      master.gain.setTargetAtTime(0, ctx.currentTime, 0.04);
+      master.gain.setTargetAtTime(0, ctx.currentTime, 0.04); masterSet = -1;
       if (!wantSuspend) { wantSuspend = true; setTimeout(() => { if (wantSuspend && silent()) { ctx.suspend().catch(() => {}); suspended = true; } wantSuspend = false; }, 250); }
     } else if (!mute && (suspended || ctx.state === 'suspended')) {
       suspended = false; wantSuspend = false;
@@ -575,7 +591,8 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
     applyScene(wantedScene());
     const target = (voices?.speaking || missionSystem?.busy || isCinematic()) ? 0.3 : 1;
     if (target !== ducked) { ducked = target; duckG.gain.setTargetAtTime(target, ctx.currentTime, target < 1 ? 0.12 : 0.6); }
-    master.gain.setTargetAtTime(settings.volume * 0.9, ctx.currentTime, 0.1);
+    const vol = settings.volume * 0.9;
+    if (vol !== masterSet) { masterSet = vol; master.gain.setTargetAtTime(vol, ctx.currentTime, 0.1); } // (only on a change: it was a new automation event every 100 ms)
     eng.tick();
   }
 
