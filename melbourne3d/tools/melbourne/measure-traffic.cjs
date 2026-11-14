@@ -1,16 +1,16 @@
 // tools/melbourne/measure-traffic.cjs: how evenly cars are spread around several places, after the sim has run a while.
 // Serve melbourne3d/ (python3 -m http.server 8801) then PORT=8801 [Q=high] [SIM=120] [SPOTS=cbd,dock] [DRIVE=1] node tools/melbourne/measure-traffic.cjs
 // The page's traffic update is wrapped to run 20 fixed 0.05 s sim steps per frame, so two sim-minutes pass quickly in
-// software rendering. "stand" parks the camera at each spot; DRIVE moves a virtual focus 30 m/s along +x (no view
+// software rendering (BASE=/melbourne3d when serving the repo root). "stand" parks the camera at each spot; DRIVE moves a virtual focus 30 m/s along +x (no view
 // culling) and measures ahead of and behind it, to see whether density follows the player. Numbers per 150 m disc.
 const { chromium } = require('playwright');
 const log = (...a) => console.log(...a);
-const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], carlton: [356, -1128], stkilda: [-701, 4960], edge: [-2600, 2500] };
+const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], carlton: [356, -1128], stkilda: [-701, 4960], edge: [-2600, 2500], sbank: [-226, 858], skr: [25, 1777] };
 (async () => {
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 320, height: 200 } })).newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-  await p.goto(`http://localhost:${process.env.PORT || 8801}/index.html?webgl&quality=${process.env.Q || 'high'}&nointro&nofilm`, { timeout: 120000 });
+  await p.goto(`http://localhost:${process.env.PORT || 8801}${process.env.BASE || ''}/index.html?webgl&quality=${process.env.Q || 'high'}&nointro&nofilm`, { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.gameplay && __city.trafficSystem, null, { timeout: 480000 }); await p.waitForTimeout(2000);
   await p.evaluate(() => {
     const ts = __city.trafficSystem, orig = ts.update.bind(ts);
@@ -63,7 +63,8 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
     let maxSeg = 0, small = 0;
     for (const e of edges) { let c = 0; e.occ.forEach((l) => { c += l.length; }); if (near(e.sx + e.dx * e.len / 2, e.sz + e.dz * e.len / 2)) maxSeg = Math.max(maxSeg, c); if (!(e.axis === 'ave' || e.lanes.length >= 2 || e.half >= 7)) small += c; }
     const mv = all.filter((c) => c.speed > 0.5).length;
-    return { totalOut, maxSeg, onSmallStreets: small, n: all.length, per100mLane: +(all.length / laneLen * 100).toFixed(2), roads, emptyPct: +(empty / roads * 100).toFixed(0), packedPct: +(packed / roads * 100).toFixed(0),
+    const n60 = all.filter((c) => Math.hypot(c.x - cx, c.z - cz) < 60).length, n100 = all.filter((c) => Math.hypot(c.x - cx, c.z - cz) < 100).length;
+    return { n60, n100, totalOut, maxSeg, onSmallStreets: small, n: all.length, per100mLane: +(all.length / laneLen * 100).toFixed(2), roads, emptyPct: +(empty / roads * 100).toFixed(0), packedPct: +(packed / roads * 100).toFixed(0),
       nnMed: pc(nn, 0.5), nnP10: pc(nn, 0.1), nnLt6Pct: +(nn.filter((d) => d < 6).length / nn.length * 100).toFixed(0), laneGapMed: pc(gaps, 0.5), laneGapP10: pc(gaps, 0.1),
       bumperPct: +(bb / Math.max(1, gaps.length) * 100).toFixed(0), queuedBB: queued, stuck20: stuck, leadStuck, leadStuckNoRed, stuck60All: stuckAll, overlap, top10roadsShare: +(top / Math.max(1, all.length) * 100).toFixed(0), movingPct: +(mv / Math.max(1, all.length) * 100).toFixed(0) };
   }, [cx, cz]);
