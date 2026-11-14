@@ -883,6 +883,29 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   const driving = () => controllerManager.activeMode === 'car';
 
   let mission = null; // { def, i, si, timer, data }
+  // seconds from one line being said to the next one starting (a little longer after a question)
+  const lineGap = (text) => (/\?["')]*\s*$/.test(text) ? 0.5 : 0.25);
+  // Timed lines (a ride, a step's `lines`) are said one at a time, in turn: a line never starts over the one before
+  // (it waits for it to end), and when a DIFFERENT person answers it starts a breath (lineGap) after the last ended
+  // even if its authored time is later (up to CHAIN_PULL seconds away), so back-and-forth flows.
+  const CHAIN_PULL = 10;
+  const nowS = () => performance.now() / 1000;
+  const chain = { busy: false, hard: 0, endedAt: -1, who: null, text: '' };
+  function chainSay(who, text) {
+    chain.busy = true; chain.endedAt = -1; chain.who = who; chain.text = text;
+    const said = voices?.sayText(text, { subtitle: false, who, onEnd: () => { if (chain.text === text) { chain.busy = false; chain.endedAt = nowS(); } } });
+    if (said) chain.hard = nowS() + said.duration * 1.5 + 1.5; else chain.busy = false;
+    return said;
+  }
+  /** May the next timed line, by `who`, start now? (`ahead`: seconds until its authored time, <= 0 when it is due) */
+  function chainOpen(who, ahead) {
+    if (chain.busy && nowS() < chain.hard) return false;
+    chain.busy = false;
+    const since = chain.endedAt >= 0 ? nowS() - chain.endedAt : 1e9;
+    if (since < 0.2) return false;
+    if (ahead <= 0) return true;
+    return chain.who !== null && chain.who !== who && chain.endedAt >= 0 && ahead <= CHAIN_PULL && since >= lineGap(chain.text);
+  }
   let cut = null; // { lines, k, done }
   let bigT = 0, subT = 0;
   // Delays on game time, not the wall clock: they hold while the tab is hidden and stretch when the game runs slowly
@@ -1020,8 +1043,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     elCut.hidden = false;
     // the line spoken (a recording, or the browser's voice; the panel already shows the words). The scene plays itself:
     // the next line follows once this one has been said (Enter or a click still moves it on sooner)
-    const said = voices?.sayText(line, { subtitle: false, who });
-    cut.auto = Math.max(said?.duration || 0, 1.4 + line.length / 12) + 0.7; // (long enough for the browser's voice to finish too)
+    // The next line follows as soon as this one has really ended (the clip's `ended`, or the browser voice's `end`) plus a
+    // short breath (GAP; longer after a question). `auto` is only the fallback if no end is ever reported.
+    const mine = cut, k = cut.k;
+    voices?.preload?.(cut.lines.slice(k, k + 3).map((l) => l[1]));
+    const said = voices?.sayText(line, { subtitle: false, who, onEnd: (ok) => {
+      if (!ok || cut !== mine || cut.k !== k) return;
+      cut.auto = 1e9; // (the timer below moves it on, not the frame count)
+      setTimeout(() => { if (cut === mine && cut.k === k) advanceCut(); }, lineGap(line) * 1000);
+    } });
+    cut.auto = said ? said.duration * (said.speech ? 1.4 : 1) + 1.2 : 0.8 + line.length / 14; // (no voice at all: time to read it)
   }
   function advanceCut(skip = false) {
     if (!cut) return;
@@ -1114,6 +1145,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
+    voices?.preload?.((s.lines || []).map((l) => l[2]));
     m.stepT = 0;
     m.said = 0;
     m.clear = 0;
@@ -1152,8 +1184,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         persist();
         if (o.reply) {
           sub(`${s.choice.who}: ${o.reply}`, 5);
-          const said = voices?.sayText(o.reply, { who: s.choice.who });
-          m.replyT = Math.max(said?.duration || 0, 1.2 + o.reply.length / 15) + 0.4; // the answer is heard out, then on
+          const said = voices?.sayText(o.reply, { who: s.choice.who, onEnd: (ok) => {
+            if (!ok || mission !== m || !(m.replyT > 0)) return;
+            const si = m.si;
+            m.replyT = 1e9;
+            setTimeout(() => { if (mission === m && m.si === si && m.replyT > 0) { m.replyT = 0; nextStep(); } }, lineGap(o.reply) * 1000);
+          } });
+          // the answer is heard out, then on (as soon as it has ended, plus a breath; the timer is the fallback)
+          m.replyT = said ? said.duration * (said.speech ? 1.4 : 1) + 1.2 : 0.8 + o.reply.length / 14;
         } else nextStep();
       });
     }
@@ -1199,11 +1237,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     callUp = 11;
     if (!again) voices?.sayText(def.call[1], { subtitle: false, who: def.call[0] });
   }
-  function chapterCard(after) {
+  function chapterCard(after, delay = 2.8) {
     cardUp = true;
     // a line that depends on a choice the player made (a saved flag), else the one line
     const line = after.lineIf ? (save.flags[after.lineIf.flag] ? after.lineIf.yes : after.lineIf.no) : after.line;
-    later(2.8, () => {
+    later(delay, () => {
       elBlack.innerHTML = '';
       const t = document.createElement('b');
       t.textContent = after.card[0];
@@ -1225,8 +1263,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   function pass() {
     const def = mission.def;
     cleanup();
-    if (def.after) chapterCard(def.after);
-    if (def.outro) { voices?.sayText(def.outro[1], { who: def.outro[0] }); sub(`${def.outro[0]}: ${def.outro[1]}`, 5); }
+    // the outro is said first; the chapter card's own line follows it a breath after it ends (not on a fixed 2.8 s)
+    let outroSecs = 0;
+    if (def.outro) {
+      const said = voices?.sayText(def.outro[1], { who: def.outro[0] });
+      outroSecs = said ? said.duration + lineGap(def.outro[1]) : 0;
+      sub(`${def.outro[0]}: ${def.outro[1]}`, 5);
+    }
+    if (def.after) chapterCard(def.after, outroSecs > 0 ? Math.max(outroSecs, 1.2) : 2.8);
     save.money += def.reward;
     save.progress = Math.max(save.progress, mission.i + 1);
     focus = null;
@@ -1346,10 +1390,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
         if (def.ride && driving() && !cut && !cardUp && d > 30 && callUp < 4) {
           if (ride.job !== cur()) ride = { job: cur(), t: 0, said: 0 };
           ride.t += dt;
-          while (ride.said < def.ride.length && ride.t >= def.ride[ride.said][0]) {
+          if (!ride.pre) { ride.pre = true; voices?.preload?.(def.ride.map((l) => l[2])); }
+          while (ride.said < def.ride.length && chainOpen(def.ride[ride.said][1], def.ride[ride.said][0] - ride.t)) {
             const [, who, text] = def.ride[ride.said++];
             sub(`${who}: ${text}`, Math.max(4.5, text.length / 14));
-            voices?.sayText(text, { subtitle: false, who });
+            chainSay(who, text);
           }
         }
         if (!cut && d < 8 && bigT <= 0 && !cardUp) start(cur());
@@ -1454,10 +1499,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     }
     showActors(acts);
     // timed lines (Davo talking in the car)
-    while (s.lines && m.said < s.lines.length && m.stepT >= s.lines[m.said][0]) {
+    while (s.lines && m.said < s.lines.length && chainOpen(s.lines[m.said][1], s.lines[m.said][0] - m.stepT)) {
       const [, who, text] = s.lines[m.said++];
       sub(`${who}: ${text}`, 4.5);
-      voices?.sayText(text, { subtitle: false, who });
+      chainSay(who, text);
     }
     pursuer.update(dt);
     if (pursuer.active && !pursuer.parked) {
@@ -1642,6 +1687,10 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     applyCamera,
     get inCut() { return !!cut; },
     /** The step the job is on (or null) */
+    /** For scripted checks: the open job's steps, and a way to jump to one */
+    get steps() { return mission ? mission.def.steps : null; },
+    debugAdvance(sec) { if (mission) mission.stepT += sec; },
+    debugGotoStep(i) { if (mission) { mission.si = i - 1; nextStep(); } },
     get step() { return mission && mission.si >= 0 ? mission.def.steps[mission.si] : null; },
     /** A job is under way */
     get onJob() { return !!mission; },
