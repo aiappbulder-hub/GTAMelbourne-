@@ -34,7 +34,7 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
 // The motion capture's ground speeds (m/s), measured from the stance feet of the clips (tools/melbourne/test-anim.cjs checks
 // them): a walk cycle of 1.07 s covers 1.5 m, a run cycle of 0.73 s covers 2.2 m. ARA_PHASE: the fraction of each loop at which the
 // left foot is furthest forward, so a walk and a run can be played together in step and blended by speed
-const ARA_GAIT = { walk: 1.42, run: 3.05, sprint: 3.05 };
+const ARA_GAIT = { walk: 1.42, run: 3.12, sprint: 3.12 };
 const ARA_PHASE = { walk: 0.517, run: 0.633 };
 // Recoil per weapon: how far the muzzle flips up (rad), the gun is pulled back (m) and the torso rocks back (rad) at a shot
 const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0.06, back: 0.035, torso: 0.035 }, shotgun: { rise: 0.3, back: 0.13, torso: 0.17 },
@@ -474,13 +474,33 @@ export function createCast({ scene, controllerManager }) {
     || a.root.getObjectByName(n.replace('Hips', 'Pelvis').replace('Left', 'L_').replace('Right', 'R_'))])));
   const AX = { up: new THREE.Vector3(0, 1, 0), left: new THREE.Vector3(), fw: new THREE.Vector3() };
   const _sw = new THREE.Quaternion(), _sp = new THREE.Quaternion();
-  function swing(bone, axis, ang) {
+  // (Some clips don't key every bone: the aim clip leaves the spine alone. A bone the mixer didn't write this frame still holds
+  // last frame's layered rotation, so each bone's pre-layer rotation is kept and put back first, and the layer is never cumulative)
+  function unlayer(a) {
+    a.layerFrame = (a.layerFrame || 0) + 1;
+    if (!a.layered) return;
+    for (const [bone, rec] of a.layered) {
+      if (rec.post && bone.quaternion.equals(rec.post)) bone.quaternion.copy(rec.pre); // (not rewritten by the mixer: undo our own)
+      if (rec.posPost && bone.position.equals(rec.posPost)) bone.position.copy(rec.posPre);
+      rec.post = rec.posPost = null;
+    }
+  }
+  function layerRec(a, bone) {
+    const m = a.layered || (a.layered = new Map());
+    let rec = m.get(bone);
+    if (!rec) m.set(bone, rec = { pre: new THREE.Quaternion(), post: null, posPre: new THREE.Vector3(), posPost: null });
+    if (!rec.post) rec.pre.copy(bone.quaternion);
+    return rec;
+  }
+  function swing(a, bone, axis, ang) {
     if (!bone || !ang) return;
+    const rec = layerRec(a, bone);
     bone.parent.updateWorldMatrix(true, false);
     bone.parent.getWorldQuaternion(_sp);
     _sw.setFromAxisAngle(axis, ang);
     _sw.premultiply(_sp.clone().invert()).multiply(_sp.clone()); // parent^-1 * delta * parent
     bone.quaternion.premultiply(_sw);
+    rec.post = (rec.post || new THREE.Quaternion()).copy(bone.quaternion);
     bone.updateWorldMatrix(false, true);
   }
   /** k: { fwd (torso bend forward, over Spine..Spine2), head (neck+head extra bend), twist (torso turn left about the up axis), legs:
@@ -491,8 +511,15 @@ export function createCast({ scene, controllerManager }) {
     const h = a.heading;
     AX.fw.set(Math.sin(h), 0, Math.cos(h));
     AX.left.set(Math.cos(h), 0, -Math.sin(h));
+    unlayer(a);
     a.group.updateMatrixWorld(true);
-    if (k.crouch && S.Hips) { S.Hips.position.y -= k.crouch; S.Hips.updateWorldMatrix(false, true); }
+    if (k.crouch && S.Hips) {
+      const rec = layerRec(a, S.Hips);
+      if (!rec.posPost) rec.posPre.copy(S.Hips.position);
+      S.Hips.position.y -= k.crouch;
+      rec.posPost = (rec.posPost || new THREE.Vector3()).copy(S.Hips.position);
+      S.Hips.updateWorldMatrix(false, true);
+    }
     const L = AX.left;
     if (k.airK > 0.01 || k.land > 0.01) {
       // legs: a jump tucks the knees (the leading leg higher), the fall reaches for the ground, a landing bends both knees
@@ -500,19 +527,19 @@ export function createCast({ scene, controllerManager }) {
       const lead = a.legSide || 1;
       const tuckL = air * (0.25 + 0.85 * up) * (lead > 0 ? 1 : 0.45) + air * 0.3 * fall, tuckR = air * (0.25 + 0.85 * up) * (lead > 0 ? 0.45 : 1) + air * 0.3 * fall;
       const land = k.land || 0;
-      swing(S.LeftUpLeg, L, -(tuckL + land * 0.55)); swing(S.LeftLeg, L, tuckL * 1.5 + land * 1.0 - air * fall * 0.25);
-      swing(S.RightUpLeg, L, -(tuckR + land * 0.55)); swing(S.RightLeg, L, tuckR * 1.5 + land * 1.0 - air * fall * 0.25);
+      swing(a, S.LeftUpLeg, L, -(tuckL + land * 0.55)); swing(a, S.LeftLeg, L, tuckL * 1.5 + land * 1.0 - air * fall * 0.25);
+      swing(a, S.RightUpLeg, L, -(tuckR + land * 0.55)); swing(a, S.RightLeg, L, tuckR * 1.5 + land * 1.0 - air * fall * 0.25);
       // arms: thrown up and out for the jump, out for balance on the way down
       const out = air * (0.35 + 0.65 * fall) * 0.9;
-      swing(S.LeftArm, AX.fw, out); swing(S.RightArm, AX.fw, -out);
-      if (up > 0) { swing(S.LeftArm, L, -air * up * 0.5); swing(S.RightArm, L, -air * up * 0.5); }
+      swing(a, S.LeftArm, AX.fw, out); swing(a, S.RightArm, AX.fw, -out);
+      if (up > 0) { swing(a, S.LeftArm, L, -air * up * 0.5); swing(a, S.RightArm, L, -air * up * 0.5); }
     }
     const fwd = k.fwd || 0;
-    if (fwd) { swing(S.Spine, L, fwd * 0.3); swing(S.Spine1, L, fwd * 0.4); swing(S.Spine2, L, fwd * 0.3); }
-    if (k.twist) { swing(S.Spine, AX.up, k.twist * 0.3); swing(S.Spine1, AX.up, k.twist * 0.4); swing(S.Spine2, AX.up, k.twist * 0.3); }
+    if (fwd) { swing(a, S.Spine, L, fwd * 0.3); swing(a, S.Spine1, L, fwd * 0.4); swing(a, S.Spine2, L, fwd * 0.3); }
+    if (k.twist) { swing(a, S.Spine, AX.up, k.twist * 0.3); swing(a, S.Spine1, AX.up, k.twist * 0.4); swing(a, S.Spine2, AX.up, k.twist * 0.3); }
     // the head stays on the horizon (or follows the aim) while the torso bends
     const hd = (k.head || 0) - fwd * 0.55;
-    if (hd) { swing(S.Neck, L, hd * 0.4); swing(S.Head, L, hd * 0.6); }
+    if (hd) { swing(a, S.Neck, L, hd * 0.4); swing(a, S.Head, L, hd * 0.6); }
   }
 
   // A face that lives (Ara characters' blend shapes): a blink every 2-6 s, the lids closing and opening over 0.16 s, on top
@@ -618,10 +645,10 @@ export function createCast({ scene, controllerManager }) {
     gs.kick = Math.max(0, gs.kick - dt * 7);
     gs.rl = 0;
     if (!gs.armed || !WEAPON_BY_ID[gs.id]) { gs.raise = 0; gs.shownId = null; gs.drawK = 0; return; }
-    // changing weapon: the gun in hand lowers (0.16 s), then the new one comes up (0.3 s): drawK is how far up the gun in hand is
+    // changing weapon: the gun in hand lowers (0.18 s), then the new one comes up (0.34 s): drawK is how far up the gun in hand is
     if (gs.shownId === null || !WEAPON_BY_ID[gs.shownId]) { gs.shownId = gs.id; gs.drawK = 0; }
-    if (gs.shownId !== gs.id) { gs.drawK -= dt / 0.16; if (gs.drawK <= 0) { gs.drawK = 0; gs.shownId = gs.id; } }
-    else gs.drawK = Math.min(1, gs.drawK + dt / 0.3);
+    if (gs.shownId !== gs.id) { gs.drawK -= dt / 0.18; if (gs.drawK <= 0) { gs.drawK = 0; gs.shownId = gs.id; } }
+    else gs.drawK = Math.min(1, gs.drawK + dt / 0.34);
     const spec = WEAPON_BY_ID[gs.shownId];
     const draw = smoothK(gs.drawK);
     // (a gun carried while running comes up a little more slowly than one already in the aim)
