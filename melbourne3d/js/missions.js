@@ -7,6 +7,7 @@ import { PLACES } from './story/places.js';
 import { createPursuer } from './pursuit.js';
 import { createLeader } from './story/leader.js';
 import { ROUTES } from './story/routes.js';
+import { terrainHeight } from './terrain.js';
 import { describeChoice } from './story/choices.js';
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
@@ -808,7 +809,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let gameplay = null, traffic = null;
   const counters = { talk: 0, rob: 0 };
   const placeMarker = (m, p, r) => {
-    m.position.set(p.x, (p.y || 0) + 0.2, p.z); // (p.y: a place inside the Quiet Room, js/interiors.js)
+    m.position.set(p.x, (p.y ?? terrainHeight(p.x, p.z)) + 0.2, p.z); // (p.y: a place inside the Quiet Room, js/interiors.js, or a footpath spot)
     m.scale.set(r, 1, r);
     m.visible = true;
   };
@@ -824,16 +825,17 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     return best;
   }
   function footpathNear(st) {
-    let best = { x: st.x, y: 0, z: st.z };
+    const gy = (x, z) => controllerManager.getGroundHeight(x, z, 'person');
+    let best = { x: st.x, y: gy(st.x, st.z), z: st.z };
     if (!blockAt(st.x, st.z)) {
       search: for (let r = 2; r <= 24; r += 1.5) {
         for (let a = 0; a < 16; a++) {
           const x = st.x + Math.cos((a / 16) * Math.PI * 2) * r, z = st.z + Math.sin((a / 16) * Math.PI * 2) * r;
           const b = blockAt(x, z);
-          if (b && !(b.park > 0.6)) { best = { x, y: 0.22, z }; break search; }
+          if (b && !(b.park > 0.6)) { best = { x, y: gy(x, z), z }; break search; }
         }
       }
-    } else best.y = 0.22;
+    } else best.y = gy(st.x, st.z);
     return best;
   }
 
@@ -1428,8 +1430,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       acts.push({ key: w.key, id: w.model, pose: { x: wp.x, y: controllerManager.getGroundHeight(wp.x, wp.z, 'person'), z: wp.z, heading: wp.heading }, anim: wp.anim });
       const c = cone(w.key, w.fov, w.range);
       c.visible = true;
-      c.position.set(wp.x, 0.26, wp.z);
+      // the view cone lies on the ground, following the hill (its vertices are raised to the terrain under them)
+      const gy0 = terrainHeight(wp.x, wp.z);
+      c.position.set(wp.x, gy0 + 0.1, wp.z);
       c.rotation.set(0, wp.heading, 0);
+      {
+        const pa = c.geometry.attributes.position, sh = Math.sin(wp.heading), ch = Math.cos(wp.heading);
+        for (let i = 0; i < pa.count; i++) {
+          const lx = pa.getX(i), lz = pa.getZ(i);
+          pa.setY(i, terrainHeight(wp.x + lx * ch + lz * sh, wp.z - lx * sh + lz * ch) - gy0 + 0.16);
+        }
+        pa.needsUpdate = true;
+      }
       const dx = p.x - wp.x, dz = p.z - wp.z, d = Math.hypot(dx, dz);
       const off = Math.abs(Math.atan2(Math.sin(Math.atan2(dx, dz) - wp.heading), Math.cos(Math.atan2(dx, dz) - wp.heading)));
       const sees = d < w.range && off < (w.fov / 2) * D2R;

@@ -7,6 +7,7 @@
 //    driver a touch different. They pull out to pass a slower car ahead and tuck in behind one they can't.
 //  - HUD: lap, position, time. Places pay: 1st $5,000, 2nd $2,500, 3rd $1,000. Leaving the car or the circuit ends it.
 import * as THREE from 'three/webgpu';
+import { terrainHeight } from './terrain.js';
 import { CIRCUIT } from './albert-park-circuit.js';
 import { circuitPoint, trackHeight } from './race-track.js';
 
@@ -118,7 +119,7 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
     const inside = at(S[idxAt(L * 0.975)], -14); // in towards the lake, off the track
     return { x: inside.x, z: inside.z, heading: p.heading };
   })();
-  marker.position.set(mk.x, 0.1, mk.z);
+  marker.position.set(mk.x, terrainHeight(mk.x, mk.z) + 0.1, mk.z);
 
   // --- The race ------------------------------------------------------------------------------------------------------
   let state = 'idle', t = 0, startT = 0, playerLap = 0, playerIdx = 0, halfway = false, result = null;
@@ -306,7 +307,8 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
   function placeRivals(dt) {
     for (const r of rivals) {
       const p = at(r.s, r.lane);
-      r.root.position.set(p.x, trackHeight(p.x, p.z) ?? 0.03, p.z);
+      r.root.position.set(p.x, trackHeight(p.x, p.z) ?? 0.03, p.z); // (the track is draped itself: its height is terrain-relative)
+      r.root.position.y += terrainHeight(p.x, p.z);
       r.root.rotation.set(0, p.heading, 0);
       for (const w of r.wheels) w.rotation.x += (r.v * dt) / 0.33;
     }

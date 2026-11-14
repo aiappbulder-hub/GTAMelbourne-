@@ -13,6 +13,7 @@
 //    on foot. A rider killed on the bike comes off it and the bike goes down. The encounter is over when every rider is dead.
 //  - The police are kept out of jobs by js/wanted.js as ever; in free roam the wanted system applies as normal.
 import * as THREE from 'three/webgpu';
+import { terrainHeight } from './terrain.js';
 
 const MODELS = ['Male_Adult_04', 'Male_Adult_10'];
 const WEAPONS = ['pistol', 'uzi', 'pistol', 'shotgun', 'uzi', 'pistol'];
@@ -480,7 +481,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
         b.speed = 0;
         b.lean += (0.22 - b.lean) * Math.min(1, dt * 4);
       }
-      if (g.mounted) { g.x = b.x; g.z = b.z; g.y = 0; g.heading = b.heading; }
+      if (g.mounted) { g.x = b.x; g.z = b.z; g.y = terrainHeight(b.x, b.z); g.heading = b.heading; }
       // a rammed bike (the player's car)
       if (cm.activeMode === 'car' && b.state !== 'down') {
         const e = cm.getActiveEntity();
@@ -512,8 +513,10 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
       const show = d < 230 && b.state !== 'gone';
       pg.visible = show;
       if (!show) continue;
-      pg.position.set(b.x, 0, b.z);
-      pg.rotation.set(0, b.heading, b.lean, 'YXZ');
+      // on the hill: at the ground under the middle of the bike, pitched with the slope
+      const fx = Math.sin(b.heading) * 0.9, fz = Math.cos(b.heading) * 0.9, hF = terrainHeight(b.x + fx, b.z + fz), hB = terrainHeight(b.x - fx, b.z - fz);
+      pg.position.set(b.x, (hF + hB) / 2, b.z);
+      pg.rotation.set(-Math.atan2(hF - hB, 1.8), b.heading, b.lean, 'YXZ');
       const spin = b.speed * dt / 0.34;
       b.parts.wheelF.spin.rotation.x += spin;
       b.parts.wheelR.spin.rotation.x += spin;

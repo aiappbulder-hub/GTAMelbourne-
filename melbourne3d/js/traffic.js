@@ -10,6 +10,7 @@ import { IS_MELBOURNE } from './city.js';
 const ACROSS = IS_MELBOURNE ? 'R' : 'L';
 import { cityUniforms, createContactShadowMaterial, createCarFlareMaterial } from './tsl-materials.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
+import { terrainHeight } from './terrain.js';
 import {
   BODY_SPECS,
   buildCarGeometry,
@@ -730,7 +731,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     if (!hasView) return false;
     for (let k = 0; k < 4; k++) {
       const { normal, constant } = frustum.planes[k];
-      if (normal.x * x + normal.y + normal.z * z + constant < -r) return false;
+      if (normal.x * x + normal.y * (terrainHeight(x, z) + 1) + normal.z * z + constant < -r) return false;
     }
     return true;
   }
@@ -1839,19 +1840,21 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
 
   // 3D spinning alloy wheels & tires (left & right, front & rear), exact 1:1 ground rolling, steering front wheels.
   // The wheel geometry is modelled at baseRadius (the sedan's 0.35 m car wheel), scaled to the vehicle's radius
+  // (v.gy: the ground under the vehicle, set when its body is placed; v.slope: its pitch on the hill)
   function placeWheels(v, i, rotY, roll, radius, halfTrack, halfBase, leftInst, rightInst, baseRadius = 0.35) {
     const sinY = Math.sin(rotY);
     const cosY = Math.cos(rotY);
+    const sp = Math.sin(v.slope || 0);
     const scale = radius / baseRadius;
     dummy.scale.set(scale, scale, scale);
     for (let w = 0; w < 2; w++) {
       const wz = w === 0 ? halfBase : -halfBase;
       dummy.rotation.set(v.wheelSpin + w * 0.55, rotY + (w === 0 ? v.steer : 0), roll, 'YXZ');
-      dummy.position.set(v.x - halfTrack * cosY + wz * sinY, radius + ((v.driven || v.parked) ? v.y || 0 : 0), v.z + halfTrack * sinY + wz * cosY);
+      dummy.position.set(v.x - halfTrack * cosY + wz * sinY, radius + v.gy - wz * sp, v.z + halfTrack * sinY + wz * cosY);
       dummy.updateMatrix();
       leftInst.setMatrixAt(i * 2 + w, dummy.matrix);
 
-      dummy.position.set(v.x + halfTrack * cosY + wz * sinY, radius + ((v.driven || v.parked) ? v.y || 0 : 0), v.z - halfTrack * sinY + wz * cosY);
+      dummy.position.set(v.x + halfTrack * cosY + wz * sinY, radius + v.gy - wz * sp, v.z - halfTrack * sinY + wz * cosY);
       dummy.updateMatrix();
       rightInst.setMatrixAt(i * 2 + w, dummy.matrix);
     }
@@ -1866,6 +1869,16 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     array[o + 2] = blinkOn && v.blink > 0 ? 1 : 0;
   }
 
+  // The ground under a vehicle and its pitch on the slope (js/terrain.js). The player's own car (driven) and cars it has
+  // left carry the absolute height they had; every other vehicle rides the terrain.
+  function seat(v, rotY, length) {
+    const own = (v.driven || v.parked) && v.y !== undefined;
+    v.gy = own ? v.y : terrainHeight(v.x, v.z);
+    const sx = Math.sin(rotY) * length * 0.5, sz = Math.cos(rotY) * length * 0.5;
+    v.slope = v.driven ? 0 : -Math.atan2(terrainHeight(v.x + sx, v.z + sz) - terrainHeight(v.x - sx, v.z - sz), length);
+    if (!own && !v.driven) v.gy = (terrainHeight(v.x + sx, v.z + sz) + terrainHeight(v.x - sx, v.z - sz)) / 2;
+  }
+
   function renderCar(c) {
     const rotY = c.yaw + c.yawOffset;
     const sinY = Math.sin(rotY);
@@ -1876,13 +1889,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     c.wheelSpin = (c.wheelSpin + Math.sign(rawStep) * Math.min(Math.abs(rawStep), 0.48)) % (Math.PI * 2);
     if (hasView && !visible(c.x, c.z, 18)) return;
 
+    seat(c, rotY, 4.2);
     const near = Math.hypot(c.x - focusX, c.z - focusZ) < CAR_PROXY_DISTANCE;
     const bodyInst = near ? bodies[c.bodyType].near : bodies[c.bodyType].far;
     const slot = bodyInst.count++;
 
     // (the player's car, or one it left, may stand up on a footpath)
-    dummy.position.set(c.x, (c.driven || c.parked) ? c.y || 0 : 0.0, c.z);
-    dummy.rotation.set(c.pitch, rotY, c.roll, 'YXZ');
+    dummy.position.set(c.x, c.gy, c.z);
+    dummy.rotation.set(c.pitch + c.slope, rotY, c.roll, 'YXZ');
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
     bodyInst.setMatrixAt(slot, dummy.matrix);
@@ -1919,7 +1933,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     const visIdx = visibleCars++;
     const [shadowW, shadowL, shadowZ] = bodies[c.bodyType].shadow;
     dummy.rotation.set(0, rotY, 0, 'YXZ');
-    dummy.position.set(c.x + sinY * shadowZ, 0.018, c.z + cosY * shadowZ);
+    dummy.position.set(c.x + sinY * shadowZ, c.gy + 0.018, c.z + cosY * shadowZ);
+    dummy.rotation.set(c.slope, rotY, 0, 'YXZ');
     dummy.scale.set(shadowW, 1.0, shadowL);
     dummy.updateMatrix();
     carShadowInst.setMatrixAt(visIdx, dummy.matrix);
@@ -1962,15 +1977,16 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     if (hasView && !visible(b.x, b.z, 22)) return;
 
     const i = visibleBuses++;
-    dummy.position.set(b.x, 0.018, b.z);
-    dummy.rotation.set(0, rotY, 0, 'YXZ');
+    seat(b, rotY, 11);
+    dummy.position.set(b.x, b.gy + 0.018, b.z);
+    dummy.rotation.set(b.slope, rotY, 0, 'YXZ');
     dummy.scale.set(2.92, 1.0, 12.4);
     dummy.updateMatrix();
     busShadowInst.setMatrixAt(i, dummy.matrix);
 
     // Lofted Bus Body is defined in ground-relative Y (0.35m skirt to 3.23m roof fairing crown)
-    dummy.position.set(b.x, 0.0, b.z);
-    dummy.rotation.set(b.pitch, rotY, b.roll, 'YXZ');
+    dummy.position.set(b.x, b.gy, b.z);
+    dummy.rotation.set(b.pitch + b.slope, rotY, b.roll, 'YXZ');
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
     busBodyInst.setMatrixAt(i, dummy.matrix);
@@ -2035,8 +2051,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
 
         const baseInt = (v.bus ? HEADLIGHTS.busIntensity : HEADLIGHTS.intensity) * beamScale * fade;
         // Match the body instance, including suspension and impact rotation.
-        dummy.position.set(v.x, 0, v.z);
-        dummy.rotation.set(v.pitch, v.yaw + v.yawOffset, v.roll, 'YXZ');
+        dummy.position.set(v.x, v.gy || 0, v.z);
+        dummy.rotation.set(v.pitch + (v.slope || 0), v.yaw + v.yawOffset, v.roll, 'YXZ');
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
         for (let side = -1; side <= 1; side += 2) {
@@ -2066,7 +2082,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       const side = redPhase ? -0.36 : 0.36;
       const pt = policeLightPool[policeLightsUsed++];
       pt.color.setHex(redPhase ? 0xff1828 : 0x1868ff);
-      pt.position.set(v.x + side * v._cosY - 0.25 * v._sinY, v.bodyType === 'suv' ? 2.05 : 1.85, v.z - side * v._sinY - 0.25 * v._cosY);
+      pt.position.set(v.x + side * v._cosY - 0.25 * v._sinY, (v.gy || 0) + (v.bodyType === 'suv' ? 2.05 : 1.85), v.z - side * v._sinY - 0.25 * v._cosY);
       pt.distance = 12.0;
       pt.intensity = 42.0 * tailScale * fade * pulse;
     }
@@ -2087,8 +2103,9 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
         sp.x += sp.vx * dt;
         sp.y += sp.vy * dt;
         sp.z += sp.vz * dt;
-        if (sp.y < 0.03) {
-          sp.y = 0.03;
+        const floorY = terrainHeight(sp.x, sp.z) + 0.03;
+        if (sp.y < floorY) {
+          sp.y = floorY;
           sp.vy = Math.abs(sp.vy) * 0.45;
           sp.vx *= 0.78;
           sp.vz *= 0.78;
@@ -2141,7 +2158,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     refreshNear();
     updateView(camera);
 
-    player.active = Boolean(playerEntity && activeMode !== 'helicopter' && playerEntity.position.y < 2.6);
+    player.active = Boolean(playerEntity && activeMode !== 'helicopter' && playerEntity.position.y - terrainHeight(playerEntity.position.x, playerEntity.position.z) < 2.6);
     if (playerEntity) {
       const heading = playerEntity.heading || 0;
       const speed = playerEntity.speed || 0;

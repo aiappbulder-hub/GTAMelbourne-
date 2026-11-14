@@ -1,5 +1,6 @@
 import { blockAt } from './city-config.js';
 import { Q } from './quality.js';
+import { terrainHeight } from './terrain.js';
 import { createPedestrianRoutes } from './pedestrian-routes.js';
 import { PersonCrowd, PersonRig, PEDESTRIAN_DIVE_DURATION } from './pedestrians.js';
 import { createMelbourneCharacterRig, MELBOURNE_CHARACTER_PRESETS } from './character-presets.js';
@@ -626,9 +627,10 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   const SIDEWALK_Y = 0.22;
   const CROSSWALK_Y = 0.012;
   function pedGround(p, x, z) {
-    if (!p.node) return SIDEWALK_Y;
+    const h = terrainHeight(x, z); // (js/terrain.js)
+    if (!p.node) return h + SIDEWALK_Y;
     const t = (x - p.ax) * p.ux + (z - p.az) * p.uz;
-    return t > 2 && t < p.len - 2 ? CROSSWALK_Y : SIDEWALK_Y;
+    return h + (t > 2 && t < p.len - 2 ? CROSSWALK_Y : SIDEWALK_Y);
   }
 
   // Visible people (and hidden ones within footstep/turn range) advance their gait; only those the camera may see
