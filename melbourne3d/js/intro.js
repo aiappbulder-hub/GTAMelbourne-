@@ -376,7 +376,11 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     playFilm(start);
   }
 
-  let active = false, shot = 0, t = 0, lineK = -1;
+  // seconds between one line ending and the next starting (a little longer after a question)
+  const gapAfter = (text) => (/\?["')]*\s*$/.test(text) ? 0.5 : 0.25);
+  const SHOT_TAIL = 0.15;
+  const real = () => performance.now() / 1000; // (the ends of clips are real time; a slow frame rate stretches game time)
+  let active = false, shot = 0, t = 0, lineK = -1, lastEnded = -1, lineEnd = -1;
   const A = new THREE.Vector3(), B = new THREE.Vector3(), L1 = new THREE.Vector3(), L2 = new THREE.Vector3();
   const person = controllerManager.entities.person;
 
@@ -459,10 +463,19 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     }
     // the extras' models, fetched now (the first shot with them is a quarter of a minute in)
     cast.preload?.(SHOTS.flatMap((sh) => (sh.actors || []).map((a) => a.id)));
-    // each shot long enough for its recorded lines
+    // each shot is as long as its lines: one follows the last with only a short breath between (gapAfter, longer after a
+    // question) and the cut comes SHOT_TAIL after the last. Lengths are the recordings' own (a line with no recording:
+    // the browser's voice, estimated from its words). A shot with no line keeps its authored length.
     for (const sh of SHOTS) {
-      const need = sh.lines.reduce((n, [, text]) => n + (() => { const l = voices?.lines?.find((x) => x.text === text); return l ? voices.playSeconds(l) : 0; })() + 0.7, 0.4);
-      sh.secs = Math.max(sh.secs, need);
+      let at = 0;
+      sh.starts = [];
+      for (const [, text] of sh.lines) {
+        sh.starts.push(at);
+        const l = voices?.lines?.find((x) => x.text === text);
+        const len = l ? voices.playSeconds(l) : 0.4 + text.split(/\s+/).length / 2.6;
+        at += len + gapAfter(text);
+      }
+      if (sh.lines.length) sh.secs = Math.max(3, at - gapAfter(sh.lines[sh.lines.length - 1][1]) + SHOT_TAIL + 0.5);
     }
     totalSecs = SHOTS.reduce((n, sh) => n + sh.secs, 0);
   }
@@ -478,12 +491,13 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
 
   function start() {
     buildCastShots();
+    voices?.preload?.(SHOTS.flatMap((sh) => sh.lines.map((l) => l[1]))); // (decoded before their turn, so no line waits to load)
     card.hidden = true;
     score.start(totalSecs);
     active = true;
     shot = 0;
     t = 0;
-    lineK = -1;
+    lineK = -1; lineEnd = -1; lastEnded = -1;
     selectTime('golden');
     // a new story ends the intro with the player on Harbour Esplanade (the last shot); further along, where you are
     arriving = !!(missionSystem && missionSystem.progress === 0);
@@ -542,10 +556,14 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     // the music dips under a recorded line
     score.duck(!!voices?.speaking);
 
-    // lines spread over the shot
-    const k = Math.min(s.lines.length - 1, Math.floor((t / s.secs) * s.lines.length));
+    // lines in turn: each starts when the one before has been said (the clip's real end if it has sounded, else its
+    // length) plus a short breath, never later than its scheduled time
+    let k = lineK;
+    while (k + 1 < s.lines.length && (t >= (s.starts?.[k + 1] ?? 1e9) || (k === lineEnd && lastEnded >= 0 && real() >= lastEnded + gapAfter(s.lines[k][1])))) k++;
+    if (k < 0) k = 0;
     if (k !== lineK) {
       lineK = k;
+      lastEnded = -1;
       const [who, text] = s.lines[k];
       line.innerHTML = '';
       line.classList.toggle('narration', !who);
@@ -553,15 +571,18 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
       line.append(document.createTextNode(text));
       line.style.opacity = '1';
       // Vince's call, recorded (down the phone line)
-      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro', who: /^vince/i.test(who) ? 'Vince' : 'You' });
+      const shotNo = shot;
+      voices?.sayText(text, { subtitle: false, phone: /phone/i.test(who), tag: 'intro', who: /^vince/i.test(who) ? 'Vince' : 'You',
+        onEnd: (ok) => { if (ok && active && shot === shotNo && lineK === k) { lineEnd = k; lastEnded = real(); } } });
     }
     if (s.title) title.style.opacity = t > 0.6 ? '1' : '0';
     // fade to black over the cut
     fade.style.opacity = t > s.secs - 0.45 && shot < SHOTS.length - 1 ? '1' : '0';
-    if (t >= s.secs) {
+    const lastDone = s.lines.length && lineK === s.lines.length - 1 && lineEnd === lineK && lastEnded >= 0 && real() >= lastEnded + SHOT_TAIL;
+    if (t >= s.secs || lastDone) {
       shot++;
       t = 0;
-      lineK = -1;
+      lineK = -1; lineEnd = -1; lastEnded = -1;
       line.style.opacity = '0';
       if (shot >= SHOTS.length) stop();
     }
@@ -612,7 +633,7 @@ export function createIntro({ cameraSystem, controllerManager, lightingSystem, s
     stop,
     get active() { return active; },
     /** For checking a shot: show shot i, a little way in */
-    jump(i, at = 2) { if (!active) start(); shot = Math.max(0, Math.min(SHOTS.length - 1, i)); t = at; lineK = -1; },
+    jump(i, at = 2) { if (!active) start(); shot = Math.max(0, Math.min(SHOTS.length - 1, i)); t = at; lineK = -1; lineEnd = -1; lastEnded = -1; },
     /** Whether to play it once the city is on screen */
     /** The intro is off: only ?intro (or "Watch the intro" in the teleport menu) plays it */
     shouldAutoplay: forced,

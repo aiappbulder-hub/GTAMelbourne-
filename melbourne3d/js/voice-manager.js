@@ -42,7 +42,7 @@ const key = (text) => words(text).join(' ');
 /** A manager that does nothing: used when there is no Web Audio or no voice data, so callers need no checks */
 function silent() {
   const none = () => null;
-  return { ready: false, sayText: none, say: none, talkLine: none, event: none, stopStory() {}, stopAll() {}, update() {},
+  return { ready: false, sayText: none, say: none, preload() {}, talkLine: none, event: none, stopStory() {}, stopAll() {}, update() {},
     playSeconds: (l) => l?.duration || 3, volume: 0, setVolume() {}, subtitles: true, setSubtitles() {}, ambient: false, setAmbient() {}, lines: [] };
 }
 
@@ -257,11 +257,17 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     }).catch(() => { v.starting = false; /* a missing clip: the subtitle runs out on its own */ });
   }
 
+  /** Fetch and decode the clips for these script lines ahead of their turn, so the next speaker starts the instant it is due */
+  function preload(texts) {
+    if (!context()) return;
+    for (const text of texts) { const line = byText.get(key(text)); if (line) load(line).catch(() => {}); }
+  }
+
   /** A line by its exact script text (mission cut scenes, the intro); null when it has no clip */
   function sayText(text, opts = {}) {
     const line = byText.get(key(text));
     if (line) return say(line, opts);
-    return opts.who ? speak(text, opts.who) : null; // no recording: the browser's own voice, if the caller says who speaks
+    return opts.who ? speak(text, opts.who, opts.onEnd) : null; // no recording: the browser's own voice, if the caller says who speaks
   }
 
   // A line with no recording (the new story's) is spoken by the browser's own speech voice: an Australian one if the
@@ -289,10 +295,12 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     };
     return [...all].sort((a, b) => rank(a) - rank(b))[0];
   }
-  function speak(text, who) {
+  let lastUtterance = null;
+  function speak(text, who, onEnd = null) {
     if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined' || volume <= 0) return null;
     try {
       const cfg = SPEECH[who] || { pitch: 1, rate: 1, male: true };
+      lastUtterance = null;
       speechSynthesis.cancel(); // one story voice at a time
       const u = new SpeechSynthesisUtterance(text);
       const v = pickVoice(cfg.male);
@@ -300,8 +308,11 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       u.pitch = cfg.pitch;
       u.rate = cfg.rate;
       u.volume = Math.min(1, volume);
+      // the browser says when it has finished; a line cut off by the next one (cancel) does not count as said
+      lastUtterance = u;
+      u.onend = () => { if (lastUtterance === u) { lastUtterance = null; onEnd?.(true); } };
       speechSynthesis.speak(u);
-      return { line: null, duration: Math.max(1.5, text.length / 14 / cfg.rate) };
+      return { line: null, duration: 0.4 + text.split(/\s+/).length / (2.7 * cfg.rate), speech: true };
     } catch { return null; }
   }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.addEventListener?.('voiceschanged', () => { speechVoices = null; });
@@ -407,7 +418,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       // no sound yet: start it once the audio runs (story lines only, while there's a fair part of the line left)
       if (!v.src && c && v.prio >= PRIORITY.story && v.t < v.dur - 0.8) startSound(v);
       // no sound (muted, or not started): end on the clip's length
-      if (!v.src && !v.starting && v.t > v.dur + 0.4) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); }
+      if (!v.src && !v.starting && v.t > v.dur + 0.1) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); }
     }
     if (ambient && c && !isCinematic() && !storyOn) {
       nextChat -= dt;
@@ -439,12 +450,13 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     characters,
     say,
     sayText,
+    preload,
     talkLine,
     event,
     update,
     /** End the story line that's playing (a skipped cut scene) */
-    stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); if (!tag && typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
-    stopAll() { [...active].forEach((v) => stop(v)); if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); },
+    stopStory(tag = null) { active.filter((v) => v.prio >= PRIORITY.story && (!tag || v.tag === tag)).forEach((v) => stop(v)); if (!tag && typeof speechSynthesis !== "undefined") { lastUtterance = null; speechSynthesis.cancel(); } },
+    stopAll() { [...active].forEach((v) => stop(v)); if (typeof speechSynthesis !== "undefined") { lastUtterance = null; speechSynthesis.cancel(); } },
     /** Whether a story line (a cut scene's or the intro's) is being spoken */
     get speaking() { return active.some((v) => v.prio >= PRIORITY.story && v.src); },
     /** The voices' loudness now, 0..1 (for lip movement) */
