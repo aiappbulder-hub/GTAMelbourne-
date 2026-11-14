@@ -64,7 +64,7 @@ function tone(ctx, kit, o) {
   lp.frequency.setValueAtTime(top, o.t);
   lp.frequency.setTargetAtTime(base, o.t + 0.005, o.lpDecay ?? 0.15);
   let node = lp;
-  if (o.drive) { const ws = ctx.createWaveShaper(); ws.curve = kit.driveCurve; ws.oversample = '4x'; lp.connect(ws); node = ws; }
+  if (o.drive) { const ws = ctx.createWaveShaper(); ws.curve = kit.driveCurve; ws.oversample = '4x'; lp.connect(ws); const tame = ctx.createBiquadFilter(); tame.type = 'lowpass'; tame.frequency.value = 4500; tame.Q.value = 0.5; ws.connect(tame); node = tame; } // (the lowpass takes the fizz off the clipped edges)
   node.connect(amp);
   const end = env(amp.gain, o.t, o.vel ?? 0.2, a, o.d ?? 0.3, o.s ?? 0.7, Math.max(0.01, dur - a), rel);
   const dets = o.detune ?? [0];
@@ -271,7 +271,7 @@ const STYLES = {
   },
 
   rock: {
-    name: 'Westgate 104', tag: 'Driving rock', bpm: 126, key: 40, scale: MINOR, duck: 0.12, level: 0.55, delay: 0.75,
+    name: 'Westgate 104', tag: 'Driving rock', bpm: 126, key: 40, scale: MINOR, duck: 0.12, level: 0.45, delay: 0.75,
     sections: [
       { n: 4, drums: 1, gtr: 1, bass: 1, pg: 0 }, { n: 4, drums: 1, gtr: 1, bass: 1, pg: 0, lead: 0 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 1 },
       { n: 4, drums: 1, gtr: 1, bass: 1, pg: 2 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 1 }, { n: 4, drums: 2, gtr: 2, bass: 1, lead: 1, pg: 3 }
@@ -289,7 +289,7 @@ const STYLES = {
       }
       if (sec.bass) {
         const root = Math.min(...chord) - 12 > 46 ? Math.min(...chord) - 24 : Math.min(...chord) - 12;
-        for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.7, m: root + ((sec.bass && i === 14 && B.bar % 2) ? 7 : 0), type: 'sawtooth', lp: 520, lpEnv: 2, q: 1.5, vel: 0.2, a: 0.004, s: 0.85, r: 0.05, sub: 0.5, drive: 1 });
+        for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.7, m: root + ((sec.bass && i === 14 && B.bar % 2) ? 7 : 0), type: 'sawtooth', lp: 520, lpEnv: 2, q: 1.5, vel: 0.2, a: 0.004, s: 0.85, r: 0.05, sub: 0.5 });
       }
       if (sec.gtr) {
         // distorted power chords: palm-muted eighths in verses, open ringing chords in choruses
@@ -346,7 +346,7 @@ const STYLES = {
       }
       if (sec.riser) {
         const g = noiseHit(ctx, kit, B.dry, B.t0, { f: 400, vel: 0.001, decay: B.spb * 4, type: 'bandpass', q: 2 });
-        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.14, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.05);
+        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.14, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.15);
         if (B.bar % 4 === 3) for (let i = 8; i < 16; i++) snare(ctx, kit, B, at(B, i), 0.2 + i * 0.03, { tone: 240 });
       }
     }
@@ -388,7 +388,7 @@ const STYLES = {
     bar(B) {
       const { ctx, kit, sec, chord, r } = B;
       const root = Math.min(...chord);
-      for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.6, m: root - 12 + (sec.pulse === 2 && i % 8 === 6 ? 12 : 0), type: 'sawtooth', lp: 260 + 240 * Math.sin((B.bar * 16 + i) / 9) ** 2, lpEnv: 3, lpDecay: 0.12, q: 5, vel: 0.2, a: 0.003, s: 0.8, r: 0.05, sub: 0.8, drive: 1 });
+      for (let i = 0; i < 16; i += 2) tone(ctx, kit, { to: B.sc, fx: B.fx, t: at(B, i), dur: B.s16 * 1.6, m: root - 12 + (sec.pulse === 2 && i % 8 === 6 ? 12 : 0), type: 'sawtooth', lp: 260 + 240 * Math.sin((B.bar * 16 + i) / 9) ** 2, lpEnv: 3, lpDecay: 0.12, q: 5, vel: 0.2, a: 0.003, s: 0.8, r: 0.05, sub: 0.8 });
       for (const i of [0, 8]) { kick(ctx, B.dry, at(B, i), 0.8, { f0: 100, f1: 38, decay: 0.3 }); B.kickAt(at(B, i)); }
       if (sec.pulse === 2) for (const i of [4, 12]) { kick(ctx, B.dry, at(B, i), 0.5, { f0: 90, f1: 40 }); noiseHit(ctx, kit, B.dry, at(B, i), { f: 900, type: 'bandpass', q: 1.5, vel: 0.3, decay: 0.12 }); }
       for (let i = 0; i < 16; i++) if (i % 2 || r() < 0.3) hat(ctx, kit, B, at(B, i), 0.04 + 0.04 * r());
@@ -396,7 +396,7 @@ const STYLES = {
       if (sec.hits && (B.bar % 2 === 1 || sec.hits === 2)) for (const n of [12, 13, 18]) tone(ctx, kit, { to: B.dry, fx: B.fx, t: at(B, sec.hits === 2 ? 10 : 6), dur: 0.5, m: root + 24 + n, type: 'square', lp: 1200, lpEnv: 2, lpDecay: 0.2, vel: 0.03, a: 0.01, s: 0.4, r: 0.5, rev: 0.6, dly: 0.5 });
       if (sec.riser && B.bar % 4 === 3) {
         const g = noiseHit(ctx, kit, B.dry, B.t0, { f: 1500, vel: 0.001, decay: 3, type: 'bandpass', q: 3 });
-        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.12, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.05);
+        g.gain.cancelScheduledValues(B.t0); g.gain.setValueAtTime(0.0001, B.t0); g.gain.exponentialRampToValueAtTime(0.12, B.t0 + B.spb * 4); g.gain.exponentialRampToValueAtTime(0.0001, B.t0 + B.spb * 4 + 0.15);
       }
       for (const m of chord) tone(ctx, kit, { to: B.dry, fx: B.fx, t: B.t0, dur: B.spb * 4, m: m + 12, type: 'sawtooth', detune: [-18, 18], lp: 500, vel: 0.03, a: 0.8, s: 0.9, r: 1, rev: 0.4 });
     }
@@ -415,7 +415,7 @@ export function createEngine(ctx, destination) {
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -17; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.008; comp.release.value = 0.2;
   const soft = ctx.createWaveShaper(); soft.curve = kit.softCurve; soft.oversample = '4x'; // keeps peaks under full scale
-  const trim = ctx.createGain(); trim.gain.value = 0.85;
+  const trim = ctx.createGain(); trim.gain.value = 0.78;
   const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 28; hp.Q.value = 0.5; // no DC or sub-bass rumble into the compressor
   mix.connect(hp).connect(comp).connect(soft).connect(trim).connect(destination);
   // shared reverb and a filtered feedback delay
