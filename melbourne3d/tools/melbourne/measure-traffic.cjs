@@ -5,7 +5,7 @@
 // culling) and measures ahead of and behind it, to see whether density follows the player. Numbers per 150 m disc.
 const { chromium } = require('playwright');
 const log = (...a) => console.log(...a);
-const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], carlton: [356, -1128], stkilda: [-701, 4960], edge: [-2600, 2500], sbank: [-226, 858], skr: [25, 1777] };
+const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], carlton: [76, -1160], stkilda: [-913, 4855], edge: [-2600, 2500], sbank: [-456, 814], skr: [-264, 1918] };
 (async () => {
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 320, height: 200 } })).newPage();
