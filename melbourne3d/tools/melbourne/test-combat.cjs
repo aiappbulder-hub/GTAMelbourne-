@@ -127,14 +127,14 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const ids = ['pistol', 'uzi', 'shotgun', 'm4', 'rocket', null];
   const seenModels = [];
   for (let i = 0; i < 6; i++) {
-    const hud0 = await p.evaluate((i) => { __city.gameplay.selectSlot(i); const w = document.querySelector('.gp-weapon'); return { name: w.querySelector('.gp-name span').textContent, on: [...w.querySelectorAll('.gp-slot')].findIndex((b) => b.classList.contains('on')), icon: w.querySelector('.gp-icon svg') ? 1 : 0 }; }, i);
+    const hud0 = await p.evaluate((i) => { __city.gameplay.selectSlot(i); const w = document.querySelector('.gp-weapon'); return { name: w.querySelector('.gp-name span').textContent, on: [...document.querySelectorAll('.gp-strip .gp-slot')].findIndex((b) => b.classList.contains('on')), icon: w.querySelector('.gp-icon svg') ? 1 : 0 }; }, i);
     ok(hud0.name === names[i] && hud0.on === i && hud0.icon === 1, 'HUD at once: ' + JSON.stringify(hud0));
     const early = await p.evaluate(() => { __city.gameplay.update(0.05); __city.cast.posePlayer(0.05); return __city.cast.heldGun(); });
     await sim(0.6);
     const held = await p.evaluate(() => __city.cast.heldGun());
     seenModels.push(held.held);
     ok(held.held === ids[i] && held.drawK === 1, 'slot ' + (i + 1) + ' holds ' + (ids[i] || 'nothing (fists)') + ' (' + JSON.stringify(held) + ', drawing at ' + early.drawK.toFixed(2) + ')');
-    if (i === 1) ok(early.drawK < 0.5, 'the weapon is drawn over ~0.3 s, not popped in');
+    if (i === 1) ok(early.drawK < 0.9, 'the weapon is lowered then drawn over ~0.5 s, not popped in');
   }
   // keys: 3 picks the shotgun on foot, Tab goes on, G holsters (nothing in hand)
   await p.keyboard.press('Digit3');

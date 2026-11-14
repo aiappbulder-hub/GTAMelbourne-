@@ -77,21 +77,28 @@ const CSS = `
   background: rgba(10,12,16,.78); color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; pointer-events: auto; cursor: pointer; white-space: nowrap; }
 .gp-prompt:empty { display: none; }
 .gp-prompt kbd { display: inline-block; min-width: 18px; margin-right: 6px; padding: 2px 5px; border-radius: 5px; background: #ffd23f; color: #111; font: 800 12px/1.2 Inter, sans-serif; text-align: center; }
-.gp-weapon { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(380px, 94vw); z-index: 30; padding: 6px 12px; border-radius: 10px; background: rgba(10,12,16,.72);
-  color: #fff; font: 700 13px/1.3 Inter, system-ui, sans-serif; text-align: center; pointer-events: none; }
-.gp-weapon b { display: block; font: 800 20px/1 'JetBrains Mono', monospace; color: #ffd23f; }
+.gp-weapon { position: fixed; left: 14px; top: 84px; z-index: 30; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 8px; border-radius: 10px; background: rgba(10,12,16,.72);
+  color: #fff; font: 700 12px/1.15 Inter, system-ui, sans-serif; pointer-events: none; }
+.gp-weapon .gp-icon { width: 42px; height: 20px; color: #ffd23f; flex: none; }
+.gp-weapon .gp-icon svg { width: 100%; height: 100%; }
+.gp-weapon .gp-name { text-align: left; white-space: nowrap; }
+.gp-weapon b { display: block; font: 800 15px/1.1 'JetBrains Mono', monospace; color: #ffd23f; }
+.gp-weapon b small { font-size: 11px; opacity: .7; font-weight: 700; }
 .gp-weapon[hidden] { display: none; }
-.gp-slots { display: flex; gap: 4px; justify-content: center; margin-bottom: 6px; }
-.gp-slot { position: relative; width: 52px; height: 34px; padding: 2px 3px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.55); pointer-events: auto; cursor: pointer; }
+.gp-strip { position: fixed; left: 14px; top: 126px; z-index: 31; display: flex; gap: 4px; padding: 5px; border-radius: 10px; background: rgba(10,12,16,.8);
+  opacity: 0; pointer-events: none; transition: opacity .25s; }
+.gp-strip.show { opacity: 1; pointer-events: auto; }
+body.cinematic .gp-strip { visibility: hidden; }
+body.touch-enabled .gp-strip { left: 10px; top: auto; bottom: 380px; }
+body.touch-enabled .gp-weapon { display: none; }
+.gp-slot { position: relative; width: 44px; height: 30px; padding: 2px 3px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.55); cursor: pointer; }
 .gp-slot svg { width: 100%; height: 100%; }
 .gp-slot i { position: absolute; left: 3px; top: 1px; font: 800 9px/1 'JetBrains Mono', monospace; font-style: normal; color: rgba(255,255,255,.7); }
 .gp-slot.on { border-color: #ffd23f; background: rgba(255,210,63,.18); color: #ffd23f; }
-.gp-cur { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.gp-cur .gp-icon { width: 56px; height: 24px; color: #ffd23f; }
-.gp-cur .gp-icon svg { width: 100%; height: 100%; }
-.gp-cur .gp-name { font: 700 13px/1.1 Inter, system-ui, sans-serif; text-align: left; }
-.gp-cur b { display: block; }
+.gp-gun .gp-icon { width: 100%; height: 20px; color: #ffd23f; }
+.gp-gun .gp-icon svg { width: 100%; height: 100%; }
+.gp-gun small { display: block; font: 800 12px/1.1 'JetBrains Mono', monospace; color: #fff; }
 .gp-hp { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(220px, 70vw); height: 14px; z-index: 30; border-radius: 7px; background: rgba(10,12,16,.72); border: 1px solid rgba(255,255,255,.25); overflow: hidden; pointer-events: none; }
 .gp-hp i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(#e5483b, #b4231a); transition: width .12s; }
 .gp-hp span { position: absolute; left: 6px; top: 0; font: 800 9px/14px Inter, sans-serif; letter-spacing: .12em; color: #fff; text-shadow: 0 1px 2px #000; }
@@ -103,12 +110,9 @@ const CSS = `
 .gp-wasted b { font: 900 clamp(48px, 12vw, 120px)/1 Inter, system-ui, sans-serif; letter-spacing: .08em; color: #c8201a; text-shadow: 0 3px 20px #000; }
 .gp-wasted small { font: 700 16px Inter, sans-serif; color: #ddd; letter-spacing: .1em; text-transform: uppercase; }
 .gp-wasted[hidden] { display: none; }
-.gp-gun { position: fixed; right: 26px; bottom: 296px; z-index: 31; width: 62px; height: 46px; border-radius: 14px; border: 0; display: none; touch-action: none;
+.gp-gun { position: fixed; right: 20px; bottom: 296px; z-index: 31; width: 92px; height: 50px; padding: 2px 4px; border-radius: 14px; border: 0; display: none; touch-action: none;
   background: rgba(10,12,16,.7); color: #ffd23f; font: 800 13px/1 Inter, sans-serif; border: 2px solid rgba(255,255,255,.5); }
 body.touch-enabled .gp-gun.on { display: block; }
-.gp-hint { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; opacity: .85; }
-@media (max-width: 960px) { .gp-hint { display: none; } }
-body.touch-enabled .gp-hint { display: none; }
 .gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
   border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
@@ -217,8 +221,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   gunBtn.textContent = 'GUN';
   document.body.append(gunBtn);
   // The weapon panel: the six slots (tap or click one), then the weapon in hand: its icon, name and ammo
-  const elSlots = document.createElement('div');
-  elSlots.className = 'gp-slots';
+  const elSlots = div('gp-strip'); // the weapon strip: shown only while switching
   const slotBtns = WEAPONS.map((w, i) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -229,32 +232,34 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     elSlots.append(b);
     return b;
   });
-  const elCur = document.createElement('div');
-  elCur.className = 'gp-cur';
   const elIcon = document.createElement('div');
   elIcon.className = 'gp-icon';
   const elNameBox = document.createElement('div');
   elNameBox.className = 'gp-name';
   const elAmmo = document.createElement('b');
   const elName = document.createElement('span');
-  elNameBox.append(elAmmo, elName);
-  elCur.append(elIcon, elNameBox);
-  const elHint = document.createElement('span');
-  elHint.className = 'gp-hint';
-  elWeapon.append(elSlots, elCur, elHint);
+  elNameBox.append(elName, elAmmo);
+  elWeapon.append(elIcon, elNameBox);
+  elWeapon.title = '1-6 or Tab: change weapon. Right click or Q: aim. Left click or J: fire. R: reload. G: holster';
+  let stripT = 0;
+  function showStrip(hold = false) {
+    elSlots.classList.add('show');
+    clearTimeout(stripT);
+    if (!hold) stripT = setTimeout(() => elSlots.classList.remove('show'), 1500);
+  }
   let hudKey = '', hudIcon = '';
   function drawHud() {
     const w = WEAPONS[wi];
-    const ammoText = !armed ? 'Holstered' : w.melee ? 'Fists' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / ${w.mag}`;
+    const ammoText = !armed ? 'Holstered' : w.melee ? '\u2014' : reloading > 0 ? 'Reloading' : `${ammo[wi]} / \u221E`;
     const key = `${armed ? wi : -1}|${ammoText}`;
     if (key === hudKey) return;
     hudKey = key;
     slotBtns.forEach((b, i) => b.classList.toggle('on', armed && i === wi));
     const iconId = armed ? w.id : '';
     if (iconId !== hudIcon) { hudIcon = iconId; elIcon.innerHTML = iconId ? weaponIconSVG(iconId) : ''; }
-    elAmmo.textContent = ammoText;
-    elName.textContent = armed ? w.name : 'G to draw your gun';
-    elHint.textContent = armed ? '1-6 or Tab: change weapon \u00B7 Right click or Q: aim \u00B7 Left click or J: fire \u00B7 R: reload' : '';
+    gunBtn.innerHTML = `<span class="gp-icon">${armed ? weaponIconSVG(w.id) : ''}</span><small>${armed ? (w.melee ? w.name : ammoText.replace(' / \u221E', ' / \u221E')) : 'GUN'}</small>`;
+    elAmmo.innerHTML = ammoText.replace(/ \/ (.*)$/, ' <small>/ $1</small>');
+    elName.textContent = armed ? w.name : 'G to draw';
   }
   const sounds = createCarSounds({ audioSystem });
   let hornHinted = false;
@@ -1218,6 +1223,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     cooldown = Math.max(cooldown, 0.3); // (the draw)
     bang('draw');
     drawHud();
+    showStrip();
   }
   function switchWeapon(d) {
     switchTo((wi + d + WEAPONS.length) % WEAPONS.length);
@@ -1245,6 +1251,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     lastHurt = clock;
     hurtGlow = Math.min(1, hurtGlow + 0.45);
     bang('hurt');
+    if (fromX !== undefined) cast?.flinch?.(Math.sign(Math.sin(Math.atan2(fromX - person.position.x, fromZ - person.position.z) - person.heading)) || 1);
+    else cast?.flinch?.();
     if (hp <= 0) die();
   }
   function die() {
@@ -1288,7 +1296,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       dying.t += dt;
       person.position.set(dying.x, dying.y, dying.z);
       person.speed = 0;
-      cast?.setPlayerPose({ x: dying.x, y: dying.y, z: dying.z, heading: dying.h, anim: 'idle', timeScale: 0, fall: smooth(dying.t / 0.55) });
+      cast?.setPlayerPose({ x: dying.x, y: dying.y, z: dying.z, heading: dying.h, anim: 'die', timeScale: 1, fade: 0.12, fall: smooth(dying.t / 0.55) });
       const k = Math.min(1, Math.max(0, (dying.t - 0.5) / 1.5));
       elWasted.style.opacity = String(k);
       elWasted.hidden = false;
@@ -1409,7 +1417,22 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     e.stopImmediatePropagation();
     if (!dying) selectSlot(+m[1] - 1);
   }, true);
-  gunBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); switchWeapon(1); });
+  // the GUN button: a tap cycles the weapon, a long press holds the strip open to pick one (it fades 1.5 s after you let go)
+  let gunHold = 0, gunLong = false;
+  gunBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    gunLong = false;
+    clearTimeout(gunHold);
+    gunHold = setTimeout(() => { gunLong = true; showStrip(true); }, 450);
+  });
+  const gunUp = () => {
+    if (!gunHold) return;
+    clearTimeout(gunHold); gunHold = 0;
+    if (gunLong) showStrip(); else switchWeapon(1);
+    gunLong = false;
+  };
+  gunBtn.addEventListener('pointerup', gunUp);
+  gunBtn.addEventListener('pointercancel', () => { clearTimeout(gunHold); gunHold = 0; if (gunLong) showStrip(); gunLong = false; });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyJ') triggerHeld = false; if (e.code === 'KeyB') honk(false); });
   // the horn: B (held) in a car, or the HORN button on touch screens; people just ahead of a moving car take the hint
   function honk(on) {
@@ -1533,7 +1556,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     raisedT = Math.max(0, raisedT - dt);
     cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut && !dying, aiming: cm.aiming || raisedT > 0,
       yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0,
-      punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow });
+      punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow, reload: reloading > 0 && WEAPONS[wi].reload > 0 ? 1 - reloading / WEAPONS[wi].reload : 0 });
     kickNow = false;
     elCross.classList.toggle('lock', !!lockTarget);
     if (hitMarkT > 0 && (hitMarkT -= dt) <= 0) elCross.classList.remove('hit');
@@ -1682,6 +1705,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
     // weapon panel
     elWeapon.hidden = !onFoot;
+    if (!onFoot) elSlots.classList.remove('show');
     fireBtn.classList.toggle('on', onFoot && armed);
     hornBtn.classList.toggle('on', cm.activeMode === 'car');
     if (cm.activeMode === 'car' && !hornHinted && !document.body.classList.contains('cinematic')) { hornHinted = true; missionSystem?.sub?.('Hold B (or the HORN button) to sound the horn.', 3.5); }

@@ -12,6 +12,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Q } from './quality.js';
 import { WEAPON_BY_ID, buildWeaponModel } from './weapons.js';
+import { terrainHeight } from './terrain.js';
 
 const BASE = new URL('../assets/people/', import.meta.url);
 
@@ -30,7 +31,14 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
   wave: 'Wave', cheer: 'Cheer', laugh: 'Laugh',
   sit: 'Sit idle (chair)', sit_listen: 'Sit idle (chair)', sit_look: 'Sit idle (chair)', sit_talk: 'Sit idle (chair)', sit_think: 'Sit idle (chair)',
   ready: 'Pistol idle (low ready)', aim: 'Pistol aim', fire: 'Pistol fire', hit: 'Hit from front', die: 'Death (fall backward)', getup: 'Get up (from back)' };
-const ARA_GAIT = { walk: 1.3, run: 3.4, sprint: 3.4 }; // the motion capture's ground speeds (m/s)
+// The motion capture's ground speeds (m/s), measured from the stance feet of the clips (tools/melbourne/test-anim.cjs checks
+// them): a walk cycle of 1.07 s covers 1.5 m, a run cycle of 0.73 s covers 2.2 m. ARA_PHASE: the fraction of each loop at which the
+// left foot is furthest forward, so a walk and a run can be played together in step and blended by speed
+const ARA_GAIT = { walk: 1.42, run: 3.12, sprint: 3.12 };
+const ARA_PHASE = { walk: 0.517, run: 0.633 };
+// Recoil per weapon: how far the muzzle flips up (rad), the gun is pulled back (m) and the torso rocks back (rad) at a shot
+const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0.06, back: 0.035, torso: 0.035 }, shotgun: { rise: 0.3, back: 0.13, torso: 0.17 },
+  m4: { rise: 0.09, back: 0.055, torso: 0.07 }, rocket: { rise: 0.36, back: 0.17, torso: 0.22 } };
 // (Act I's people are Rocketbox bodies for now; each loads when their job first wants them)
 const ACT1_CAST = { Gus: 'Male_Adult_07', Ruby: 'Business_Female_01', Nico: 'Male_Adult_04', Marsh: 'Business_Female_02', Terry: 'Business_Male_02',
   Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17' };
@@ -175,7 +183,7 @@ export function createCast({ scene, controllerManager }) {
     // load when the scene first wants them, in setActor)
   })();
   // gestures that play once and then hand back to whatever the person was doing
-  const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer']);
+  const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer', 'die']);
   // Clips that would visibly come round again (idles, talking, listening, sitting: motion capture cut to a length, not
   // made to loop): just before one ends, the person drifts into another from its group instead
   const VARIANTS = {
@@ -278,6 +286,7 @@ export function createCast({ scene, controllerManager }) {
   /** Walk, jog, sprint or stand, at the speed v (m/s), with a margin between gaits so nobody flickers */
   function gait(a, v, idle = 'idle') {
     const s = Math.abs(v);
+    if (a.ara && a.acts.walk && a.acts.run) return locoGait(a, s, idle);
     const was = a.cur === a.acts.sprint ? 3 : a.cur === a.acts.run ? 2 : a.cur === a.acts.walk ? 1 : 0;
     const g = s > (was === 3 ? 6.2 : 6.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
     const G = a.gaitSpeed || GAIT;
@@ -286,14 +295,58 @@ export function createCast({ scene, controllerManager }) {
     else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / G.walk, 0.55, 1.6));
     else play(a, has(a, idle) ? idle : 'idle');
   }
+  // Locomotion for the Ara bodies: the walk and the run clips play together, in step (same foot forward at the same moment), blended by
+  // the real ground speed s, and the cycle rate is the speed over the blended stride length, so the planted foot stays put on the
+  // ground (no skating) from a stroll up to a sprint. Standing still, the idle takes over through the usual crossfade
+  const WALK_STRIDE = ARA_GAIT.walk * 1.0667, RUN_STRIDE = ARA_GAIT.run * 0.7333;
+  function locoGait(a, s, idle) {
+    const L = a.loco || (a.loco = { run: 0, f: 1, t: 0, want: 0, s: 0 });
+    L.s = s;
+    if (s <= (a.cur === a.acts.walk ? 0.12 : 0.25)) { play(a, has(a, idle) ? idle : 'idle'); return; }
+    L.want = 1;
+    L.t = smoothK((s - 1.9) / 1.2); // 0 = all walk, 1 = all run
+    const stride = WALK_STRIDE + (RUN_STRIDE - WALK_STRIDE) * L.t;
+    L.f = THREE.MathUtils.clamp(s / stride, 0.3, 3.2); // cycles per second
+    play(a, 'walk', 1);
+  }
+  function stepLoco(a, dt) {
+    const L = a.loco;
+    if (!L) return;
+    const walk = a.acts.walk, run = a.acts.run;
+    const on = L.want && a.cur === walk;
+    L.run += ((on ? L.t : 0) - L.run) * Math.min(1, dt * 12);
+    if (on) walk.timeScale = L.f * walk.getClip().duration;
+    if (L.run > 0.004) {
+      if (!run.isRunning()) { run.reset(); run.enabled = true; run.play(); run.time = walk.time / walk.getClip().duration * run.getClip().duration; }
+      const ph = (walk.time / walk.getClip().duration - ARA_PHASE.walk + ARA_PHASE.run + 1) % 1;
+      run.time = ph * run.getClip().duration;
+      run.timeScale = L.f * run.getClip().duration;
+      run.enabled = true;
+      run.weight = L.run;
+      walk.weight = 1 - L.run * 0.999;
+    } else {
+      if (run.isRunning() && a.cur !== run) { run.stop(); }
+      if (a.cur === walk) walk.weight = 1;
+    }
+    L.want = 0;
+  }
+  const tickActor = (a, dt) => { stepLoco(a, dt); a.mixer.update(dt); };
+  const wrapPi = (d) => Math.atan2(Math.sin(d), Math.cos(d));
   function place(a, x, y, z, heading, dt, ease = true) {
     let d = heading - a.heading;
     d = Math.atan2(Math.sin(d), Math.cos(d));
     a.heading = ease ? a.heading + d * Math.min(1, dt * 10) : heading; // ease round rather than snap
     a.group.position.set(x, y, z);
     // the dead go down backwards over 0.55 s (there's no death clip: the body tips over and lies still)
-    a.group.rotation.set(-a.fall * Math.PI * 0.5, a.heading, 0);
-    a.group.position.y = y + Math.sin(a.fall * Math.PI) * 0.15 + a.fall * 0.08;
+    // (a body tipped over as one piece lies with its hips about 0.2 m up; a death clip lies by itself, and the body then follows the
+    // slope: the terrain has hills)
+    let tilt = 0;
+    if (a.dead) {
+      const hx = Math.sin(a.heading), hz = Math.cos(a.heading);
+      tilt = -Math.atan2(terrainHeight(x + hx * 0.9, z + hz * 0.9) - terrainHeight(x - hx * 0.9, z - hz * 0.9), 1.8) * smoothK((a.cur?.time ?? 0) / 0.9);
+    }
+    a.group.rotation.set(-a.fall * Math.PI * 0.5 + tilt, a.heading, 0);
+    a.group.position.y = y + Math.sin(a.fall * Math.PI) * 0.15 + a.fall * 0.2 + (a.dead ? 0.06 : 0);
     a.group.visible = true;
   }
 
@@ -374,7 +427,7 @@ export function createCast({ scene, controllerManager }) {
     p.castHeading = heading;
     place(a, p.x, y, p.z, dead ? a.heading : heading, dt, !a.fresh);
     a.fresh = false;
-    a.mixer.update(dt);
+    tickActor(a, dt);
   }
   function drop(p) { release(p); }
   // a stable pick for person i from a list, rotated so neighbours differ (returned as a list to try in order)
@@ -384,7 +437,7 @@ export function createCast({ scene, controllerManager }) {
   // Guns in hands (the player's and armed hostiles'): the models of js/weapons.js (pointing down +z, the origin in the right
   // palm), drawn each frame in the hand (or at the shoulder for the long guns), the arms solved to hold them
   const newGunState = () => ({ id: 'pistol', armed: false, aiming: false, yaw: 0, pitch: 0, raise: 0, drawK: 1, shownId: null, models: {},
-    muzzle: new THREE.Vector3(), muzzleValid: false, punch: 0, punchLeft: false, kick: 0 });
+    muzzle: new THREE.Vector3(), muzzleValid: false, punch: 0, punchLeft: false, kick: 0, reload: 0, run: 0, rl: 0, t: 0 });
   const weapon = newGunState(); // the player's
   const gunModel = (gs, id) => {
     let g = gs.models[id];
@@ -412,6 +465,83 @@ export function createCast({ scene, controllerManager }) {
   const MIXAMO = { R_UpperArm: 'RightArm', R_Forearm: 'RightForeArm', R_Hand: 'RightHand', L_UpperArm: 'LeftArm', L_Forearm: 'LeftForeArm', L_Hand: 'LeftHand' };
   const bonesOf = (a) => a.bones || (a.bones = Object.fromEntries(['R_UpperArm', 'R_Forearm', 'R_Hand', 'L_UpperArm', 'L_Forearm', 'L_Hand']
     .map((n) => [n, a.root.getObjectByName(`Bip01_${n}`) || a.root.getObjectByName(MIXAMO[n])])));
+  // ---------------------------------------------------------------------------------------------------------------
+  // The body layer: bone rotations about world axes, applied over the clip's pose each frame (after the mixer, before the arms are
+  // solved to the gun). Used for the lean of a run, the aim's pitch through the spine, the recoil, a flinch, the jump's tucked
+  // legs and the landing crouch. All angles in radians; "forward" bends the torso towards where the person faces
+  const SK = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg', 'LeftArm', 'RightArm', 'LeftShoulder', 'RightShoulder'];
+  const skelOf = (a) => a.sk || (a.sk = Object.fromEntries(SK.map((n) => [n, a.root.getObjectByName(n) || a.root.getObjectByName(`Bip01_${n}`)
+    || a.root.getObjectByName(n.replace('Hips', 'Pelvis').replace('Left', 'L_').replace('Right', 'R_'))])));
+  const AX = { up: new THREE.Vector3(0, 1, 0), left: new THREE.Vector3(), fw: new THREE.Vector3() };
+  const _sw = new THREE.Quaternion(), _sp = new THREE.Quaternion();
+  // (Some clips don't key every bone: the aim clip leaves the spine alone. A bone the mixer didn't write this frame still holds
+  // last frame's layered rotation, so each bone's pre-layer rotation is kept and put back first, and the layer is never cumulative)
+  function unlayer(a) {
+    a.layerFrame = (a.layerFrame || 0) + 1;
+    if (!a.layered) return;
+    for (const [bone, rec] of a.layered) {
+      if (rec.post && bone.quaternion.equals(rec.post)) bone.quaternion.copy(rec.pre); // (not rewritten by the mixer: undo our own)
+      if (rec.posPost && bone.position.equals(rec.posPost)) bone.position.copy(rec.posPre);
+      rec.post = rec.posPost = null;
+    }
+  }
+  function layerRec(a, bone) {
+    const m = a.layered || (a.layered = new Map());
+    let rec = m.get(bone);
+    if (!rec) m.set(bone, rec = { pre: new THREE.Quaternion(), post: null, posPre: new THREE.Vector3(), posPost: null });
+    if (!rec.post) rec.pre.copy(bone.quaternion);
+    return rec;
+  }
+  function swing(a, bone, axis, ang) {
+    if (!bone || !ang) return;
+    const rec = layerRec(a, bone);
+    bone.parent.updateWorldMatrix(true, false);
+    bone.parent.getWorldQuaternion(_sp);
+    _sw.setFromAxisAngle(axis, ang);
+    _sw.premultiply(_sp.clone().invert()).multiply(_sp.clone()); // parent^-1 * delta * parent
+    bone.quaternion.premultiply(_sw);
+    rec.post = (rec.post || new THREE.Quaternion()).copy(bone.quaternion);
+    bone.updateWorldMatrix(false, true);
+  }
+  /** k: { fwd (torso bend forward, over Spine..Spine2), head (neck+head extra bend), twist (torso turn left about the up axis), legs:
+   *  { airK, vy, land }, crouch (hips lowered, m), armsOut } */
+  function bodyLayer(a, k) {
+    const S = skelOf(a);
+    if (!S.Spine) return;
+    const h = a.heading;
+    AX.fw.set(Math.sin(h), 0, Math.cos(h));
+    AX.left.set(Math.cos(h), 0, -Math.sin(h));
+    unlayer(a);
+    a.group.updateMatrixWorld(true);
+    if (k.crouch && S.Hips) {
+      const rec = layerRec(a, S.Hips);
+      if (!rec.posPost) rec.posPre.copy(S.Hips.position);
+      S.Hips.position.y -= k.crouch;
+      rec.posPost = (rec.posPost || new THREE.Vector3()).copy(S.Hips.position);
+      S.Hips.updateWorldMatrix(false, true);
+    }
+    const L = AX.left;
+    if (k.airK > 0.01 || k.land > 0.01) {
+      // legs: a jump tucks the knees (the leading leg higher), the fall reaches for the ground, a landing bends both knees
+      const air = k.airK || 0, up = Math.max(0, Math.min(1, (k.vy ?? 0) / 4)), fall = 1 - up;
+      const lead = a.legSide || 1;
+      const tuckL = air * (0.25 + 0.85 * up) * (lead > 0 ? 1 : 0.45) + air * 0.3 * fall, tuckR = air * (0.25 + 0.85 * up) * (lead > 0 ? 0.45 : 1) + air * 0.3 * fall;
+      const land = k.land || 0;
+      swing(a, S.LeftUpLeg, L, -(tuckL + land * 0.55)); swing(a, S.LeftLeg, L, tuckL * 1.5 + land * 1.0 - air * fall * 0.25);
+      swing(a, S.RightUpLeg, L, -(tuckR + land * 0.55)); swing(a, S.RightLeg, L, tuckR * 1.5 + land * 1.0 - air * fall * 0.25);
+      // arms: thrown up and out for the jump, out for balance on the way down
+      const out = air * (0.35 + 0.65 * fall) * 0.9;
+      swing(a, S.LeftArm, AX.fw, out); swing(a, S.RightArm, AX.fw, -out);
+      if (up > 0) { swing(a, S.LeftArm, L, -air * up * 0.5); swing(a, S.RightArm, L, -air * up * 0.5); }
+    }
+    const fwd = k.fwd || 0;
+    if (fwd) { swing(a, S.Spine, L, fwd * 0.3); swing(a, S.Spine1, L, fwd * 0.4); swing(a, S.Spine2, L, fwd * 0.3); }
+    if (k.twist) { swing(a, S.Spine, AX.up, k.twist * 0.3); swing(a, S.Spine1, AX.up, k.twist * 0.4); swing(a, S.Spine2, AX.up, k.twist * 0.3); }
+    // the head stays on the horizon (or follows the aim) while the torso bends
+    const hd = (k.head || 0) - fwd * 0.55;
+    if (hd) { swing(a, S.Neck, L, hd * 0.4); swing(a, S.Head, L, hd * 0.6); }
+  }
+
   // A face that lives (Ara characters' blend shapes): a blink every 2-6 s, the lids closing and opening over 0.16 s, on top
   // of whatever the clip does with the face
   let voiceLevel = 0; // the story voices' loudness (main.js passes it each frame)
@@ -511,16 +641,25 @@ export function createCast({ scene, controllerManager }) {
   //  - fists: a punch is the arm solved out in front over the swing; aimed, both fists up
   function poseGun(a, gs, dt) {
     hideGuns(gs);
+    gs.t = (gs.t || 0) + dt;
     gs.kick = Math.max(0, gs.kick - dt * 7);
-    const spec = WEAPON_BY_ID[gs.id];
-    if (!gs.armed || !spec) { gs.raise = 0; gs.shownId = null; return; }
-    if (gs.shownId !== gs.id) { gs.shownId = gs.id; gs.drawK = 0; }
-    gs.drawK = Math.min(1, gs.drawK + dt / 0.32);
+    gs.rl = 0;
+    if (!gs.armed || !WEAPON_BY_ID[gs.id]) { gs.raise = 0; gs.shownId = null; gs.drawK = 0; return; }
+    // changing weapon: the gun in hand lowers (0.18 s), then the new one comes up (0.34 s): drawK is how far up the gun in hand is
+    if (gs.shownId === null || !WEAPON_BY_ID[gs.shownId]) { gs.shownId = gs.id; gs.drawK = 0; }
+    if (gs.shownId !== gs.id) { gs.drawK -= dt / 0.18; if (gs.drawK <= 0) { gs.drawK = 0; gs.shownId = gs.id; } }
+    else gs.drawK = Math.min(1, gs.drawK + dt / 0.34);
+    const spec = WEAPON_BY_ID[gs.shownId];
     const draw = smoothK(gs.drawK);
-    gs.raise += ((gs.aiming ? 1 : 0) - gs.raise) * Math.min(1, dt * 14);
+    // (a gun carried while running comes up a little more slowly than one already in the aim)
+    gs.raise += ((gs.aiming ? 1 : 0) - gs.raise) * Math.min(1, dt * (gs.run > 0.5 ? 8 : 14));
     const B = bonesOf(a);
     if (!B.R_Hand || !B.R_Forearm || !B.R_UpperArm) return;
-    const pitch = gs.pitch + gs.kick * (spec.kick ? 3 : 1.5) * 0.06;
+    const rec = RECOIL[gs.shownId] || { rise: 0.1, back: 0.04, torso: 0.05 }, kick = gs.kick * gs.kick * (3 - 2 * gs.kick); // (the recoil: sharp, then settling)
+    // a reload: progress 0..1 (js/gameplay.js); e is how far the gun is in towards the chest, plateaued through the middle
+    const rl = gs.reload > 0 ? gs.reload : 0, rlE = rl > 0 ? smoothK(Math.min(1, rl * 6, (1 - rl) * 6)) : 0;
+    gs.rl = rlE;
+    const pitch = gs.pitch + kick * rec.rise;
     const cp = Math.cos(pitch);
     const dir = new THREE.Vector3(Math.sin(gs.yaw) * cp, Math.sin(pitch) - 0.04, Math.cos(gs.yaw) * cp).normalize();
     const fw = new THREE.Vector3(Math.sin(gs.yaw), 0, Math.cos(gs.yaw)), right = new THREE.Vector3(-Math.cos(gs.yaw), 0, Math.sin(gs.yaw));
@@ -529,44 +668,72 @@ export function createCast({ scene, controllerManager }) {
       if (!head) return;
       const H = head.getWorldPosition(new THREE.Vector3());
       const guard = gs.raise > 0.3 || gs.punch > 0;
+      // a jab (the lead, left hand: short, quick) and a cross (the rear, right hand: all the way out, the shoulders and hips turning into it)
       if (guard) for (const left of [false, true]) {
         const punching = gs.punch > 0 && left === gs.punchLeft, w = punching ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
-        const T = H.clone().addScaledVector(fw, 0.28 + 0.5 * w).addScaledVector(right, (left ? 1 : -1) * (punching ? 0.04 : 0.14)).add(new THREE.Vector3(0, -0.3 - (punching ? 0 : 0.08), 0));
+        const reach = left ? 0.5 : 0.62;
+        const T = H.clone().addScaledVector(fw, 0.26 + reach * w * 0.95).addScaledVector(right, (left ? 1 : -1) * (punching ? 0.03 : 0.15)).add(new THREE.Vector3(0, -0.3 - (punching ? 0.02 : 0.1), 0));
         reachArm(a, { x: T.x, y: T.y, z: T.z, left }, Math.max(0.75 * Math.max(gs.raise, 0.5), w));
       }
       return;
     }
-    const g = gunModel(gs, gs.id);
+    const g = gunModel(gs, gs.shownId);
     let look;
     const G = new THREE.Vector3();
+    const S = B.R_UpperArm.getWorldPosition(new THREE.Vector3());
+    const chest = S.clone().addScaledVector(fw, 0.27).addScaledVector(right, 0.02).add(new THREE.Vector3(0, -0.32, 0)); // (where a reload holds the gun)
+    const belt = S.clone().addScaledVector(fw, 0.12).addScaledVector(right, -0.34).add(new THREE.Vector3(0, -0.52, 0)); // (the magazines on the left hip)
+    const leftPath = (restPos, magPos) => {
+      // the left hand's trip for a reload: to the belt, to the gun's magazine, a slap at the charging handle, back to its place
+      const P = restPos.clone();
+      if (rl <= 0) return P;
+      if (rl < 0.22) return P.lerp(belt, smoothK(rl / 0.22));
+      if (rl < 0.5) return belt.clone().lerp(magPos, smoothK((rl - 0.22) / 0.28));
+      if (rl < 0.72) return magPos.clone().add(new THREE.Vector3(0, 0.05 * Math.sin((rl - 0.5) * 30), 0));
+      return magPos.clone().lerp(P, smoothK((rl - 0.72) / 0.28));
+    };
     if (spec.twoHanded) {
-      const S = B.R_UpperArm.getWorldPosition(new THREE.Vector3());
       const lowDir = new THREE.Vector3(fw.x * 0.55, -0.83, fw.z * 0.55).normalize();
-      look = lowDir.lerp(dir, gs.raise).normalize();
+      // (the gun tips up and in to the chest for the reload)
+      const raiseR = gs.raise * (1 - 0.75 * rlE);
+      look = lowDir.lerp(dir, raiseR).normalize();
+      if (rlE > 0) look.y += rlE * 0.7, look.normalize();
       const aimG = S.clone().addScaledVector(dir, spec.hold.f).addScaledVector(right, spec.hold.s).add(new THREE.Vector3(0, spec.hold.u, 0));
       const lowG = S.clone().addScaledVector(fw, 0.17).addScaledVector(right, -0.09).add(new THREE.Vector3(0, -0.3, 0));
-      G.copy(lowG).lerp(aimG, gs.raise);
-      G.y -= (1 - draw) * 0.32;
+      G.copy(lowG).lerp(aimG, raiseR);
+      G.lerp(chest, rlE * 0.8);
+      G.addScaledVector(dir, -kick * rec.back); // (the gun driven back into the shoulder by the recoil)
+      G.y -= (1 - draw) * 0.45;
       const grip = G.clone().addScaledVector(look, -spec.hand.fwd);
       const fore = G.clone().addScaledVector(look, spec.support - spec.hand.fwd * 0.5);
       fore.y -= 0.025;
+      const mag = G.clone().addScaledVector(look, spec.support * 0.1).add(new THREE.Vector3(0, -0.1, 0));
+      let lp = leftPath(fore, mag);
+      if (gs.shownId === 'shotgun' && rl > 0.3 && rl < 0.9) lp = fore.clone().addScaledVector(look, -0.13 * (0.5 - 0.5 * Math.cos((rl - 0.3) / 0.6 * Math.PI * 4))); // pumped twice
       reachArm(a, { x: grip.x, y: grip.y, z: grip.z, left: false }, draw);
-      reachArm(a, { x: fore.x, y: fore.y, z: fore.z, left: true }, draw);
+      reachArm(a, { x: lp.x, y: lp.y, z: lp.z, left: true }, draw);
     } else {
+      // the pistol: one-handed, the arm straight along the aim; for the reload it comes in to the chest, the other hand loads it
+      if (rlE > 0.02) {
+        const T = S.clone().addScaledVector(fw, 0.3 + 0.12 * (1 - rlE)).addScaledVector(right, 0.03).add(new THREE.Vector3(0, -0.28, 0));
+        reachArm(a, { x: T.x, y: T.y, z: T.z, left: false }, smoothK(rlE) * draw);
+      }
       if (gs.raise > 0.02) {
-        pointBone(B.R_UpperArm, B.R_Forearm, dir, gs.raise * draw);
-        pointBone(B.R_Forearm, B.R_Hand, dir, gs.raise * draw);
+        const w = gs.raise * draw * (1 - rlE);
+        pointBone(B.R_UpperArm, B.R_Forearm, dir, w);
+        pointBone(B.R_Forearm, B.R_Hand, dir, w);
       }
       B.R_Hand.updateWorldMatrix(true, false);
       const hp = B.R_Hand.getWorldPosition(new THREE.Vector3()), fp = B.R_Forearm.getWorldPosition(new THREE.Vector3());
-      look = hp.clone().sub(fp).normalize().lerp(dir, gs.raise).normalize();
+      look = hp.clone().sub(fp).normalize().lerp(dir, gs.raise * (1 - rlE)).normalize();
+      if (rlE > 0) { look.y += rlE * 0.6; look.normalize(); }
       G.copy(hp).addScaledVector(look, spec.hand.fwd);
       G.y -= spec.hand.down * (1 - gs.raise * 0.5);
-      G.y -= (1 - draw) * 0.28;
-      if (gs.raise > 0.5) { // the other hand comes under the grip
-        const lp = G.clone().addScaledVector(look, -0.07);
-        lp.y -= 0.07;
-        reachArm(a, { x: lp.x, y: lp.y, z: lp.z, left: true }, smoothK((gs.raise - 0.5) * 2) * draw);
+      G.y -= (1 - draw) * 0.4;
+      G.addScaledVector(dir, -kick * rec.back);
+      if (rl > 0) {
+        const lp = leftPath(G.clone().addScaledVector(look, -0.07).add(new THREE.Vector3(0, -0.2, 0)), G.clone().add(new THREE.Vector3(0, -0.06, 0)));
+        reachArm(a, { x: lp.x, y: lp.y, z: lp.z, left: true }, smoothK(Math.min(1, rl * 8, (1 - rl) * 8)) * draw);
       }
     }
     g.position.copy(G);
@@ -623,7 +790,7 @@ export function createCast({ scene, controllerManager }) {
       p.castModel = controllerManager.activeMode === 'person';
       play(a, has(a, playerSeatAnim) ? playerSeatAnim : has(a, 'sit') ? 'sit' : 'idle');
       place(a, s.x, s.y, s.z, s.heading, dt, false);
-      a.mixer.update(dt);
+      tickActor(a, dt);
       faceLife(a, dt);
       return;
     }
@@ -636,9 +803,12 @@ export function createCast({ scene, controllerManager }) {
       a.lastHeading = p.heading; // (no turn clip kicks in from the jump back to the controller's heading afterwards)
       a.onceUntil = 0; // a wave or a cheer doesn't hold the sequence up
       a.fall = o.fall || 0; // (shot dead: down on their back)
+      a.dead = o.anim === 'die' && has(a, 'die'); // (a death clip: they fall in it, along the ground, not tipped over as one piece)
+      if (a.dead) a.fall = 0;
       play(a, has(a, o.anim) ? o.anim : 'idle', o.timeScale || 1, o.fade ?? 0.3);
+      a.vh = o.heading;
       place(a, o.x, o.y, o.z, o.heading, dt, false);
-      a.mixer.update(dt);
+      tickActor(a, dt);
       faceLife(a, dt);
       a.group.updateMatrixWorld(true);
       if (o.reach && o.reach.w > 0.01) reachArm(a, o.reach, Math.min(1, o.reach.w));
@@ -654,35 +824,76 @@ export function createCast({ scene, controllerManager }) {
     p.castModel = true; // controllers.js stops drawing its procedural stand-in
     const a = playerActor;
     a.fall = 0;
-    a.still = Math.abs(p.speed) < 0.1 ? a.still + dt : 0;
-    // turning on the spot (how fast the heading swings while standing): the turn clips, not sliding round on the idle
-    let turnRate = 0;
-    if (a.lastHeading !== null && dt > 0) { let dh = p.heading - a.lastHeading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); turnRate = dh / dt; }
+    a.dead = false;
+    const sp = Math.abs(p.speed);
+    a.still = sp < 0.1 ? a.still + dt : 0;
+    // speed as the feet should see it: a quick ease (a start is a couple of strides, a stop a step), and its rate of change
+    const prevVs = a.vs ?? sp;
+    a.vs = prevVs + (sp - prevVs) * Math.min(1, dt * 9);
+    a.acc = (a.acc || 0) + (dt > 0 ? (a.vs - prevVs) / dt - (a.acc || 0) : 0) * Math.min(1, dt * 6);
+    // in the air (a jump or a drop), and the landing
+    const air = p.position.y - controllerManager.getGroundHeight(p.position.x, p.position.z, 'person');
+    const airborne = air > 0.14;
+    if (airborne) { a.fallV = Math.max(a.fallV || 0, -(p.verticalVel || 0)); if (!a.wasAir) a.legSide = Math.random() < 0.5 ? 1 : -1; }
+    else if (a.wasAir) { a.land = Math.min(1, Math.max(0.3, (a.fallV || 0) / 7)); a.fallV = 0; }
+    a.wasAir = airborne;
+    a.land = Math.max(0, (a.land || 0) - dt * 3.4);
+    a.airK = (a.airK || 0) + ((airborne ? 1 : 0) - (a.airK || 0)) * Math.min(1, dt * (airborne ? 16 : 10));
+    // the body's heading: the controller swings it round at once; standing still it follows at a walking turn's pace, stepping
+    // round (the turn clips) with the shoulders leading, not sliding round on the idle
+    const standing = sp < 0.3 && !airborne;
+    const loose = standing && !weapon.aiming && !playerAction && !(weapon.punch > 0);
+    if (a.vh === undefined) a.vh = p.heading;
+    const resid = wrapPi(p.heading - a.vh);
+    const rate = loose ? 3.4 : 11; // (not standing free: the body catches up with the controller at once, in a tenth of a second)
+    a.vh += THREE.MathUtils.clamp(resid, -rate * dt, rate * dt);
     a.lastHeading = p.heading;
-    const standing = Math.abs(p.speed) < 0.3;
-    // (a pivot from a standstill: the controller swings the body round before the walk takes over)
-    if (Math.abs(p.speed) < 0.9 && Math.abs(turnRate) > 1.0 && has(a, 'turn_left') && !weapon.aiming) a.turnT = 0.35;
-    else a.turnT = Math.max(0, a.turnT - dt);
+    const turning = loose && Math.abs(resid) > 0.1 && has(a, 'turn_left');
+    a.turnT = turning ? 0.2 : Math.max(0, a.turnT - dt);
     if (playerAction && standing) play(a, has(a, playerAction) ? playerAction : 'idle');
     else if (standing && weapon.armed && weapon.aiming && has(a, 'aim')) play(a, 'aim'); // the pistol stance (the arms then point it)
     else if (weapon.aiming && !standing && has(a, 'strafe_left') && p._strafeX !== undefined) {
       // gun up and moving: step the way they go, still facing the aim (forwards, backwards or sideways)
       let rel = Math.atan2(p._strafeX, p._strafeZ) - p.heading;
-      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-      const ts = THREE.MathUtils.clamp(Math.abs(p.speed) / 1.3, 0.6, 1.6);
-      play(a, Math.abs(rel) < 0.8 ? 'walk' : Math.abs(rel) > 2.35 ? 'back' : rel > 0 ? 'strafe_left' : 'strafe_right', ts);
+      rel = wrapPi(rel);
+      const G = a.gaitSpeed;
+      const ts = THREE.MathUtils.clamp(Math.abs(a.vs) / (Math.abs(rel) > 2.35 ? 1.05 : G.walk), 0.5, 2.2);
+      if (Math.abs(rel) < 0.8) gait(a, a.vs, 'idle'); else play(a, Math.abs(rel) > 2.35 ? 'back' : rel > 0 ? 'strafe_left' : 'strafe_right', ts);
     }
-    else if (a.turnT > 0 && Math.abs(p.speed) < 0.9) play(a, turnRate > 0 || (turnRate === 0 && a.cur === a.acts.turn_left) ? 'turn_left' : 'turn_right', THREE.MathUtils.clamp(Math.abs(turnRate) / 1.6, 0.8, 1.8));
+    else if (a.turnT > 0 && standing) play(a, resid > 0 ? 'turn_left' : 'turn_right', THREE.MathUtils.clamp(Math.abs(resid) * 3.4 / 1.62 + 0.4, 0.8, 2.2));
     else {
       if (!standing) playerAction = null;
       // standing a while, they look about, then wait
-      gait(a, p.speed, a.still > 14 ? 'wait' : a.still > 5 ? 'look' : 'idle');
+      gait(a, a.vs, a.still > 14 ? 'wait' : a.still > 5 ? 'look' : 'idle');
     }
-    place(a, p.position.x, p.position.y, p.position.z, p.heading, dt, false); // the controller already eases the heading
-    a.mixer.update(dt);
+    place(a, p.position.x, p.position.y, p.position.z, a.vh, dt, false);
+    tickActor(a, dt);
     faceLife(a, dt);
+    // the body layer over the clip: the lean into a run, the aim's pitch through the spine, the recoil, a flinch, the jump
+    const gs = weapon, spec = WEAPON_BY_ID[gs.id];
+    gs.run = a.loco && a.loco.s > 2.4 ? 1 : 0;
+    const runLean = THREE.MathUtils.clamp((a.vs - 1.6) / 6, 0, 1) * 0.2 + THREE.MathUtils.clamp(a.acc * 0.012, -0.12, 0.14);
+    const gun = gs.armed && spec && !spec.melee;
+    const pitchUp = gun ? gs.pitch * gs.raise : 0;
+    const rec = RECOIL[gs.id] || { torso: 0.05 };
+    const kk = gs.kick * gs.kick * (3 - 2 * gs.kick);
+    a.flinchK = Math.max(0, (a.flinchK || 0) - dt * 3.2);
+    const fl = a.flinchK * a.flinchK * (a.flinchK > 0.7 ? 1 : 0.7) ;
+    const punchW = gs.armed && spec?.melee && gs.punch > 0 ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
+    bodyLayer(a, {
+      fwd: runLean * (1 - 0.6 * gs.raise) - pitchUp * 0.55 - (gun ? kk * rec.torso : 0) - fl * 0.3 + punchW * 0.08 + (turning ? 0 : 0),
+      head: -pitchUp * 0.5 - fl * 0.35,
+      twist: (turning ? THREE.MathUtils.clamp(resid * 0.4, -0.5, 0.5) : 0) + (punchW ? (gs.punchLeft ? -1 : 1) * punchW * (gs.punchLeft ? 0.25 : 0.55) : 0) + fl * (a.flinchSide || 1) * 0.28,
+      airK: a.airK, vy: p.verticalVel, land: a.land, crouch: a.land * 0.1 + fl * 0.03 + (a.airK > 0.1 ? 0.03 * a.airK : 0)
+    });
     a.group.updateMatrixWorld(true);
     poseGun(a, weapon, dt);
+  }
+  /** The player is hit: a flinch (the torso snaps back and round, the head jerks) over about 0.3 s */
+  function flinch(side = 0) {
+    if (!playerActor) return;
+    playerActor.flinchK = 1;
+    playerActor.flinchSide = side || (Math.random() < 0.5 ? 1 : -1);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -710,7 +921,7 @@ export function createCast({ scene, controllerManager }) {
     else play(a, near ? (name === 'Kaz' ? 'angry_idle' : 'wait') : 'phone');
     if (!near) a.waved = false;
     place(a, at.x, at.y ?? 0, at.z, heading, dt || 0.016);
-    a.mixer.update(dt);
+    tickActor(a, dt);
     faceLife(a, dt);
     posePhone(a, dt || 0.016);
   }
@@ -731,7 +942,7 @@ export function createCast({ scene, controllerManager }) {
     place(a, seat.x, seat.y, seat.z, seat.heading, 0.016, false);
   }
   function animateSeated(dt) {
-    for (const a of Object.values(story)) if (a && a.seat && a.group.visible) { a.mixer.update(dt); faceLife(a, dt); }
+    for (const a of Object.values(story)) if (a && a.seat && a.group.visible) { tickActor(a, dt); faceLife(a, dt); }
   }
   // Actors for a scene (the intro's shots): key → one person (by model id) standing at a pose playing a clip; null pose:
   // gone. Called every frame while wanted (a model still loading just appears a moment later)
@@ -775,25 +986,49 @@ export function createCast({ scene, controllerManager }) {
       a.gs = newGunState();
       gunmen.set(key, a);
     }
-    const dt = o.dt || 0.016;
+    let dt = o.dt || 0.016;
+    // animation LOD: a gunman well away from the player is posed one frame in three (with all three frames' time)
+    const pp = controllerManager?.entities?.person?.position;
+    const far = pp && Math.hypot(pp.x - o.x, pp.z - o.z) > 45;
+    a.lodN = (a.lodN || 0) + 1;
+    a.lodDt = (a.lodDt || 0) + dt;
+    if (far && !o.dead && a.group.visible && a.lodN % 3 !== 0) {
+      a.group.position.set(o.x, o.y, o.z);
+      if (o.fire) a.gs.kick = 1;
+      return { muzzle: a.gs.muzzleValid ? a.gs.muzzle : null, held: Object.entries(a.gs.models).find(([, g]) => g.visible)?.[0] || null };
+    }
+    dt = a.lodDt;
+    a.lodDt = 0;
     if (o.dead) {
-      a.fall = Math.min(1, a.fall + dt / 0.55);
-      if (a.cur) a.cur.timeScale = Math.max(0, 1 - a.fall * 2);
+      if (has(a, 'die')) { a.dead = true; a.fall = 0; play(a, 'die', 1, 0.12); }
+      else { a.dead = false; a.fall = Math.min(1, a.fall + dt / 0.55); if (a.cur) a.cur.timeScale = Math.max(0, 1 - a.fall * 2); }
     } else {
       a.fall = 0;
+      a.dead = false;
       if (o.speed > 0.3) gait(a, o.speed);
       else if (o.aiming && has(a, 'aim')) play(a, 'aim');
       else if (o.armed && has(a, 'ready')) play(a, 'ready');
       else play(a, 'idle');
     }
     place(a, o.x, o.y, o.z, o.dead ? a.heading : o.heading, dt, a.group.visible);
-    a.mixer.update(dt);
+    tickActor(a, dt);
     if (o.vest) dressBikie(a);
+    if (o.officer) dressOfficer(a);
     faceLife(a, dt, false);
-    a.group.updateMatrixWorld(true);
     const gs = a.gs;
     gs.id = o.weapon; gs.armed = !!o.armed && !o.dead; gs.aiming = !!o.aiming; gs.yaw = o.yaw ?? o.heading; gs.pitch = o.pitch || 0;
     if (o.fire) gs.kick = 1;
+    // a hit: the torso snaps back and round for a third of a second
+    if (o.hurt && !a.wasHurt) { a.flinchK = 1; a.flinchSide = Math.random() < 0.5 ? 1 : -1; }
+    a.wasHurt = !!o.hurt;
+    a.flinchK = Math.max(0, (a.flinchK || 0) - dt * 3.2);
+    const spec = WEAPON_BY_ID[gs.id];
+    if (!o.dead) {
+      const rec = RECOIL[gs.id] || { torso: 0.05 }, kk = gs.kick * gs.kick * (3 - 2 * gs.kick), pitchUp = gs.armed && spec && !spec.melee ? gs.pitch * (gs.aiming ? 1 : 0) : 0;
+      const fl = a.flinchK * a.flinchK;
+      bodyLayer(a, { fwd: -pitchUp * 0.55 - kk * rec.torso - fl * 0.3, head: -pitchUp * 0.5 - fl * 0.35, twist: fl * (a.flinchSide || 1) * 0.28, crouch: fl * 0.03 });
+    }
+    a.group.updateMatrixWorld(true);
     poseGun(a, gs, dt);
     return { muzzle: gs.muzzleValid ? gs.muzzle : null, held: Object.entries(gs.models).find(([, g]) => g.visible)?.[0] || null };
   }
@@ -820,6 +1055,58 @@ export function createCast({ scene, controllerManager }) {
     box.add(patch);
     sp.add(box);
   }
+  // ---- A police officer's cap and duty belt (js/police.js; combat.js passes `officer`) -------------------------------------
+  // A navy cap with a blue and white chequer band and a peak on the head bone, a belt with a holster on the hips bone. Meshes
+  // ride in a holder whose axes are the person's own (x right, y up, z forward, in metres), whatever the bone's rest pose.
+  let chequerTex = null;
+  function boneHolder(a, bone) {
+    a.group.updateMatrixWorld(true);
+    const wq = bone.getWorldQuaternion(new THREE.Quaternion()), gq = a.group.getWorldQuaternion(new THREE.Quaternion());
+    const ws = bone.getWorldScale(new THREE.Vector3());
+    const holder = new THREE.Group();
+    holder.quaternion.copy(wq.invert().multiply(gq));
+    holder.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+    bone.add(holder);
+    return holder;
+  }
+  function dressOfficer(a) {
+    if (a.uniformed) return;
+    a.uniformed = true;
+    const head = a.root.getObjectByName('Head'), hips = a.root.getObjectByName('Hips') || a.root.getObjectByName('Bip01_Pelvis');
+    if (!chequerTex) {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 4;
+      const x = c.getContext('2d');
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#f4f6f8' : '#10326e'; x.fillRect(i * 4, j, 4, 1); }
+      chequerTex = new THREE.CanvasTexture(c);
+      chequerTex.wrapS = chequerTex.wrapT = THREE.RepeatWrapping;
+      chequerTex.magFilter = chequerTex.minFilter = THREE.NearestFilter;
+      chequerTex.repeat.set(6, 1);
+      chequerTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    const navy = new THREE.MeshStandardNodeMaterial({ color: 0x0d1a33, roughness: 0.8, metalness: 0 });
+    const band = new THREE.MeshStandardNodeMaterial({ map: chequerTex, roughness: 0.7, metalness: 0 });
+    const black = new THREE.MeshStandardNodeMaterial({ color: 0x0a0a0c, roughness: 0.6, metalness: 0.2 });
+    if (head) {
+      const h = boneHolder(a, head);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.098, 0.075, 20), navy);
+      crown.position.set(0, 0.2, 0.02);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.035, 20, 1, true), band);
+      ring.position.set(0, 0.162, 0.02);
+      const peak = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.008, 0.075), black);
+      peak.position.set(0, 0.155, 0.125);
+      peak.rotation.x = 0.15;
+      h.add(crown, ring, peak);
+    }
+    if (hips) {
+      const h = boneHolder(a, hips);
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.055, 0.25), black);
+      belt.position.set(0, 0.12, 0);
+      const holster = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.09), black);
+      holster.position.set(0.2, 0.04, 0.0);
+      h.add(belt, holster);
+    }
+  }
   // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
   // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
   // the bike. Returns false until the model is in.
@@ -837,7 +1124,7 @@ export function createCast({ scene, controllerManager }) {
     const dt = o.dt || 0.016;
     if (a.group.parent !== o.parent) o.parent.add(a.group);
     play(a, has(a, 'sit') ? 'sit' : 'idle');
-    a.mixer.update(dt);
+    tickActor(a, dt);
     a.group.rotation.set(0, 0, 0);
     dressBikie(a);
     a.group.scale.setScalar(1);
@@ -871,7 +1158,7 @@ export function createCast({ scene, controllerManager }) {
     /** The player's gun: { id, armed, aiming, yaw } from js/gameplay.js each frame */
     setPlayerWeapon(w) {
       weapon.id = w.id; weapon.armed = w.armed; weapon.aiming = w.aiming; weapon.yaw = w.yaw; weapon.pitch = w.pitch || 0;
-      weapon.punch = w.punch || 0; weapon.punchLeft = !!w.punchLeft;
+      weapon.punch = w.punch || 0; weapon.punchLeft = !!w.punchLeft; weapon.reload = w.reload || 0;
       if (w.kick) weapon.kick = 1;
     },
     /** For checks: the weapon model in the player's hand now */
@@ -911,10 +1198,15 @@ export function createCast({ scene, controllerManager }) {
     /** which clips a body (model id) has: `clipsFor('Male_Adult_09')` */
     clipNames(id) { return Object.keys(ownClips.get(id) || clips[isFemale(id) ? 'f' : 'm'] || {}); },
     setPlayerAction,
+    flinch,
     /** Draw the player at a pose of the car sequence's (js/gameplay.js) while on foot: { x, y, z, heading, anim,
      *  timeScale, reach }, reach an arm's target { x, y, z, w (0..1), left }; null hands back to the controller */
     setPlayerPose(o) { playerPose = o; },
-    /** for checks: what the player and the story characters are playing */
+    /** for checks: a body's actor (the player's, a story character's, an extra's or a gunman's by key) */
+    actor(who) { return who === 'player' ? playerActor : story[who] || extras.get(who) || gunmen.get(who) || null; },
+    /** for checks: the player's gun state */
+    gunState() { return weapon; },
+    /** what the player and the story characters are playing */
     debug() {
       const name = (a) => a?.cur?.getClip().name || '-';
       return { player: name(playerActor), ...Object.fromEntries(Object.entries(story).map(([n, a]) => [n, a.group.visible ? name(a) : 'hidden'])) };
@@ -922,7 +1214,7 @@ export function createCast({ scene, controllerManager }) {
     /** how loud the story voices are (0..1): the speaking character's lips follow it */
     setVoiceLevel(x) { voiceLevel = x; },
     /** advance the cast's clock (gestures time out on it) */
-    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) { if (a.group.visible) { a.mixer.update(dt); faceLife(a, dt, false); } posePhone(a, dt); } } // (extras' lips stay still: the voice over them is the narrator's)
+    tick(dt) { clock += dt; animateSeated(dt); for (const a of extras.values()) { if (a.group.visible) { tickActor(a, dt); faceLife(a, dt, false); } posePhone(a, dt); } } // (extras' lips stay still: the voice over them is the narrator's)
   };
 }
 

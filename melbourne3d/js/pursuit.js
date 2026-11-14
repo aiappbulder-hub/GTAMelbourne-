@@ -45,6 +45,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   async function start({ x, z, heading: h = 0, file = 'comodo', color = 0x2b2f33, speed = 30, wait = false, stopGap = STOP, seed = null }) {
     const my = ++token;
     active = true;
+    leaving = 0;
     parked = wait;
     pos = { x, y: terrainHeight(x, z), z };
     heading = h;
@@ -66,6 +67,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   function stop() {
     token++;
     active = false;
+    leaving = 0;
     trail = [];
     if (car) car.root.visible = false;
   }
@@ -104,10 +106,24 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     }
     return best;
   }
-  /** A parked pursuer pulls out: it starts following from here */
-  function release() { parked = false; trail = []; v = 0; }
+  /** A parked pursuer pulls out: it starts following from here (from `seed`, a route of points, when given) */
+  function release(seed = null) { parked = false; leaving = 0; trail = seed ? seed.map((q) => ({ x: q.x, y: q.y ?? terrainHeight(q.x, q.z), z: q.z })) : []; v = 0; }
+  /** Stop where it is and wait (its officers are out: js/police.js), solid */
+  function park() { parked = true; leaving = 0; v = 0; }
+  /** Pull away along its heading and be gone: the unit has finished here (js/police.js) */
+  function driveOff() { parked = false; leaving = 0.001; trail = []; }
+  let leaving = 0; // seconds spent driving off (0: not leaving)
   function update(dt) {
     if (!active) return;
+    if (leaving > 0) {
+      leaving += dt;
+      v = Math.min(16, v + 4.5 * dt);
+      pos = { x: pos.x + Math.sin(heading) * v * dt, y: pos.y, z: pos.z + Math.cos(heading) * v * dt };
+      pos.y = terrainHeight(pos.x, pos.z);
+      place(dt);
+      if (leaving > 7) stop();
+      return;
+    }
     if (parked) { collide(); return; } // waiting at the kerb: still solid
     // drop a trail point wherever the player has got to
     const p = player().position;
@@ -186,6 +202,11 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     start,
     stop,
     release,
+    park,
+    driveOff,
+    get leaving() { return leaving > 0; },
+    /** The car's model group (null until it has loaded) */
+    get root() { return car ? car.root : null; },
     get parked() { return parked; },
     update,
     get active() { return active; },

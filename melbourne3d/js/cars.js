@@ -1094,6 +1094,8 @@ function buildLightbarGeometry(spec = BODY_SPECS.sedan) {
 }
 
 let _lightbarMat = null;
+// 0 = every roof light bar dark, 1 = flashing. js/police.js sets it: lit at night and while the police are after you.
+const lightbarActive = uniform(1);
 
 // Light bar lenses: NYPD red (-x), blue (+x) & centre white takedown LED pods flashing in alternation per cruiser
 function createLightbarMaterial() {
@@ -1125,7 +1127,7 @@ function createLightbarMaterial() {
     const rEmit = color(0xff1820).mul(s.isRed.mul(s.redOn).mul(6.2));
     const bEmit = color(0x286eff).mul(s.isBlue.mul(s.blueOn).mul(7.2));
     const wEmit = color(0xf4f8ff).mul(s.isWhite.mul(s.whiteOn).mul(3.8));
-    return rEmit.add(bEmit).add(wEmit).mul(s.pod).mul(s.isLens);
+    return rEmit.add(bEmit).add(wEmit).mul(s.pod).mul(s.isLens).mul(lightbarActive);
   })();
   _lightbarMat = mat;
   return mat;
@@ -1182,6 +1184,25 @@ function carStyleCode({ livery = 0, metallic = 0, trim = 0, wheel = 0 } = {}) {
 const _carMaterialCache = new Map();
 const _carWheelMaterialCache = new Map();
 let _carPlateTexture;
+let _policeTextTexture;
+// "POLICE" for the doors and bonnet of Victoria Police cars: a white-on-black mask (black border, so clamped lookups are clear)
+function policeTextTexture() {
+  if (_policeTextTexture) return _policeTextTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 92px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('POLICE', 256, 68, 480);
+  _policeTextTexture = new THREE.CanvasTexture(canvas);
+  _policeTextTexture.anisotropy = 8;
+  return _policeTextTexture;
+}
 
 // Shared procedural alloy rim, spoke, brake-rotor & tyre rubber evaluation used by both `createLoftedCarMaterial`
 // (for highway cars & >90 m proxies) and `createCarWheelMaterial` (for <90 m 3D spinning wheels), keeping near/far
@@ -1576,6 +1597,16 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
       clamp(p.y.sub(plateCenterY).div(0.115).add(0.5), 0.06, 0.94).add(plateVariant).div(4.0)
     );
     const plateCol = texture(carPlateTexture(), plateUV).rgb;
+    // "POLICE" on the doors (reads left to right from outside, either side) and on the bonnet (reads from the front)
+    const hoodMidZ = (cab.cowl + spec.zFront - 0.3) * 0.5;
+    const onHood = smoothstep(0.78, 0.9, n.y).mul(smoothstep(cab.cowl + 0.05, cab.cowl + 0.2, p.z)).mul(smoothstep(spec.zFront - 0.25, spec.zFront - 0.4, p.z));
+    const sideSign = mix(float(1.0), float(-1.0), step(0.0, p.x));
+    const decalUV = mix(
+      vec2(sideSign.mul(p.z.sub(doorMid)).div(0.5).add(0.5), p.y.sub(0.765).div(0.12).add(0.5)),
+      vec2(p.x.div(0.6).add(0.5), hoodMidZ.sub(p.z).div(0.15).add(0.5)),
+      onHood
+    );
+    const decalMask = texture(policeTextTexture(), clamp(decalUV, 0.0, 1.0)).r;
 
     If(isBody.greaterThan(0.5), () => {
       const bCol = vec3(basePaint.mul(ao)).toVar();
@@ -1589,6 +1620,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
       }
       const grime = smoothstep(sillY + 0.16, sillY - 0.01, p.y).mul(0.2);
       bCol.assign(mix(bCol, color(0x2d2b28), grime));
+      if (IS_MELBOURNE) bCol.assign(mix(bCol, color(0x10326e), decalMask.mul(isPolice).mul(onHood).mul(ao))); // POLICE on the bonnet
 
       // Side doors, handles & liveries (evaluated only on side-facing body fragments)
       If(isSide.greaterThan(0.05), () => {
@@ -1608,7 +1640,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
             const cells = sin(p.z.mul(22.0)).mul(sin(p.y.sub(0.57).mul(37.0).add(1.5708)));
             const chequer = mix(float(0.5), step(0.0, cells), fadeFine(max(fwZ, fwY)));
             bCol.assign(mix(bCol, mix(color(0xf4f6f8), color(0x10326e), chequer), band2.mul(polMask)));
-            bCol.assign(mix(bCol, color(0x10326e), lettering.mul(polMask)));
+            bCol.assign(mix(bCol, color(0x10326e), decalMask.mul(polMask)));
           } else {
             bCol.assign(mix(mix(bCol, color(0x1b3d8a), max(stripe, lettering).mul(polMask)), color(0x6ba5dc), pin.mul(polMask)));
           }
@@ -1907,6 +1939,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
 }
 
 export {
+  lightbarActive,
   CAR_PARTS,
   BODY_SPECS,
   carLayout,
