@@ -6,6 +6,8 @@
 const { chromium } = require('playwright');
 const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 // FROM=12 node tools/melbourne/test-act1.cjs starts at that job (0-based) with the choices the earlier ones would have made
+// (FROM=8 is the whole of Act I and takes over 15 minutes under software rendering; FROM=12 plays only The Ferryman's Toll
+// and then checks the Book and the till, so the end of the run is reached in a few minutes)
 const FROM = Math.max(8, Math.min(12, +process.env.FROM || 8));
 const SEED = [{ quiet_room: 'fair', bug: 'kept' }, { lunch_shooter: 'talked', carlton: 'books' }, { kaz: 'partner' }, { doors_first: 'lean', doors: 'take' }];
 const MONEY = [40000, 31000, 35000, 39500, 44500];
