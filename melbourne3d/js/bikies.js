@@ -9,7 +9,7 @@
 //    points; each bike follows that trail at its place in a staggered formation (so they stay on the road wherever the
 //    leader does), steering and leaning by how the trail bends.
 //  - The fight: a shot at them, a hit, a punch, a blast, or a bike rammed by the player's car turns the pack hostile.
-//    The leader turns for the player, each bike pulls up within 26 m of him (or after 7 s), the rider gets off and fights
+//    The leader turns for the player, each bike pulls up within 20 m of him (or after 7 s), the rider gets off and fights
 //    on foot. A rider killed on the bike comes off it and the bike goes down. The encounter is over when every rider is dead.
 //  - The police are kept out of jobs by js/wanted.js as ever; in free roam the wanted system applies as normal.
 import * as THREE from 'three/webgpu';
@@ -159,6 +159,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
   // The virtual leader on the lanes
   const out = { x: 0, z: 0, dx: 0, dz: 1 };
   function pointOf(L) {
+    if (L.free) { out.x = L.fx; out.z = L.fz; out.dx = Math.sin(L.fh); out.dz = Math.cos(L.fh); return out; }
     if (L.conn) curvePoint(L.conn, Math.max(0, L.cs), out);
     else {
       const e = L.edge;
@@ -194,6 +195,13 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
   }
   function advance(L, dt) {
     let ds = L.speed * dt;
+    if (L.free) { // no road: straight at the player (a job's pack where the network does not reach), turning at most 1.4 rad/s
+      const pp = player();
+      L.fh += clamp(wrap(Math.atan2(pp.x - L.fx, pp.z - L.fz) - L.fh), -1.4 * dt, 1.4 * dt);
+      L.fx += Math.sin(L.fh) * ds;
+      L.fz += Math.cos(L.fh) * ds;
+      ds = 0;
+    }
     while (ds > 0 && !L.dead) {
       if (!L.conn) {
         if (!L.move) { L.move = chooseMove(L); if (!L.move) { L.dead = true; break; } }
@@ -242,13 +250,13 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
   // -------------------------------------------------------------------------------------------------------------------
   // Spawning
   /** A place on the road network from which a pack can set off: { e, lane, s } on a main road, d metres (a range) from (cx, cz), out of sight */
-  function pickSpawn(cx, cz, dMin, dMax, hidden = true) {
+  function pickSpawn(cx, cz, dMin, dMax, hidden = true, loose = false) {
     let best = null;
     for (let tries = 0; tries < 900; tries++) {
       const e = edges[(Math.random() * edges.length) | 0];
-      if (!e.moves.length || !mainRoad(e) || e.len < 80) continue;
+      if (!e.moves.length || (!loose && !mainRoad(e)) || e.len < (loose ? 45 : 80)) continue;
       const lane = (Math.random() * e.lanes.length) | 0;
-      const s = rand(34, e.len - 22);
+      const s = loose ? rand(Math.min(30, e.len * 0.6), e.len - 8) : rand(34, e.len - 22);
       const x = e.sx + e.dx * s + e.rx * e.lanes[lane], z = e.sz + e.dz * s + e.rz * e.lanes[lane];
       const d = Math.hypot(x - cx, z - cz);
       if (d < dMin || d > dMax) continue;
@@ -259,6 +267,26 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
       if (!best || score > best.score) best = { e, lane, s, x, z, score };
     }
     return best;
+  }
+  /** A leader on open ground (no road within reach): from a clear line 100-130 m out, heading for (cx, cz); null if every direction is walled */
+  function makeFreeLeader(cx, cz) {
+    const a0 = Math.random() * Math.PI * 2;
+    for (let k = 0; k < 16; k++) {
+      const a = a0 + k * (Math.PI / 8);
+      let clear = true;
+      for (let d = 6; d <= 125 && clear; d += 3) {
+        const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
+        if ((cm.getGroundHeight(x, z, 'person') ?? -9) < -0.3) { clear = false; break; }
+        for (const c of cm.nearColliders(x, z, 1.2)) if ((c.minY ?? 0) < 2 && (c.maxY === undefined || c.maxY > 0.3) && x > c.minX - 1.2 && x < c.maxX + 1.2 && z > c.minZ - 1.2 && z < c.maxZ + 1.2) { clear = false; break; }
+      }
+      if (!clear) continue;
+      const fh = a + Math.PI, x0 = cx + Math.sin(a) * 125, z0 = cz + Math.cos(a) * 125;
+      const L = { free: true, fx: x0, fz: z0, fh, speed: 9, dead: false, trail: [], cum: 0, hostile: true, edge: { len: 1e9 }, s: 0 };
+      for (let d = 30; d >= 0; d -= 0.5) L.trail.push({ x: x0 - Math.sin(fh) * d, z: z0 - Math.cos(fh) * d, cum: 30 - d });
+      L.cum = 30;
+      return L;
+    }
+    return null;
   }
   function makeLeader(sp) {
     const L = { edge: sp.e, lane: sp.lane, s: sp.s, conn: null, cs: 0, out: 0, move: null, speed: 9, dead: false, trail: [], cum: 0, hostile: false };
@@ -275,13 +303,16 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
    * Returns the riders (armed hostiles, js/combat.js) or [] when no road was found.
    */
   function spawnPack(opts = {}) {
-    if (pack) removePack(pack);
+    if (pack) removePack(pack, 'respawn');
     const n = clamp(opts.n || 4 + ((Math.random() * 3) | 0), 1, SLOTS.length);
     const pp = player(), c = opts.near || pp;
     const range = opts.range || [130, 240];
-    const sp = pickSpawn(c.x, c.z, range[0], range[1], opts.hidden !== false) || pickSpawn(c.x, c.z, range[0] * 0.5, range[1] * 1.6, false);
-    if (!sp) return [];
-    const L = makeLeader(sp);
+    let sp = pickSpawn(c.x, c.z, range[0], range[1], opts.hidden !== false) || pickSpawn(c.x, c.z, range[0] * 0.5, range[1] * 1.6, false) || pickSpawn(c.x, c.z, 30, opts.job ? 200 : 420, false, true);
+    let L = null;
+    if (sp) L = makeLeader(sp);
+    else if (opts.job) L = makeFreeLeader(c.x, c.z);
+    if (!L) return [];
+    sp = sp || { x: L.fx, z: L.fz };
     L.hostile = !!opts.hostile;
     pack = { id: ++packsMade, L, bikes: [], hostile: !!opts.hostile, hostileT: 0, age: 0, job: !!opts.job, over: false, overT: 0, brakeAll: false };
     const weapons = opts.weapons || WEAPONS;
@@ -298,7 +329,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
     serial += n;
     return pack.bikes.map((b) => b.g);
   }
-  function removePack(p) {
+  function removePack(p, why = '?') {
     for (const b of p.bikes) {
       group.remove(b.parts.group);
       cast?.setRider(b.key, null, null);
@@ -388,8 +419,9 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
       if (along > 0.5 && along < 14 && Math.abs(ax * fz - az * fx) < 2.2 && !P.hostile) want = Math.min(want, along < 6 ? 0 : 4);
     }
     // hostile: the leader stops when a rider is near the player, or when it has gone as far as it can
-    const near = P.bikes.some((b) => b.state === 'ride' && Math.hypot(b.x - pp.x, b.z - pp.z) < 30);
-    if (P.hostile && (near || P.hostileT > 7)) want = 0;
+    const near = P.bikes.some((b) => b.state === 'ride' && Math.hypot(b.x - pp.x, b.z - pp.z) < 24);
+    const wait = Math.hypot(lx - pp.x, lz - pp.z) < 110 ? 7 : 22; // (a long way off: it keeps coming for longer)
+    if (P.hostile && (near || P.hostileT > wait)) want = 0;
     L.speed += clamp(want - L.speed, -9 * dt, 4 * dt);
     if (!L.dead) advance(L, dt);
     else L.speed = 0;
@@ -406,7 +438,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
           const slot = SLOTS[b.i];
           const wantU = L.cum - slot[0];
           let v = clamp(L.speed + 1.4 * (wantU - b.u), 0, 20);
-          if (b.state === 'ride' && P.hostile && (Math.hypot(b.x - pp.x, b.z - pp.z) < 26 || P.hostileT > 7) && L.speed < 3) b.state = 'brake';
+          if (b.state === 'ride' && P.hostile && (Math.hypot(b.x - pp.x, b.z - pp.z) < 20 || P.hostileT > wait) && L.speed < 3) b.state = 'brake';
           if (b.state === 'brake') v = 0;
           b.speed += clamp(v - b.speed, -7 * dt, 5 * dt);
           b.u = Math.min(b.u + b.speed * dt, L.cum - 0.2);
@@ -467,9 +499,9 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
     if (P.over) P.overT += dt;
     // gone: all riders dead for a while, too far from the player for a peaceful pack, or no road left
     const far = Math.hypot(L.cum > 0 ? lx - pp.x : 0, lz - pp.z);
-    if (P.over && P.overT > 20) return removePack(P);
-    if (!P.hostile && (L.dead || (P.age > 14 && far > 330) || P.age > 260) && !P.job) return removePack(P);
-    if (P.hostile && P.bikes.every((b) => !b.g.mounted) && far > 260) return removePack(P);
+    if (P.over && P.overT > 20) return removePack(P, 'over');
+    if (!P.hostile && (L.dead || (P.age > 14 && far > 330) || P.age > 260) && !P.job) return removePack(P, 'peaceful gone');
+    if (P.hostile && !P.job && P.bikes.every((b) => !b.g.mounted) && far > 260) return removePack(P, 'hostile far');
   }
 
   function drawPack(dt) {
@@ -520,8 +552,8 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
     const onJob = !!missionSystem?.onJob;
     if (pack) {
       // riders cleared from the world (respawn, a new job): the pack goes with them
-      if (pack.bikes.every((b) => !combat.list.includes(b.g))) removePack(pack);
-      else if (onJob && !pack.job && !pack.hostile) removePack(pack); // free roam's pack does not ride into a story job
+      if (pack.bikes.every((b) => !combat.list.includes(b.g))) removePack(pack, 'riders cleared');
+      else if (onJob && !pack.job && !pack.hostile) removePack(pack, 'job'); // free roam's pack does not ride into a story job
     }
     if (pack) { stepPack(dt); if (pack) drawPack(dt); }
     else if (!onJob && !busy && !gameplay.state.dying && cm.activeMode !== 'heli') {

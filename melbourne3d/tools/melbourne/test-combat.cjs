@@ -9,7 +9,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const p = await (await b.newContext({ viewport: { width: 360, height: 230 } })).newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 200)));
-  await p.goto('http://localhost:' + (process.env.PORT || 8765) + '/melbourne3d/index.html?webgl&quality=low&nointro&nofilm', { timeout: 120000 });
+  await p.goto('http://localhost:' + (process.env.PORT || 8765) + (process.env.PAGE || '/melbourne3d/index.html') + '?webgl&quality=low&nointro&nofilm', { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.gameplay && __city.trafficSystem && __city.cast && __city.cast.ready, null, { timeout: 480000 }); await p.waitForTimeout(3000);
   const ok = (c, w) => { log(c ? 'PASS' : 'FAIL', w); if (!c) process.exitCode = 1; };
   // step the game `secs` seconds of game time (0.05 s steps), the player's model too
@@ -161,7 +161,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(/4 left/.test(job.step), 'the objective counts them: ' + job.step);
   await p.evaluate(() => { __city.gameplay.health = 100; });
   let hpJob = 100;
-  for (let i = 0; i < 60 && hpJob >= 100; i++) { await simJob(0.5); hpJob = await p.evaluate(() => __city.gameplay.state.hp); if (i % 8 === 7) await p.waitForTimeout(500); }
+  for (let i = 0; i < 120 && hpJob >= 100; i++) { await simJob(0.5); hpJob = await p.evaluate(() => __city.gameplay.state.hp); if (i % 8 === 7) await p.waitForTimeout(500); }
   const shooters = await p.evaluate(() => __city.gameplay.combat.debug().map((g) => ({ v: g.visible, a: g.alert, s: g.shots })));
   log('under fire', JSON.stringify(shooters), 'hp', hpJob);
   ok(shooters.some((g) => g.s > 0) && hpJob < 100, 'the Nomads shoot at the player in the job (hp ' + hpJob.toFixed(1) + ')');

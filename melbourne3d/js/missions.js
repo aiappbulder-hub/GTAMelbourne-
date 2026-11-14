@@ -1107,9 +1107,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       const p = playerPos();
       // armed hostiles round the player (js/combat.js: they notice, aim and shoot back); if none could be placed, the people nearest
       // (s.bikies: they arrive as a pack of bikies on motorbikes who ride up, get off and fight: js/bikies.js)
-      const armed = s.bikies && gameplay?.bikies
-        ? gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range: [90, 150], hidden: false })
-        : gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
+      let armed = s.bikies && gameplay?.bikies ? gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range: [90, 150], hidden: false }) : null;
+      if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
       m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
