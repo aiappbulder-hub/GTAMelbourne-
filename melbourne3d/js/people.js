@@ -788,6 +788,7 @@ export function createCast({ scene, controllerManager }) {
     }
     place(a, o.x, o.y, o.z, o.dead ? a.heading : o.heading, dt, a.group.visible);
     a.mixer.update(dt);
+    if (o.vest) dressBikie(a);
     faceLife(a, dt, false);
     a.group.updateMatrixWorld(true);
     const gs = a.gs;
@@ -795,6 +796,69 @@ export function createCast({ scene, controllerManager }) {
     if (o.fire) gs.kick = 1;
     poseGun(a, gs, dt);
     return { muzzle: gs.muzzleValid ? gs.muzzle : null, held: Object.entries(gs.models).find(([, g]) => g.visible)?.[0] || null };
+  }
+  // A bikie's vest: a black block round the chest with a patch on the back, carried by the spine bone (bikies ride and fight in it)
+  const vestMat = new THREE.MeshStandardNodeMaterial({ color: 0x0e0e10, roughness: 0.8, metalness: 0.1 });
+  const patchMat = new THREE.MeshStandardNodeMaterial({ color: 0xb02020, roughness: 0.7, metalness: 0 });
+  function dressBikie(a) {
+    if (a.vested) return;
+    a.vested = true;
+    const sp = a.root.getObjectByName('Bip01_Spine1') || a.root.getObjectByName('Spine1') || a.root.getObjectByName('Bip01_Spine');
+    if (!sp) return;
+    a.group.updateMatrixWorld(true);
+    const wq = sp.getWorldQuaternion(new THREE.Quaternion()), gq = a.group.getWorldQuaternion(new THREE.Quaternion());
+    const ws = sp.getWorldScale(new THREE.Vector3());
+    const rel = wq.clone().invert().multiply(gq); // bone space -> the group's axes
+    const wp = sp.getWorldPosition(new THREE.Vector3());
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.36, 0.25), vestMat);
+    box.position.copy(sp.worldToLocal(wp.clone()));
+    box.quaternion.copy(rel);
+    box.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+    const patch = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), patchMat);
+    patch.position.set(0, 0.02, -0.128);
+    patch.rotation.y = Math.PI;
+    box.add(patch);
+    sp.add(box);
+  }
+  // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
+  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
+  // the bike. Returns false until the model is in.
+  const riders = new Map();
+  function setRider(key, id, o) {
+    let a = riders.get(key);
+    if (!o) { if (a) { a.group.visible = false; if (a.group.parent) a.group.parent.remove(a.group); } return true; }
+    if (!templates.has(id)) { loadPerson(id); return false; }
+    if (!a || a.id !== id) {
+      if (a) a.group.visible = false;
+      a = makeActor(id, LEVEL.shadows);
+      if (!a) return false;
+      riders.set(key, a);
+    }
+    const dt = o.dt || 0.016;
+    if (a.group.parent !== o.parent) o.parent.add(a.group);
+    play(a, has(a, 'sit') ? 'sit' : 'idle');
+    a.mixer.update(dt);
+    a.group.rotation.set(0, 0, 0);
+    dressBikie(a);
+    a.group.scale.setScalar(1);
+    a.group.position.set(0, 0, 0);
+    a.group.visible = true;
+    a.group.updateMatrixWorld(true);
+    // the hips' height above the person's feet, measured once from the seated clip, then the person set so they land on the seat
+    const hips = a.hipsBone || (a.hipsBone = a.root.getObjectByName('Bip01_Pelvis') || a.root.getObjectByName('Bip01') || a.root.getObjectByName('Hips'));
+    if (hips && a.hipH === undefined) { const p = hips.getWorldPosition(new THREE.Vector3()); a.group.worldToLocal(p); a.hipH = p.y; a.hipZ = p.z; }
+    a.group.position.set(0, o.seat.y - (a.hipH || 0.5), o.seat.z - (a.hipZ || 0));
+    a.heading = 0;
+    o.parent.updateMatrixWorld(true);
+    a.group.updateMatrixWorld(true);
+    const head = o.parent.getWorldDirection(_f.set(0, 0, 1)); // the bike's forward, for the arms' elbows
+    a.heading = Math.atan2(head.x, head.z);
+    if (o.grips) for (let i = 0; i < 2; i++) {
+      const w = o.grips[i].getWorldPosition(new THREE.Vector3());
+      reachArm(a, { x: w.x, y: w.y, z: w.z, left: i === 0 }, 1);
+    }
+    faceLife(a, dt, false);
+    return true;
   }
   // The player sitting down (a scene): drawn at the seat whatever mode they're in
   let playerSeat = null, playerSeatAnim = 'sit';
@@ -816,6 +880,7 @@ export function createCast({ scene, controllerManager }) {
       return { held, drawK: weapon.drawK, raise: weapon.raise, muzzle: weapon.muzzleValid };
     },
     setGunman,
+    setRider,
     /** Where the gun's muzzle is (for the flash and tracers), or null */
     muzzle() { return weapon.muzzleValid ? weapon.muzzle : null; },
     setSeated,

@@ -120,9 +120,10 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       if (g.dead) {
         g.deadT += dt;
         if (g.deadT > 45) { cast?.setGunman(g.key, g.model, null); list.splice(i, 1); continue; }
-        g.visible = !!cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, dead: true, weapon: g.weapon, dt });
+        g.visible = !!cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, dead: true, weapon: g.weapon, vest: g.biker, dt });
         continue;
       }
+      if (g.mounted) { g.fired = false; continue; } // riding a bike: js/bikies.js moves and draws him until he gets off
       const dxp = P.x - g.x, dzp = P.z - g.z, d = Math.hypot(dxp, dzp);
       // perception: four times a second, a ray to the player's chest
       g.seeT -= dt;
@@ -182,7 +183,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       g.y = groundAt(g.x, g.z);
       const pitch = engaged ? Math.atan2(P.y + 1.1 - (g.y + 1.45), Math.max(1, d)) : 0;
       const r2 = cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, speed: g.speed, weapon: g.weapon, armed: true,
-        aiming: g.aiming && engaged, yaw: g.heading, pitch, fire: g.fired, dt });
+        aiming: g.aiming && engaged, vest: g.biker, yaw: g.heading, pitch, fire: g.fired, dt });
       g.visible = !!r2;
       g.held = r2?.held || null;
       g.muzzle = r2?.muzzle ? { x: r2.muzzle.x, y: r2.muzzle.y, z: r2.muzzle.z } : null;
