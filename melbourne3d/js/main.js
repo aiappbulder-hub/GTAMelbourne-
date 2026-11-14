@@ -666,6 +666,8 @@ async function initApp() {
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
   }) : null;
   window.__city.intro = intro;
+  // Car radio and background music, all synthesised (js/music.js)
+  if (IS_MELBOURNE) window.__city.music = (await import('./music.js')).createMusic({ audioSystem, controllerManager, voices, missionSystem, wanted, gameplay });
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
