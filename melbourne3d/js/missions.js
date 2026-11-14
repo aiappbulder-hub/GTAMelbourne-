@@ -1368,6 +1368,18 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (cut || mission.si < 0) { if (!cut || cut.step) showActors([]); return; }
     const m = mission, s = m.def.steps[m.si];
     m.stepT += dt;
+    // an inside step's goal is in the room (y 1500): with the player out on the street, the marker and the GPS point at the street door instead
+    if (s.inside || (s.at && resolve(s.at).y > 1000)) {
+      const out = !interiors?.inside, key = `${m.si}:${out}`;
+      if (m.doorPtr !== key) {
+        m.doorPtr = key;
+        const g = out ? resolve({ place: 'QR_DOOR' }) : s.at ? resolve(s.at) : null;
+        if (g) {
+          placeMarker(goalMarker, g, out ? 3 : s.r);
+          if (mapSystem) mapSystem.waypoint = { x: g.x, z: g.z, name: getLocationLabel(g.x, g.z) };
+        } else { goalMarker.visible = false; if (mapSystem) mapSystem.waypoint = null; }
+      }
+    }
     // story actors and watchers for this step
     const acts = [];
     for (const a of s.actors || []) {

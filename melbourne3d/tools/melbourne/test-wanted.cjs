@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
-  const ctx = await b.newContext({ viewport: { width: 640, height: 400 } });
+  const ctx = await b.newContext({ viewport: { width: 360, height: 230 } });
   await ctx.addInitScript(() => {
     if (!sessionStorage.getItem('s')) {
       sessionStorage.setItem('s', '1');
