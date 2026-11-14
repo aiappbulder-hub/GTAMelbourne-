@@ -397,7 +397,7 @@ async function initApp() {
   // Keyboard guide for each mode: [keys, action]
   const controlHints = {
     person: IS_MELBOURNE
-      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
+      ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['Shift', '1-4'], 'Mode'], [['V'], 'Camera'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
       : [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
     car: IS_MELBOURNE
       ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Space'], 'Handbrake'], [['F'], 'Get out'], [['B'], 'Horn']]
@@ -820,7 +820,7 @@ async function initApp() {
     });
   }
 
-  // Global keyboard shortcuts for modes (1-4), cameras (V / 5-0), and HUD (H)
+  // Global keyboard shortcuts for modes (1-4; Shift+1-4 on foot, where 1-6 are weapons), cameras (V / 5-0; Shift+5-0 on foot), and HUD (H)
   window.addEventListener('keydown', (e) => {
     if (isTypingInField(e)) return;
     switch (e.code) {

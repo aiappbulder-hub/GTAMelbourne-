@@ -1,7 +1,7 @@
 // tools/melbourne/test-flags.cjs: the saved Davo choice changes Harbour Run's closing line, and chapter-card delays run on game time.
 // Serve the repository root on 8765, then: node tools/melbourne/test-flags.cjs
 const { chromium } = require('playwright');
-const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const p = await (await b.newContext({ viewport: { width: 640, height: 400 } })).newPage();

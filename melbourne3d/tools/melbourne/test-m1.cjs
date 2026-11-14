@@ -3,7 +3,7 @@
 // v1 save, plays Low Tide end to end through window.__city (a stealth fail, the waterfront route, the tail, the
 // Quiet Room, the choice), reloads to check the save, and corrupts it. Prints PASS/FAIL per check; exits 1 on a FAIL.
 const { chromium } = require('playwright');
-const URL_ = 'http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm';
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
