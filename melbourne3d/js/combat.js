@@ -183,7 +183,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
       g.y = groundAt(g.x, g.z);
       const pitch = engaged ? Math.atan2(P.y + 1.1 - (g.y + 1.45), Math.max(1, d)) : 0;
       const r2 = cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, speed: g.speed, weapon: g.weapon, armed: true,
-        aiming: g.aiming && engaged, vest: g.biker, yaw: g.heading, pitch, fire: g.fired, dt });
+        aiming: g.aiming && engaged, vest: g.biker, yaw: g.heading, pitch, fire: g.fired, hurt: g.hurtT > 0, dt });
       g.visible = !!r2;
       g.held = r2?.held || null;
       g.muzzle = r2?.muzzle ? { x: r2.muzzle.x, y: r2.muzzle.y, z: r2.muzzle.z } : null;

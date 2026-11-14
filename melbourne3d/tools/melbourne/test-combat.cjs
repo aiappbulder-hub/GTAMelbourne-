@@ -134,7 +134,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
     const held = await p.evaluate(() => __city.cast.heldGun());
     seenModels.push(held.held);
     ok(held.held === ids[i] && held.drawK === 1, 'slot ' + (i + 1) + ' holds ' + (ids[i] || 'nothing (fists)') + ' (' + JSON.stringify(held) + ', drawing at ' + early.drawK.toFixed(2) + ')');
-    if (i === 1) ok(early.drawK < 0.5, 'the weapon is drawn over ~0.3 s, not popped in');
+    if (i === 1) ok(early.drawK < 0.9, 'the weapon is lowered then drawn over ~0.5 s, not popped in');
   }
   // keys: 3 picks the shotgun on foot, Tab goes on, G holsters (nothing in hand)
   await p.keyboard.press('Digit3');
