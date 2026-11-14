@@ -6,6 +6,8 @@
 const { chromium } = require('playwright');
 const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
 // FROM=12 node tools/melbourne/test-act1.cjs starts at that job (0-based) with the choices the earlier ones would have made
+// (FROM=8 is the whole of Act I and takes over 15 minutes under software rendering; FROM=12 plays only The Ferryman's Toll
+// and then checks the Book and the till, so the end of the run is reached in a few minutes)
 const FROM = Math.max(8, Math.min(12, +process.env.FROM || 8));
 const SEED = [{ quiet_room: 'fair', bug: 'kept' }, { lunch_shooter: 'talked', carlton: 'books' }, { kaz: 'partner' }, { doors_first: 'lean', doors: 'take' }];
 const MONEY = [40000, 31000, 35000, 39500, 44500];
@@ -26,8 +28,21 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const ready = async () => { await p.waitForFunction(() => window.__city && __city.missions && __city.gameplay, null, { timeout: 480000 }); await p.waitForTimeout(3000); };
   const dbg = () => p.evaluate(() => __city.missions.debug());
   const state = () => p.evaluate(() => ({ prog: __city.missions.progress, money: __city.missions.money, flags: __city.missions.flags }));
+  // GPS (js/gps.js, via the map's waypoint): every step with an objective place has a waypoint, and the route to it is found (inside the bar: to the street door)
+  const gpsLog = [];
+  const gpsCheck = async (n) => {
+    const r = await p.evaluate(() => {
+      const d = __city.missions.debug(), m = __city.map, e = __city.controllerManager.getActiveEntity();
+      const wp = m.waypoint;
+      if (!wp) return { job: __city.missions.progress, step: d.step, wp: null, goal: !!d.goal };
+      const rt = m.updateRoute(e);
+      return { job: __city.missions.progress, step: d.step, wp: [Math.round(wp.x), Math.round(wp.z)], route: rt ? (rt.found ? 'found' : 'NOT FOUND') : 'arrived' };
+    });
+    gpsLog.push(r);
+    log('GPS', JSON.stringify(r));
+  };
   const step = async (n, ms = 30000) => {
-    try { await p.waitForFunction((n) => __city.missions.debug().step === n, n, { timeout: ms * 10, polling: 250 }); }
+    try { await p.waitForFunction((n) => __city.missions.debug().step === n, n, { timeout: ms * 10, polling: 250 }); await gpsCheck(n); }
     catch (e) { log('stuck waiting for step', n, JSON.stringify(await p.evaluate(() => ({ mode: __city.controllerManager.activeMode, d: __city.missions.debug(), at: (({ x, z }) => [Math.round(x), Math.round(z)])(__city.controllerManager.getActiveEntity().position), ride: __city.gameplay.state?.riding, obj: document.querySelector('.gm-objective').textContent })))); throw e; }
   };
   const until = async (fn, ms = 30000) => { await p.waitForFunction(fn, null, { timeout: ms * 10, polling: 250 }); };
@@ -192,6 +207,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
   await p.reload(); await ready();
   const st2 = await state(); ok(st2.prog === 13 && st2.flags.ledger === 'self' && st2.money === st.money, `survives a restart ${JSON.stringify(st2)}`);
+  ok(!gpsLog.some((g) => g.route === 'NOT FOUND' || (g.wp === null && g.goal)), `GPS: every objective with a marker has a waypoint and a route (${gpsLog.length} steps checked, ${gpsLog.filter((g) => g.wp === null).length} without an objective place)`);
   ok(errs.length === 0, `no page errors ${JSON.stringify(errs.slice(0, 5))}`);
   await b.close();
 })().catch((e) => { console.error('ERROR', e.message.slice(0, 600)); process.exit(1); });

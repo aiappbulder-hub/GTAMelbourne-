@@ -17,7 +17,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 200)));
-  await p.goto('http://localhost:8765/melbourne3d/index.html?webgl&quality=low&nointro&nofilm', { timeout: 120000 });
+  await p.goto('http://localhost:' + (process.env.PORT || 8765) + '/melbourne3d/index.html?webgl&quality=low&nointro&nofilm', { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.wanted && __city.gameplay, null, { timeout: 480000 }); await p.waitForTimeout(3000);
   const ok = (c, w) => { log(c ? 'PASS' : 'FAIL', w); if (!c) process.exitCode = 1; };
   const dbg = () => p.evaluate(() => __city.wanted.debug());

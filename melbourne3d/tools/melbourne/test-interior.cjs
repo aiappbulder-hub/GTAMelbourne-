@@ -58,9 +58,9 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   ok(inRoom(q) && q.x < -204.0, `stopped by the bar/stools (x ${q.x.toFixed(2)})`);
   const cam = await p.evaluate(() => { const c = __city.cameraSystem.camera.position; return { x: c.x, y: c.y, z: c.z }; });
   ok(cam.x > -214.5 && cam.x < -200.5 && cam.z > 131.5 && cam.z < 141.5 && cam.y > 1500 && cam.y < 1503.2, `camera inside the room ${JSON.stringify(cam)}`);
-  await place(-213.2, 134.8, Math.PI / 2); await p.waitForTimeout(1500);
+  await place(-213.2, 134.8, Math.PI / 2); await p.waitForTimeout(3000); // (the chase camera swings in behind first: at ~2 fps that takes a while)
   await p.keyboard.down('KeyS');
-  await p.waitForTimeout(12000);
+  for (let k = 0, lastX = null; k < 12; k++) { await p.waitForTimeout(3000); const x = (await pos()).x; if (lastX !== null && Math.abs(x - lastX) < 0.01) break; lastX = x; } // until it stops moving
   await p.keyboard.up('KeyS');
   q = await pos();
   ok(inRoom(q) && q.x < -213.2 && q.x > -214.5, `stopped by the west wall (x ${q.x.toFixed(2)})`);
