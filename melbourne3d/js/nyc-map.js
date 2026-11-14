@@ -1,5 +1,6 @@
 import { GEO } from './geodata.js';
 import { IS_MELBOURNE } from './city.js';
+import { createGps } from './gps.js';
 import {
   ROADS,
   BLOCKS,
@@ -413,19 +414,80 @@ function drawPlayerArrow(ctx, tipY, halfWidth, tailY) {
   ctx.fill();
 }
 
-// GPS route from the player to the waypoint, along the grid (x first, then z): taxi yellow on a dark casing
-function drawRoute(ctx, x0, y0, x1, y1, width) {
+// GPS route: a taxi-yellow line on a dark casing along the road graph's points (js/gps.js; pts are [x, y] canvas pixels),
+// with a dashed link from the player (x0, y0) to its start and from its end to the target (x1, y1)
+function drawRoute(ctx, x0, y0, pts, x1, y1, width) {
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(x0, y0);
-  ctx.lineTo(x1, y0);
-  ctx.lineTo(x1, y1);
-  ctx.strokeStyle = MAP.halo;
-  ctx.lineWidth = width + 3;
-  ctx.stroke();
+  const trace = (list) => {
+    ctx.beginPath();
+    ctx.moveTo(list[0][0], list[0][1]);
+    for (let k = 1; k < list.length; k++) ctx.lineTo(list[k][0], list[k][1]);
+  };
+  const full = pts.length ? [[x0, y0], ...pts, [x1, y1]] : [[x0, y0], [x1, y1]];
+  if (pts.length > 1) {
+    trace(pts);
+    ctx.strokeStyle = MAP.halo;
+    ctx.lineWidth = width + 3;
+    ctx.stroke();
+    ctx.strokeStyle = MAP.route;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+  ctx.setLineDash([3, 4]);
   ctx.strokeStyle = MAP.route;
-  ctx.lineWidth = width;
+  ctx.lineWidth = Math.max(1.5, width - 1);
+  if (pts.length) {
+    trace([full[0], full[1]]);
+    ctx.stroke();
+    trace([full[full.length - 2], full[full.length - 1]]);
+    ctx.stroke();
+  } else {
+    trace(full);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+// An arrow on the radar's edge pointing at an off-radar target (x, y: its offset from the centre, in pixels)
+function drawEdgeArrow(ctx, x, y, w, h, margin) {
+  const k = Math.min((w * 0.5 - margin) / (Math.abs(x) || 1e-6), (h * 0.5 - margin) / (Math.abs(y) || 1e-6));
+  ctx.save();
+  ctx.translate(x * k, y * k);
+  ctx.rotate(Math.atan2(y, x));
+  ctx.beginPath();
+  ctx.moveTo(7, 0);
+  ctx.lineTo(-5, 6);
+  ctx.lineTo(-2, 0);
+  ctx.lineTo(-5, -6);
+  ctx.closePath();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = MAP.halo;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = MAP.route;
+  ctx.fill();
+  ctx.restore();
+}
+
+// A helipad: a white H on a blue disc
+function drawHelipadIcon(ctx, x, y, r) {
+  ctx.fillStyle = MAP.halo;
+  ctx.beginPath();
+  ctx.arc(x, y, r + 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2f7de1';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(1.4, r * 0.28);
+  ctx.lineCap = 'butt';
+  const q = r * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(x - q, y - q); ctx.lineTo(x - q, y + q);
+  ctx.moveTo(x + q, y - q); ctx.lineTo(x + q, y + q);
+  ctx.moveTo(x - q, y); ctx.lineTo(x + q, y);
   ctx.stroke();
 }
 
@@ -448,7 +510,11 @@ function drawWaypoint(ctx, x, y, r) {
 const overlaps = (boxes, b) => boxes.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
 
 class NYCMapSystem {
-  constructor({ controllerManager, cameraSystem, allBlocks = [], onTeleport, onToggle }) {
+  constructor({ controllerManager, cameraSystem, allBlocks = [], onTeleport, onToggle, trafficSystem = null }) {
+    this.trafficSystem = trafficSystem;
+    this.gps = null; // the router over the road graph, built on first use (js/gps.js)
+    this.route = null; // { pts, length, found, key, x, z, at }: the GPS route to the waypoint, recomputed as the player moves
+    this.extraIcons = []; // { x, z }: helipad pins on the radar and the full map
     this.controllerManager = controllerManager;
     this.cameraSystem = cameraSystem;
     this.allBlocks = allBlocks;
@@ -493,9 +559,8 @@ class NYCMapSystem {
     this.searchHighlight = '';
     this.searchPath = null;
     this.textWidths = new Map();
-    // Start with a waypoint at Times Square / Broadway.
-    const ts = NYC_LANDMARKS.find((l) => l.id === 'timessquare') || { x: 0, z: 0 };
-    this.waypoint = { x: ts.x, z: ts.z, name: 'Times Square & 42nd St' };
+    // No waypoint until a job or the player sets one (it used to start at Times Square, which in Melbourne is the map's origin)
+    this.waypoint = null;
 
     // Street names measured before the web font arrived would be spaced for the fallback font: measure & draw again
     if (document.fonts) {
@@ -626,7 +691,8 @@ class NYCMapSystem {
               z: wPos.z,
               name: getLocationLabel(wPos.x, wPos.z)
             };
-            if (this.onTeleport) {
+            // Shift-click sets the waypoint (and the GPS route to it) without moving; a plain click teleports
+            if (this.onTeleport && !e.shiftKey) {
               this.onTeleport(wPos.x, wPos.z);
             }
             this.renderFullMap();
@@ -971,6 +1037,37 @@ class NYCMapSystem {
     }
   }
 
+  // The GPS route to the waypoint: recomputed when the waypoint moves, and as the player moves (after 15 m, at most twice a
+  // second), not every frame. None within 14 m of the target (arrived).
+  updateRoute(ent) {
+    const wp = this.waypoint;
+    if (!wp) { this.route = null; return null; }
+    const px = ent.position.x, pz = ent.position.z;
+    if (Math.hypot(wp.x - px, wp.z - pz) < 14) { this.route = null; return null; }
+    const now = performance.now();
+    const r = this.route;
+    const key = `${Math.round(wp.x)}|${Math.round(wp.z)}`;
+    if (r && r.key === key && (Math.hypot(px - r.x, pz - r.z) < 15 || now - r.at < 500)) return r;
+    if (!this.gps) this.gps = createGps();
+    const res = this.gps.route(px, pz, wp.x, wp.z);
+    this.route = { pts: res ? res.pts : [], length: res ? res.length : 0, found: !!res, key, x: px, z: pz, at: now };
+    return this.route;
+  }
+
+  // The route, the target blip and (when it's off the radar) an arrow on the edge, in the frame centred on the view
+  drawGps(ctx, ent, v, lineWidth, blipR, edgeArrow) {
+    const wp = this.waypoint;
+    if (!wp) return;
+    const r = this.updateRoute(ent);
+    const wx = v.toX(wp.x), wy = v.toY(wp.z);
+    if (r) {
+      const pts = r.pts.map((p) => [v.toX(p.x), v.toY(p.z)]);
+      drawRoute(ctx, v.toX(ent.position.x), v.toY(ent.position.z), pts, wx, wy, lineWidth);
+    }
+    if (edgeArrow && (Math.abs(wx) > v.w * 0.5 - 8 || Math.abs(wy) > v.h * 0.5 - 8)) drawEdgeArrow(ctx, wx, wy, v.w, v.h, 9);
+    else drawWaypoint(ctx, wx, wy, blipR);
+  }
+
   // =========================================================================
   // 1. LIVE MINIMAP (BOTTOM-LEFT HUD)
   // =========================================================================
@@ -1047,12 +1144,11 @@ class NYCMapSystem {
     const toX = (wx) => v.toX(wx);
     const toY = (wz) => v.toY(wz);
 
-    // GPS route to the active waypoint
-    if (this.waypoint) {
-      const wx = toX(this.waypoint.x);
-      const wy = toY(this.waypoint.z);
-      drawRoute(ctx, 0, 0, wx, wy, 3);
-      drawWaypoint(ctx, wx, wy, 4.5);
+    // GPS route to the active waypoint (an arrow on the radar's edge when it's off the radar)
+    this.drawGps(ctx, ent, v, 3, 4.5, true);
+    for (const ic of this.extraIcons) {
+      const ix = toX(ic.x), iy = toY(ic.z);
+      if (Math.abs(ix) < w * 0.48 && Math.abs(iy) < h * 0.48) drawHelipadIcon(ctx, ix, iy, 6);
     }
 
     // Landmark blips
@@ -1138,12 +1234,8 @@ class NYCMapSystem {
     const toY = (wz) => v.toY(wz);
 
     // GPS route on the full map
-    if (this.waypoint) {
-      const wx = toX(this.waypoint.x);
-      const wy = toY(this.waypoint.z);
-      drawRoute(ctx, toX(ent.position.x), toY(ent.position.z), wx, wy, 4);
-      drawWaypoint(ctx, wx, wy, 7);
-    }
+    this.drawGps(ctx, ent, v, 4, 7, false);
+    for (const ic of this.extraIcons) drawHelipadIcon(ctx, toX(ic.x), toY(ic.z), 8);
 
     // Live Player Blip & Heading Arrow, with a slow pulse to find it at a glance
     const px = toX(ent.position.x);

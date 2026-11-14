@@ -600,19 +600,16 @@ async function initApp() {
     gamepadControls.reset();
     cameraSystem.resetForTeleport();
     selectCamera('chase', true);
-    mapSystem.waypoint = {
-      x: destination.x,
-      z: destination.z,
-      name: getLocationLabel(destination.x, destination.z)
-    };
+    // (a job's objective stays the waypoint after a teleport, so the GPS route to it starts from the new spot)
     return destination;
   }
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
-  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, selectCamera: (id) => selectCamera(id, true) };
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, get map() { return mapSystem; }, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,
     cameraSystem,
+    trafficSystem,
     allBlocks: cityBlocks.allBlocks,
     onToggle: (open) => {
       controllerManager.resetInput();
