@@ -85,15 +85,20 @@ const CSS = `
 .gp-weapon b { display: block; font: 800 15px/1.1 'JetBrains Mono', monospace; color: #ffd23f; }
 .gp-weapon b small { font-size: 11px; opacity: .7; font-weight: 700; }
 .gp-weapon[hidden] { display: none; }
-.gp-strip { position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 31; display: flex; gap: 4px; padding: 5px; border-radius: 10px; background: rgba(10,12,16,.8);
+.gp-strip { position: fixed; left: 14px; top: 126px; z-index: 31; display: flex; gap: 4px; padding: 5px; border-radius: 10px; background: rgba(10,12,16,.8);
   opacity: 0; pointer-events: none; transition: opacity .25s; }
 .gp-strip.show { opacity: 1; pointer-events: auto; }
 body.cinematic .gp-strip { visibility: hidden; }
+body.touch-enabled .gp-strip { left: 10px; top: auto; bottom: 380px; }
+body.touch-enabled .gp-weapon { display: none; }
 .gp-slot { position: relative; width: 44px; height: 30px; padding: 2px 3px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; background: rgba(255,255,255,.06);
   color: rgba(255,255,255,.55); cursor: pointer; }
 .gp-slot svg { width: 100%; height: 100%; }
 .gp-slot i { position: absolute; left: 3px; top: 1px; font: 800 9px/1 'JetBrains Mono', monospace; font-style: normal; color: rgba(255,255,255,.7); }
 .gp-slot.on { border-color: #ffd23f; background: rgba(255,210,63,.18); color: #ffd23f; }
+.gp-gun .gp-icon { width: 100%; height: 20px; color: #ffd23f; }
+.gp-gun .gp-icon svg { width: 100%; height: 100%; }
+.gp-gun small { display: block; font: 800 12px/1.1 'JetBrains Mono', monospace; color: #fff; }
 .gp-hp { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(220px, 70vw); height: 14px; z-index: 30; border-radius: 7px; background: rgba(10,12,16,.72); border: 1px solid rgba(255,255,255,.25); overflow: hidden; pointer-events: none; }
 .gp-hp i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(#e5483b, #b4231a); transition: width .12s; }
 .gp-hp span { position: absolute; left: 6px; top: 0; font: 800 9px/14px Inter, sans-serif; letter-spacing: .12em; color: #fff; text-shadow: 0 1px 2px #000; }
@@ -105,7 +110,7 @@ body.cinematic .gp-strip { visibility: hidden; }
 .gp-wasted b { font: 900 clamp(48px, 12vw, 120px)/1 Inter, system-ui, sans-serif; letter-spacing: .08em; color: #c8201a; text-shadow: 0 3px 20px #000; }
 .gp-wasted small { font: 700 16px Inter, sans-serif; color: #ddd; letter-spacing: .1em; text-transform: uppercase; }
 .gp-wasted[hidden] { display: none; }
-.gp-gun { position: fixed; right: 26px; bottom: 296px; z-index: 31; width: 62px; height: 46px; border-radius: 14px; border: 0; display: none; touch-action: none;
+.gp-gun { position: fixed; right: 20px; bottom: 296px; z-index: 31; width: 92px; height: 50px; padding: 2px 4px; border-radius: 14px; border: 0; display: none; touch-action: none;
   background: rgba(10,12,16,.7); color: #ffd23f; font: 800 13px/1 Inter, sans-serif; border: 2px solid rgba(255,255,255,.5); }
 body.touch-enabled .gp-gun.on { display: block; }
 .gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
@@ -252,6 +257,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     slotBtns.forEach((b, i) => b.classList.toggle('on', armed && i === wi));
     const iconId = armed ? w.id : '';
     if (iconId !== hudIcon) { hudIcon = iconId; elIcon.innerHTML = iconId ? weaponIconSVG(iconId) : ''; }
+    gunBtn.innerHTML = `<span class="gp-icon">${armed ? weaponIconSVG(w.id) : ''}</span><small>${armed ? (w.melee ? w.name : ammoText.replace(' / \u221E', ' / \u221E')) : 'GUN'}</small>`;
     elAmmo.innerHTML = ammoText.replace(/ \/ (.*)$/, ' <small>/ $1</small>');
     elName.textContent = armed ? w.name : 'G to draw';
   }
