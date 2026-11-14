@@ -114,11 +114,11 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   // ---- clear the wanted level: they go back to the car and it drives on ---------------------------------------------
   await p.evaluate(() => { __city.gameplay.health = 100; __city.wanted.reset(); });
   pd = await PD();
-  ok(pd.crews.length === 1 && pd.crews[0].phase === 'back' && pd.crews[0].detached, 'clearing the level sends the officer back to the car');
+  ok(pd.crews.length >= 1 && pd.crews.every((c) => c.phase === 'back' && c.detached), 'clearing the level sends the officers back to their car');
   const gone = await until(() => __city.police.debug().crews.length === 0 && __city.gameplay.combat.list.every((g) => !g.cop || g.dead), 90, 1);
-  ok(gone, 'the officer is back in the car');
+  ok(gone, 'the officers are back in their cars');
   await sim(10);
-  ok(await p.evaluate(() => !__city.wanted.units.length && __city.police.debug().crews.length === 0), 'and the car has driven on');
+  ok(await p.evaluate(() => !__city.wanted.units.length && __city.police.debug().crews.length === 0), 'and the cars have driven on');
   ok((await W()).stars === 0, 'no wanted level left');
 
   // ---- a story job: no police, no heat ------------------------------------------------------------------------------
