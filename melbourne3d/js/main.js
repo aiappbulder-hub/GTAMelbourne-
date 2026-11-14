@@ -657,6 +657,9 @@ async function initApp() {
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem, audioSystem, wanted
   }) : null;
   window.__city.gameplay = gameplay;
+  // A pack of bikies on motorbikes, free roam and a job's call (js/bikies.js)
+  const bikies = gameplay ? (await import('./bikies.js')).createBikies({ scene, trafficSystem, controllerManager, gameplay, missionSystem, cameraSystem, audioSystem, cast: castSystem }) : null;
+  if (bikies) { gameplay.bikies = bikies; window.__city.bikies = bikies; scene.add(bikies.group); }
   if (missionSystem && gameplay) missionSystem.attach(gameplay, trafficSystem);
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
@@ -1047,6 +1050,7 @@ async function initApp() {
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
+    bikies?.update(dt);
     race?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);

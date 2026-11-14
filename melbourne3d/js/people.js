@@ -797,8 +797,7 @@ export function createCast({ scene, controllerManager }) {
     return { muzzle: gs.muzzleValid ? gs.muzzle : null, held: Object.entries(gs.models).find(([, g]) => g.visible)?.[0] || null };
   }
   // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
-  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [{x,y,z} left,
-  // right] (in the bike's space), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
+  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
   // the bike. Returns false until the model is in.
   const riders = new Map();
   function setRider(key, id, o) {
@@ -830,7 +829,7 @@ export function createCast({ scene, controllerManager }) {
     const head = o.parent.getWorldDirection(_f.set(0, 0, 1)); // the bike's forward, for the arms' elbows
     a.heading = Math.atan2(head.x, head.z);
     if (o.grips) for (let i = 0; i < 2; i++) {
-      const g = o.grips[i], w = o.parent.localToWorld(new THREE.Vector3(g.x, g.y, g.z));
+      const w = o.grips[i].getWorldPosition(new THREE.Vector3());
       reachArm(a, { x: w.x, y: w.y, z: w.z, left: i === 0 }, 1);
     }
     faceLife(a, dt, false);

@@ -123,6 +123,7 @@ export function createCombat({ cm, cast, trafficSystem, trace, fx, world }) {
         g.visible = !!cast?.setGunman(g.key, g.model, { x: g.x, y: g.y, z: g.z, heading: g.heading, dead: true, weapon: g.weapon, dt });
         continue;
       }
+      if (g.mounted) { g.fired = false; continue; } // riding a bike: js/bikies.js moves and draws him until he gets off
       const dxp = P.x - g.x, dzp = P.z - g.z, d = Math.hypot(dxp, dzp);
       // perception: four times a second, a ray to the player's chest
       g.seeT -= dt;
