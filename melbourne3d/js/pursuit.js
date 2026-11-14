@@ -3,6 +3,7 @@
 // any suburb. It slows for the bends ahead and stops for traffic in front of it, keeps a gap behind the player, and is
 // "lost" once the player stays far enough clear for long enough (missions.js decides that from distance()).
 import * as THREE from 'three/webgpu';
+import { terrainHeight } from './terrain.js';
 
 const CRUMB = 3; // metres between trail points
 const GAP = 18; // how close it follows (metres of trail)
@@ -45,11 +46,11 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     const my = ++token;
     active = true;
     parked = wait;
-    pos = { x, y: 0, z };
+    pos = { x, y: terrainHeight(x, z), z };
     heading = h;
     v = 0;
     vMax = speed;
-    trail = seed ? seed.map((q) => ({ x: q.x, y: q.y || 0, z: q.z })) : []; // (a unit starts on the route the player drove)
+    trail = seed ? seed.map((q) => ({ x: q.x, y: q.y ?? terrainHeight(q.x, q.z), z: q.z })) : []; // (a unit starts on the route the player drove)
     gapStop = stopGap;
     if (seed && seed.length > 1) heading = Math.atan2(seed[1].x - seed[0].x, seed[1].z - seed[0].z);
     if (!car || car.file !== file) {
@@ -175,8 +176,9 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
   }
   function place(dt) {
     if (!car) return;
-    car.root.position.set(pos.x, Math.max(0, pos.y || 0), pos.z);
-    car.root.rotation.set(0, heading, 0);
+    const fx = Math.sin(heading) * 2, fz = Math.cos(heading) * 2, hF = terrainHeight(pos.x + fx, pos.z + fz), hB = terrainHeight(pos.x - fx, pos.z - fz);
+    car.root.position.set(pos.x, Math.max((hF + hB) / 2, pos.y || 0), pos.z);
+    car.root.rotation.set(-Math.atan2(hF - hB, 4), heading, 0); // (nose up on a rise)
     for (const w of car.wheels) w.rotation.x += (v * dt) / 0.33;
   }
 

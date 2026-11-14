@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { drapeGeometry } from './terrain.js';
 import { CROSSWALK } from './road-network.js';
 import { createRoadPaintMaterial } from './tsl-materials.js';
 import { IS_MELBOURNE } from './city.js';
@@ -87,6 +88,7 @@ function createRoadPaintChunkBuilder(name, { cellSize = PAINT_CELL_SIZE, cullDis
           ? new THREE.Uint16BufferAttribute(cell.index, 1)
           : new THREE.Uint32BufferAttribute(cell.index, 1)
       );
+      drapeGeometry(geometry, { maxEdge: 12.5, lift: 0.03 }); // follow the hills (js/terrain.js)
       geometry.computeBoundingSphere();
       if (geometry.boundingSphere) geometry.boundingSphere.radius += WIDEN_SPHERE_PAD;
 

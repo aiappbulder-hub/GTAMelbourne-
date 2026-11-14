@@ -35,6 +35,7 @@ import {
 import { GEO } from './geodata.js';
 import { REAL_BUILDINGS } from './city-buildings.js';
 import { createBuildingFootprints } from './building-footprints.js';
+import { terrainRange } from './terrain.js';
 import { polygonContains, polygonBoxOverlaps } from './building-collision.js';
 import { pavedPlazaRects, parkTreeSites, sidewalkBlocks } from './city-grid.js';
 
@@ -301,6 +302,11 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   const surveyedBuckets = materials.map(() => []);
   const detailsToPlace = [];
   for (const b of surveyedBuildings) {
+    // On a hill the building is lifted rigidly: its base at the highest footprint corner less up to 0.3 m, with a skirt
+    // down to the ground on the low side (js/building-footprints.js). `groundY` is the lowest ground under it.
+    const range = terrainRange(b.polygons.flatMap((p) => p.outer).concat([{ x: b.cx, z: b.cz }]));
+    b.groundY = range.lo;
+    b.baseY = Math.max(range.lo, range.hi - 0.3);
     const seed = Math.round(b.cx * 31 + b.cz * 17);
     const rand = mulberry32(seed);
     const tone = rand();
@@ -312,14 +318,14 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     const record = { ...b, tone, storefronts };
     surveyedBuckets[mat].push(record);
     const detail = {
-      cx: b.cx, cz: b.cz, minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ,
+      baseY: b.baseY, cx: b.cx, cz: b.cz, minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ,
       cornices: [], waterTowers: [], hvacUnits: [], awnings: [], scaffoldSheds: [], footprints: []
     };
-    const top = b.height + 0.22;
+    const top = b.height + 0.22 + b.baseY;
     for (const polygon of b.polygons) {
       const xs = polygon.outer.map((p) => p.x), zs = polygon.outer.map((p) => p.z);
       const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
-      colliders.push({ minX, maxX, minZ, maxZ, minY: 0, maxY: top, polygon });
+      colliders.push({ minX, maxX, minZ, maxZ, minY: b.groundY - 3, groundY: b.groundY - 3, maxY: top, polygon });
       detail.footprints.push({ h: top, pts: polygon.outer, holes: polygon.holes });
     }
     const neighbours = nearbyReserves(b, 6);

@@ -155,7 +155,7 @@ async function initApp() {
   const trafficSystem = createTrafficSystem(scene, cityGrid.sidewalks, [
     ...cityGrid.footprints,
     ...streetDetails.footprints,
-    ...allColliders.filter((c) => !c.obb && (c.minY ?? 0) < 3.5)
+    ...allColliders.filter((c) => !c.obb && (c.minY ?? 0) - (c.groundY ?? 0) < 3.5)
   ], streetDetails.signalIntersections);
   markInit('traffic');
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);

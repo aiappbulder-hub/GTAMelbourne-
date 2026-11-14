@@ -1,3 +1,4 @@
+import { terrainHeight } from './terrain.js';
 import { signalPhase, walkSignal } from './city-config.js';
 
 const MOTOR_RANGE = 180;
@@ -17,13 +18,14 @@ function driveLoad(keys, speed, cyclist) {
 function helicopterVerticalSpeed(entity) {
   const speed = Number.isFinite(entity.verticalSpeed) ? entity.verticalSpeed : 0;
   // The controller clamps altitude without clearing its stored vertical velocity.
-  return (entity.position.y <= 0.25 && speed < 0) || (entity.position.y >= 380 && speed > 0) ? 0 : speed;
+  const g = terrainHeight(entity.position.x, entity.position.z); // (js/terrain.js)
+  return (entity.position.y - g <= 0.25 && speed < 0) || (entity.position.y - g >= 380 && speed > 0) ? 0 : speed;
 }
 
 function helicopterLoad(entity, keys, verticalSpeed) {
   const forward = unit(+keys.forward) || -unit(+keys.backward);
   const collective = unit(+keys.up) || -unit(+keys.down);
-  const grounded = entity.position.y <= 0.35 && verticalSpeed <= 0.03;
+  const grounded = entity.position.y - terrainHeight(entity.position.x, entity.position.z) <= 0.35 && verticalSpeed <= 0.03;
   return unit((grounded ? 0.12 : 0.45)
     + 0.28 * Math.max(collective, 0) - 0.16 * Math.max(-collective, 0)
     + 0.15 * unit(verticalSpeed / 16) - 0.08 * unit(-verticalSpeed / 16)
