@@ -23,7 +23,7 @@ async function run(b, name, vp, touch) {
   const others = async () => ({ minimap: await rect('#minimap-card'), hp: await rect('.gp-hp'), prompt: await rect('.gp-prompt'), hud: await rect('.hud') });
   await p.keyboard.press('KeyG');
   await p.waitForTimeout(800);
-  await p.screenshot({ path: `${OUT}/weapon-${name}-1-idle.png` });
+  await p.screenshot({ path: `${OUT}/weapon-${name}-1-idle.png`, timeout: 180000 });
   const w = await rect('.gp-weapon');
   ok(w && w.height < 70 && w.width < 230, `${name}: compact widget (${w && Math.round(w.width)}x${w && Math.round(w.height)})`);
   const strip0 = await rect('.gp-strip');
@@ -33,7 +33,7 @@ async function run(b, name, vp, touch) {
   if (!touch) {
     await p.keyboard.press('Digit3');
     await p.waitForTimeout(400);
-    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png` });
+    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png`, timeout: 180000 });
     const s = await rect('.gp-strip');
     ok(s && s.op > 0.9, `${name}: the strip shows while switching`);
     for (const k of ['minimap', 'hp', 'prompt', 'hud']) ok(!overlap(s, o[k]), `${name}: strip does not overlap ${k}`);
@@ -49,7 +49,7 @@ async function run(b, name, vp, touch) {
     await p.waitForTimeout(500);
     const after = await p.evaluate(() => __city.gameplay.state.weapon);
     ok(before !== after, `${name}: tap on GUN cycles (${before} -> ${after})`);
-    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png` });
+    await p.screenshot({ path: `${OUT}/weapon-${name}-2-switching.png`, timeout: 180000 });
     const s = await rect('.gp-strip');
     ok(s && s.op > 0.9, `${name}: the strip shows after a tap`);
     for (const k of ['minimap', 'hp', 'prompt', 'hud']) ok(!overlap(s, o[k]), `${name}: strip does not overlap ${k}`);
@@ -65,7 +65,7 @@ async function run(b, name, vp, touch) {
     await p.evaluate(() => window.__lp());
     await p.waitForTimeout(300);
     ok((await p.evaluate(() => __city.gameplay.state.weapon)) === b4, `${name}: long-press does not cycle`);
-    await p.screenshot({ path: `${OUT}/weapon-${name}-3-longpress.png` });
+    await p.screenshot({ path: `${OUT}/weapon-${name}-3-longpress.png`, timeout: 180000 });
   }
   ok(errs.length === 0, `${name}: no page errors ${errs.slice(0, 2)}`);
   await ctx.close();

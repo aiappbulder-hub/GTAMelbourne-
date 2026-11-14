@@ -127,7 +127,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const ids = ['pistol', 'uzi', 'shotgun', 'm4', 'rocket', null];
   const seenModels = [];
   for (let i = 0; i < 6; i++) {
-    const hud0 = await p.evaluate((i) => { __city.gameplay.selectSlot(i); const w = document.querySelector('.gp-weapon'); return { name: w.querySelector('.gp-name span').textContent, on: [...w.querySelectorAll('.gp-slot')].findIndex((b) => b.classList.contains('on')), icon: w.querySelector('.gp-icon svg') ? 1 : 0 }; }, i);
+    const hud0 = await p.evaluate((i) => { __city.gameplay.selectSlot(i); const w = document.querySelector('.gp-weapon'); return { name: w.querySelector('.gp-name span').textContent, on: [...document.querySelectorAll('.gp-strip .gp-slot')].findIndex((b) => b.classList.contains('on')), icon: w.querySelector('.gp-icon svg') ? 1 : 0 }; }, i);
     ok(hud0.name === names[i] && hud0.on === i && hud0.icon === 1, 'HUD at once: ' + JSON.stringify(hud0));
     const early = await p.evaluate(() => { __city.gameplay.update(0.05); __city.cast.posePlayer(0.05); return __city.cast.heldGun(); });
     await sim(0.6);
