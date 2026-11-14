@@ -112,7 +112,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   the route you drove and follows it with a siren; they are solid, you can't drive through them. Lose them (stay
   230 m clear for 10 s), cool off, or get BUSTED (stopped with a police car within 16 m for 2.5 s: 12% of your cash).
   There are twice as many police cars in the traffic.
-- **Traffic spread** (`js/traffic.js`): cars are kept within 400 m of the camera and put back (recycled) when they fall
+- **Traffic spread** (`js/traffic.js`): traffic is light by design: about a fifth of the fleet is out at once, at most two cars per road segment, two buses, and only on main roads (wide, two-lane or avenue edges): narrow streets stay empty. The Yarra bridges (Princes, Queens, Spencer St, Swan St, Punt Rd, Charles Grimes) are rebuilt in `js/road-network.js` as two-way roads joined to the network (or with a turn-round loop at an end), so cars cross them (`tools/melbourne/test-bridge-traffic.cjs`). Cars are kept within 400 m of the camera and put back (recycled) when they fall
   outside it. A new spot is drawn in proportion to lane length over all the roads around (not per road piece), and of
   several candidates the one farthest from every other vehicle wins (at least 28 m from the nearest, 22 m clear in its own
   lane), so cars don't spawn in bunches. Moving fast, spawns favour the streets ahead. At a junction a driver favours the
