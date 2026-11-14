@@ -3,6 +3,7 @@
 // river, the coast, the bridges and the helipad, at most about 8% steep. `?flat` in the URL forces 0 everywhere (the old
 // flat city), and so does a failed data load: every consumer reads the height through this module.
 import * as THREE from 'three/webgpu';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TERRAIN_DATA } from './melbourne-terrain-data.js';
 
 export const TERRAIN_FLAT = typeof location !== 'undefined' && new URLSearchParams(location.search).has('flat');
@@ -71,7 +72,7 @@ export function drapeGeometry(geometry, { maxEdge = 25, lift = 0 } = {}) {
     if (Math.max(ax, bx) < X0 || Math.min(ax, bx) > X1 || Math.max(az, bz) < Z0 || Math.min(az, bz) > Z1) return 0;
     const dx = ax - bx, dy = posA[a * 3 + 1] - posA[b * 3 + 1], dz = az - bz;
     const l = Math.hypot(dx, dz);
-    return l > maxEdge || (l > maxEdge * 0.5 && Math.abs(dy) > maxEdge) ? Math.hypot(dx, dy, dz) : 0;
+    return l > maxEdge ? Math.hypot(dx, dy, dz) : 0;
   };
   const mid = (a, b) => {
     const key = a < b ? a * 4294967296 + b : b * 4294967296 + a;
@@ -116,4 +117,56 @@ export function drapeGeometry(geometry, { maxEdge = 25, lift = 0 } = {}) {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+const _m = new THREE.Matrix4();
+
+/** Raises each instance of an InstancedMesh (world matrices, not parented anywhere odd) by the terrain at its position. */
+export function liftInstances(mesh, extra = 0) {
+  if (TERRAIN_FLAT && !extra) return mesh;
+  const e = mesh.instanceMatrix.array;
+  for (let i = 0; i < mesh.count; i++) e[i * 16 + 13] += terrainHeight(e[i * 16 + 12], e[i * 16 + 14]) + extra;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.boundingSphere !== undefined) { mesh.boundingSphere = null; mesh.boundingBox = null; }
+  return mesh;
+}
+
+/** An InstancedMesh's instances baked into one plain Mesh (world space), so they can be draped. */
+export function bakeInstances(mesh) {
+  const geos = [];
+  for (let i = 0; i < mesh.count; i++) {
+    mesh.getMatrixAt(i, _m);
+    geos.push(mesh.geometry.clone().applyMatrix4(_m));
+  }
+  const geo = geos.length ? mergeGeometries(geos, false) : mesh.geometry.clone();
+  const out = new THREE.Mesh(geo, mesh.material);
+  out.castShadow = mesh.castShadow; out.receiveShadow = mesh.receiveShadow; out.name = mesh.name;
+  return out;
+}
+
+/**
+ * Drapes every mesh under a group (whose own transform is the identity) over the terrain: plain meshes by drapeGeometry,
+ * instanced boxes (userData.bakeToDrape or a 24-vertex unit box) baked and draped, other instanced meshes lifted per
+ * instance. `skip` is a set of objects to leave alone (the water).
+ */
+export function drapeGroup(group, { skip = new Set(), maxEdge = 25, lift = 0 } = {}) {
+  if (TERRAIN_FLAT && !lift) return;
+  const todo = [];
+  for (const o of [...group.children]) {
+    if (skip.has(o)) continue;
+    if (o.isMesh) todo.push(o);
+    else if (o.isObject3D && !o.isLight) o.position.y += terrainHeight(o.position.x, o.position.z) + lift; // a nested group: rigid
+  }
+  for (const o of todo) {
+    if (o.isInstancedMesh) {
+      if (o.userData.bakeToDrape) {
+        const baked = bakeInstances(o);
+        drapeGeometry(baked.geometry, { maxEdge, lift });
+        o.parent.add(baked);
+        o.parent.remove(o);
+      } else liftInstances(o, lift);
+    } else if (o.geometry && o.geometry.attributes.position) {
+      drapeGeometry(o.geometry, { maxEdge, lift });
+    }
+  }
 }

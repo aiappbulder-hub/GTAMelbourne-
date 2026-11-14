@@ -28,6 +28,7 @@ import { PersonCrowd, PersonRig } from './pedestrians.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { polygonContact } from './building-collision.js';
 import { trackHeight, ALBERT_PARK } from './race-track.js';
+import { terrainHeight } from './terrain.js';
 
 // Player models, animation and movement for walking, driving, cycling and flying.
 
@@ -362,7 +363,7 @@ class ThirdPersonControllerManager {
     this.resetInput();
     if (!Number.isFinite(heading)) heading = ent.heading;
     const heli = this.activeMode === 'helicopter';
-    const altitude = heli ? Math.max(0.25, Math.min(380, savedAltitude ?? Math.max(92, ent.position.y))) : 0;
+    const altitude = heli ? Math.max(0.25, Math.min(380 + 40, savedAltitude ?? Math.max(92, ent.position.y))) : 0;
     const destination = this.findTeleportPosition(x, z, heading, altitude);
     if (destination) {
       ent.position.x = destination.x;
@@ -897,13 +898,15 @@ class ThirdPersonControllerManager {
     if (this.extraGround) for (const f of this.extraGround) { const y = f(x, z, mode); if (y !== null) return y; }
     // Inside Central Park (5th Ave to Central Park West, 59th St to 110th St)
     const cp = CENTRAL_PARK_BOUNDS;
+    // (everything below sits on the terrain, js/terrain.js: `?flat` makes it 0 again)
+    const t = terrainHeight(x, z);
     if (x > cp.minX && x < cp.maxX && z > cp.minZ && z < cp.maxZ) {
-      return 1.24;
+      return t + 1.24;
     }
     if (mode === 'person') {
-      return this.isPointOnSidewalk(x, z) ? ISLAND_BOUNDS.sidewalkHeight : 0.0;
+      return t + (this.isPointOnSidewalk(x, z) ? ISLAND_BOUNDS.sidewalkHeight : 0.0);
     }
-    return 0.0;
+    return t;
   }
 
   // Static colliders within `r` of (x, z), kept in their original order and indexed once into 48 m cells.
@@ -1123,7 +1126,7 @@ class ThirdPersonControllerManager {
       // In a vehicle the player rides along inside it (hidden, see poseCharacters)
       const p = this.entities.person;
       const v = this.getActiveEntity();
-      p.position.set(v.position.x, Math.max(0, v.position.y), v.position.z);
+      p.position.set(v.position.x, Math.max(terrainHeight(v.position.x, v.position.z), v.position.y), v.position.z);
       p.heading = v.heading;
       p.speed = 0;
       p.verticalVel = 0;
@@ -1329,6 +1332,9 @@ class ThirdPersonControllerManager {
         return SW;
       };
       const fl = at(1.3, 0.78), fr = at(1.3, -0.78), bl = at(-1.3, 0.78), br = at(-1.3, -0.78);
+      // the terrain under each wheel: the body rides at its mean and pitches and rolls with the slope
+      const th = (along, side) => terrainHeight(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side);
+      const tfl = th(1.3, 0.78), tfr = th(1.3, -0.78), tbl = th(-1.3, 0.78), tbr = th(-1.3, -0.78);
       // On the grass the car digs in: it loses speed (more the faster it goes), grip drops and it bounces about
       c.onGrass = grass >= 2;
       if (c.onGrass && Math.abs(c.speed) > 0.5) {
@@ -1336,7 +1342,7 @@ class ThirdPersonControllerManager {
         c.heaveVel += (Math.random() - 0.5) * Math.min(1.2, Math.abs(c.speed) * 0.05);
         c.rollVel += (Math.random() - 0.5) * Math.min(0.8, Math.abs(c.speed) * 0.03);
       }
-      const ground = (fl + fr + bl + br) / 4;
+      const ground = (fl + fr + bl + br + tfl + tfr + tbl + tbr) / 4;
       const wheelsUp = (fl > 0) + (fr > 0) + (bl > 0) + (br > 0);
       if (c._wheelsUp !== undefined && wheelsUp !== c._wheelsUp && Math.abs(c.speed) > 1) {
         const hit = Math.min(1.8, Math.abs(c.speed) * 0.09);
@@ -1348,8 +1354,8 @@ class ThirdPersonControllerManager {
       const k = Math.min(1, dt * 18);
       c.rideY = (c.rideY ?? ground) + (ground - (c.rideY ?? ground)) * k;
       // front up = nose up (negative x rotation); left (+x in the car's frame) up = positive z rotation
-      c.kerbPitch = (c.kerbPitch || 0) + (-Math.atan2((fl + fr - bl - br) / 2, 2.6) - (c.kerbPitch || 0)) * k;
-      c.kerbRoll = (c.kerbRoll || 0) + (Math.atan2((fl + bl - fr - br) / 2, 1.56) - (c.kerbRoll || 0)) * k;
+      c.kerbPitch = (c.kerbPitch || 0) + (-Math.atan2((fl + tfl + fr + tfr - bl - tbl - br - tbr) / 2, 2.6) - (c.kerbPitch || 0)) * k;
+      c.kerbRoll = (c.kerbRoll || 0) + (Math.atan2((fl + tfl + bl + tbl - fr - tfr - br - tbr) / 2, 1.56) - (c.kerbRoll || 0)) * k;
     }
     c.position.y = Math.max(this.getGroundHeight(c.position.x, c.position.z, 'car'), c.rideY);
     c.chassisPivot.position.y = c.heaveY;
@@ -1446,10 +1452,11 @@ class ThirdPersonControllerManager {
     h.position.z += Math.cos(h.heading) * h.speed * dt;
     h.position.y += h.verticalSpeed * dt;
 
-    if (h.position.y < 0.25) {
-      this.reportCollision(h, groundCollider, 'ground', h.position.x, 0.25, h.position.z, 0, 1, 0, -h.verticalSpeed);
+    const heliFloor = this.getGroundHeight(h.position.x, h.position.z, 'car') + 0.25; // (terrain, or a pad's deck)
+    if (h.position.y < heliFloor) {
+      this.reportCollision(h, groundCollider, 'ground', h.position.x, heliFloor, h.position.z, 0, 1, 0, -h.verticalSpeed);
     }
-    h.position.y = Math.max(0.25, Math.min(380, h.position.y));
+    h.position.y = Math.max(heliFloor, Math.min(380 + heliFloor, h.position.y));
     this.resolveHorizontalCollision(h.position, 4.5, null, h);
 
     const targetPitch = (h.speed / maxHorizSpeed) * 0.24;
