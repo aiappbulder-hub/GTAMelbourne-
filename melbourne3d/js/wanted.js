@@ -8,6 +8,8 @@
 //  - The response: one police car a star (four at most). Each spawns well back on the route you drove and follows it
 //    (js/pursuit.js: slows for bends and traffic, solid, so it can't be driven through), with a siren that grows as
 //    the nearest one closes.
+//  - At two stars or more a unit that closes up and stops puts two officers on foot (js/police.js, attached below), who
+//    call out, run you down, arrest you (BUSTED) or, at three stars or if you shoot, fight. Killing one is a crime ('cop').
 //  - It ends when you lose them (stay over 230 m clear for 10 s), when the heat cools (it falls while no unit is within
 //    80 m), or when you are BUSTED: stopped, with a police car within 16 m, for 2.5 s. Busted costs 12% of your cash.
 //
@@ -17,7 +19,7 @@ import { createCarSounds } from './car-sounds.js';
 
 const STAR_AT = [5, 25, 45, 65, 85]; // the heat for 1 to 5 stars
 const UNITS = [0, 1, 2, 3, 4, 4];
-const HEAT = { shot: 8, kill: 24, hit: 24, carjack: 16, theft: 6, robbery: 20 };
+const HEAT = { shot: 8, kill: 24, hit: 24, carjack: 16, theft: 6, robbery: 20, cop: 30 }; // (cop: an officer killed: always seen, three stars at least)
 const WITNESS_PEOPLE = 45, WITNESS_COP = 55;
 
 const CSS = `
@@ -44,6 +46,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   const reports = []; // crimes nobody saw: { t, x, z, heat }
   const units = []; // { p: pursuer, n }
   const history = []; // the route the player drove: a point every 4 m, newest last
+  let police = null; // js/police.js: officers, siren, light bars
   let farT = 0, bustT = 0, label = '', labelT = 0, spawnWait = 0;
   const tuning = { spawnBack: [170, 210] }; // how far back along your route a police car appears (metres; tests shorten it)
 
@@ -76,6 +79,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
       if (clock - lastShot < 4) return;
       lastShot = clock;
     }
+    if (kind === 'cop') { heat = Math.max(heat, STAR_AT[2]); raise(add); return; } // an officer's death is seen by his partner and the radio
     const w = witness(x, z);
     if (!w) {
       // nobody around: it gets reported anyway, in a few seconds
@@ -123,10 +127,13 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     units.push({ p, n });
     return true;
   }
+  // a unit leaving (the heat is off, or fewer stars): its car stays until its officers are back in it (police.adopt takes it)
+  function dismiss(u) { if (!police?.adopt(u)) u.p.stop(); }
   function clearUnits() {
-    for (const u of units) u.p.stop();
+    for (const u of units) dismiss(u);
     units.length = 0;
     sounds.siren(0);
+    police?.siren(0);
   }
   function reset() {
     heat = 0;
@@ -171,10 +178,11 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     // the units the level calls for
     const want = UNITS[stars];
     if (units.length < want) { spawnWait += dt; if (spawnUnit()) spawnWait = 0; } else spawnWait = 0;
-    if (units.length > want) { const u = units.pop(); u.p.stop(); }
+    if (units.length > want) dismiss(units.pop());
     let nearest = Infinity;
     for (const u of units) { u.p.update(dt); nearest = Math.min(nearest, u.p.distance()); }
-    sounds.siren(units.length ? Math.max(0, Math.min(1, 1 - (nearest - 25) / 200)) : 0);
+    const sirenLevel = units.length ? Math.max(0, Math.min(1, 1 - (nearest - 25) / 200)) : 0;
+    if (police) police.siren(sirenLevel); else sounds.siren(sirenLevel);
 
     if (stars > 0) {
       // lose them: well clear for long enough. Cool off slowly while no unit is close.
@@ -184,7 +192,9 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
       // busted: stopped with a police car beside you
       const e = player();
       const still = Math.abs(e.speed || 0) < 2.5;
-      bustT = still && nearest < 16 ? bustT + dt : 0;
+      let near = Infinity; // (a unit with officers out arrests through them: js/police.js)
+      for (const u of units) if (!police?.hasCrew(u)) near = Math.min(near, u.p.distance());
+      bustT = still && near < 16 ? bustT + dt : 0;
       if (bustT > 2.5) busted();
     } else bustT = 0;
 
@@ -204,8 +214,24 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     crime,
     reset,
     tuning,
+    /** js/police.js plugs in here */
+    attachPolice(p) { police = p; },
+    /** The police cars after you: { p: pursuer, n } */
+    get units() { return units; },
+    /** A unit that has finished (police.js): out of the list, its car stopped by whoever drives it */
+    drop(u) { const i = units.indexOf(u); if (i >= 0) units.splice(i, 1); },
+    /** Arrest: the same BUSTED as standing still beside a police car (officers on foot call it) */
+    bust: busted,
+    /** Seconds since the player last fired a shot that counted as a crime */
+    shotAge() { return clock - lastShot; },
+    /** The route the player drove from the point nearest (x, z) on (within 30 m), or null: a unit that has left it can rejoin */
+    routeFrom(x, z) {
+      let bi = -1, bd = 30;
+      for (let i = 0; i < history.length; i++) { const d = Math.hypot(history[i].x - x, history[i].z - z); if (d < bd) { bd = d; bi = i; } }
+      return bi >= 0 && bi < history.length - 2 ? history.slice(bi + 1).map((q) => ({ ...q })) : null;
+    },
     /** The police cars' footprints (for the player on foot to bump into) */
-    boxes() { return units.map((u) => u.p.box()).filter(Boolean); },
+    boxes() { return [...units.map((u) => u.p.box()), ...(police?.boxes() || [])].filter(Boolean); },
     get stars() { return stars; },
     get heat() { return heat; },
     /** For scripted checks */

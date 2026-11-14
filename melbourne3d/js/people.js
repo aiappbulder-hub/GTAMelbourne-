@@ -1013,6 +1013,7 @@ export function createCast({ scene, controllerManager }) {
     place(a, o.x, o.y, o.z, o.dead ? a.heading : o.heading, dt, a.group.visible);
     tickActor(a, dt);
     if (o.vest) dressBikie(a);
+    if (o.officer) dressOfficer(a);
     faceLife(a, dt, false);
     const gs = a.gs;
     gs.id = o.weapon; gs.armed = !!o.armed && !o.dead; gs.aiming = !!o.aiming; gs.yaw = o.yaw ?? o.heading; gs.pitch = o.pitch || 0;
@@ -1053,6 +1054,58 @@ export function createCast({ scene, controllerManager }) {
     patch.rotation.y = Math.PI;
     box.add(patch);
     sp.add(box);
+  }
+  // ---- A police officer's cap and duty belt (js/police.js; combat.js passes `officer`) -------------------------------------
+  // A navy cap with a blue and white chequer band and a peak on the head bone, a belt with a holster on the hips bone. Meshes
+  // ride in a holder whose axes are the person's own (x right, y up, z forward, in metres), whatever the bone's rest pose.
+  let chequerTex = null;
+  function boneHolder(a, bone) {
+    a.group.updateMatrixWorld(true);
+    const wq = bone.getWorldQuaternion(new THREE.Quaternion()), gq = a.group.getWorldQuaternion(new THREE.Quaternion());
+    const ws = bone.getWorldScale(new THREE.Vector3());
+    const holder = new THREE.Group();
+    holder.quaternion.copy(wq.invert().multiply(gq));
+    holder.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+    bone.add(holder);
+    return holder;
+  }
+  function dressOfficer(a) {
+    if (a.uniformed) return;
+    a.uniformed = true;
+    const head = a.root.getObjectByName('Head'), hips = a.root.getObjectByName('Hips') || a.root.getObjectByName('Bip01_Pelvis');
+    if (!chequerTex) {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 4;
+      const x = c.getContext('2d');
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#f4f6f8' : '#10326e'; x.fillRect(i * 4, j, 4, 1); }
+      chequerTex = new THREE.CanvasTexture(c);
+      chequerTex.wrapS = chequerTex.wrapT = THREE.RepeatWrapping;
+      chequerTex.magFilter = chequerTex.minFilter = THREE.NearestFilter;
+      chequerTex.repeat.set(6, 1);
+      chequerTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    const navy = new THREE.MeshStandardNodeMaterial({ color: 0x0d1a33, roughness: 0.8, metalness: 0 });
+    const band = new THREE.MeshStandardNodeMaterial({ map: chequerTex, roughness: 0.7, metalness: 0 });
+    const black = new THREE.MeshStandardNodeMaterial({ color: 0x0a0a0c, roughness: 0.6, metalness: 0.2 });
+    if (head) {
+      const h = boneHolder(a, head);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.098, 0.075, 20), navy);
+      crown.position.set(0, 0.2, 0.02);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.035, 20, 1, true), band);
+      ring.position.set(0, 0.162, 0.02);
+      const peak = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.008, 0.075), black);
+      peak.position.set(0, 0.155, 0.125);
+      peak.rotation.x = 0.15;
+      h.add(crown, ring, peak);
+    }
+    if (hips) {
+      const h = boneHolder(a, hips);
+      const belt = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.055, 0.25), black);
+      belt.position.set(0, 0.12, 0);
+      const holster = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.09), black);
+      holster.position.set(0.2, 0.04, 0.0);
+      h.add(belt, holster);
+    }
   }
   // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
   // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
