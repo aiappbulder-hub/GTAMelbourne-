@@ -1,3 +1,4 @@
+import { sharedAudioContext } from './audio-context.js';
 import * as THREE from 'three/webgpu';
 import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 import { createCarSounds } from './car-sounds.js';
@@ -821,8 +822,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let audio = null;
   function bang(kind, dist = 0) {
     try {
-      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-      if (audio.state === 'suspended') audio.resume();
+      audio = sharedAudioContext(); // (the game's one context; null until the first gesture)
+      if (!audio) return;
       const t = audio.currentTime;
       const att = 1 / (1 + dist / 25);
       // a burst of noise through a filter, fading out

@@ -1,3 +1,4 @@
+import { sharedAudioContext } from './audio-context.js';
 import { createSynthResources, createMotorVoice, setControlRate } from './audio-synthesis.js';
 import { IS_MELBOURNE } from './city.js';
 import { createEventResources, playEvent, createWindVoice } from './audio-events.js';
@@ -141,8 +142,8 @@ class CityAudioSystem {
   }
 
   initialize() {
-    const Context = globalThis.AudioContext || globalThis.webkitAudioContext;
-    const context = this.context = new Context({ latencyHint: 'interactive' });
+    const context = this.context = sharedAudioContext({ force: true }); // (the game's one context: music, voices, siren, shots)
+    if (!context) throw new Error('no AudioContext');
     const listener = context.listener;
     setControlRate(
       listener.positionX, listener.positionY, listener.positionZ,
@@ -514,8 +515,7 @@ class CityAudioSystem {
     this.wind?.dispose(true);
     for (const node of [this.mix, this.compressor, this.master, this.reflections, this.reverb, this.reflectionFilter]) node?.disconnect();
     if (this.context) {
-      this.context.onstatechange = null;
-      this.context.close().catch(() => {});
+      this.context.onstatechange = null; // (the shared context is left open: other systems play through it)
     }
   }
 }
