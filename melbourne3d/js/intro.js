@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { sharedAudioContext } from './audio-context.js';
 import { ROADS, blockAt } from './city-config.js';
 import { STORY_CAST } from './people.js';
 import { PLACES } from './story/places.js';
@@ -107,11 +108,9 @@ function createScore() {
   }
   function start(totalSecs) {
     if (started) return;
-    try {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch { return; }
+    ctx = sharedAudioContext({ force: true }); // (the game's one context, never closed here)
+    if (!ctx) return;
     started = true;
-    if (ctx.state === 'suspended') ctx.resume();
     const t0 = ctx.currentTime + 0.15;
     master = ctx.createGain();
     master.gain.setValueAtTime(0, t0);
@@ -244,8 +243,8 @@ function createScore() {
     master.gain.cancelScheduledValues(t);
     master.gain.setValueAtTime(master.gain.value, t);
     master.gain.linearRampToValueAtTime(0, t + 1.6);
-    const c = ctx;
-    setTimeout(() => c.close().catch(() => {}), 2000);
+    const m = master, d = duckGain;
+    setTimeout(() => { try { m.disconnect(); d.disconnect(); } catch { /* gone */ } }, 2000);
     ctx = null;
     started = false;
   }

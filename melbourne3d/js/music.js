@@ -1,3 +1,4 @@
+import { sharedAudioContext, audioGestured } from "./audio-context.js";
 // GTA Melbourne's music: everything is synthesised in code with the Web Audio API (no audio files, no real tunes).
 //
 //  - Car radio: five invented stations, each its own procedural style (synthwave, lo-fi beat, driving rock, house,
@@ -520,14 +521,14 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
   const Ctor = globalThis.AudioContext || globalThis.webkitAudioContext;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { /* storage is optional */ }
-  const settings = { volume: clamp(saved.volume ?? 0.7, 0, 1), muted: !!saved.muted, station: Number.isInteger(saved.station) ? saved.station : null };
+  const settings = { volume: Number.isFinite(+saved.volume) && +saved.volume >= 0.05 ? clamp(+saved.volume, 0, 1) : 0.7, muted: saved.muted === true, station: Number.isInteger(saved.station) ? saved.station : null };
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch { /* ignore */ } };
   const api = { supported: !!Ctor };
   if (!Ctor) return Object.assign(api, { state: { playing: false, station: null, level: 0 } });
 
   let masterSet = -1, ctx = null, eng = null, master = null, duckG = null, analyser = null, buf = null;
   let gestured = false, timer = 0, scene = 'none', station = settings.station, inCar = false, ducked = 1;
-  let toastEl = null, toastT = 0, suspended = false, wantSuspend = false;
+  let toastEl = null, toastT = 0;
 
   const style = document.createElement('style'); style.textContent = CSS; document.head.append(style);
   toastEl = document.createElement('div'); toastEl.className = 'mu-toast'; document.body.append(toastEl);
@@ -538,8 +539,9 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
 
   function ensure() {
     if (ctx) return true;
-    if (!gestured) return false;
-    ctx = new Ctor({ latencyHint: 'playback' });
+    if (!gestured && !audioGestured()) return false;
+    ctx = sharedAudioContext(); // the game's one context (voices, city sound, siren and shots play through it too)
+    if (!ctx) return false;
     master = ctx.createGain(); master.gain.value = 0;
     duckG = ctx.createGain();
     analyser = ctx.createAnalyser(); analyser.fftSize = 1024; buf = new Float32Array(1024);
@@ -569,14 +571,8 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
   function pump() {
     if (!ensure()) return;
     const mute = silent();
-    if (mute && !suspended) {
-      master.gain.setTargetAtTime(0, ctx.currentTime, 0.04); masterSet = -1;
-      if (!wantSuspend) { wantSuspend = true; setTimeout(() => { if (wantSuspend && silent()) { ctx.suspend().catch(() => {}); suspended = true; } wantSuspend = false; }, 250); }
-    } else if (!mute && (suspended || ctx.state === 'suspended')) {
-      suspended = false; wantSuspend = false;
-      ctx.resume().catch(() => {});
-    }
-    if (mute) return;
+    // muting is a gain of 0, never a suspend: the context is shared, and suspending it would silence the voices and the city too
+    if (mute) { if (masterSet !== 0) { master.gain.setTargetAtTime(0, ctx.currentTime, 0.04); masterSet = 0; } return; }
     if (ctx.state !== 'running') { ctx.resume().catch(() => {}); return; }
     const mode = controllerManager?.activeMode;
     const nowCar = mode === 'car';
@@ -591,7 +587,7 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
     applyScene(wantedScene());
     const target = (voices?.speaking || missionSystem?.busy || isCinematic()) ? 0.3 : 1;
     if (target !== ducked) { ducked = target; duckG.gain.setTargetAtTime(target, ctx.currentTime, target < 1 ? 0.12 : 0.6); }
-    const vol = settings.volume * 0.9;
+    const vol = (Number.isFinite(settings.volume) ? settings.volume : 0.7) * 0.9;
     if (vol !== masterSet) { masterSet = vol; master.gain.setTargetAtTime(vol, ctx.currentTime, 0.1); } // (only on a change: it was a new automation event every 100 ms)
     eng.tick();
   }
@@ -645,8 +641,8 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
   });
   Object.assign(api, {
     nextStation: next, setStation, setMuted(m) { settings.muted = !!m; muteEl.checked = settings.muted; persist(); pump(); },
-    setVolume(v) { settings.volume = clamp(v, 0, 1); volEl.value = Math.round(settings.volume * 100); persist(); },
-    get engine() { return eng; }, stations: STATION_NAMES, dispose() { clearInterval(timer); ctx?.close().catch(() => {}); }
+    setVolume(v) { settings.volume = Number.isFinite(+v) ? clamp(+v, 0, 1) : settings.volume; volEl.value = Math.round(settings.volume * 100); persist(); },
+    get engine() { return eng; }, stations: STATION_NAMES, dispose() { clearInterval(timer); }
   });
   return api;
 }

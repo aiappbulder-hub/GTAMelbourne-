@@ -72,7 +72,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   let volume = 1, subtitles = true, ambient = false;
   try {
     const v = parseFloat(localStorage.getItem(VOLUME_KEY));
-    if (Number.isFinite(v)) volume = Math.min(1, Math.max(0, v));
+    if (Number.isFinite(v) && v >= 0.05) volume = Math.min(1, v); // (a stored 0 or NaN is an accident: there is no way to ask for silence)
     subtitles = localStorage.getItem(SUBS_KEY) !== 'off';
   } catch { /* storage unavailable */ }
 
@@ -90,6 +90,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   const buffers = new Map(); // file → Promise<AudioBuffer>
   function context() {
     const c = audioSystem.context;
+    if (c && audioSystem.enabled && c.state === 'suspended') c.resume().catch(() => {}); // (a line that comes first after an interruption wakes it)
     if (!c || !audioSystem.enabled || c.state !== 'running' || !audioSystem.master) return null;
     if (c !== ctx) {
       ctx = c;
@@ -259,8 +260,10 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
 
   /** Fetch and decode the clips for these script lines ahead of their turn, so the next speaker starts the instant it is due */
   function preload(texts) {
-    if (!context()) return;
-    for (const text of texts) { const line = byText.get(key(text)); if (line) load(line).catch(() => {}); }
+    try {
+      if (!context()) return;
+      for (const text of texts) { const line = byText.get(key(text)); if (line) load(line).catch(() => {}); }
+    } catch { /* preloading is only an optimisation: a failure must never stop a line */ }
   }
 
   /** A line by its exact script text (mission cut scenes, the intro); null when it has no clip */
@@ -310,7 +313,13 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       u.volume = Math.min(1, volume);
       // the browser says when it has finished; a line cut off by the next one (cancel) does not count as said
       lastUtterance = u;
-      u.onend = () => { if (lastUtterance === u) { lastUtterance = null; onEnd?.(true); } };
+      // the browser says when it has finished, but some never do (no voice installed, a paused engine): a timer calls the
+      // end anyway, so the line after this one is never blocked
+      let ended = false;
+      const finish = () => { if (ended) return; ended = true; clearTimeout(fallback); if (lastUtterance === u) { lastUtterance = null; onEnd?.(true); } };
+      const fallback = setTimeout(finish, (0.4 + text.split(/\s+/).length / (2.7 * cfg.rate)) * 1400 + 2500);
+      u.onend = finish;
+      u.onerror = () => { if (lastUtterance === u) finish(); };
       speechSynthesis.speak(u);
       return { line: null, duration: 0.4 + text.split(/\s+/).length / (2.7 * cfg.rate), speech: true };
     } catch { return null; }
@@ -470,7 +479,8 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     get active() { return active.map((v) => ({ id: v.line.id, channel: v.channel, t: v.t, sound: !!v.src })); },
     get volume() { return volume; },
     setVolume(x) {
-      volume = Math.min(1, Math.max(0, x));
+      if (!Number.isFinite(+x)) return;
+      volume = Math.min(1, Math.max(0, +x));
       if (bus && ctx) bus.gain.setTargetAtTime(volume * BOOST, ctx.currentTime, 0.05);
       try { localStorage.setItem(VOLUME_KEY, String(volume)); } catch { /* storage unavailable */ }
     },
