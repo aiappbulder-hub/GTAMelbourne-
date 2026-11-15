@@ -15,7 +15,9 @@
 // It shares CityAudioSystem's AudioContext and master gain (so the sound button mutes it too) and does nothing until
 // that context runs. If the data or a clip fails to load, the game carries on silently with its on-screen text.
 
-const DATA_URL = new URL('../../data/character-voices.json', import.meta.url);
+import { sharedAudioContext, audioGestured } from './audio-context.js';
+
+const DATA_URL =new URL('../../data/character-voices.json', import.meta.url);
 const AUDIO_URL = new URL('../../assets/audio/', import.meta.url);
 const PRIORITY = { story: 3, radio: 2, bark: 2, talk: 1, chat: 0 };
 const COOLDOWN = { story: 0, radio: 50, bark: 12, talk: 45, chat: 90 }; // seconds before the same line again
@@ -87,8 +89,20 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
 
   // the audio graph: voices → (ambient duck) → bus → the city's master gain
   let ctx = null, bus = null, duck = null, meter = null, meterBuf = null;
-  const buffers = new Map(); // file → Promise<AudioBuffer>
+  const buffers = new Map(); // file → Promise<AudioBuffer> (decoded; an AudioBuffer plays on any context)
+  const bytes = new Map(); // file → Promise<ArrayBuffer> (fetched; needs no AudioContext, so it can start before one exists)
+  let decoder = null;
+  // Decoding needs a context but not a running one: the game's, once it exists, else a throwaway offline one (an
+  // AudioContext made before the first gesture would only draw an autoplay warning)
+  const decodeContext = () => {
+    const shared = sharedAudioContext();
+    if (shared) return shared;
+    if (!decoder) { const O = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext; decoder = new O(1, 1, 44100); }
+    return decoder;
+  };
   function context() {
+    // (the player may have clicked while the city loaded, before the audio system listened: set it up on that gesture now)
+    if (!audioSystem.context && audioSystem.enabled && audioGestured()) audioSystem.unlock?.();
     const c = audioSystem.context;
     if (c && audioSystem.enabled && c.state === 'suspended') c.resume().catch(() => {}); // (a line that comes first after an interruption wakes it)
     if (!c || !audioSystem.enabled || c.state !== 'running' || !audioSystem.master) return null;
@@ -104,17 +118,26 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       bus.connect(meter);
       duck = c.createGain();
       duck.connect(bus);
-      buffers.clear();
     }
     return c;
   }
+  // A clip's bytes, then its audio. Either step failing (a network blip, a decode error) warns with the file name, forgets
+  // the attempt so the next line asks again, and rejects: only that line falls back; "no recording" is never remembered.
   function load(line) {
-    if (!ctx) return Promise.reject(new Error('no audio'));
     let p = buffers.get(line.file);
     if (!p) {
-      p = fetch(new URL(line.file, AUDIO_URL)).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-        .then((b) => new Promise((ok, fail) => ctx.decodeAudioData(b, ok, fail)));
-      p.catch(() => buffers.delete(line.file));
+      let b = bytes.get(line.file);
+      if (!b) {
+        b = fetch(new URL(line.file, AUDIO_URL)).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); });
+        b.catch(() => bytes.delete(line.file));
+        bytes.set(line.file, b);
+      }
+      p = b.then((data) => new Promise((ok, fail) => {
+        // (decodeAudioData detaches its input: hand it a copy so a retry after a failed decode still has the bytes)
+        const r = decodeContext().decodeAudioData(data.slice(0), ok, fail);
+        r?.catch?.(() => {}); // (the promise form rejects too; the callbacks already report it)
+      }));
+      p.catch((e) => { buffers.delete(line.file); bytes.delete(line.file); console.warn(`[voices] could not load ${line.file}:`, e?.message || e); });
       buffers.set(line.file, p);
     }
     return p;
@@ -215,7 +238,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   // player's first key or tap, and a cut scene may already be up by then): it then starts where the line has got to
   function startSound(v) {
     const c = context();
-    if (!c || v.starting || v.src) return;
+    if (!c || v.starting || v.src || v.failed) return;
     v.starting = true;
     const { line, ch, channel, opts } = v;
     const t0 = performance.now();
@@ -255,13 +278,12 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       v.dur = buffer.duration / speedOf(line.character);
       const offset = Math.min(v.t * speedOf(line.character), Math.max(0, buffer.duration - 0.2));
       src.start(0, offset);
-    }).catch(() => { v.starting = false; /* a missing clip: the subtitle runs out on its own */ });
+    }).catch(() => { v.starting = false; v.failed = true; /* a missing clip (already warned of, by name): the subtitle runs out on its own */ });
   }
 
   /** Fetch and decode the clips for these script lines ahead of their turn, so the next speaker starts the instant it is due */
   function preload(texts) {
     try {
-      if (!context()) return;
       for (const text of texts) { const line = byText.get(key(text)); if (line) load(line).catch(() => {}); }
     } catch { /* preloading is only an optimisation: a failure must never stop a line */ }
   }

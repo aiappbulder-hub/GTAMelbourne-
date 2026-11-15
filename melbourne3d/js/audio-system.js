@@ -1,4 +1,4 @@
-import { sharedAudioContext } from './audio-context.js';
+import { sharedAudioContext, audioGestured } from './audio-context.js';
 import { createSynthResources, createMotorVoice, setControlRate } from './audio-synthesis.js';
 import { IS_MELBOURNE } from './city.js';
 import { createEventResources, playEvent, createWindVoice } from './audio-events.js';
@@ -121,6 +121,10 @@ class CityAudioSystem {
     document.addEventListener('pointerdown', this.onGesture, { passive: true });
     document.addEventListener('keydown', this.onGesture);
     document.addEventListener('visibilitychange', this.onVisibility);
+    // The player may have pressed or clicked while the city was still loading, before the handlers above existed: that
+    // gesture already unlocked the shared context, so set up on it now rather than waiting for another click (until then
+    // the voices, which play through this system's master gain, would be silent while the intro score already plays).
+    if (this.enabled && audioGestured()) this.unlock();
   }
 
   unlock() {
