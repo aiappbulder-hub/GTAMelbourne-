@@ -51,6 +51,7 @@ const CROSS_Y = 0.46; // the crosshair's height on screen (fraction from the top
 const LOCK_CONE = 0.62; // radians either side of the facing for lock-on without aiming
 const LOCK_RANGE = 40;
 
+import { MELBOURNE_LINES } from './melbourne-lines.js';
 const LINES = [
   "Flinders Street's that way, mate. Under the clocks.",
   'You going to the footy Saturday? Carn the Pies!',
@@ -71,6 +72,7 @@ const LINES = [
   "Is it me or are there more cranes than people in this town?",
   "My cousin knows a bloke who knows Vince. Small world, eh."
 ];
+LINES.push(...MELBOURNE_LINES);
 const GREETINGS = ["G'day.", 'Excuse me, mate.', "How ya going?", 'Oi, got a sec?', 'Hey there.'];
 
 const CSS = `
