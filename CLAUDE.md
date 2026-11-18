@@ -19,5 +19,5 @@ The owner's usage limit must last a full 5-hour window. The top-tier model is fo
 
 ## Shipping (owner's standing rule)
 
-The owner can only play what is on `main`. When a change is finished and tested, merge the working branch into `main`
-and push `main` (as well as the working branch). Do this every time, without asking.
+The owner can only play what is on `main`. When a change is finished and tested, merge the working branch into the default branch (`ccr-c003ea14-x4uzks`, the repo has no `main`)
+and push it (as well as the working branch). Do this every time, without asking.
