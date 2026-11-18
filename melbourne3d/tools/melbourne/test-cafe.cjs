@@ -10,7 +10,7 @@ const ok = (c, w) => { console.log(c ? 'PASS' : 'FAIL', w); if (!c) failed = tru
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 900, height: 560 } })).newPage();
   p.on('pageerror', (e) => console.log('ERR', e.message.slice(0, 200)));
-  await p.goto(`http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`, { timeout: 120000 });
+  await p.goto(`http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm&story`, { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.missions && __city.stkilda, null, { timeout: 480000 });
   const r = await p.evaluate(async () => {
     const m = await import('/melbourne3d/js/melbourne-config.js');

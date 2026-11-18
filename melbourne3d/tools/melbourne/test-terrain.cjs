@@ -9,7 +9,7 @@
 const { chromium } = require('playwright');
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 const PORT = process.env.PORT || 9013;
-const URL = (q) => `http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm${q || ''}`;
+const URL = (q) => `http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm&story${q || ''}`;
 let failed = false;
 const ok = (c, w) => { log(c ? 'PASS' : 'FAIL', w); if (!c) failed = true; };
 

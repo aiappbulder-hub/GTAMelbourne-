@@ -14,7 +14,7 @@ async function run(b, name, vp, touch) {
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
-  await p.goto(`http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`, { timeout: 120000 });
+  await p.goto(`http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm&story`, { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.gameplay && __city.cast && __city.cast.ready, null, { timeout: 480000 });
   await p.waitForTimeout(2500);
   await p.evaluate(() => { __city.gameplay.leaveCarNow(); __city.teleportTo(-240.68, -221, 0); });

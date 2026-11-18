@@ -10,7 +10,7 @@ const SPOTS = { cbd: [-242, -221], flinders: [-224, 120], dock: [-1300, -700], c
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 320, height: 200 } })).newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-  await p.goto(`http://localhost:${process.env.PORT || 8801}${process.env.BASE || ''}/index.html?webgl&quality=${process.env.Q || 'high'}&nointro&nofilm`, { timeout: 120000 });
+  await p.goto(`http://localhost:${process.env.PORT || 8801}${process.env.BASE || ''}/index.html?webgl&quality=${process.env.Q || 'high'}&nointro&nofilm&story`, { timeout: 120000 });
   await p.waitForFunction(() => window.__city && __city.gameplay && __city.trafficSystem, null, { timeout: 480000 }); await p.waitForTimeout(2000);
   await p.evaluate(() => {
     const ts = __city.trafficSystem, orig = ts.update.bind(ts);

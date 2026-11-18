@@ -178,9 +178,11 @@ async function initApp() {
   let interiors = null; // js/interiors.js: the Quiet Room
   let race = null; // js/race.js, the Albert Park Grand Prix
   // Reuse teleport placement so saved players return at rest, close to their last positions.
+  let freshPlayer = true; // no saved player: free roam spawns the taxi on Flinders St
   try {
     const saved = JSON.parse(localStorage.getItem(PLAYER_STATE_KEY));
     if (saved?.version === 1) {
+      freshPlayer = false;
       for (const mode of Object.keys(controllerManager.entities)) {
         const p = saved.entities?.[mode];
         if (!p || ![p.x, p.y, p.z, p.heading].every(Number.isFinite)) continue;
@@ -400,7 +402,7 @@ async function initApp() {
       ? [[['WASD'], 'Move'], [['Shift'], 'Sprint'], [['F'], 'Get in'], [['Shift', '1-4'], 'Mode'], [['V'], 'Camera'], [['RMB', 'Q'], 'Aim (mouse turns)'], [['Click', 'J'], 'Shoot'], [['T'], 'Talk']]
       : [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
     car: IS_MELBOURNE
-      ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Space'], 'Handbrake'], [['F'], 'Get out'], [['B'], 'Horn']]
+      ? [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Space'], 'Handbrake'], [['F'], 'Get out'], [['B'], 'Horn'], [['P'], 'Rideshare shift']]
       : [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['B'], 'Horn'], [['Drag'], 'Orbit']],
     cyclist: [[['W', 'S'], 'Pedal / Brake'], [['A', 'D'], 'Lean & Turn'], [['Drag'], 'Orbit']],
     helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend']]
@@ -595,6 +597,8 @@ async function initApp() {
     elLocation.replaceChildren(...nodes);
   }
 
+  // Flinders St just west of Swanston St, facing east along it (the station on the right)
+  const FREE_START = { x: TELEPORT_LOCATIONS.flinders.x - 70, z: TELEPORT_LOCATIONS.flinders.z + 36.5, heading: Math.PI / 2 };
   function teleportTo(x, z, heading = Math.PI) {
     const destination = controllerManager.teleportActiveTo(x, z, heading);
     touchControls.reset();
@@ -676,6 +680,16 @@ async function initApp() {
   window.__city.intro = intro;
   // Car radio and background music, all synthesised (js/music.js)
   if (IS_MELBOURNE) window.__city.music = (await import('./music.js')).createMusic({ audioSystem, controllerManager, voices, missionSystem, wanted, gameplay });
+  // Free roam (the default): the taxi on Flinders St by the station at early dusk; no title film, intro or phone call
+  function freeRoamStart() {
+    if (new URLSearchParams(location.search).has('nointro')) return;
+    selectMode('car');
+    if (freshPlayer) teleportTo(FREE_START.x, FREE_START.z, FREE_START.heading);
+  }
+  const areaCards = IS_MELBOURNE ? (await import('./area-cards.js')).createAreaCards({ controllerManager }) : null;
+  window.__city.areaCards = areaCards;
+  const rideshare = IS_MELBOURNE && missionSystem ? (await import('./rideshare.js')).createRideshare({ controllerManager, missionSystem, mapSystem, scene }) : null;
+  window.__city.rideshare = rideshare;
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
@@ -758,6 +772,24 @@ async function initApp() {
     const prog = document.createElement('div');
     prog.className = 'pop-sub job-progress';
     title.after(prog);
+    const storyBtn = document.createElement('button');
+    storyBtn.className = 'pop-item tp-btn';
+    storyBtn.type = 'button';
+    const sn = document.createElement('span'); sn.className = 'pop-name';
+    const ss = document.createElement('span'); ss.className = 'pop-sub';
+    storyBtn.append(sn, ss);
+    const paintStory = () => {
+      sn.textContent = `Story mode: ${missionSystem.storyMode ? 'ON' : 'OFF'}`;
+      ss.textContent = missionSystem.storyMode ? 'The phone rings and the pink marker shows. Tap to go back to free roam' : 'Free roam. Tap to bring back the phone calls and the pink marker';
+    };
+    paintStory();
+    storyBtn.addEventListener('click', () => {
+      missionSystem.storyMode = !missionSystem.storyMode;
+      paintStory();
+      if (missionSystem.storyMode) { const p = missionSystem.jumpTo(missionSystem.progress >= missionSystem.missions.length ? missionSystem.missions.length - 1 : missionSystem.progress); teleportTo(p.x + 3, p.z + 3, Math.atan2(-3, -3)); }
+      closePopovers();
+    });
+    prog.after(storyBtn);
     const rows = [];
     missionSystem.missions.forEach((m, i) => {
       const b = document.createElement('button');
@@ -887,7 +919,7 @@ async function initApp() {
   // Initialize the UI and chase camera around the restored player, or the default taxi on a first visit.
   selectMode(controllerManager.activeMode);
   selectCamera('chase', true);
-  selectTime('golden');
+  selectTime(missionSystem && !missionSystem.storyMode ? 'twilight' : 'golden'); // free roam starts at early dusk
   // the web fonts change the buttons' widths once they arrive
   if (document.fonts) document.fonts.ready.then(placeModeIndicator);
   markInit('ui');
@@ -1023,6 +1055,8 @@ async function initApp() {
     if (gameplay) gameplay.update(dt);
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
+    areaCards?.update(dt);
+    rideshare?.update(dt);
     missionSystem?.applyCamera(dt); // a job's cut scene takes the camera
     interiors?.postCamera(cameraSystem.camera); // (and in the bar, the camera stays inside it)
     streetDetails.signalClock.value = elapsed;
@@ -1100,7 +1134,11 @@ async function initApp() {
         initTimings = null;
         setLoadingProgress(1);
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
-        if (intro) { if (intro.shouldAutoplay) intro.prompt(); else intro.skip(); }
+        if (intro) {
+          if (intro.shouldAutoplay) intro.prompt();
+          else if (missionSystem && !missionSystem.storyMode) freeRoamStart();
+          else intro.skip();
+        }
         audioSystem.ready = true;
       });
     }

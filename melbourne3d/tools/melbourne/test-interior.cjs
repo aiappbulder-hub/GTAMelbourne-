@@ -4,7 +4,7 @@
 // Serve the repository root (python3 -m http.server 8765), then: node tools/melbourne/test-interior.cjs
 const { chromium } = require('playwright');
 const PORT = process.env.PORT || 8765;
-const URL_ = `http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
+const URL_ = `http://localhost:${PORT}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm&story`;
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });

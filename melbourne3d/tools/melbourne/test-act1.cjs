@@ -4,7 +4,7 @@
 // Prints PASS/FAIL per check; exits 1 on a FAIL. (A small window: under software rendering the game runs at a frame or
 // two a second, and the jobs' timers count game time; ff() runs the mission system's own clock forward between frames.)
 const { chromium } = require('playwright');
-const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm`;
+const URL_ = `http://localhost:${process.env.PORT || 8765}/melbourne3d/index.html?webgl&quality=low&nointro&nofilm&story`;
 // FROM=12 node tools/melbourne/test-act1.cjs starts at that job (0-based) with the choices the earlier ones would have made
 // (FROM=8 is the whole of Act I and takes over 15 minutes under software rendering; FROM=12 plays only The Ferryman's Toll
 // and then checks the Book and the till, so the end of the run is reached in a few minutes)

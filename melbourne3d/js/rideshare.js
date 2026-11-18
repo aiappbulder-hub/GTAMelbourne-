@@ -3,7 +3,7 @@
 // named Melbourne spot (the GPS route is the map's waypoint). Pay = distance + a speed bonus; the rating (1-5 stars) drops
 // on a hard crash. Fares chain until P ends the shift. Cash goes to missionSystem.addMoney (the save).
 // Tunables live in CONFIG.
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import { createGps } from './gps.js';
 import { PLACES } from './story/places.js';
 
