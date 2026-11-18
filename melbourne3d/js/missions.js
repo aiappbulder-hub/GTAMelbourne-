@@ -599,6 +599,16 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   // The job the pink marker and the phone point at: the furthest one reached (save.progress), or an earlier one picked in the Jobs
   // list to play again (which must never wind the saved progress back)
   let focus = null;
+  // Story mode (off by default: free roam): when on, the phone rings, the pink marker and the "next job" line show, jobs chain
+  // and walking into the pink marker starts one. Off, jobs start only from the Jobs list. Saved in localStorage; ?story forces it on, ?freeroam off.
+  const STORY_KEY = 'gta-melbourne3d-storymode';
+  let storyMode = false;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('story')) { storyMode = true; localStorage.setItem(STORY_KEY, '1'); }
+    else if (q.has('freeroam')) { storyMode = false; localStorage.removeItem(STORY_KEY); }
+    else storyMode = localStorage.getItem(STORY_KEY) === '1';
+  } catch { /* storage unavailable */ }
   const cur = () => (focus !== null && focus < save.progress ? focus : save.progress);
   let persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* storage unavailable */ } };
   persist();
@@ -1290,7 +1300,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
     // the next job runs on from this one (def.chain): it starts by itself once MISSION PASSED has been read
     const nxt = MISSIONS[n];
-    if (nxt && nxt.chain && save.progress === n) {
+    if (storyMode && nxt && nxt.chain && save.progress === n) {
       called = n; // (no phone call to send you there: it's about to begin)
       chainJob = { n, t: 3.6 };
     }
@@ -1326,7 +1336,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const p = playerPos();
     // the job's giver (Vince or Kaz) waits at the next job's marker and talks through its cut scene
     if (cast) {
-      const def = mission ? mission.def : MISSIONS[cur()];
+      const def = mission ? mission.def : storyMode ? MISSIONS[cur()] : null;
       const inScene = !!(def && def.scene);
       if (def && !mission) preloadCast(def, cur());
       if (stkilda) {
@@ -1371,6 +1381,14 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     if (chainJob) {
       if (mission || focus !== null && focus !== chainJob.n || cur() !== chainJob.n) chainJob = null;
       else if (!cut && !choiceOpen && !cardUp && bigT <= 0 && (chainJob.t -= dt) <= 0) { const n = chainJob.n; chainJob = null; start(n, { chain: true }); }
+    }
+    if (!mission && !storyMode) {
+      // free roam: nothing pink, no phone, no objective line until a job is started from the Jobs list
+      startMarker.visible = false;
+      if (callUp > 0) { callUp = 0; elCall.classList.remove('on'); }
+      if (elObjective.textContent) { elObjective.textContent = ''; delete elObjective.dataset.job; }
+      if (mapSystem && mapSystem.waypoint && mapSystem.waypoint.job !== undefined) mapSystem.waypoint = null;
+      return;
     }
     if (!mission) {
       // the next job's marker
@@ -1692,6 +1710,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     debugAdvance(sec) { if (mission) mission.stepT += sec; },
     debugGotoStep(i) { if (mission) { mission.si = i - 1; nextStep(); } },
     get step() { return mission && mission.si >= 0 ? mission.def.steps[mission.si] : null; },
+    /** Story mode (phone, pink marker, chained jobs); off is free roam. Saved. */
+    get storyMode() { return storyMode; },
+    set storyMode(v) { storyMode = !!v; try { if (storyMode) localStorage.setItem(STORY_KEY, '1'); else localStorage.removeItem(STORY_KEY); } catch { /* storage unavailable */ } },
     /** A job is under way */
     get onJob() { return !!mission; },
     /** No shooting, aiming, talking to people or getting into cars: a cut scene, a choice or a black card is up */
