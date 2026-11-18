@@ -52,6 +52,15 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 
 - **Characters** (`js/character-presets.js`): five named Melbourne presets (a local, a street criminal, a local woman,
   a bikie, a Victoria Police officer) on the shared person rig, given to the first five pedestrians.
+- **Free roam (the default)**: a fresh load puts you in the taxi on Flinders St by the station at early dusk. No title film, no
+  intro, no phone calls, no pink marker or objective line; the thirteen jobs wait in the background and start from the
+  Jobs list. **Story mode** (Jobs list > "Story mode", saved in localStorage `gta-melbourne3d-storymode`; or `?story`, and
+  `?intro` turns it on too; `?freeroam` turns it off) brings back the phone, the pink marker, chained jobs and walking into
+  the marker to start. Saves are unchanged.
+- **Area cards** (`js/area-cards.js`): entering a new district fades its name in bottom-right for ~3 s (it must hold ~1.2 s,
+  so borders don't flicker).
+- **Rideshare** (`js/rideshare.js`): **P** in a car goes on shift (P again ends it). Stop in the green marker for a fare, then
+  drive to a named spot (GPS route on the map); pay is distance plus a speed bonus, hard crashes cost stars. Cash is saved.
 - **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the
   milestones with their tests in `MILESTONES.md`). Tonight Callum Reid (you) comes back to Melbourne by boat, twenty-two
   years after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's

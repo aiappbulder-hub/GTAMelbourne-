@@ -27,7 +27,8 @@ export function createAreaCards({ controllerManager }) {
     get current() { return shown; },
     get text() { return el.textContent; },
     get visible() { return el.classList.contains('on'); },
-    update(dt) {
+    update(dt0) {
+      const now = performance.now(), dt = Math.min(2, (now - (api._t || now)) / 1000); api._t = now; // wall time, so slow frames don't stretch the hold
       const e = controllerManager.getActiveEntity();
       if (showT > 0) { showT -= dt; if (showT <= 0) el.classList.remove('on'); }
       if (!e || e.position.y > 1000 || document.body.classList.contains('cinematic')) return;
