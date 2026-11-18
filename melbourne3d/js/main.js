@@ -164,8 +164,8 @@ async function initApp() {
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
   // Melbourne's trams on the real routes (js/trams.js)
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
-  // Melbourne visuals: tram overhead wires, station glow, laneways, Crown fire, river boat (js/tram-wires.js, js/melb-night.js)
-  let melbNight = null, tramWires = null;
+  // Melbourne visuals: station glow, laneways, Crown fire, river boat (js/melb-night.js)
+  let melbNight = null;
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
@@ -251,7 +251,6 @@ async function initApp() {
     controllerManager.entities.cyclist.helmet
   ];
   if (IS_MELBOURNE) {
-    tramWires = (await import('./tram-wires.js')).createTramWires({ scene });
     melbNight = (await import('./melb-night.js')).createMelbNight({ scene, lightingSystem });
     window.__melbNight = melbNight;
   }
@@ -1101,7 +1100,6 @@ async function initApp() {
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
-    tramWires?.update(cameraSystem.currentPos);
     melbNight?.update(dt, cameraSystem.currentPos);
     youngJackson.update(dt, { night: lightingSystem.uNightFactor.value, onFoot: controllerManager.activeMode === 'person', pos: controllerManager.entities.person?.position });
     mapSystem.update();

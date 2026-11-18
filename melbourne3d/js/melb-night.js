@@ -1,4 +1,4 @@
-// Melbourne after dark: Flinders St Station glow + uplights, hand-placed laneways (bluestone, graffiti, festoon
+// Melbourne after dark: Flinders St Station glow + uplights, hand-placed laneways (bluestone, festoon
 // lights, bins, cafe tables), Crown's gas fire pillars on the Yarra's south bank and a river cruise boat.
 // Everything is distance-gated and instanced; fire/boat/lanes are skipped entirely when far from the camera.
 import * as THREE from 'three/webgpu';
@@ -31,25 +31,6 @@ function bluestoneTex() {
     }
   }, [1, 1]);
 }
-function graffitiTex(variant) {
-  const pal = ['#ff2e88', '#18d6c8', '#ffd21f', '#7a3cff', '#ff6a1a', '#3ddc4a', '#e8f0ff', '#2a8cff'];
-  return canvasTex(512, 256, (g, w, h) => {
-    g.fillStyle = variant ? '#3a3238' : '#2f3a40'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 38; i++) {
-      g.fillStyle = pal[(rnd() * pal.length) | 0];
-      g.globalAlpha = 0.65 + rnd() * 0.35;
-      const x = rnd() * w, y = rnd() * h, s = 18 + rnd() * 70;
-      g.beginPath();
-      if (i % 3 === 0) g.ellipse(x, y, s, s * 0.55, rnd() * 3, 0, 6.3);
-      else if (i % 3 === 1) g.rect(x, y, s * 1.4, s * 0.5);
-      else { g.moveTo(x, y); g.lineTo(x + s, y + rnd() * s); g.lineTo(x + rnd() * s, y + s); }
-      g.fill();
-      g.strokeStyle = '#111'; g.lineWidth = 3; g.globalAlpha = 0.8; g.stroke();
-    }
-    g.globalAlpha = 1;
-  });
-}
-
 // lanes: x (north-south lane), z from..to, half width
 const LANES = [
   { name: 'Degraves St', x: -31, z0: 126, z1: 231, hw: 3.2 },
@@ -91,7 +72,6 @@ export function createMelbNight({ scene, lightingSystem }) {
   const lanes = new THREE.Group();
   root.add(lanes);
   const stone = bluestoneTex();
-  const gTex = [graffitiTex(0), graffitiTex(1)];
   const bulbGeo = new THREE.SphereGeometry(0.1, 6, 4);
   const bulbMat = glowMat(0xffc870);
   const binGeo = new THREE.BoxGeometry(0.7, 1.1, 0.7);
@@ -99,7 +79,6 @@ export function createMelbNight({ scene, lightingSystem }) {
   const tabGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.05, 10); tabGeo.translate(0, 0.75, 0);
   const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.75, 5); legGeo.translate(0, 0.375, 0);
   const tabMat = new THREE.MeshStandardNodeMaterial({ color: 0x2c2c30, roughness: 0.5, metalness: 0.4 });
-  const wallGeo = new THREE.PlaneGeometry(1, 1);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pv = new THREE.Vector3();
   LANES.forEach((L, li) => {
     const len = L.z1 - L.z0, cz = (L.z0 + L.z1) / 2, y = terrainHeight(L.x, cz) + 0.07;
@@ -110,14 +89,6 @@ export function createMelbNight({ scene, lightingSystem }) {
     ground.rotation.x = -Math.PI / 2; ground.position.set(L.x, y, cz);
     ground.receiveShadow = false;
     grp.add(ground);
-    for (const side of [-1, 1]) {
-      const t = gTex[(li + (side > 0 ? 1 : 0)) % 2].clone(); t.needsUpdate = true; t.repeat.set(len / 14, 1);
-      const w = new THREE.Mesh(wallGeo, new THREE.MeshStandardNodeMaterial({ map: t, roughness: 0.9 }));
-      w.scale.set(len, 6, 1);
-      w.position.set(L.x + side * (L.hw - 0.02), y + 3, cz);
-      w.rotation.y = -side * Math.PI / 2;
-      grp.add(w);
-    }
     // festoon strings across the lane every 10 m, 9 bulbs each on a sag curve
     const strings = Math.floor(len / 10);
     const bulbs = new THREE.InstancedMesh(bulbGeo, bulbMat, strings * 9);

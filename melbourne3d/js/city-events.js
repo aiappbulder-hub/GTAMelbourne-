@@ -1,5 +1,5 @@
 // Ambient city events: every 1-3 minutes something Melbourne starts near the player (off-screen-ish): a Bourke St Mall
-// busker with a crowd circle, a protest walking by the trams, a footy crowd streaming to the MCG (evenings), a
+// busker with a crowd circle, a footy crowd streaming to the MCG (evenings), a
 // laneway party (night), a car-park burnout with a cheering crowd (night), Yarra fireworks (night) and a "four seasons in
 // one day" weather flip. Each is self-contained, despawns when far away or when its time is up, shows a small headline
 // the first time it is on screen, and never takes input or blocks anything. Debug: __city.events.trigger(name).
@@ -75,7 +75,6 @@ export function createCityEvents({ scene, controllerManager, cameraSystem, light
     lycra: (a, c) => drawAcc(a, 0, c[0], 0, 1.17, 0, 0.47, 0.5, 0.28),
     cup: (a) => drawAcc(a, 0, 0xf2f2f2, 0.32, 1.05, 0.25, 0.08, 0.14, 0.08),
     guitar: (a) => drawAcc(a, 0, 0x9a5a22, 0.05, 1.0, 0.28, 0.34, 0.5, 0.08),
-    banner: (a, c) => { drawAcc(a, 0, 0x6b4a2a, 0.25, 1.4, 0.15, 0.04, 2.1, 0.04); drawAcc(a, 0, c[0], 0.25, 2.2, 0.15, 1.5, 0.8, 0.04); },
     flag: (a, c) => { drawAcc(a, 0, 0x6b4a2a, 0.25, 1.2, 0.15, 0.03, 1.8, 0.03); drawAcc(a, 0, c[0], 0.5, 2.0, 0.15, 0.55, 0.35, 0.03); }
   };
 
@@ -120,21 +119,6 @@ export function createCityEvents({ scene, controllerManager, cameraSystem, light
         const b = makeActor('busker', spot.x, spot.z, ['guitar']); if (b) { b.face = { x: spot.x + 5, z: spot.z }; ev.actors.push(b); }
         circle(ev, spot.x, spot.z, 11, 3.6, ['melbourne-local', 'female-local', 'hipster-coffee', 'uni-student', 'office-black'], (i) => (i % 4 === 0 ? ['cup'] : []));
         ev.tick = (dt, t) => { if (b) b.bob = Math.sin(t * 6) * 0.1; };
-        return ev;
-      }
-    },
-    protest: {
-      weight: () => (nightNow() < 0.6 ? 1 : 0.2),
-      start(spot) {
-        const ev = { actors: [], x: spot.x, z: spot.z, life: 140, headline: 'Protest march holding up the trams', sub: 'Banners, whistles and a lot of "what do we want".', dir: spot };
-        const cols = [[0xd62828], [0xf2c230], [0xffffff], [0x2b7de9]];
-        for (let i = 0; i < 16; i++) {
-          const row = i % 2, k = Math.floor(i / 2);
-          const m = makeActor(pick(['melbourne-local', 'female-local', 'uni-student', 'hipster-coffee']),
-            spot.x - spot.dx * k * 1.8 + spot.dz * (row ? 2 : -2), spot.z - spot.dz * k * 1.8 + spot.dx * (row ? 2 : -2), i % 3 === 0 ? ['banner'] : []);
-          if (m) { m.accC = pick(cols); m.heading = Math.atan2(spot.dx, spot.dz); m.v = 0.9; ev.actors.push(m); }
-        }
-        ev.tick = (dt) => { for (const m of ev.actors) { m.x += spot.dx * 0.9 * dt; m.z += spot.dz * 0.9 * dt; } ev.x += spot.dx * 0.9 * dt; ev.z += spot.dz * 0.9 * dt; };
         return ev;
       }
     },
