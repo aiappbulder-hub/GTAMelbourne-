@@ -305,6 +305,7 @@ const NYC_LANDMARKS = [
   ['crown', 'Crown Melbourne', 'Crown', 'Crown Melbourne'],
   ['marvel', 'Marvel Stadium', 'Marvel Stadium', 'Marvel Stadium'],
   ['shrine', 'Shrine of Remembrance', 'Shrine', 'Shrine of Remembrance'],
+  ['youngjackson', 'Young & Jackson', 'Young & Jackson', 'Young and Jackson'],
   ['star', 'Melbourne Star', 'Melbourne Star', 'Melbourne Star']
 ].map(([id, name, short, osm]) => {
   const s = site(osm, { x: 0, z: 0 });

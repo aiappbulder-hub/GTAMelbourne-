@@ -140,6 +140,9 @@ async function initApp() {
   // Melbourne: the old game's landmark models on their real sites (js/melbourne-landmarks.js)
   const { colliders: landmarkColliders } = await (await import('./melbourne-landmarks.js')).buildMelbourneLandmarks(scene);
   markInit('landmarks');
+  // Young & Jackson Hotel (js/young-jackson.js): its collider stands in for the generic building on the footprint
+  const youngJackson = (await import('./young-jackson.js')).buildYoungJackson(scene);
+  landmarkColliders.push(...youngJackson.colliders);
   await showLoadingStage('Generating building footprints and facades...', 'blocks');
   const cityBlocks = buildCityBlocks(scene, landmarkColliders);
   markInit('blocks');
@@ -1100,6 +1103,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     tramWires?.update(cameraSystem.currentPos);
     melbNight?.update(dt, cameraSystem.currentPos);
+    youngJackson.update(dt, { night: lightingSystem.uNightFactor.value, onFoot: controllerManager.activeMode === 'person', pos: controllerManager.entities.person?.position });
     mapSystem.update();
     helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);
