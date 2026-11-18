@@ -250,6 +250,7 @@ async function initApp() {
   if (IS_MELBOURNE) {
     tramWires = (await import('./tram-wires.js')).createTramWires({ scene });
     melbNight = (await import('./melb-night.js')).createMelbNight({ scene, lightingSystem });
+    window.__melbNight = melbNight;
   }
   scene.updateMatrixWorld(true);
   scene.matrixWorldAutoUpdate = false;

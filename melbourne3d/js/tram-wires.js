@@ -7,7 +7,7 @@ import { terrainHeight } from './terrain.js';
 import { QUALITY } from './quality.js';
 
 const CHUNK = 400;
-const CONTACT_H = 5.6, MESSENGER_H = 6.15, POLE_GAP = 32, POLE_OFF = 3.3, POLE_H = 7.4;
+const CONTACT_H = 6.0, MESSENGER_H = 6.8, POLE_GAP = 32, POLE_OFF = 3.3, POLE_H = 8.4;
 const RING = QUALITY === 'low' ? 1 : QUALITY === 'medium' ? 2 : 3; // chunks each way
 const PER_FRAME = 1;
 
@@ -15,9 +15,9 @@ export function createTramWires({ scene }) {
   const group = new THREE.Group();
   group.name = 'TramOverhead';
   scene.add(group);
-  const wireMat = new THREE.MeshBasicNodeMaterial({ color: 0x25272b, side: THREE.DoubleSide });
+  const wireMat = new THREE.MeshBasicNodeMaterial({ color: 0x0c0d0f, side: THREE.DoubleSide });
   const poleMat = new THREE.MeshStandardNodeMaterial({ color: 0x4c5056, roughness: 0.7, metalness: 0.5 });
-  const poleGeo = new THREE.BoxGeometry(0.22, POLE_H, 0.22);
+  const poleGeo = new THREE.BoxGeometry(0.3, POLE_H, 0.3);
   poleGeo.translate(0, POLE_H / 2, 0);
   const armGeo = new THREE.BoxGeometry(0.1, 0.1, 1); // length set per instance (scale z)
   armGeo.translate(0, 0, 0.5);
@@ -56,10 +56,10 @@ export function createTramWires({ scene }) {
         const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n;
         const g0 = terrainHeight(px, pz), g1 = terrainHeight(x, z);
         const z1 = (k % 2 ? 0.18 : -0.18), z0 = -z1; // contact wire zig-zags
-        ribbon(pos, idx, { x: px - dz * z0, z: pz + dx * z0 }, { x: x - dz * z1, z: z + dx * z1 }, g0 + CONTACT_H, g1 + CONTACT_H, 0.05);
+        ribbon(pos, idx, { x: px - dz * z0, z: pz + dx * z0 }, { x: x - dz * z1, z: z + dx * z1 }, g0 + CONTACT_H, g1 + CONTACT_H, 0.14);
         const s0 = 0.35 * Math.sin(Math.PI * (((along + (k - 1) * len / n) % POLE_GAP) / POLE_GAP));
         const s1 = 0.35 * Math.sin(Math.PI * (((along + k * len / n) % POLE_GAP) / POLE_GAP));
-        ribbon(pos, idx, { x: px, z: pz }, { x, z }, g0 + MESSENGER_H - s0 * 0.6, g1 + MESSENGER_H - s1 * 0.6, 0.04);
+        ribbon(pos, idx, { x: px, z: pz }, { x, z }, g0 + MESSENGER_H - s0 * 0.6, g1 + MESSENGER_H - s1 * 0.6, 0.11);
         px = x; pz = z;
       }
       let d = (POLE_GAP - (along % POLE_GAP)) % POLE_GAP;

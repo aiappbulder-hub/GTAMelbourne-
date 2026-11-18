@@ -177,6 +177,7 @@ export function createMelbNight({ scene, lightingSystem }) {
     fire.add(p, f);
     pillars.push({ f, x, z, y: y + 5, phase: i * 1.7, period: 11 + (i % 3) * 1.5 });
   });
+  let debugBurst = false;
   const fireLight = new THREE.PointLight(0xff8a30, 0, 70, 1.5);
   root.add(fireLight);
 
@@ -230,13 +231,14 @@ export function createMelbNight({ scene, lightingSystem }) {
     for (const p of pillars) {
       let on = 0;
       if (fireNear && nf > 0.4) {
-        const ph = ((time + p.phase) % p.period);
+        const ph = debugBurst ? 1.1 : ((time + p.phase) % p.period);
         if (ph < 2.2) on = Math.sin(Math.PI * ph / 2.2);
       }
       p.f.visible = on > 0.02;
       if (p.f.visible) {
         const flick = 1 + 0.15 * Math.sin(time * 40 + p.phase);
-        p.f.scale.set(1 + on * 0.4, (2 + on * 7) * flick, 1 + on * 0.4);
+        p.f.scale.set(1.3 + on * 0.7, (2 + on * 8) * flick, 1.3 + on * 0.7);
+        p.f.updateMatrixWorld(); // the scene's matrices are frozen after init, so refresh by hand
         const d = (camPos.x - p.x) ** 2 + (camPos.z - p.z) ** 2;
         if (d < bd) { bd = d; best = p; }
       }
@@ -244,6 +246,7 @@ export function createMelbNight({ scene, lightingSystem }) {
     if (best) {
       fireLight.position.set(best.x, best.y + 4, best.z);
       fireLight.intensity = 1800 * Math.max(0.2, best.f.scale.y / 9);
+      fireLight.updateMatrixWorld();
     } else fireLight.intensity = 0;
     // boat
     bS = (bS + dt * 4.5) % (2 * bLen);
@@ -251,6 +254,7 @@ export function createMelbNight({ scene, lightingSystem }) {
     boat.position.set(bo.x, -1.6 + 0.55 + Math.sin(time * 1.1) * 0.03, bo.z);
     boat.rotation.y = bo.h;
     boat.visible = near(camPos, bo.x, bo.z, 1400);
+    if (boat.visible) boat.updateMatrixWorld(true);
   }
-  return { group: root, update };
+  return { group: root, update, burstAll(on = true) { debugBurst = !!on; } };
 }
