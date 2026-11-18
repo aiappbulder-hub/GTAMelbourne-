@@ -16,3 +16,8 @@ The owner's usage limit must last a full 5-hour window. The top-tier model is fo
 - **At most two subagents at a time.** Queue the rest. Prefer resuming an agent over starting a new one.
 - **Commit early.** Subagents commit working progress to their branch as they go, so a cut-off loses little.
 - Subagents do the assigned task without stopping to ask for sign-off on file edits; they report what they did.
+
+## Shipping (owner's standing rule)
+
+The owner can only play what is on `main`. When a change is finished and tested, merge the working branch into `main`
+and push `main` (as well as the working branch). Do this every time, without asking.
