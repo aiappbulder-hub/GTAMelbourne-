@@ -161,6 +161,8 @@ async function initApp() {
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
   // Melbourne's trams on the real routes (js/trams.js)
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
+  // Melbourne visuals: tram overhead wires, station glow, laneways, Crown fire, river boat (js/tram-wires.js, js/melb-night.js)
+  let melbNight = null, tramWires = null;
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
@@ -245,6 +247,10 @@ async function initApp() {
     ...Object.values(controllerManager.entities).map((entity) => entity.mesh),
     controllerManager.entities.cyclist.helmet
   ];
+  if (IS_MELBOURNE) {
+    tramWires = (await import('./tram-wires.js')).createTramWires({ scene });
+    melbNight = (await import('./melb-night.js')).createMelbNight({ scene, lightingSystem });
+  }
   scene.updateMatrixWorld(true);
   scene.matrixWorldAutoUpdate = false;
   // Everything added to the scene after this (mission markers, gunfire effects, the people, ...) moves: keep its
@@ -1091,6 +1097,8 @@ async function initApp() {
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
+    tramWires?.update(cameraSystem.currentPos);
+    melbNight?.update(dt, cameraSystem.currentPos);
     mapSystem.update();
     helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);

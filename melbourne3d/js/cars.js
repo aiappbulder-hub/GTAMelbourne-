@@ -1603,7 +1603,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
     const sideSign = mix(float(1.0), float(-1.0), step(0.0, p.x));
     const decalUV = mix(
       vec2(sideSign.mul(p.z.sub(doorMid)).div(0.5).add(0.5), p.y.sub(0.765).div(0.12).add(0.5)),
-      vec2(p.x.div(0.6).add(0.5), hoodMidZ.sub(p.z).div(0.15).add(0.5)),
+      vec2(p.x.div(0.6).add(0.5), float(hoodMidZ).sub(p.z).div(0.15).add(0.5)),
       onHood
     );
     const decalMask = texture(policeTextTexture(), clamp(decalUV, 0.0, 1.0)).r;
