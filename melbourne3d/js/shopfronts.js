@@ -315,9 +315,9 @@ export function createShopfronts({ scene, lightingSystem = null, getFocus }) {
     const night = lightingSystem?.uNightFactor?.value ?? 0;
     const s = 0.72 + night * 0.9; // signs and windows light up at night
     for (const m of signMats) m.color.setScalar(s);
-    winMat.color.setScalar(0.3 + night * 1.5);
+    winMat.color.setScalar(0.3 + night * 0.9);
     awnMat.color.setScalar(0.75 + night * 0.35);
-    lanMat.color.setScalar(0.8 + night * 0.9);
+    lanMat.color.setRGB(1, 0.23, 0.14).multiplyScalar(0.8 + night * 0.9);
   }
   function update(dt, force = false) {
     timer -= dt;
