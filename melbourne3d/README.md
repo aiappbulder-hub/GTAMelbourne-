@@ -257,7 +257,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 - **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the
   real buildings.
-- **Graphics quality** (`js/quality.js`): High by default on every device; the GFX menu in the toolbar picks High, Medium or Low (saved), or `?quality=`;
+- **Graphics quality** (`js/quality.js`): Picked by device on first run (phones, touch devices and weak GPUs start on Low, discrete GPUs on High) and stepped down a tier automatically if the frame rate stays under 40 for 3 s; GTAO, TRAA, HDRI lighting, PBR facades and roofs, the new trees and water are High only; **F3** toggles an FPS / draw-call overlay; the GFX menu in the toolbar picks High, Medium or Low (saved), or `?quality=`;
   dynamic resolution keeps any level playable.
 - **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white
   Australian lane lines, charcoal signals, Australia Post boxes, blue street signs, km/h; no subway entrances, steam

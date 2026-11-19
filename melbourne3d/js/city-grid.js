@@ -61,7 +61,7 @@ import { drapeGroup } from './terrain.js';
 import { GEO } from './geodata.js';
 import { createMelbourneWaterMaterial } from './water.js';
 import { IS_MELBOURNE } from './city.js';
-import { Q } from './quality.js';
+import { Q, HEAVY_FX } from './quality.js';
 import { buildRaceTrack, trackHeight, ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 
 // Live construction data consumed by the building and street-detail builders after buildCityGrid().
@@ -3569,7 +3569,7 @@ function buildMelbourneGrid(scene) {
   const WL = ISLAND_BOUNDS.waterLevel;
 
   // 1. Water: one plane under everything, seen through the holes in the land deck
-  const waterMat = (typeof location !== 'undefined' && /[?&]oldwater/.test(location.search) ? createWaterMaterial() : createMelbourneWaterMaterial(GEO)); // ?oldwater: A/B against the old look
+  const waterMat = (!HEAVY_FX || (typeof location !== 'undefined' && /[?&]oldwater/.test(location.search)) ? createWaterMaterial() : createMelbourneWaterMaterial(GEO)); // ?oldwater: A/B against the old look
   const waterGeo = new THREE.PlaneGeometry(60000, 60000, 1, 1);
   waterGeo.rotateX(-Math.PI / 2);
   const waterMesh = new THREE.Mesh(waterGeo, waterMat);

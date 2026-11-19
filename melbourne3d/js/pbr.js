@@ -3,7 +3,7 @@ import {
   float, vec2, vec3, vec4, texture, positionWorld, normalWorldGeometry, cameraViewMatrix,
   abs, step, mix, clamp, sign, normalize
 } from 'three/tsl';
-import { QUALITY } from './quality.js';
+import { QUALITY, HEAVY_FX } from './quality.js';
 
 // Photo-scanned PBR materials (CC0 ambientCG, see CREDITS.md) shared by the road, footpath, park and facade materials.
 // Every layer is sampled in world space (so UVs never stretch on merged meshes), mipmapped and anisotropic, and is
@@ -12,7 +12,7 @@ import { QUALITY } from './quality.js';
 //   ?nopbr      disables everything (before/after comparisons)
 //   quality low colour only (no normal / roughness maps)
 
-export const PBR_ON = typeof location === 'undefined' || !new URLSearchParams(location.search).has('nopbr');
+export const PBR_ON = typeof location === 'undefined' || (HEAVY_FX && !new URLSearchParams(location.search).has('nopbr'));
 export const PBR_FULL = PBR_ON && QUALITY !== 'low';
 
 const BASE = new URL('../assets/pbr/', import.meta.url).href;

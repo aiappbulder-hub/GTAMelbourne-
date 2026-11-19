@@ -6,7 +6,7 @@ import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
-import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality } from './quality.js';
+import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, stepDownQuality } from './quality.js';
 import { buildCityBlocks } from './buildings.js';
 import { buildStreetDetails } from './street-details.js';
 import { createTrafficSystem, createHighwayTraffic } from './traffic.js';
@@ -390,6 +390,13 @@ async function initApp() {
   }
   const elFps = document.getElementById('hud-fps');
   const fpsWindow = [];
+  let lowRun = 0;
+  // F3 toggles a stats overlay: fps, tier, render scale, draw calls, triangles
+  const statEl = document.createElement('div');
+  statEl.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px monospace;color:#9f9;background:#0009;padding:3px 6px;display:none;pointer-events:none;white-space:pre';
+  document.body.appendChild(statEl);
+  window.addEventListener('keydown', (e) => { if (e.code === 'F3') { e.preventDefault(); statEl.style.display = statEl.style.display === 'none' ? 'block' : 'none'; } });
+
   const elMode = document.getElementById('hud-active-mode');
   const elCamera = document.getElementById('hud-active-camera');
   const elSpeed = document.getElementById('hud-speed');
@@ -1198,9 +1205,11 @@ async function initApp() {
       fpsTimer = 0;
       // Dynamic resolution: every 2 s, scale the render down while the frame rate is under 28 and back up over 48
       fpsWindow.push(currentFps);
+      if (currentFps >= 40) lowRun = 0; else if (performance.now() > 20000 && ++lowRun >= 12 && QUALITY_SOURCE !== 'url' && stepDownQuality()) return;
       if (fpsWindow.length >= 8) {
         const avg = fpsWindow.reduce((t, v) => t + v, 0) / fpsWindow.length;
         fpsWindow.length = 0;
+        // Auto quality: under 40 fps for 3 s (12 samples) once the game has settled -> drop a tier (reloads)
         const next = avg < 28 ? Math.max(Q.minPixelRatio, pixelRatio * 0.85) : avg > 48 ? Math.min(Q.pixelRatio, pixelRatio * 1.1) : pixelRatio;
         if (Math.abs(next - pixelRatio) > 0.01) {
           pixelRatio = next;
@@ -1213,6 +1222,10 @@ async function initApp() {
       const mph = Math.round(Math.abs(activeEnt.speed) * 3.6); // km/h
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
+      if (statEl.style.display !== 'none') {
+        const ri = renderer.info.render;
+        statEl.textContent = `${currentFps} fps  ${QUALITY}${QUALITY_SOURCE === 'default' ? ' (auto)' : ''}  scale ${pixelRatio.toFixed(2)}\ncalls ${ri.drawCalls}  tris ${ri.triangles}`;
+      }
       if (elFps) {
         elFps.textContent = String(currentFps);
         elFps.className = currentFps >= 50 ? 'fps-ok' : currentFps >= 30 ? 'fps-warn' : 'fps-bad';

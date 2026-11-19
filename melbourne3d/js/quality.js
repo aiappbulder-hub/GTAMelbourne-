@@ -29,13 +29,19 @@ function detectGpu() {
   }
 }
 
+export const IS_MOBILE = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent || '') ||
+  (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) || (navigator.maxTouchPoints || 0) > 1);
+
 function choose() {
   const fromUrl = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('quality') : null;
   if (LEVELS.includes(fromUrl)) return { level: fromUrl, source: 'url', gpu: '' };
   let saved = null;
   try { saved = localStorage.getItem(KEY); } catch { /* storage unavailable */ }
   if (LEVELS.includes(saved)) return { level: saved, source: 'saved', gpu: '' };
-  return { level: 'high', source: 'default', gpu: detectGpu().name };
+  // No choice yet: phones, tablets and touch devices start on Low; otherwise the GPU decides (weak or unknown: Low or
+  // Medium, discrete: High). The auto step-down (main.js) lowers it further if the frame rate stays under 40.
+  const gpu = detectGpu();
+  return { level: IS_MOBILE ? 'low' : gpu.level, source: 'default', gpu: gpu.name };
 }
 
 const picked = choose();
@@ -57,7 +63,19 @@ const SETTINGS = {
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0
   }
 };
-export const Q = SETTINGS[QUALITY];
+export const Q = { ...SETTINGS[QUALITY] };
+// Phones and tablets render at 75% of the tier's resolution (the pixel ratio is already capped at 1)
+if (IS_MOBILE) { Q.pixelRatio = Math.min(1, Q.pixelRatio) * 0.75; Q.minPixelRatio = Math.min(Q.minPixelRatio, Q.pixelRatio) * 0.75; }
+// Today's heavy extras (PBR facades and roofs, HDRI lighting, new trees and water, GTAO) are High only
+export const HEAVY_FX = QUALITY === 'high';
+
+/** Drop one tier and reload (the auto step-down when the frame rate stays low) */
+export function stepDownQuality() {
+  const i = LEVELS.indexOf(QUALITY);
+  if (i <= 0) return false;
+  setQuality(LEVELS[i - 1]);
+  return true;
+}
 
 /** Save a level and reload with it */
 export function setQuality(level) {

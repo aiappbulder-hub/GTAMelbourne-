@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { Q } from './quality.js';
+import { Q, HEAVY_FX } from './quality.js';
 import {
   Fn,
   float,
@@ -32,7 +32,7 @@ const HDRI_BY_PRESET = {
   twilight: { file: 'industrial_sunset_02_puresky_1k.hdr', gain: 0.45 },
   midnight: { file: 'moonless_golf_1k.hdr', gain: 1.0 }
 };
-const NO_IBL = typeof location !== 'undefined' && new URLSearchParams(location.search).has('noibl');
+const NO_IBL = !HEAVY_FX || typeof location !== 'undefined' && new URLSearchParams(location.search).has('noibl');
 
 // Atmospheric sky, environment lighting, sunlight and time-of-day presets.
 

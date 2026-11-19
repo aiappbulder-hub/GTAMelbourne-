@@ -38,10 +38,10 @@ function createScreenEffects(scenePass, camera, tier) {
   const qs = new URLSearchParams(location.search);
   let color = scenePass.getTextureNode('output');
   const depth = scenePass.getTextureNode('depth');
-  if (!qs.has('nogtao')) {
+  if (tier === 'full' && !qs.has('nogtao')) { // GTAO at high only
     const normal = tier === 'full' ? scenePass.getTextureNode('normal') : null;
     const aoPass = ao(depth, normal, camera);
-    aoPass.resolutionScale = tier === 'full' ? 0.5 : 0.4;
+    aoPass.resolutionScale = 0.5;
     aoPass.radius.value = 1.1;
     aoPass.thickness.value = 1.2;
     aoPass.distanceExponent.value = 1.3;

@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { Q } from './quality.js';
+import { Q, HEAVY_FX } from './quality.js';
 import { createTreeMaterial } from './tsl-materials.js';
 import { polygonBoxOverlaps } from './building-collision.js';
 import { terrainHeight } from './terrain.js';
@@ -447,7 +447,7 @@ const DISTRICT_SPECIES = {
   domain: [[3, 0.55], [0, 0.2]], albert_park: [[3, 0.65]], middle_park: [[3, 0.4]], south_yarra: [[3, 0.35], [0, 0.3]],
   st_kilda: [[4, 0.5], [3, 0.2]], port_melbourne: [[4, 0.25], [3, 0.2]]
 };
-const OLD_TREES = typeof location !== 'undefined' && /[?&]oldtrees\b/.test(location.search); // A/B: ?oldtrees keeps the original species
+const OLD_TREES = !HEAVY_FX || typeof location !== 'undefined' && /[?&]oldtrees\b/.test(location.search); // A/B: ?oldtrees keeps the original species
 function districtSpecies(x, z, original, r) {
   const rules = DISTRICT_SPECIES[districtAt(x, z)];
   if (!rules) return original;
