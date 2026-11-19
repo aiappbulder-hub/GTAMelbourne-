@@ -46,6 +46,7 @@ function silent() {
     playSeconds: (l) => l?.duration || 3, volume: 0, setVolume() {}, subtitles: true, setSubtitles() {}, ambient: false, setAmbient() {}, lines: [] };
 }
 
+import { settings } from './settings.js';
 export async function createVoiceManager({ audioSystem, cameraSystem, trafficSystem, controllerManager = null, isCinematic = () => false } = {}) {
   if (!audioSystem?.supported) return silent();
   let data;
@@ -347,6 +348,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   }
   function event(kind, pos) {
     if (isCinematic()) return; // nobody talks over a cut scene: no police barks or radio while one plays
+    if (!settings.get('police')) return; // Police: OFF: no police barks or radio
     if (kind === 'gunfire' || kind === 'carjack') {
       const cop = pos && nearestPolice(pos.x, pos.z, 45);
       if (cop && clock - eventAt.bark > 6) {
@@ -429,7 +431,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
       // no sound (muted, or not started): end on the clip's length
       if (!v.src && !v.starting && v.t > v.dur + 0.1) { v.onEnd?.(true); v.onEnd = null; stop(v, 0); }
     }
-    if (ambient && c && !isCinematic() && !storyOn) {
+    if (ambient && c && !isCinematic() && !storyOn && settings.get('voices')) {
       nextChat -= dt;
       if (nextChat <= 0) {
         nextChat = 7 + Math.random() * 9;

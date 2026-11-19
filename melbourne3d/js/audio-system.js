@@ -2,6 +2,7 @@ import { sharedAudioContext } from './audio-context.js';
 import { createSynthResources, createMotorVoice, setControlRate } from './audio-synthesis.js';
 import { IS_MELBOURNE } from './city.js';
 import { createEventResources, playEvent, createWindVoice } from './audio-events.js';
+import { settings } from './settings.js';
 import { CityAudioSources } from './audio-sources.js';
 import { CityAcoustics } from './audio-acoustics.js';
 
@@ -303,6 +304,9 @@ class CityAudioSystem {
   }
 
   emit(kind, source, options = {}) {
+    if (kind === 'talk' && !settings.get('voices')) return false;
+    if ((kind === 'horn' || kind === 'crash') && !settings.get('horns')) return false;
+    if (kind === 'footstep' && !settings.get('footsteps')) return false;
     const now = this.context.currentTime;
     const crash = kind === 'crash';
     const severity = clamp(options.severity ?? options.intensity ?? 1, 0, 1);
@@ -424,7 +428,15 @@ class CityAudioSystem {
     smooth(this.reflections.gain, 0.02 + enclosure * 0.22, now, 0.4);
     smooth(this.reflectionFilter.frequency, 2400 + enclosure * 3400, now, 0.4);
     smooth(this.master.gain, 0.65, now, 0.12);
-    const sources = this.sources.collect(this.listener, elapsed);
+    const snap = this.sources.collect(this.listener, elapsed);
+    // the sound options (js/settings.js): your own engine, the city drone, sirens, footsteps, horns
+    const sEngine = settings.get('engine'), sAmb = settings.get('ambience'), sSiren = settings.get('sirens') && settings.get('police');
+    const sFoot = settings.get('footsteps');
+    const sources = { motors: snap.motors, sirens: snap.sirens, people: snap.people, signals: snap.signals, traffic: snap.traffic, motion: snap.motion };
+    if (!(sEngine && sAmb)) sources.motors = snap.motors.filter((m) => (m.player ? sEngine : sAmb));
+    if (!sSiren) sources.sirens = [];
+    if (!sAmb) sources.signals = [];
+    if (this.windMuted !== !sAmb) { this.windMuted = !sAmb; this.wind.mute(this.windMuted); }
     for (let i = this.events.length - 1; i >= 0; i--) {
       const event = this.events[i];
       if (now >= event.voice.endTime) {

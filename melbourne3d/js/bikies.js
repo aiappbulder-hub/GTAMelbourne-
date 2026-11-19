@@ -132,6 +132,7 @@ export function buildBike(seed = 0) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+import { settings } from './settings.js';
 export function createBikies({ scene, trafficSystem, controllerManager: cm, gameplay, missionSystem, cameraSystem = null, audioSystem = null, cast = null }) {
   const combat = gameplay.combat;
   const network = trafficSystem.network;
@@ -530,7 +531,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
   let eng = null;
   function engine(dt) {
     const c = audioSystem?.context;
-    if (!pack || !c || c.state !== 'running' || !audioSystem.master) { if (eng) eng.out.gain.setTargetAtTime(0, c?.currentTime || 0, 0.1); return; }
+    if (!pack || !c || c.state !== 'running' || !audioSystem.master || !settings.get('ambience')) { if (eng) eng.out.gain.setTargetAtTime(0, c?.currentTime || 0, 0.1); return; }
     if (!eng) {
       const o1 = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), out2 = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
       o1.type = 'sawtooth'; o2.type = 'square'; lp.type = 'lowpass'; lp.frequency.value = 420; out2.gain.value = 0;

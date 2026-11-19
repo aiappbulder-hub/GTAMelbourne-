@@ -18,6 +18,7 @@
 // None of this runs on a story job or in a cut scene: the police are off during jobs.
 import * as THREE from 'three/webgpu';
 import { lightbarActive } from './cars.js';
+import { settings } from './settings.js';
 
 const CLASSIC = typeof location !== 'undefined' && new URLSearchParams(location.search).has('classic');
 const OFFICERS = CLASSIC ? ['Police_Male_01', 'Police_Male_03'] : ['ara:cons', 'ara:sgt'];
@@ -42,6 +43,7 @@ function createSiren(audioSystem) {
   const curve = sirenCurve();
   const context = () => { const c = audioSystem?.context; return c && c.state === 'running' && audioSystem.master ? c : null; };
   return function siren(level) {
+    if (!settings.get('sirens') || !settings.get('police')) level = 0;
     if (level <= 0.01) {
       if (!node) return;
       const { o, out, c } = node;

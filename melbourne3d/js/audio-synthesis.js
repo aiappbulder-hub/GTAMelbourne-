@@ -76,7 +76,7 @@ function combustionBuffers(context, cylinders, diesel, seed) {
         if (clatter) {
           // Injector/valve impacts contain much more noise than ringing, with a separate delayed tappet click.
           const valveTime = Math.max(0, t - 0.009);
-          const valve = t > 0.009 ? Math.exp(-valveTime / 0.0016) * (white * 0.65 + Math.sin(valveTime * 14900) * 0.12) : 0;
+          const valve = t > 0.009 ? Math.exp(-valveTime / 0.0016) * (white * 0.65) : 0;
           clatter[index] += strength * (white * attack * Math.exp(-t / (diesel ? 0.0036 : 0.0022)) + valve * 0.35);
         }
         if (++index === length) index = 0;
@@ -422,7 +422,7 @@ export function createMotorVoice(context, resources, kind, output) {
       const blend = bank * bank * (3 - 2 * bank);
       lowBankLevel(Math.cos(blend * Math.PI / 2), now);
       highBankLevel(Math.sin(blend * Math.PI / 2), now);
-      mechanicalRate(rpm / sound.referenceRPM * pitch, now);
+      mechanicalRate(Math.min(2.2, rpm / sound.referenceRPM) * pitch, now); // capped: the tappet layer pitched 5x with the revs was a high whine
       const cutoff = (bus ? 480 : 650) + rpm * 0.24;
       const exhaustIdle = bus ? 0.16 : suv ? 0.13 : 0.11;
       const mechanicalIdle = bus ? 0.10 : 0.03;
@@ -438,7 +438,7 @@ export function createMotorVoice(context, resources, kind, output) {
       const recovery = now < shiftUntil ? 0.045 : undefined;
       exhaustCutoff(cutoff + effort * (bus ? 1400 : 1800), loadTime, recovery);
       exhaustLevel(exhaustIdle + effort * (bus ? 0.22 : 0.26), loadTime, recovery);
-      mechanicalFrequency(((bus ? 1050 : 1250) + rpm * 0.12) * doppler, now);
+      mechanicalFrequency(Math.min(1700, (bus ? 1050 : 1250) + rpm * 0.12) * doppler, now);
       mechanicalLevel(mechanicalIdle + effort * (bus ? 0.15 : 0.085), loadTime, recovery);
       // Keep tire noise low and soft; its level follows road speed, not throttle release.
       roadLevel(Math.pow(rolling, 1.25) * (bus ? 0.16 : 0.10), now);

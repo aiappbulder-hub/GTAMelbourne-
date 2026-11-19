@@ -1,3 +1,4 @@
+import { settings } from './settings.js';
 // The car's horn, and the police siren, synthesised on the game's audio context (no sound files).
 //  - Horn: two sawtooth tones a major third apart (about 400 and 500 Hz) through a low-pass, held for as long as the key
 //    or the button is down. Short taps give a short beep.
@@ -47,6 +48,7 @@ export function createCarSounds({ audioSystem }) {
   }
 
   function sirenLevel(level) {
+    if (!settings.get('sirens') || !settings.get('police')) level = 0;
     if (level <= 0.01) {
       if (!siren) return;
       const { o, lfo, out, c } = siren;

@@ -462,6 +462,7 @@ export function createWindVoice(ctx, resources, output) {
     gust.start(ctx.currentTime, i * resources.gusts.duration * 0.37);
   }
   return {
+    mute(on) { if (!disposed) master.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, 0.3); },
     update({ speed = 0, altitude = 0, night = 0, traffic = 0, enclosure = 0 } = {}, now = ctx.currentTime) {
       if (disposed) return;
       now = Math.max(ctx.currentTime, finite(now, ctx.currentTime));

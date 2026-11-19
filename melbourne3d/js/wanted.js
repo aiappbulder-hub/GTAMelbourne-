@@ -16,6 +16,7 @@
 // Nothing here runs during cut scenes or the intro.
 import { createPursuer } from './pursuit.js';
 import { createCarSounds } from './car-sounds.js';
+import { settings } from './settings.js';
 
 const STAR_AT = [5, 25, 45, 65, 85]; // the heat for 1 to 5 stars
 const UNITS = [0, 1, 2, 3, 4, 4];
@@ -73,6 +74,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
   /** A crime at (x, z): kind is 'shot', 'kill', 'hit', 'carjack', 'theft' or 'robbery' */
   function crime(kind, x, z) {
     if (cinematic()) return;
+    if (!settings.get('police')) return; // Police: OFF (the settings menu): no crime counts
     if (missionSystem?.onJob) return; // the police stay out of the story's jobs (a job has its own pursuers and fails)
     let add = HEAT[kind] ?? 8;
     if (kind === 'shot') { // a burst of fire is one crime
@@ -135,6 +137,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     sounds.siren(0);
     police?.siren(0);
   }
+  settings.onChange((k, v) => { if (k === 'police' && !v) reset(); });
   function reset() {
     heat = 0;
     stars = 0;
@@ -161,6 +164,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     const onJob = !!missionSystem?.onJob;
     if (onJob && !onJobWas && (stars > 0 || heat > 0 || units.length)) { reset(); say('The police have lost interest.', 3); }
     onJobWas = onJob;
+    if (!settings.get('police')) { if (stars > 0 || heat > 0 || units.length || reports.length) reset(); return; } // Police: OFF clears any pursuit
     if (cinematic()) return;
     dt = Math.min(dt, 0.1);
     clock += dt;
