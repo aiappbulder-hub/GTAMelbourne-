@@ -1791,7 +1791,7 @@ class PersonRig {
    * Riding a bicycle: `root` (Object3D) is the bike frame (pose in its parent's space, e.g. the scene), `crank` the
    * pedal crank angle. Seat, bars and bottom bracket in the frame's space (metres, +Z forward).
    */
-  ride(root, crank, { seat, bars, gripHalf = 0.22, bracket, crankLength = 0.17 }, motion = null, standing = 0) {
+  ride(root, crank, { seat, bars, gripHalf = 0.22, bracket, crankLength = 0.17 }, motion = null, standing = 0, footDown = 0) {
     const s = this.s;
     this.gait = 0;
     this.run = 0;
@@ -1840,10 +1840,16 @@ class PersonRig {
       // ball of the foot on the pedal: ankle = pedal - R * (ball offset from the ankle)
       _v2.set(0, TOE_JOINT.y * s - 0.012, TOE_JOINT.z * s * 0.85).applyQuaternion(_q2);
       _target.set(side * 0.1, bracket.y - Math.cos(a) * crankLength, bracket.z - Math.sin(a) * crankLength).sub(_v2);
+      if (footDown > 0 && i === 1) { // stopped: this foot goes down to the road beside the bike (ankle ~0.09 m up)
+        const k = footDown * footDown * (3 - 2 * footDown);
+        _target.x += (side * 0.2 - _target.x) * k;
+        _target.y += (0.09 * s - _target.y) * k;
+        _target.z += (bracket.z + 0.02 - _target.z) * k;
+      }
       toWorld(_target);
       this.jointFrom(BONE.PELVIS, LIMB.thigh[i], _qPelvis, _pelvis, _hip);
       const ankle = this.solveLeg(i, _hip, _target, this.yaw);
-      this.writeFoot(i, ankle, _qa.copy(_qRoot).multiply(qX(_q, footPitch)), 0);
+      this.writeFoot(i, ankle, _qa.copy(_qRoot).multiply(qX(_q, (i === 1 && footDown > 0) ? footPitch * (1 - footDown) : footPitch)), 0);
     }
   }
 }

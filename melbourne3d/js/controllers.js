@@ -1091,7 +1091,7 @@ class ThirdPersonControllerManager {
           b._posedPedal !== b.pedalPhase;
         b._riderHidden = false;
         if (moved) {
-          b.riderRig.ride(b.leanPivot, b.pedalPhase, b.bikeFrame, b.riderMotion || null, b.riderStanding || 0);
+          b.riderRig.ride(b.leanPivot, b.pedalPhase, b.bikeFrame, b.riderMotion || null, b.riderStanding || 0, b.footDown || 0);
           b.riderCrowd.begin();
           b.riderCrowd.add(b.riderRig, 0);
           b.riderCrowd.end();
@@ -1404,8 +1404,7 @@ class ThirdPersonControllerManager {
     // Lean into the turn from the lateral acceleration (rezvivo RiderDynamics roll target, procedural-rider.js)
     const lateralAccel = turnInput * 2.15 * b.speed * (b.speed >= 0 ? 1 : -1);
     const turnLean = advanceTurnLean(b.turnLean || (b.turnLean = { lean: 0, vel: 0 }), dt, lateralAccel, 0, b.riderStanding || 0);
-    b.leanAngle = -Math.max(-0.42, Math.min(0.42, turnLean * 0.4));
-    b.leanPivot.rotation.z = b.leanAngle;
+    b._turnLean = -Math.max(-0.5, Math.min(0.5, turnLean * 0.8)); // roll ~ v^2 * curvature (lateral accel), clamped
 
     const wheelDelta = (b.speed / 0.35) * dt;
     b.frontWheel.rotation.x += wheelDelta;
@@ -1422,14 +1421,19 @@ class ThirdPersonControllerManager {
     b._slope = (b._slope || 0) + (slope - (b._slope || 0)) * Math.min(1, dt * 3);
     const pedalling = throttle > 0 && b.speed > 0.5;
     const climb = pedalling ? Math.max(0, Math.min(1, (b._slope - 0.05) / 0.05)) : 0;
-    const sprintAmt = pedalling ? Math.max(0, Math.min(1, (b.speed - 14) / 4)) : 0;
+    const sprintAmt = pedalling ? Math.max(0, Math.min(1, (b.speed - 9) / 3)) : 0;
     const standTarget = Math.max(climb, sprintAmt);
     b.riderStanding = (b.riderStanding || 0) + (standTarget - (b.riderStanding || 0)) * Math.min(1, dt * 2.5);
     const cadenceRpm = pedalling && dt > 0 ? (wheelDelta / 3.2 / dt) * 60 / (2 * Math.PI) : 0;
     const effort = pedalling ? Math.min(2, 0.5 + climb + sprintAmt * 0.8 + (b.speed / 19) * 0.3) : 0.2;
     advanceBreathing(b.breath || (b.breath = { load: 0.2, phase: 0 }), dt, effort);
     const profile = blendProfile(RIDER_PROFILES.seated, sprintAmt > climb ? RIDER_PROFILES.sprint : RIDER_PROFILES.climb, b.riderStanding, b._profile || (b._profile = {}));
-    b.riderMotion = evaluateRiderMotion(profile, b.pedalPhase / (2 * Math.PI), b.breath.phase, cadenceRpm, effort, 0.03, 0.02, b.riderMotion || createMotionFrame());
+    b.riderMotion = evaluateRiderMotion(profile, b.pedalPhase / (2 * Math.PI), b.breath.phase, cadenceRpm, effort, 0.07, 0.045, b.riderMotion || createMotionFrame());
+    // Standing hard on the pedals rocks the bike side to side (RiderMotion bikeLean); a stop puts a foot down
+    const footTarget = b.speed < 0.4 && throttle <= 0 ? 1 : 0;
+    b.footDown = (b.footDown || 0) + (footTarget - (b.footDown || 0)) * Math.min(1, dt * 4);
+    b.leanAngle = b._turnLean + b.riderMotion.bikeLean * (1 + 2.5 * b.riderStanding) - 0.07 * b.footDown;
+    b.leanPivot.rotation.z = b.leanAngle;
     b.crankPivot.rotation.x = b.pedalPhase;
     for (const pedal of b.pedals) pedal.rotation.x = -b.pedalPhase;
   }
