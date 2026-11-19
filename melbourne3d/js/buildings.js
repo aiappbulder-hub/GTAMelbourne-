@@ -35,6 +35,7 @@ import {
 import { GEO } from './geodata.js';
 import { REAL_BUILDINGS } from './city-buildings.js';
 import { createBuildingFootprints } from './building-footprints.js';
+import { roofPlan, createRoofs } from './roofs.js';
 import { terrainRange } from './terrain.js';
 import { polygonContains, polygonBoxOverlaps } from './building-collision.js';
 import { pavedPlazaRects, parkTreeSites, sidewalkBlocks } from './city-grid.js';
@@ -315,7 +316,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
         : tone < 0.6 ? 2 : 4;
     // The survey has no building-use data; choose retail independently of facade style and roof details.
     const storefronts = b.height >= 6 && mulberry32(seed ^ 0x53544f52)() < 0.55;
-    const record = { ...b, tone, storefronts };
+    const record = { ...b, tone, storefronts, roof: roofPlan(b, mulberry32(seed ^ 0x524f4f46)) };
     surveyedBuckets[mat].push(record);
     const detail = {
       baseY: b.baseY, cx: b.cx, cz: b.cz, minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ,
@@ -342,6 +343,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     if (!items.length) return;
     group.add(createBuildingFootprints(materials[i], items, i < 2 ? b => nearbyReserves(b, 2) : undefined));
   });
+  group.add(createRoofs(surveyedBuckets.flat()));
 
   // Narrow empty lots become sitting areas with trees.
   {
