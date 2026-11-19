@@ -20,6 +20,7 @@ const CULL_MIN = 300 * Q.cullScale; // never closer: the shadow cascades reach ~
 const CULL_MAX = 2000 * Q.cullScale; // beyond this the props are kept at any distance
 const PROXY_CELL = 500; // the far cascade spans ~400 m at street level: a cascade sees a few cells
 const STATIC_CELL = 1000;
+const PLAIN_CELL = 400;
 
 const _m = new THREE.Matrix4();
 const _wm = new THREE.Matrix4();
@@ -124,6 +125,53 @@ function chunkInstancedMesh(mesh, cell) {
   return chunks;
 }
 
+
+// Splits a big plain (non-instanced) mesh into `cell` x `cell` m pieces by triangle centroid, each with its own compact
+// vertex buffers, so the frustum and the view-distance cap can drop the pieces out of view
+function chunkPlainMesh(mesh, cell) {
+  const geo0 = mesh.geometry;
+  const pos = geo0.attributes.position;
+  const idx = geo0.index;
+  const total = idx ? idx.count : pos.count;
+  const cells = new Map();
+  const wm = mesh.matrixWorld;
+  for (let t = 0; t + 2 < total; t += 3) {
+    const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
+    _a.fromBufferAttribute(pos, i0).applyMatrix4(wm);
+    _b.fromBufferAttribute(pos, i1).applyMatrix4(wm);
+    _c.fromBufferAttribute(pos, i2).applyMatrix4(wm);
+    const key = Math.floor((_a.x + _b.x + _c.x) / 3 / cell) + ',' + Math.floor((_a.z + _b.z + _c.z) / 3 / cell);
+    let list = cells.get(key);
+    if (!list) cells.set(key, (list = []));
+    list.push(i0, i1, i2);
+  }
+  const attrs = Object.entries(geo0.attributes);
+  const chunks = [];
+  for (const list of cells.values()) {
+    const remap = new Map();
+    const order = [];
+    const index = new Array(list.length);
+    for (let k = 0; k < list.length; k++) {
+      let m = remap.get(list[k]);
+      if (m === undefined) { m = order.length; remap.set(list[k], m); order.push(list[k]); }
+      index[k] = m;
+    }
+    const geo = new THREE.BufferGeometry();
+    for (const [name, a] of attrs) {
+      const sz = a.itemSize;
+      const arr = new a.array.constructor(order.length * sz);
+      for (let j = 0; j < order.length; j++) for (let c = 0; c < sz; c++) arr[j * sz + c] = a.array[order[j] * sz + c];
+      geo.setAttribute(name, new THREE.BufferAttribute(arr, sz, a.normalized));
+    }
+    geo.setIndex(order.length > 65535 ? new THREE.BufferAttribute(new Uint32Array(index), 1) : new THREE.BufferAttribute(new Uint16Array(index), 1));
+    geo.computeBoundingSphere();
+    const chunk = new THREE.Mesh(geo, mesh.material);
+    copyObjectState(chunk, mesh);
+    chunks.push(chunk);
+  }
+  return chunks;
+}
+
 // A caster can stand in as bare positions only if its material neither moves its vertices nor cuts holes in it
 function proxyableMaterial(mat) {
   return !!mat && !Array.isArray(mat) && !mat.transparent && !(mat.alphaTest > 0) && !mat.alphaMap &&
@@ -148,7 +196,7 @@ function replaceWithChunks(mesh, cell) {
  * Sets up the culling of the static city under `roots` (Object3Ds). `shadow` is the SunLightShadow whose cascade
  * cameras render the shadow stand-ins (none are made without it). Per-frame culling runs in updateSceneCulling().
  */
-function setupSceneCulling(scene, roots, shadow = null) {
+function setupSceneCulling(scene, roots, shadow = null, extraRoots = []) {
   scene.updateMatrixWorld(true);
   const culled = [];
 
@@ -343,6 +391,36 @@ function setupSceneCulling(scene, roots, shadow = null) {
   // These large objects stay visible at any distance and need no per-frame distance checks.
   for (const mesh of largeMeshes) {
     if (!mesh.castShadow) replaceWithChunks(mesh, STATIC_CELL);
+  }
+
+
+  // 4. Big plain meshes (the road deck, ground, rails, building batches) span kilometres, so the frustum never culled
+  // them: split into cells, culled by the view and (per quality tier) hidden beyond the view distance
+  const plain = [];
+  for (const root of [...roots, ...extraRoots]) {
+    root.traverse((o) => {
+      if (!isStaticMesh(o) || o.isInstancedMesh || o.userData.shadowProxy || Array.isArray(o.material)) return;
+      if (!o.geometry.attributes.position || o.geometry.groups.length > 1) return;
+      const g = o.geometry;
+      if (triangleCount(g) < 12000) return;
+      if (!g.boundingSphere) g.computeBoundingSphere();
+      if (g.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis() < 500) return;
+      plain.push(o);
+    });
+  }
+  for (const mesh of plain) {
+    const parent = mesh.parent;
+    const chunks = chunkPlainMesh(mesh, PLAIN_CELL);
+    parent.remove(mesh);
+    chunks.forEach((chunk, k) => {
+      parent.add(chunk);
+      if (k > 0) chunk.userData.sharesPipelineWith = chunks[0];
+      chunk.updateMatrixWorld(true);
+      if (Q.viewDist < Infinity && !chunk.userData.noViewCap) {
+        const sphere = chunk.geometry.boundingSphere.clone().applyMatrix4(chunk.matrixWorld);
+        pushCulled(chunk, sphere, Q.viewDist);
+      }
+    });
   }
 
   state.culled = culled;

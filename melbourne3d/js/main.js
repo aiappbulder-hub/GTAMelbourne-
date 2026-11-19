@@ -238,7 +238,7 @@ async function initApp() {
   const cullingRoots = ['ManhattanCityGrid', 'MelbourneCityGrid', 'ManhattanCityBlocks', 'ManhattanStreetDetails', 'ManhattanLandmarks', 'Boroughs', 'RoadMarkings']
     .map((name) => scene.getObjectByName(name))
     .filter(Boolean);
-  setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow);
+  setupSceneCulling(scene, cullingRoots, lightingSystem.sunLight.shadow, ['Trams'].map((n) => scene.getObjectByName(n)).filter(Boolean));
 
   // Initialize static world matrices once, including the chunks and shadow proxies created above.
   // Crowd, tree and building-detail animation changes instance/pose buffers, not Object3D transforms.

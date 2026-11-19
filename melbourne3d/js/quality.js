@@ -52,15 +52,15 @@ export const GPU_NAME = picked.gpu;
 const SETTINGS = {
   low: {
     pixelRatio: 0.6, minPixelRatio: 0.4, antialias: false, postFX: 'none', shadows: false, shadowTile: 0,
-    cameraFar: 3500, fogScale: 2.2, cars: 70, buses: 4, peds: 140, treeLod: 0.45, treeDist: 0.35, cullScale: 0.5
+    cameraFar: 3500, fogScale: 2.2, cars: 70, buses: 4, peds: 140, treeLod: 0.45, treeDist: 0.35, cullScale: 0.5, viewDist: 1500
   },
   medium: {
     pixelRatio: 0.85, minPixelRatio: 0.5, antialias: false, postFX: 'bloom', shadows: true, shadowTile: 1024,
-    cameraFar: 12000, fogScale: 1.3, cars: 130, buses: 8, peds: 240, treeLod: 0.75, treeDist: 0.65, cullScale: 0.8
+    cameraFar: 12000, fogScale: 1.3, cars: 130, buses: 8, peds: 240, treeLod: 0.75, treeDist: 0.65, cullScale: 0.8, viewDist: 2500
   },
   high: {
     pixelRatio: 1.0, minPixelRatio: 0.6, antialias: true, postFX: 'full', shadows: true, shadowTile: 2048,
-    cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0
+    cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
 export const Q = { ...SETTINGS[QUALITY] };
