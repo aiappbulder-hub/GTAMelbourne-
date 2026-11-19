@@ -6,7 +6,7 @@ import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
-import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, stepDownQuality } from './quality.js';
+import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, MANUAL_QUALITY, LOW_FPS, lowerTier, reloadWithAutoQuality, applyTierLive, rememberAutoQuality } from './quality.js';
 import { buildCityBlocks } from './buildings.js';
 import { buildStreetDetails } from './street-details.js';
 import { createTrafficSystem, createHighwayTraffic } from './traffic.js';
@@ -388,6 +388,37 @@ async function initApp() {
       });
     }
   }
+  // Auto step-down (auto mode only): applied live where possible, a reload only for what needs a rebuild
+  let curTier = QUALITY, slowToasted = false;
+  const qToast = (text) => {
+    const t = document.createElement('div');
+    t.textContent = text; t.setAttribute('role', 'status');
+    t.style.cssText = 'position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:120;font:600 13px system-ui,sans-serif;color:#fff;background:#000c;border:1px solid #f5c518;padding:8px 14px;border-radius:8px;pointer-events:none';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+  };
+  const autoStepDown = () => {
+    if (MANUAL_QUALITY) { if (!slowToasted && curTier !== 'low') { slowToasted = true; qToast('Running slow \u2014 try Low'); } return false; }
+    const next = lowerTier(curTier);
+    if (!next) return false;
+    // High -> Medium needs the effects pipeline and materials rebuilt (reload, remembered); Medium -> Low is live
+    if (curTier === 'high') { reloadWithAutoQuality(next); return true; }
+    applyTierLive(next);
+    curTier = next;
+    renderer.shadowMap.enabled = Q.shadows;
+    lightingSystem.sunLight.castShadow = Q.shadows;
+    cameraSystem.camera.far = Q.cameraFar; cameraSystem.camera.updateProjectionMatrix();
+    pixelRatio = Q.pixelRatio; renderer.setPixelRatio(pixelRatio);
+    if (next === 'low') {
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+      colorGrade = { applyPreset() {} };
+      renderPipeline = { render: () => renderer.render(scene, cameraSystem.camera) };
+    }
+    const lbl = document.getElementById('quality-label');
+    if (lbl) lbl.textContent = { low: 'GFX Low', medium: 'GFX Med', high: 'GFX High' }[next];
+    rememberAutoQuality(next);
+    return true;
+  };
   const elFps = document.getElementById('hud-fps');
   const fpsWindow = [];
   let lowRun = 0;
@@ -1205,11 +1236,11 @@ async function initApp() {
       fpsTimer = 0;
       // Dynamic resolution: every 2 s, scale the render down while the frame rate is under 28 and back up over 48
       fpsWindow.push(currentFps);
-      if (currentFps >= 40) lowRun = 0; else if (performance.now() > 20000 && ++lowRun >= 12 && QUALITY_SOURCE !== 'url' && stepDownQuality()) return;
+      if (currentFps >= LOW_FPS) lowRun = 0; else if (performance.now() > 20000 && ++lowRun >= 12 && QUALITY_SOURCE !== 'url') { lowRun = 0; if (autoStepDown()) return; }
       if (fpsWindow.length >= 8) {
         const avg = fpsWindow.reduce((t, v) => t + v, 0) / fpsWindow.length;
         fpsWindow.length = 0;
-        // Auto quality: under 40 fps for 3 s (12 samples) once the game has settled -> drop a tier (reloads)
+        // (Auto step-down above: under LOW_FPS for 3 s once the game has settled)
         const next = avg < 28 ? Math.max(Q.minPixelRatio, pixelRatio * 0.85) : avg > 48 ? Math.min(Q.pixelRatio, pixelRatio * 1.1) : pixelRatio;
         if (Math.abs(next - pixelRatio) > 0.01) {
           pixelRatio = next;
@@ -1224,7 +1255,7 @@ async function initApp() {
 
       if (statEl.style.display !== 'none') {
         const ri = renderer.info.render;
-        statEl.textContent = `${currentFps} fps  ${QUALITY}${QUALITY_SOURCE === 'default' ? ' (auto)' : ''}  scale ${pixelRatio.toFixed(2)}\ncalls ${ri.drawCalls}  tris ${ri.triangles}`;
+        statEl.textContent = `${currentFps} fps  ${curTier}${MANUAL_QUALITY ? ' (manual)' : ' (auto)'}  scale ${pixelRatio.toFixed(2)}\ncalls ${ri.drawCalls}  tris ${ri.triangles}`;
       }
       if (elFps) {
         elFps.textContent = String(currentFps);

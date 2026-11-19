@@ -18,6 +18,14 @@ shadows, screen-space reflections, bloom and a filmic grade.
    so they are left out of the at-grade road graph for now).
 4. **The game:** GTA Melbourne's missions, police, weapons and characters move across from the WebGL game (`../index.html`).
 
+## Play on your phone
+
+Open the game's URL in Chrome (Android) or Safari (iPhone/iPad) and install it: on Android tap the **Install app**
+button in the toolbar (or Chrome menu > Install app); on iPhone tap **Share > Add to Home Screen**. It then launches
+fullscreen in landscape, loads much faster on repeat visits (a service worker caches the game and three.js) and can
+start offline once it has been played online. Phones start on Low graphics; pick a tier in the GFX menu (a manual pick
+is never stepped down automatically). If the game runs slowly, Low is the best choice.
+
 ## The city
 
 `index.html` builds Melbourne. Add `?webgl` to force three's WebGL2 backend (for browsers without stable WebGPU, and for
