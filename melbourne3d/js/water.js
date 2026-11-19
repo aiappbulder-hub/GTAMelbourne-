@@ -122,8 +122,8 @@ export function createMelbourneWaterMaterial(GEO) {
   if (QUALITY !== 'low') {
     const s2 = slopeAt(2.3, vec2(-0.45, 0.9), 0.4);
     const s3 = slopeAt(31.0, vec2(0.3, -0.6), 0.9); // long bay swell
-    slope = slope.add(s2.mul(mix(float(0.32), float(0.04), far)).mul(mix(float(1.0), float(0.6), bay)));
-    slope = slope.add(s3.mul(mix(float(0.15), float(0.5), bay)));
+    slope = slope.add(s2.mul(mix(float(0.32), float(0.04), far)).mul(mix(float(1.0), float(0.6), bay)))
+      .add(s3.mul(mix(float(0.15), float(0.5), bay)));
   }
   const calm = float(1.0).sub(lake.mul(0.5)); // lakes: gentler
   const waterNormal = normalize(vec3(slope.x.negate().mul(calm), 1.0, slope.y.negate().mul(calm)));
@@ -134,13 +134,15 @@ export function createMelbourneWaterMaterial(GEO) {
   const fresnel = pow(float(1.0).sub(cosT), 4.0).mul(0.97).add(0.03);
 
   // Body: murky green-brown Yarra, bluer bay, green lakes; shallower (lighter, greener) toward the banks
-  mat.colorNode = Fn(() => {
+  mat.envMapIntensity = 0.5; // the sky is added explicitly below; keep the PBR environment from washing the body out
+  const bodyColor = Fn(() => {
     const yarra = mix(color(0x2b2c1c), color(0x4a4a2c), smoothstep(0.3, 0.9, bank));
-    const bayDeep = mix(color(0x143a4c), color(0x2d7482), smoothstep(0.1, 0.6, bank.mul(0.6).add(m.y.mul(0.4))));
+    const bayDeep = mix(color(0x0f4a66), color(0x2f9aa6), smoothstep(0.1, 0.6, bank.mul(0.6).add(m.y.mul(0.4))));
     const lakeC = mix(color(0x233a22), color(0x3a5330), bank);
     const body = mix(mix(yarra, bayDeep, bay), lakeC, lake);
     return body;
   })();
+  mat.colorNode = bodyColor;
 
   // Reflection of the sky without relying on the environment: gradient on the reflected ray, so water is never a void
   const R = reflect(viewDir.negate(), waterNormal);
@@ -148,11 +150,12 @@ export function createMelbourneWaterMaterial(GEO) {
   const sunDir = normalize(cityUniforms.uSkySunDir);
   const sunUp = smoothstep(-0.02, 0.12, sunDir.y);
   const glint = pow(max(dot(R, sunDir), 0.0), high ? 900.0 : 300.0).mul(high ? 40.0 : 14.0).mul(sunUp);
-  const glintWide = pow(max(dot(R, sunDir), 0.0), 40.0).mul(0.5).mul(sunUp);
+  const glintWide = pow(max(dot(R, sunDir), 0.0), 40.0).mul(0.12).mul(sunUp);
   const night = smoothstep(0.55, 1.35, cityUniforms.uInteriorGlow);
 
   mat.emissiveNode = Fn(() => {
-    const out = skyRefl.mul(fresnel).mul(0.55).toVar();
+    // in-scattered daylight in the body, so the water has colour (not just a mirror) by day
+    const out = bodyColor.mul(float(0.55).mul(float(1.0).sub(night))).add(skyRefl.mul(fresnel).mul(0.3)).toVar();
     out.addAssign(cityUniforms.uSunColor.mul(glint.add(glintWide)).mul(fresnel.mul(0.6).add(0.4)));
     if (QUALITY !== 'low') {
       // Foam / pale edge along quay walls and shores
