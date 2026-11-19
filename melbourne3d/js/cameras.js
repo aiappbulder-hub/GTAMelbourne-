@@ -222,14 +222,15 @@ class CameraSystem {
       }
       case 'chase': {
         if (entity.type === 'person' && this.controllerManager.aiming) {
-          // aiming: in close over the right shoulder, looking down the aim
+          // aiming: over the right shoulder, looking exactly along the aim (free pitch), so the crosshair at screen centre is
+          // where the shot goes; the camera orbits a shoulder pivot, so looking up or down swings it down or up behind
+          const pitch = this.controllerManager.aimPitch || 0, cp = Math.cos(pitch), sp = Math.sin(pitch);
           const ax = Math.sin(totalYaw), az = Math.cos(totalYaw), rx = -az, rz = ax;
-          desiredPos.set(entity.position.x - ax * 2.3 + rx * 0.7, entity.position.y + 1.8, entity.position.z - az * 2.3 + rz * 0.7);
+          const px = entity.position.x + rx * 0.7, py = entity.position.y + 1.55, pz = entity.position.z + rz * 0.7;
+          desiredPos.set(px - ax * cp * 2.4, py - sp * 2.4, pz - az * cp * 2.4);
           // never inside a wall: pushed back out of any building it ends up in (standing with your back to one)
           this.controllerManager.resolveHorizontalCollision?.(desiredPos, 0.35);
-          // tilted with the aim (up at a balcony, down at someone at your feet)
-          const pitch = this.controllerManager.aimPitch || 0;
-          desiredLook.set(entity.position.x + ax * 12 + rx * 0.4, entity.position.y + 1.45 + Math.tan(pitch) * 12, entity.position.z + az * 12 + rz * 0.4);
+          desiredLook.set(desiredPos.x + ax * cp * 20, desiredPos.y + sp * 20, desiredPos.z + az * cp * 20);
           break;
         }
         const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
@@ -387,7 +388,7 @@ class CameraSystem {
         this.followOffset.subVectors(this.currentPos, entity.position);
         this.followLookOffset.subVectors(this.currentLookAt, entity.position);
       }
-      const k = 1 - Math.exp(-dt * 8.5);
+      const k = 1 - Math.exp(-dt * (this.controllerManager.aiming ? 22 : 8.5)); // (aiming: the view keeps up with the mouse)
       this.followBaseY += (entity.position.y - this.followBaseY) * k;
       this.followOffset.lerp(desiredPos.sub(entity.position), k);
       this.followLookOffset.lerp(desiredLook.sub(entity.position), k);

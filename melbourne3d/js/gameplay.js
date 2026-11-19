@@ -47,7 +47,7 @@ const smooth = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 *
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const lerpAngle = (a, b, k) => a + wrapAngle(b - a) * k;
 const TALK_REACH = 3.6;
-const CROSS_Y = 0.46; // the crosshair's height on screen (fraction from the top), see .gp-cross
+const CROSS_Y = 0.5; // the crosshair's height on screen (fraction from the top), see .gp-cross
 const LOCK_CONE = 0.62; // radians either side of the facing for lock-on without aiming
 const LOCK_RANGE = 40;
 
@@ -116,7 +116,7 @@ body.touch-enabled .gp-weapon { display: none; }
 .gp-gun { position: fixed; right: 20px; bottom: 296px; z-index: 31; width: 92px; height: 50px; padding: 2px 4px; border-radius: 14px; border: 0; display: none; touch-action: none;
   background: rgba(10,12,16,.7); color: #ffd23f; font: 800 13px/1 Inter, sans-serif; border: 2px solid rgba(255,255,255,.5); }
 body.touch-enabled .gp-gun.on { display: block; }
-.gp-cross { position: fixed; left: 50%; top: 46%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
+.gp-cross { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 29; pointer-events: none;
   border: 2px solid rgba(255,255,255,.85); border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 .gp-cross::after { content: ''; position: absolute; left: 8px; top: 8px; width: 2px; height: 2px; background: #fff; border-radius: 1px; }
 .gp-cross.lock { border-color: #ff4040; }
@@ -753,9 +753,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
   let lastShot = null, hitMarkT = 0, cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
-  let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0;
+  let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0, armPitch = 0;
+  const _aimO = new THREE.Vector3(), _aimD = new THREE.Vector3();
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
   const AIM_SENS = 0.0032; // radians per pixel
+  const AIM_PITCH = Math.PI / 3; // free pitch, 60 degrees up or down
+  const PITCH_TOL = 0.14; // aim assist only draws to a target whose chest is within this of the crosshair's elevation
   const canvasEl = renderer.domElement;
   const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.(); } catch { /* not allowed */ } };
   const freeMouse = () => { try { if (document.pointerLockElement === canvasEl) document.exitPointerLock(); } catch { /* fine */ } };
@@ -771,7 +774,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // up and down too
     const dy = document.pointerLockElement === canvasEl ? (e.movementY || 0) : lastMouseY === null ? 0 : e.clientY - lastMouseY;
     lastMouseY = e.clientY;
-    freePitch = Math.max(-0.55, Math.min(0.75, freePitch - dy * AIM_SENS));
+    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - dy * AIM_SENS));
   });
   const _lk = new THREE.Vector3();
   // the lock-on marker (over the target) and, on touch screens, a hold-to-aim button
@@ -945,7 +948,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }
 
   // Lock-on: the nearest living person or car within the cone in front of `yaw`
-  function findTarget(yaw, cone, pedsOnly = false, skip = null) {
+  function findTarget(yaw, cone, pedsOnly = false, skip = null, pitch = null) {
     const p = person.position;
     let best = null, bestScore = Infinity;
     const consider = (x, z, t) => {
@@ -955,6 +958,12 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       a = Math.atan2(Math.sin(a), Math.cos(a));
       if (Math.abs(a) > cone) return;
       if (skip && t[t.kind === 'ped' ? 'q' : 'v'] === skip) return;
+      // aim assist never pulls the aim off where the crosshair points up or down: the target's chest (above ITS ground,
+      // not world y 0: the terrain has hills) must be near the crosshair's elevation
+      if (pitch !== null) {
+        const gy = cm.getGroundHeight(x, z, 'person') ?? p.y;
+        if (Math.abs(Math.atan2(gy + (t.kind === 'ped' ? 1.25 : 0.9) - (p.y + 1.5), d) - pitch) > PITCH_TOL) return;
+      }
       const score = d * (1 + Math.abs(a) * 2);
       if (score < bestScore) { bestScore = score; best = t; }
     };
@@ -1004,7 +1013,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // the crosshair is, at any range); else (free fire) the nearest person or car in front, else straight ahead
     const pp = person.position;
     // (the lock is looked up afresh at the trigger: the last frame's can be stale when people and cars are moving)
-    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, 0.11, true) || findTarget(freeYaw, 0.07);
+    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, 0.11, true, null, freePitch) || findTarget(freeYaw, 0.07, false, null, freePitch);
     const t = lockTarget || (!aimHeld && findTarget(person.heading, LOCK_CONE));
     let yaw = person.heading;
     const aimPt = new THREE.Vector3();
@@ -1044,7 +1053,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const kick = w.kick ?? (w.id === 'shotgun' ? 0.05 : 0.012);
     if (w.id === 'rocket') {
       launchRocket(mx, my, mz, dir, w);
-      if (aimHeld) freePitch = Math.min(0.75, freePitch + kick);
+      if (aimHeld) freePitch = Math.min(AIM_PITCH, freePitch + kick);
       if (ammo[wi] <= 0) reloading = w.reload;
       return;
     }
@@ -1071,7 +1080,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       }
     }
     // recoil: the aim kicks up a little (the camera follows), more for the shotgun
-    if (aimHeld) freePitch = Math.min(0.75, freePitch + kick);
+    if (aimHeld) freePitch = Math.min(AIM_PITCH, freePitch + kick);
     if (hitKind) { hitMarkT = 0.18; elCross.classList.add('hit'); }
     trafficSystem.scarePeds(pp.x, pp.z, 40, 10);
     if (ammo[wi] <= 0) reloading = w.reload;
@@ -1532,17 +1541,26 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       if (cycleTarget) {
         cycleTarget = false;
         const cur = lockTarget && (lockTarget.q || lockTarget.v);
-        const next = findTarget(freeYaw, 1.4, true, cur);
+        const next = findTarget(freeYaw, 1.4, true, cur, freePitch);
         if (next) freeYaw = Math.atan2(next.x - person.position.x, next.z - person.position.z);
       }
-      lockTarget = findTarget(freeYaw, 0.11, true) || findTarget(freeYaw, 0.07);
+      lockTarget = findTarget(freeYaw, 0.11, true, null, freePitch) || findTarget(freeYaw, 0.07, false, null, freePitch);
       cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : freeYaw;
-      // up and down: the mouse's, or, locked on, at the target's chest
-      if (lockTarget) {
-        const d = Math.hypot(lockTarget.x - person.position.x, lockTarget.z - person.position.z) || 1;
-        cm.aimPitch = Math.atan2((lockTarget.kind === 'ped' ? 1.25 : 0.9) - (person.position.y + 1.4), d);
-      } else cm.aimPitch = freePitch;
-    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; }
+      // the camera's pitch is always the mouse's (free, +-60 degrees): aim assist never moves it
+      cm.aimPitch = freePitch;
+      // the arms and gun point at what the crosshair is on (the camera is over the shoulder, so aim at the hit point)
+      armPitch = freePitch;
+      const cam = cameraSystem.camera;
+      if (cam) {
+        cam.updateMatrixWorld();
+        const o = cam.getWorldPosition(_aimO);
+        const d = _aimD.set(0, 1 - 2 * CROSS_Y, 0.5).unproject(cam).sub(o).normalize();
+        const along = Math.max(0, (person.position.x - o.x) * d.x + (person.position.z - o.z) * d.z);
+        const h = trace(o.x, o.y, o.z, d.x, d.y, d.z, 120 + along, along + 0.5, true);
+        const hd = Math.hypot(h.x - person.position.x, h.z - person.position.z);
+        if (hd > 2.5) armPitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, Math.atan2(h.y - (person.position.y + 1.4), hd)));
+      }
+    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; armPitch = 0; }
     // the lock marker over the target's head
     if (lockTarget && cm.aiming) {
       _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);
@@ -1558,7 +1576,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // the gun in the player's hands (js/people.js): up while aiming or just after a shot, at their side otherwise
     raisedT = Math.max(0, raisedT - dt);
     cast?.setPlayerWeapon({ id: WEAPONS[wi].id, armed: armed && onFoot && !seq && !stepOut && !dying, aiming: cm.aiming || raisedT > 0,
-      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? cm.aimPitch || 0 : 0,
+      yaw: cm.aiming ? cm.aimYaw ?? person.heading : person.heading, pitch: cm.aiming ? armPitch : 0,
       punch: punchT > 0 ? 1 - punchT / 0.3 : 0, punchLeft, kick: kickNow, reload: reloading > 0 && WEAPONS[wi].reload > 0 ? 1 - reloading / WEAPONS[wi].reload : 0 });
     kickNow = false;
     elCross.classList.toggle('lock', !!lockTarget);
