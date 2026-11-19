@@ -1,5 +1,5 @@
-// tools/melbourne/test-alive.cjs: shopfronts and ambient city events. Serve the repo root (python3 -m http.server 8765), then
-// node melbourne3d/tools/melbourne/test-alive.cjs. Checks shop props near the CBD spawn, every event spawns/despawns
+// tools/melbourne/test-alive.cjs: ambient city events. Serve the repo root (python3 -m http.server 8765), then
+// node melbourne3d/tools/melbourne/test-alive.cjs. Checks every event spawns/despawns
 // without page errors, and takes 3 screenshots (960x540) into SHOTDIR.
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -15,13 +15,9 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   const errs = []; p.on('pageerror', (e) => errs.push(e.message)); 
   const ok = (c, w) => { log(c ? 'PASS' : 'FAIL', w); if (!c) process.exitCode = 1; };
   await p.goto(URL_, { timeout: 120000 });
-  await p.waitForFunction(() => window.__city && __city.events && __city.shops && __city.missions, null, { timeout: 480000 });
+  await p.waitForFunction(() => window.__city && __city.events && __city.missions, null, { timeout: 480000 });
   await p.waitForFunction(() => document.getElementById('loading-overlay')?.classList.contains('hidden'), null, { timeout: 900000, polling: 1000 });
   await p.waitForTimeout(4000);
-  const st = await p.evaluate(() => { __city.shops.repack(); return __city.shops.stats(); });
-  log(JSON.stringify(st));
-  ok(st.total.sign > 100 && st.total.awn > 100, `shop props generated ${JSON.stringify(st.total)}`);
-  ok(st.near.sign > 0 && st.near.awn > 0, `shop props near the CBD spawn ${JSON.stringify(st.near)}`);
   const shot = async (n) => { log('errs so far', errs.slice(0, 3).join(' | ')); await p.screenshot({ path: `${DIR}/${n}.png`, timeout: 500000 }).catch((e) => ok(false, `screenshot ${n}: ${e.message.split('\n')[0]}`)); };
   const setTime = (id) => p.evaluate((i) => { document.querySelector(`[data-time="${i}"]`)?.click(); }, id);
   for (const name of await p.evaluate(() => __city.events.names)) {

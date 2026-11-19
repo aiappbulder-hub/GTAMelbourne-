@@ -689,9 +689,7 @@ async function initApp() {
   window.__city.intro = intro;
   // Car radio and background music, all synthesised (js/music.js)
   if (IS_MELBOURNE) window.__city.music = (await import('./music.js')).createMusic({ audioSystem, controllerManager, voices, missionSystem, wanted, gameplay });
-  // Shopfronts and ambient city events (js/shopfronts.js, js/city-events.js)
-  const shopfronts = IS_MELBOURNE ? (await import('./shopfronts.js')).createShopfronts({ scene, lightingSystem, getFocus: () => cameraSystem.currentPos }) : null;
-  window.__city.shops = shopfronts;
+  // Ambient city events (js/city-events.js)
   const cityEvents = IS_MELBOURNE ? (await import('./city-events.js')).createCityEvents({ scene, controllerManager, cameraSystem, lightingSystem, trafficSystem, voices }) : null;
   window.__city.events = cityEvents;
   // Free roam (the default): the taxi on Flinders St by the station at early dusk; no title film, intro or phone call
@@ -1070,7 +1068,6 @@ async function initApp() {
     cameraSystem.update(dt, elapsed);
     if (intro) intro.apply(dt);
     areaCards?.update(dt);
-    shopfronts?.update(dt);
     cityEvents?.update(dt, elapsed);
     rideshare?.update(dt);
     missionSystem?.applyCamera(dt); // a job's cut scene takes the camera
