@@ -26,6 +26,8 @@ import {
   smoothstep
 } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { gaitFrame, gaitFrequency } from './procedural-gait.js';
+import { bicycleAnkleFlexCurve } from './procedural-rider.js';
 
 // Skinned characters for pedestrian-system.js and the player controllers.
 // Each crowd level uses one instanced draw, with 15-bone poses in a storage buffer and seeded appearance.
@@ -1220,6 +1222,7 @@ class PersonRig {
     this.pelvisY = 0;
     this.standY = 0; // pelvis height standing straight on the ground under the feet (eased)
     this.pelvisYaw = 0;
+    this.shoulderYaw = 0;
     this.pelvisRoll = 0;
     this.pelvisTilt = 0.035;
     this.sway = 0; // pelvis shift to the left of the line of travel
@@ -1256,7 +1259,7 @@ class PersonRig {
     this.yaw = yaw;
     this.vx = this.vz = this.tvx = this.tvz = this.speed = 0;
     this.gait = this.run = this.sway = 0;
-    this.pelvisYaw = this.pelvisRoll = this.spreadF = this.arm = this.headTurn = this.bank = this.lean = 0;
+    this.pelvisYaw = this.shoulderYaw = this.pelvisRoll = this.spreadF = this.arm = this.headTurn = this.bank = this.lean = 0;
     this.pelvisTilt = 0.035;
     this.diving = false;
     this.phase = 0.05;
@@ -1387,16 +1390,17 @@ class PersonRig {
     const speed = this.speed;
     const sinY = Math.sin(this.yaw);
     const cosY = Math.cos(this.yaw);
-    const duty = lerp(GAIT.dutyWalk, GAIT.dutyRun - 0.07 * smooth(4.5, 8, speed), run);
+    // Duty factor from rezvivo's AvatarGait: longer double support at a stroll, shorter as the walk quickens
+    const dutyWalk = Math.min(0.68, Math.max(GAIT.dutyWalk, 0.68 - speed / s * 0.035));
+    const duty = lerp(dutyWalk, GAIT.dutyRun - 0.07 * smooth(4.5, 8, speed), run);
     const turning = smooth(0.15, 1.2, Math.abs(yawErr)); // how sharp a turn the body is still making
 
     // Cadence: the walking gait cycle shortens with speed (step length ~0.61 v^0.57 m); running ~1.5 cycles/s jogging,
     // ~2 sprinting. Standing still, the feet only step to settle under the body or to turn it.
     let f = 0;
     if (speed > 0.08) {
-      const walkF = Math.pow(speed, 0.43) / (1.22 * s * this.stride);
-      const runF = (1.3 + 0.13 * (speed - 3)) / Math.sqrt(s);
-      f = Math.max(GAIT.startCadence, lerp(walkF, runF, run)) * (1 + GAIT.turnQuicken * turning);
+      // cadence and step length from speed and body scale (rezvivo AvatarGait: gaitFrequency)
+      f = Math.max(GAIT.startCadence, gaitFrequency(speed, s * this.stride, run)) * (1 + GAIT.turnQuicken * turning);
     } else {
       let unsettled = false;
       const settleSq = (0.07 * s) * (0.07 * s);
@@ -1453,7 +1457,10 @@ class PersonRig {
     const swayTarget = weightLat * 0.42 * g * (1 - run * 0.6) - this.bank * 0.45 * s
       + (IDLE.shift * this.lean + 0.004 * Math.sin(this.time * 0.7)) * s * idle;
     this.sway += (swayTarget - this.sway) * _e12;
-    this.pelvisYaw = clampAbs(-0.13 * spreadF * g, 0.13);
+    // Hips and shoulders counter-rotate with the stride (rezvivo gaitFrame: pelvis and shoulder yaw, ~3-7 degrees)
+    const gf = gaitFrame(this.phase, speed, this.legLength, run, this._gf || (this._gf = {}));
+    this.shoulderYaw = gf.shoulderYaw * g;
+    this.pelvisYaw = clampAbs(-0.13 * spreadF * g, 0.13) + gf.pelvisYaw * g;
     this.pelvisRoll = 0.045 * g * (left.contact - right.contact) * (1 - run * 0.5) + IDLE.roll * this.lean * idle;
     this.pelvisTilt = 0.035 + 0.035 * g + 0.12 * run;
     this.spreadF = spreadF;
@@ -1747,7 +1754,7 @@ class PersonRig {
     // turns), or around now and then standing
     const breathe = Math.sin(this.time * 1.7) * 0.008 * idle;
     _qChest.copy(_qPelvis)
-      .multiply(qY(_q, -1.75 * this.pelvisYaw))
+      .multiply(qY(_q, this.shoulderYaw - this.pelvisYaw - 1.2 * this.pelvisYaw))
       .multiply(qX(_q, 0.015 + 0.03 * g + 0.14 * run + breathe))
       .multiply(qZ(_q, -0.8 * this.pelvisRoll));
     this.writeBone(BONE.CHEST, _qChest, this.jointFrom(BONE.PELVIS, BONE.CHEST, _qPelvis, _pelvis, _chest));
@@ -1784,7 +1791,7 @@ class PersonRig {
    * Riding a bicycle: `root` (Object3D) is the bike frame (pose in its parent's space, e.g. the scene), `crank` the
    * pedal crank angle. Seat, bars and bottom bracket in the frame's space (metres, +Z forward).
    */
-  ride(root, crank, { seat, bars, gripHalf = 0.22, bracket, crankLength = 0.17 }) {
+  ride(root, crank, { seat, bars, gripHalf = 0.22, bracket, crankLength = 0.17 }, motion = null, standing = 0) {
     const s = this.s;
     this.gait = 0;
     this.run = 0;
@@ -1793,12 +1800,22 @@ class PersonRig {
     const toWorld = (local) => local.applyQuaternion(_qRoot).add(_rootPos);
 
     // Pelvis on the saddle, leaning forward; chest further forward, head up looking ahead
-    qX(_qPelvis, 0.42).premultiply(_qRoot);
-    toWorld(_pelvis.set(0, seat.y + 0.055 * s, seat.z + 0.03));
+    // `motion` (procedural-rider.js evaluateRiderMotion) layers pedalling sway, spine twist and breathing on top;
+    // `standing` 0..1 lifts the rider out of the saddle (hills, sprints)
+    const m = motion;
+    qX(_qPelvis, 0.42 - 0.1 * standing + (m ? m.pitch : 0));
+    if (m) _qPelvis.premultiply(qY(_q, m.yaw)).multiply(qZ(_q, m.roll));
+    _qPelvis.premultiply(_qRoot);
+    toWorld(_pelvis.set(m ? m.z : 0, seat.y + (0.055 + 0.1 * standing) * s + (m ? m.y : 0), seat.z + 0.03 - 0.05 * standing + (m ? m.x : 0)));
     this.writeBone(BONE.PELVIS, _qPelvis, _pelvis);
-    _qChest.copy(_qPelvis).multiply(qX(_q, 0.2));
+    _qChest.copy(_qPelvis).multiply(qX(_q, 0.2 + 0.12 * standing));
+    if (m) {
+      const sp = m.spinePitch, sy = m.spineYaw, sr = m.spineRoll;
+      _qChest.multiply(qY(_q, sy[0] + sy[1] + sy[2] + sy[3])).multiply(qZ(_q, sr[0] + sr[1] + sr[2] + sr[3]))
+        .multiply(qX(_q, sp[0] + sp[1] + sp[2] + sp[3]));
+    }
     this.writeBone(BONE.CHEST, _qChest, this.jointFrom(BONE.PELVIS, BONE.CHEST, _qPelvis, _pelvis, _chest));
-    _qa.copy(_qRoot).multiply(qX(_q, -0.12));
+    _qa.copy(_qRoot).multiply(qX(_q, -0.12 - 0.08 * standing));
     this.jointFrom(BONE.CHEST, BONE.HEAD, _qChest, _chest, _v);
     this.writeBone(BONE.HEAD, _qa, _v);
     this.headPosition = (this.headPosition || new THREE.Vector3()).copy(_v);
@@ -1817,7 +1834,8 @@ class PersonRig {
 
       // pedals go round bottom, back, top, front as `crank` grows (pedalling forwards)
       const a = crank + (i === 0 ? 0 : Math.PI);
-      const footPitch = 0.16 + 0.16 * Math.cos(a) - 0.1 * Math.sin(a);
+      const footPitch = 0.16 + 0.16 * Math.cos(a) - 0.1 * Math.sin(a)
+        + (m ? bicycleAnkleFlexCurve(a * 180 / Math.PI, m.ankle * 180 / Math.PI) * Math.PI / 180 * 0.5 : 0);
       qX(_q2, footPitch);
       // ball of the foot on the pedal: ankle = pedal - R * (ball offset from the ankle)
       _v2.set(0, TOE_JOINT.y * s - 0.012, TOE_JOINT.z * s * 0.85).applyQuaternion(_q2);

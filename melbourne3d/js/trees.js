@@ -3,6 +3,7 @@ import { Q } from './quality.js';
 import { createTreeMaterial } from './tsl-materials.js';
 import { polygonBoxOverlaps } from './building-collision.js';
 import { terrainHeight } from './terrain.js';
+import { districtAt } from './city-config.js';
 
 // Seeded street and park trees with three geometry levels, regrouped by spatial cell as the camera moves.
 // Bark tubes and leaf cards share a material; atlas mipmaps preserve leaf coverage at a distance.
@@ -416,8 +417,44 @@ const SPECIES = [
     twigs: { n: 3, t: [0.3, 1.0], angle: [0.5, 0.95], len: [1.3, 0.85], up: 0, out: 0, droop: 0.16, jitter: 0.12, segs: 2 },
     cards: { perTwig: 2, scale: [0.85, 1.1], droop: 0.4 },
     tints: [0x44622a, 0x53702e, 0x3a5724]
+  },
+  { // 3: Eucalypt (river red gum / manna gum): lean pale trunk, irregular spreading limbs, long drooping blue-grey foliage
+    name: 'gum', tile: 1,
+    trunk: { r: 0.3, top: 7.2, lean: 0.12, segs: 7 },
+    limbs: { n: 6, y: [2.6, 6.8], tilt: [0.95, 0.5], len: [6.2, 3.6], r: 0.6, up: 0.03, out: 0.02, droop: 0.01, jitter: 0.2, segs: 6 },
+    branches: { n: 3, t: [0.3, 0.98], angle: [0.5, 1.0], len: [0.6, 0.4], up: 0, out: 0.03, droop: 0.05, jitter: 0.2, segs: 4 },
+    twigs: { n: 3, t: [0.3, 1.0], angle: [0.5, 1.0], len: [1.3, 0.9], up: 0, out: 0, droop: 0.3, jitter: 0.15, segs: 2 },
+    cards: { perTwig: 2, scale: [0.9, 1.2], droop: 0.45 },
+    tints: [0x667a58, 0x5a7160, 0x76875a]
+  },
+  { // 4: Canary Island date palm / cabbage palm: tall bare slender trunk, a tight head of arching fronds
+    name: 'palm', tile: 1,
+    trunk: { r: 0.2, top: 9.5, lean: 0.07, segs: 7 },
+    limbs: { n: 9, y: [9.2, 9.8], tilt: [1.35, 0.35], len: [3.4, 2.0], r: 0.35, up: 0.02, out: 0.01, droop: 0.16, jitter: 0.05, segs: 5 },
+    branches: { n: 1, t: [0.45, 0.95], angle: [0.4, 0.7], len: [0.4, 0.3], up: 0, out: 0, droop: 0.1, jitter: 0.08, segs: 3 },
+    twigs: { n: 2, t: [0.4, 1.0], angle: [0.4, 0.8], len: [0.9, 0.6], up: 0, out: 0, droop: 0.2, jitter: 0.1, segs: 2 },
+    cards: { perTwig: 2, scale: [1.0, 1.3], droop: 0.3 },
+    tints: [0x5d7f34, 0x6a8a3a, 0x4f7330]
   }
 ];
+
+// Melbourne species by district: London planes on the CBD and boulevard streets, elms in Fitzroy / East Melbourne,
+// eucalypts in the Domain, Albert Park and along the Yarra, palms in St Kilda. [district]: [[species, share], ...]
+// (the remaining share keeps the species the placing code chose). Low quality keeps the original trees.
+const DISTRICT_SPECIES = {
+  cbd: [[0, 0.7]], southbank: [[0, 0.55]], docklands: [[0, 0.4]], st_kilda_road: [[0, 0.7]], south_melbourne: [[0, 0.5]],
+  carlton: [[2, 0.55]], fitzroy: [[2, 0.75]], east_melbourne: [[2, 0.7]], collingwood: [[2, 0.5]], richmond: [[0, 0.3], [2, 0.3]],
+  domain: [[3, 0.55], [0, 0.2]], albert_park: [[3, 0.65]], middle_park: [[3, 0.4]], south_yarra: [[3, 0.35], [0, 0.3]],
+  st_kilda: [[4, 0.5], [3, 0.2]], port_melbourne: [[4, 0.25], [3, 0.2]]
+};
+const OLD_TREES = typeof location !== 'undefined' && /[?&]oldtrees\b/.test(location.search); // A/B: ?oldtrees keeps the original species
+function districtSpecies(x, z, original, r) {
+  const rules = DISTRICT_SPECIES[districtAt(x, z)];
+  if (!rules) return original;
+  let acc = 0;
+  for (const [sp, share] of rules) { acc += share; if (r < acc) return sp; }
+  return original;
+}
 
 // =====================================================================================================================
 // 3. SKELETON
@@ -919,7 +956,8 @@ function createTreeField(_scene, sites, colliders = []) {
   const dummy = new THREE.Object3D();
   const tint = new THREE.Color();
   sites.forEach((t) => {
-    const sp = Math.min(SPECIES.length - 1, Math.max(0, t.species || 0));
+    let sp = Math.min(SPECIES.length - 1, Math.max(0, t.species || 0));
+    if (Q.treeLod >= 0.75 && !OLD_TREES) sp = districtSpecies(t.x, t.z, sp, hashPos(t.z, 2.9, t.x));
     const r1 = hashPos(t.x, 1.3, t.z);
     const r2 = hashPos(t.z, 7.1, t.x);
     const r3 = hashPos(t.x + t.z, 3.3, 0.7);
