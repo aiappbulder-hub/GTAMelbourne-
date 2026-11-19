@@ -511,19 +511,24 @@ function facadeCell(windowWidth, floorHeight, boxLocal, cornerPier = 0, footprin
 }
 
 let _storefrontSignTexture;
+let SIGN_ROWS = 8;
 
 function getStorefrontSignTexture() {
   if (_storefrontSignTexture) return _storefrontSignTexture;
-  const labels = ['CORNER MARKET', 'COFFEE & BAKERY', 'BOOKS & RECORDS', IS_MELBOURNE ? 'MILK BAR' : 'NEIGHBORHOOD DELI',
-    'CLEANERS', 'FLOWERS', 'HARDWARE', 'PIZZA'];
+  const labels = IS_MELBOURNE ? [
+    'FLAT WHITE SOCIETY', 'DUMPLING HOUSE', 'PHO SAIGON 24', 'KEBAB PALACE', 'BOTTLE-O', 'OP SHOP',
+    'NEWSAGENCY', 'CHEMIST WAREHOUSE', 'TRATTORIA DA MARCO', 'LITTLE BOURKE NOODLES', 'DIM SUM GARDEN',
+    'MILK BAR', 'THE DAILY GRIND', 'BOOKS & RECORDS', 'SOUVLAKI EXPRESS', 'HAIR & BARBER'
+  ] : ['CORNER MARKET', 'COFFEE & BAKERY', 'BOOKS & RECORDS', 'NEIGHBORHOOD DELI', 'CLEANERS', 'FLOWERS', 'HARDWARE', 'PIZZA'];
+  SIGN_ROWS = labels.length;
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 512;
+  canvas.width = 1024; canvas.height = SIGN_ROWS * 64;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
-  ctx.font = '600 32px sans-serif';
+  ctx.font = '700 44px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  labels.forEach((label, i) => ctx.fillText(label, 256, i * 64 + 32, 464));
+  labels.forEach((label, i) => ctx.fillText(label, 512, i * 64 + 34, 960));
   _storefrontSignTexture = new THREE.CanvasTexture(canvas);
   return _storefrontSignTexture;
 }
@@ -555,13 +560,14 @@ function createStorefront(facade, seed, local) {
   const paint = mix(mix(color(0x263831), color(0x463b30), step(0.38, choice)), color(0x242a32), step(0.72, choice));
   const signWidth = min(width.mul(0.82), 5.5);
   const signUV = vec2(x.sub(width.mul(0.5)).div(signWidth).add(0.5), y.sub(2.96).div(0.6));
-  const signLod = log2(max(fw.x.mul(512).div(signWidth), fw.y.mul(64 / 0.6)));
+  const signLod = log2(max(fw.x.mul(1024).div(signWidth), fw.y.mul(64 / 0.6)));
   const signMask = band(signUV.x, 0, 1, fw.x.div(signWidth))
     .mul(band(signUV.y, 0, 1, fw.y.div(0.6))).mul(float(1).sub(smoothstep(4, 6, signLod)));
   const signInk = Fn(() => {
     const ink = float(0).toVar();
     If(mask.mul(signMask).greaterThan(0.001), () => {
-      const atlasUV = vec2(signUV.x.clamp(0, 1), float(1).sub(floor(choice.mul(8)).add(float(1).sub(signUV.y.clamp(0, 1))).div(8)));
+      getStorefrontSignTexture();
+      const atlasUV = vec2(signUV.x.clamp(0, 1), float(1).sub(floor(choice.mul(SIGN_ROWS)).add(float(1).sub(signUV.y.clamp(0, 1))).div(SIGN_ROWS)));
       ink.assign(texture(getStorefrontSignTexture(), atlasUV).level(signLod.clamp(0, 5)).a.mul(signMask));
     });
     return ink;
