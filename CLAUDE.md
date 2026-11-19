@@ -28,3 +28,8 @@ The owner is fine with the game being GPL-3.0 (it's a free fun game, never sold)
 projects such as rezvivo (https://github.com/thpg/rezvivo), and from MIT/CC0 sources such as Streets-GL, Poly Haven
 and ambientCG. Credit every source in `melbourne3d/CREDITS.md` (project, licence, what was used). Once any GPL code
 is merged, add a GPL-3.0 `LICENSE` at the repo root and keep mrdoob's MIT notice in `melbourne3d/LICENSE`.
+
+## Service worker (must do on every deploy)
+
+`melbourne3d/sw.js` serves game files cache-first, so players keep the old version until its cache version changes.
+Every change shipped to the default branch must bump `VERSION` in `melbourne3d/sw.js` in the same push.
