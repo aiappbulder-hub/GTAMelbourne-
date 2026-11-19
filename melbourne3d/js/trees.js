@@ -447,6 +447,7 @@ const DISTRICT_SPECIES = {
   domain: [[3, 0.55], [0, 0.2]], albert_park: [[3, 0.65]], middle_park: [[3, 0.4]], south_yarra: [[3, 0.35], [0, 0.3]],
   st_kilda: [[4, 0.5], [3, 0.2]], port_melbourne: [[4, 0.25], [3, 0.2]]
 };
+const OLD_TREES = typeof location !== 'undefined' && /[?&]oldtrees\b/.test(location.search); // A/B: ?oldtrees keeps the original species
 function districtSpecies(x, z, original, r) {
   const rules = DISTRICT_SPECIES[districtAt(x, z)];
   if (!rules) return original;
@@ -956,7 +957,7 @@ function createTreeField(_scene, sites, colliders = []) {
   const tint = new THREE.Color();
   sites.forEach((t) => {
     let sp = Math.min(SPECIES.length - 1, Math.max(0, t.species || 0));
-    if (Q.treeLod >= 0.75) sp = districtSpecies(t.x, t.z, sp, hashPos(t.z, 2.9, t.x));
+    if (Q.treeLod >= 0.75 && !OLD_TREES) sp = districtSpecies(t.x, t.z, sp, hashPos(t.z, 2.9, t.x));
     const r1 = hashPos(t.x, 1.3, t.z);
     const r2 = hashPos(t.z, 7.1, t.x);
     const r3 = hashPos(t.x + t.z, 3.3, 0.7);
