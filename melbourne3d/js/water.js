@@ -118,12 +118,12 @@ export function createMelbourneWaterMaterial(GEO) {
   const far = smoothstep(80.0, 900.0, dist); // fade fine detail to calm so distant water doesn't shimmer
   const bayScale = mix(float(1.0), float(2.4), bay);
   const s1 = slopeAt(7.0, vec2(0.8, 0.35), 0.55);
-  const slope = s1.mul(mix(float(0.55), float(0.2), far)).mul(bayScale).toVar();
+  let slope = s1.mul(mix(float(0.55), float(0.2), far)).mul(bayScale);
   if (QUALITY !== 'low') {
     const s2 = slopeAt(2.3, vec2(-0.45, 0.9), 0.4);
     const s3 = slopeAt(31.0, vec2(0.3, -0.6), 0.9); // long bay swell
-    slope.addAssign(s2.mul(mix(float(0.32), float(0.04), far)).mul(mix(float(1.0), float(0.6), bay)));
-    slope.addAssign(s3.mul(mix(float(0.15), float(0.5), bay)));
+    slope = slope.add(s2.mul(mix(float(0.32), float(0.04), far)).mul(mix(float(1.0), float(0.6), bay)))
+      .add(s3.mul(mix(float(0.15), float(0.5), bay)));
   }
   const calm = float(1.0).sub(lake.mul(0.5)); // lakes: gentler
   const waterNormal = normalize(vec3(slope.x.negate().mul(calm), 1.0, slope.y.negate().mul(calm)));
