@@ -52,6 +52,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 
 - **Characters** (`js/character-presets.js`): five named Melbourne presets (a local, a street criminal, a local woman,
   a bikie, a Victoria Police officer) on the shared person rig, given to the first five pedestrians.
+- **Options** (Jobs list): **Police: ON/OFF** (default OFF, saved in localStorage `gta-melbourne3d-opt-police`; `?police=1` forces it on for a page) and a **Sounds** section with ON/OFF for Engine (your own vehicle), City ambience (wind, other traffic, crossing ticks; default OFF), Voices/chatter (overheard people; default OFF), Sirens, Footsteps and Horns/crashes. The radio is separate. Keys are `gta-melbourne3d-opt-<name>`.
 - **Free roam (the default)**: a fresh load puts you in the taxi on Flinders St by the station at early dusk. No title film, no
   intro, no phone calls, no pink marker or objective line; the thirteen jobs wait in the background and start from the
   Jobs list. **Story mode** (Jobs list > "Story mode", saved in localStorage `gta-melbourne3d-storymode`; or `?story`, and

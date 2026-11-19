@@ -18,6 +18,7 @@ import { CameraSystem, CAMERA_PRESETS } from './cameras.js';
 import { LightingSystem } from './lighting.js';
 import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
+import { settings } from './settings.js';
 import { CityAudioSystem } from './audio-system.js';
 
 // Saved player positions, per city (the frames differ)
@@ -803,6 +804,34 @@ async function initApp() {
       closePopovers();
     });
     prog.after(storyBtn);
+    // options (js/settings.js): Police on/off and the sound layers, each saved in localStorage
+    const optRows = [];
+    const optBtn = (key, label, onSub, offSub) => {
+      const b = document.createElement('button');
+      b.className = 'pop-item tp-btn'; b.type = 'button'; b.dataset.opt = key;
+      const n = document.createElement('span'); n.className = 'pop-name';
+      const sb = document.createElement('span'); sb.className = 'pop-sub';
+      b.append(n, sb);
+      const paint = () => { const on = settings.get(key); n.textContent = `${label}: ${on ? 'ON' : 'OFF'}`; sb.textContent = on ? onSub : offSub; };
+      paint();
+      b.addEventListener('click', () => { settings.toggle(key); paint(); });
+      optRows.push(b);
+      return b;
+    };
+    const soundHead = document.createElement('div');
+    soundHead.className = 'pop-sub job-progress';
+    soundHead.textContent = 'Sounds (the radio is separate)';
+    optRows.push(
+      optBtn('police', 'Police', 'Crimes give a wanted level and police come', 'No wanted level, no police cars, sirens or barks'),
+      soundHead,
+      optBtn('engine', 'Sound: Engine', 'Your own vehicle', 'Your own vehicle is silent'),
+      optBtn('ambience', 'Sound: City ambience', 'Wind, other traffic, crossing ticks, bikes', 'Off: no wind, traffic drone or ticks'),
+      optBtn('voices', 'Sound: Voices/chatter', 'Overheard people and passers-by', 'Off: no overheard chatter (story lines still play)'),
+      optBtn('sirens', 'Sound: Sirens', 'Police sirens when police are on', 'Off'),
+      optBtn('footsteps', 'Sound: Footsteps', 'On', 'Off'),
+      optBtn('horns', 'Sound: Horns/crashes', 'On', 'Off')
+    );
+    storyBtn.after(...optRows);
     const rows = [];
     missionSystem.missions.forEach((m, i) => {
       const b = document.createElement('button');
