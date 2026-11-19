@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { IS_MELBOURNE } from './city.js';
+import { pbrGround, pbrWall, pbrNormal, PBR_ON } from './pbr.js';
 import { Q } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
 import {
   Fn,
@@ -1980,6 +1981,7 @@ function createRoadSurfaceMaterial() {
   const waterFresnel = pow(float(1.0).sub(clamp(viewDir.y, 0.0, 1.0)), 5.0).mul(0.98).add(0.02);
 
   mat.aoNode = canyonSkyAONode();
+  const pbr = PBR_ON ? pbrGround('asphalt', 3.0, 0.9, 0.9) : null;
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2023,7 +2025,8 @@ function createRoadSurfaceMaterial() {
 
     // Water filling the pores darkens the surface: damp stains & pools most, the overall wet film a little
     const wetDarkening = mix(mix(float(1.0), float(0.72), damp), float(0.6), puddle).mul(mix(float(1.0), float(0.8), film));
-    return mix(repaired, cManhole.mul(mhRings), isManhole).mul(wetDarkening);
+    const roadCol = mix(repaired, cManhole.mul(mhRings), isManhole).mul(wetDarkening);
+    return pbr ? roadCol.mul(pbr.colorRatio) : roadCol;
   })();
 
   mat.roughnessNode = Fn(() => {
@@ -2031,7 +2034,7 @@ function createRoadSurfaceMaterial() {
     const microRough = fadedDetail(px.lessThan(0.08), 0.04, () =>
       mix(float(0.04), noise2D(positionWorld.xz.mul(12.0)).mul(0.08), smoothstep(0.08, 0.03, px)));
     // Tar sealant is glossier, oil satin, fresh patches a little tighter, potholes & cracks rougher
-    const dry = float(0.90).add(microRough)
+    const dry = float(0.90).add(microRough).mul(pbr ? pbr.roughRatio : float(1.0))
       .sub(patchSeal.mul(0.3))
       .sub(tarSnake.mul(0.38))
       .sub(oilDrip.mul(0.18))
@@ -2084,7 +2087,8 @@ function createRoadSurfaceMaterial() {
 
     const height = swell.add(ripples).add(coarseGrit).add(midGrit).add(fineGrit).add(chipRelief).add(snakeBead).sub(crackGroove)
       .add(patchStep).add(sealBead).sub(bowl).add(manhole);
-    return bumpNormal(height.mul(float(1.0).sub(puddle)));
+    const bumped = bumpNormal(height.mul(float(1.0).sub(puddle)));
+    return pbr ? pbrNormal(bumped, pbr, float(1.0).sub(puddle)) : bumped;
   })();
 
   mat.emissiveNode = Fn(() => {
@@ -2256,6 +2260,7 @@ function createSidewalkMaterial() {
   const crack = lineAA(crackDist, 0.0012).mul(hasCrack).mul(smoothstep(0.004, 0.02, edgeDist));
 
   mat.aoNode = canyonSkyAONode();
+  const pbr = PBR_ON ? pbrGround('paver', 2.0, 0.85, 0.7) : null;
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2290,13 +2295,14 @@ function createSidewalkMaterial() {
     const withJoints = withGum.mul(float(1.0).sub(joints.mul(0.55).mul(detail))).mul(float(1.0).sub(crack.mul(0.45)));
 
     // Post-rain damp patches, pools & the overall wet film darken the flags
-    return withJoints
+    const footCol = withJoints
       .mul(mix(float(1.0), float(0.72), max(swWet.x, swPuddle)))
       .mul(mix(float(1.0), float(0.8), swWet.z));
+    return pbr ? footCol.mul(pbr.colorRatio) : footCol;
   })();
 
   mat.roughnessNode = Fn(() => {
-    const dry = float(0.9).sub(flagHash.mul(0.06)).sub(tooledBand.mul(0.1)).sub(gum.mul(0.25));
+    const dry = float(0.9).sub(flagHash.mul(0.06)).sub(tooledBand.mul(0.1)).sub(gum.mul(0.25)).mul(pbr ? pbr.roughRatio : float(1.0));
     const wetRough = mix(dry, float(0.55), max(swWet.z, swWet.x.mul(0.7)));
     return mix(wetRough, float(0.2), swPuddle);
   })();
@@ -2325,7 +2331,8 @@ function createSidewalkMaterial() {
       noise2D(vec2(wx.mul(38.0), wz.mul(38.0))).sub(0.5).mul(0.0008).mul(smoothstep(0.012, 0.004, px)));
     const height = grain.add(pores).add(tilt).sub(groove).sub(crack.mul(0.0015)).add(gum.mul(0.0008))
       .mul(detail).mul(float(1.0).sub(swPuddle));
-    return bumpNormal(height);
+    const bumped = bumpNormal(height);
+    return pbr ? pbrNormal(bumped, pbr, float(1.0).sub(swPuddle)) : bumped;
   })();
 
   return mat;
@@ -2343,6 +2350,7 @@ function createCurbMaterial() {
   });
 
   mat.aoNode = canyonSkyAONode();
+  const pbr = PBR_ON ? pbrGround('cobble', 1.4, 1.0, 1.0) : null;
 
   mat.colorNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2358,10 +2366,11 @@ function createCurbMaterial() {
     const joints = max(gridLine(wx, 1.5, 0.005), gridLine(wz, 1.5, 0.005)).mul(detail);
     const topFace = smoothstep(0.5, 0.85, normalWorldGeometry.y);
     const wetFilm = smoothstep(0.2, 0.8, cityUniforms.uRoadWetness); // rain-darkened granite, like the roadway's film
-    return mix(stone.mul(0.68), stone, topFace).mul(float(1.0).sub(joints.mul(0.42))).mul(mix(float(1.0), float(0.78), wetFilm));
+    const curbCol = mix(stone.mul(0.68), stone, topFace).mul(float(1.0).sub(joints.mul(0.42))).mul(mix(float(1.0), float(0.78), wetFilm));
+    return pbr ? curbCol.mul(pbr.colorRatio) : curbCol;
   })();
 
-  mat.roughnessNode = mix(float(0.72), float(0.5), smoothstep(0.2, 0.8, cityUniforms.uRoadWetness));
+  mat.roughnessNode = mix(float(0.72), float(0.5), smoothstep(0.2, 0.8, cityUniforms.uRoadWetness)).mul(pbr ? pbr.roughRatio : float(1.0));
 
   mat.normalNode = Fn(() => {
     const wx = positionWorld.x;
@@ -2369,7 +2378,8 @@ function createCurbMaterial() {
     const camDist = length(positionWorld.sub(cameraPosition)).toVar();
     const grain = fadedDetail(camDist.lessThan(120.0), 0.0, () =>
       noise2D(vec2(wx.mul(5.5), wz.mul(5.5))).sub(0.5).mul(0.0022).mul(smoothstep(120.0, 12.0, camDist)));
-    return bumpNormal(grain);
+    const bumped = bumpNormal(grain);
+    return pbr ? pbrNormal(bumped, pbr) : bumped;
   })();
 
   return mat;
@@ -3146,6 +3156,7 @@ function createParkLawnMaterial(isMeadow = false) {
   const cGrassDeep = color(isMeadow ? 0x2c5c28 : 0x224c20);
   const cGrassMid = color(isMeadow ? 0x457d36 : 0x36682c);
   const cGrassSun = color(0x6b9c3e);
+  const pbr = PBR_ON ? pbrGround('grass', 2.5, 0.8, 0.6) : null;
 
   mat.colorNode = Fn(() => {
     const wp = positionWorld.xz;
@@ -3159,7 +3170,8 @@ function createParkLawnMaterial(isMeadow = false) {
       cGrassMid,
       macroPatch.mul(0.45).add(midClover.mul(0.35)).add(mowStripe.mul(0.20))
     );
-    return mix(baseLawn, cGrassSun, microBlade.mul(0.38));
+    const lawnCol = mix(baseLawn, cGrassSun, microBlade.mul(0.38));
+    return pbr ? lawnCol.mul(pbr.colorRatio) : lawnCol;
   })();
 
   mat.normalNode = Fn(() => {
@@ -3167,8 +3179,10 @@ function createParkLawnMaterial(isMeadow = false) {
     const camDist = length(positionWorld.sub(cameraPosition));
     const detail = smoothstep(85.0, 10.0, camDist);
     const turf = noise2D(wp.mul(7.5)).sub(0.5).mul(0.008);
-    return bumpNormal(turf.mul(detail));
+    const bumped = bumpNormal(turf.mul(detail));
+    return pbr ? pbrNormal(bumped, pbr, detail.mul(0.8).add(0.2)) : bumped;
   })();
+  if (pbr) mat.roughnessNode = float(0.86).mul(pbr.roughRatio).min(1.0);
 
   // Grass is a canopy of blades that shadow each other, not a flat dielectric: at grazing angles a plain F0 = 0.04 /
   // F90 = 1 Fresnel mirrors the sky and turns lawns teal, so weaken the specular and cap its grazing rise
