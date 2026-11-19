@@ -20,7 +20,7 @@ const CULL_MIN = 300 * Q.cullScale; // never closer: the shadow cascades reach ~
 const CULL_MAX = 2000 * Q.cullScale; // beyond this the props are kept at any distance
 const PROXY_CELL = 500; // the far cascade spans ~400 m at street level: a cascade sees a few cells
 const STATIC_CELL = 1000;
-const PLAIN_CELL = 400;
+const PLAIN_CELL = 550;
 
 const _m = new THREE.Matrix4();
 const _wm = new THREE.Matrix4();
