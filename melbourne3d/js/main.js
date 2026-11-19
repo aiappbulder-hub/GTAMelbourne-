@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, normalView, positionView, metalness, roughness, vec2, vec4, smoothstep } from 'three/tsl';
+import { pass, mrt, output, velocity, normalView, positionView, metalness, roughness, vec2, vec4, smoothstep } from 'three/tsl';
 import { ssr } from 'three/addons/tsl/display/SSRNode.js';
-import { createPostProcessing } from './post-processing.js';
+import { createPostProcessing, createScreenEffects } from './post-processing.js';
 import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
@@ -276,7 +276,7 @@ async function initApp() {
   } else if (Q.postFX === 'bloom') {
     const scenePass = pass(scene, cameraSystem.camera);
     scenePass.renderTarget.storeMultisampledColorBuffer = false;
-    colorGrade = createPostProcessing(renderer, scenePass.getTextureNode('output'), vec4(0));
+    colorGrade = createPostProcessing(renderer, createScreenEffects(scenePass, cameraSystem.camera, 'bloom'), vec4(0));
     compileTarget = scenePass.renderTarget;
     renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);
   } else {
@@ -290,6 +290,7 @@ async function initApp() {
     const sceneMRT = mrt({
       output: output,
       normal: normalView,
+      velocity: velocity,
       metalRough: vec2(roughness.lessThan(maxSSRRoughness).select(metalness.mul(ssrFade), 0), roughness)
     });
     sceneMRT.setBlendMode('normal', new THREE.BlendMode(THREE.MaterialBlending));
@@ -319,7 +320,7 @@ async function initApp() {
     // Roughness mip blur must not spread reflections back onto matte or nonreflective surfaces.
     const reflectionMask = scenePassMetalRough.r.greaterThan(0).select(smoothstep(maxSSRRoughness, 0.55, scenePassMetalRough.g), 0);
     const reflections = ssrPass.mul(reflectionMask);
-    colorGrade = createPostProcessing(renderer, scenePassColor, reflections);
+    colorGrade = createPostProcessing(renderer, createScreenEffects(scenePass, cameraSystem.camera, 'full'), reflections);
     compileTarget = scenePass.renderTarget;
     compileMRT = sceneMRT;
     renderPipeline = new THREE.RenderPipeline(renderer, colorGrade.outputNode);

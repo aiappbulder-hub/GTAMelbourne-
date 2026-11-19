@@ -16,6 +16,9 @@ import {
   screenUV,
   screenSize
 } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 // Scene-linear color grading and lens bloom, composed in the existing final render pass.
@@ -28,6 +31,32 @@ const LOOKS = {
   twilight: { exposure: 1.06, contrast: 1.10, saturation: 1.08, balance: [1.025, 0.995, 1.015], bloom: 0.28, threshold: 1.05 },
   midnight: { exposure: 1.04, contrast: 1.08, saturation: 1.06, balance: [0.985, 1.00, 1.035], bloom: 0.30, threshold: 1.00 }
 };
+
+// GTAO contact shadows multiplied into the lit colour, then SMAA (medium) or TRAA (high, needs a velocity MRT target).
+// ?nogtao / ?noaa switch each off for comparisons. Returns the colour to feed the grade/bloom.
+function createScreenEffects(scenePass, camera, tier) {
+  const qs = new URLSearchParams(location.search);
+  let color = scenePass.getTextureNode('output');
+  const depth = scenePass.getTextureNode('depth');
+  if (!qs.has('nogtao')) {
+    const normal = tier === 'full' ? scenePass.getTextureNode('normal') : null;
+    const aoPass = ao(depth, normal, camera);
+    aoPass.resolutionScale = tier === 'full' ? 0.5 : 0.4;
+    aoPass.radius.value = 1.1;
+    aoPass.thickness.value = 1.2;
+    aoPass.distanceExponent.value = 1.3;
+    aoPass.distanceFallOff.value = 0.8;
+    aoPass.scale.value = 1.15;
+    aoPass.samples.value = tier === 'full' ? 12 : 8;
+    // Mix toward white so AO deepens contact areas without crushing midtones.
+    const aoTerm = mix(float(1), aoPass.getTextureNode().r, 0.85);
+    color = vec4(color.rgb.mul(aoTerm), color.a);
+  }
+  if (!qs.has('noaa')) {
+    color = tier === 'full' ? traa(color, depth, scenePass.getTextureNode('velocity'), camera) : smaa(color);
+  }
+  return color;
+}
 
 function createPostProcessing(renderer, sceneColor, reflections) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -86,4 +115,4 @@ function createPostProcessing(renderer, sceneColor, reflections) {
   return { outputNode, applyPreset };
 }
 
-export { createPostProcessing };
+export { createPostProcessing, createScreenEffects };

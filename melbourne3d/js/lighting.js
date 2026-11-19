@@ -21,7 +21,18 @@ import {
 import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { cityUniforms } from './tsl-materials.js';
+
+// Poly Haven CC0 HDRIs (assets/hdri/CREDITS.md) used as image-based lighting only; the procedural sky stays the backdrop.
+// gain rescales each map's own brightness against the preset's envIntensity.
+const HDRI_BY_PRESET = {
+  golden: { file: 'industrial_sunset_02_puresky_1k.hdr', gain: 0.8 },
+  midday: { file: 'kloofendal_48d_partly_cloudy_puresky_1k.hdr', gain: 0.9 },
+  twilight: { file: 'industrial_sunset_02_puresky_1k.hdr', gain: 0.45 },
+  midnight: { file: 'moonless_golf_1k.hdr', gain: 1.0 }
+};
+const NO_IBL = typeof location !== 'undefined' && new URLSearchParams(location.search).has('noibl');
 
 // Atmospheric sky, environment lighting, sunlight and time-of-day presets.
 
@@ -259,6 +270,35 @@ class LightingSystem {
     this.scene.add(this.sky);
   }
 
+  /** Swap scene.environment to the preset's HDRI (PMREM, cached); the procedural bake stays until it has loaded. */
+  applyHdri(presetId) {
+    if (NO_IBL || !this.pmremGenerator) return;
+    const def = HDRI_BY_PRESET[presetId] || HDRI_BY_PRESET.golden;
+    this.hdriGain = def.gain;
+    this.hdriWanted = def.file;
+    this.hdriTargets = this.hdriTargets || new Map();
+    const done = this.hdriTargets.get(def.file);
+    if (done) { this.useHdri(def.file); return; }
+    if (this.hdriLoading?.has(def.file)) return;
+    (this.hdriLoading = this.hdriLoading || new Set()).add(def.file);
+    new HDRLoader().load(new URL('../assets/hdri/' + def.file, import.meta.url).href, (tex) => {
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      try {
+        const rt = this.pmremGenerator.fromEquirectangular(tex);
+        this.hdriTargets.set(def.file, rt);
+        if (this.hdriWanted === def.file) this.useHdri(def.file);
+      } catch (e) { console.warn('HDRI PMREM failed', e); }
+      tex.dispose();
+    }, undefined, (e) => console.warn('HDRI load failed', e));
+  }
+
+  useHdri(file) {
+    const rt = this.hdriTargets.get(file);
+    if (!rt) return;
+    this.scene.environment = rt.texture;
+    this.scene.environmentIntensity = this.baseEnvIntensity * this.hdriGain;
+  }
+
   applyPreset(presetId, force = false) {
     const p = TIME_PRESETS[presetId] || TIME_PRESETS.golden;
     if (!force && this.activePresetId === p.id && this.envRenderTarget !== null) {
@@ -300,9 +340,11 @@ class LightingSystem {
     cityUniforms.uRoadWetness.value = Math.max(p.roadWetness, w.wet);
     cityUniforms.uCanyonBounce.value = p.canyonBounce;
 
-    this.scene.environmentIntensity = p.envIntensity * w.env;
+    this.baseEnvIntensity = p.envIntensity * w.env;
+    this.scene.environmentIntensity = this.baseEnvIntensity;
     if (this.rain) this.rain.visible = w.rain;
     this.bakeEnvironmentMap();
+    this.applyHdri(p.id);
   }
 
   /** Weather: 'clear', 'overcast', 'rain' or 'fog' */
