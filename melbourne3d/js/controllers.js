@@ -25,6 +25,7 @@ import {
   createLoftedHelicopterMaterial
 } from './helicopter.js';
 import { PersonCrowd, PersonRig } from './pedestrians.js';
+import { RIDER_PROFILES, advanceBreathing, advanceTurnLean, blendProfile, createMotionFrame, evaluateRiderMotion } from './procedural-rider.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { polygonContact } from './building-collision.js';
 import { trackHeight, ALBERT_PARK } from './race-track.js';
@@ -1090,7 +1091,7 @@ class ThirdPersonControllerManager {
           b._posedPedal !== b.pedalPhase;
         b._riderHidden = false;
         if (moved) {
-          b.riderRig.ride(b.leanPivot, b.pedalPhase, b.bikeFrame);
+          b.riderRig.ride(b.leanPivot, b.pedalPhase, b.bikeFrame, b.riderMotion || null, b.riderStanding || 0);
           b.riderCrowd.begin();
           b.riderCrowd.add(b.riderRig, 0);
           b.riderCrowd.end();
@@ -1400,8 +1401,10 @@ class ThirdPersonControllerManager {
     this.resolveHorizontalCollision(b.position, 0.65, null, b);
     b.position.y = this.getGroundHeight(b.position.x, b.position.z, 'cyclist');
 
-    const targetLean = -turnInput * Math.min(1.0, Math.abs(b.speed) / 9.0) * 0.34;
-    b.leanAngle += (targetLean - b.leanAngle) * Math.min(1, dt * 9);
+    // Lean into the turn from the lateral acceleration (rezvivo RiderDynamics roll target, procedural-rider.js)
+    const lateralAccel = turnInput * 2.15 * b.speed * (b.speed >= 0 ? 1 : -1);
+    const turnLean = advanceTurnLean(b.turnLean || (b.turnLean = { lean: 0, vel: 0 }), dt, lateralAccel, 0, b.riderStanding || 0);
+    b.leanAngle = -Math.max(-0.42, Math.min(0.42, turnLean * 0.4));
     b.leanPivot.rotation.z = b.leanAngle;
 
     const wheelDelta = (b.speed / 0.35) * dt;
@@ -1411,6 +1414,22 @@ class ThirdPersonControllerManager {
     // The cranks turn with the rear wheel through the gears while pedalling (~110 rpm at cruising speed) and
     // freewheel otherwise; the rider's feet follow the pedals (see poseCharacters)
     if (throttle > 0 && wheelDelta > 0) b.pedalPhase += wheelDelta / 3.2;
+
+    // Rider motion layer (rezvivo RiderMotion): out of the saddle on a climb or a hard sprint, seated otherwise,
+    // sway and spine twist with each pedal stroke, and breathing that follows the effort
+    const slope = b._lastGroundY === undefined || dt <= 0 ? 0 : (b.position.y - b._lastGroundY) / Math.max(0.05, Math.abs(b.speed) * dt);
+    b._lastGroundY = b.position.y;
+    b._slope = (b._slope || 0) + (slope - (b._slope || 0)) * Math.min(1, dt * 3);
+    const pedalling = throttle > 0 && b.speed > 0.5;
+    const climb = pedalling ? Math.max(0, Math.min(1, (b._slope - 0.05) / 0.05)) : 0;
+    const sprintAmt = pedalling ? Math.max(0, Math.min(1, (b.speed - 14) / 4)) : 0;
+    const standTarget = Math.max(climb, sprintAmt);
+    b.riderStanding = (b.riderStanding || 0) + (standTarget - (b.riderStanding || 0)) * Math.min(1, dt * 2.5);
+    const cadenceRpm = pedalling && dt > 0 ? (wheelDelta / 3.2 / dt) * 60 / (2 * Math.PI) : 0;
+    const effort = pedalling ? Math.min(2, 0.5 + climb + sprintAmt * 0.8 + (b.speed / 19) * 0.3) : 0.2;
+    advanceBreathing(b.breath || (b.breath = { load: 0.2, phase: 0 }), dt, effort);
+    const profile = blendProfile(RIDER_PROFILES.seated, sprintAmt > climb ? RIDER_PROFILES.sprint : RIDER_PROFILES.climb, b.riderStanding, b._profile || (b._profile = {}));
+    b.riderMotion = evaluateRiderMotion(profile, b.pedalPhase / (2 * Math.PI), b.breath.phase, cadenceRpm, effort, 0.03, 0.02, b.riderMotion || createMotionFrame());
     b.crankPivot.rotation.x = b.pedalPhase;
     for (const pedal of b.pedals) pedal.rotation.x = -b.pedalPhase;
   }
