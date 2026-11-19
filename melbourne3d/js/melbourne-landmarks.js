@@ -62,7 +62,8 @@ export async function buildMelbourneLandmarks(scene) {
     const pivot = new THREE.Group();
     pivot.add(holder);
     // turn it when its long side should run along the other axis
-    if (axis === 'z') pivot.rotation.y = Math.PI / 2;
+    // model front (columns, steps) is local +z; Parliament's front faces west down Bourke St (-x), so turn it -PI/2
+    if (axis === 'z') pivot.rotation.y = id === 'parliament' ? -Math.PI / 2 : Math.PI / 2;
     const hx = (axis === 'x' ? long : short) / 2, hz = (axis === 'x' ? short : long) / 2;
     // on a hill: lifted rigidly to the highest ground under it (less 0.3 m), on a plinth down to the lowest
     const { lo, hi } = terrainRange({ minX: s.x - hx, maxX: s.x + hx, minZ: s.z - hz, maxZ: s.z + hz });
