@@ -21,3 +21,10 @@ The owner's usage limit must last a full 5-hour window. The top-tier model is fo
 
 The owner can only play what is on `main`. When a change is finished and tested, merge the working branch into the default branch (`ccr-c003ea14-x4uzks`, the repo has no `main`)
 and push it (as well as the working branch). Do this every time, without asking.
+
+## Licensing (owner's decision)
+
+The owner is fine with the game being GPL-3.0 (it's a free fun game, never sold). Code may be ported from GPL-3
+projects such as rezvivo (https://github.com/thpg/rezvivo), and from MIT/CC0 sources such as Streets-GL, Poly Haven
+and ambientCG. Credit every source in `melbourne3d/CREDITS.md` (project, licence, what was used). Once any GPL code
+is merged, add a GPL-3.0 `LICENSE` at the repo root and keep mrdoob's MIT notice in `melbourne3d/LICENSE`.
