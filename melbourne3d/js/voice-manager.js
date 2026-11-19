@@ -125,6 +125,7 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
   const lastPlayed = new Map(); // id → seconds
   const recent = []; // ids, newest last
   let clock = 0;
+  const duckSet = { node: null, v: -1 }, mixSet = { node: null, v: -1 };
   function pick(character, category, filter = () => true) {
     const pool = (pools.get(`${character}/${category}`) || []).filter(filter);
     if (!pool.length) return null;
@@ -405,8 +406,10 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     // Under a story line (and through a cut scene) everything else dims: the people chatting go quiet and the city's
     // sounds (traffic, crowds, wind) drop well down, so the voice-over is clear
     const hush = storyOn || isCinematic();
-    if (duck && c) duck.gain.setTargetAtTime(hush ? 0 : 1, c.currentTime, 0.15);
-    if (c && audioSystem.mix) audioSystem.mix.gain.setTargetAtTime(storyOn ? 0.15 : hush ? 0.35 : 1, c.currentTime, storyOn ? 0.12 : 0.5);
+    // (only on a change: a new automation event every frame piled up ~18,000 per 5 minutes on each gain)
+    const duckTo = hush ? 0 : 1, mixTo = storyOn ? 0.15 : hush ? 0.35 : 1;
+    if (duck && c && (duck !== duckSet.node || duckTo !== duckSet.v)) { duckSet.node = duck; duckSet.v = duckTo; duck.gain.setTargetAtTime(duckTo, c.currentTime, 0.15); }
+    if (c && audioSystem.mix && (audioSystem.mix !== mixSet.node || mixTo !== mixSet.v)) { mixSet.node = audioSystem.mix; mixSet.v = mixTo; audioSystem.mix.gain.setTargetAtTime(mixTo, c.currentTime, storyOn ? 0.12 : 0.5); }
     for (const v of [...active]) {
       v.t += dt;
       if (v.panner && v.follow) {

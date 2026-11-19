@@ -114,7 +114,7 @@ function noiseHit(ctx, kit, to, t, o) {
   g.gain.setTargetAtTime(0.0001, t + (o.a ?? 0.002), o.decay / 3);
   src.connect(f).connect(g).connect(to);
   src.start(t, (t * 7.31) % 1.5); src.stop(t + o.decay * 2.8 + 0.05);
-  src.onended = () => { try { g.disconnect(); } catch { /* gone */ } };
+  src.onended = () => { try { g.disconnect(); o.done?.(); } catch { /* gone */ } };
   return g;
 }
 function snare(ctx, kit, B, t, vel = 1, o = {}) {
@@ -123,7 +123,9 @@ function snare(ctx, kit, B, t, vel = 1, o = {}) {
   os.type = 'triangle'; os.frequency.setValueAtTime(o.tone ?? 200, t); os.frequency.exponentialRampToValueAtTime((o.tone ?? 200) * 0.6, t + 0.08);
   g.gain.setValueAtTime(vel * 0.45, t); g.gain.setTargetAtTime(0.0001, t, 0.03);
   os.connect(g).connect(B.dry); os.start(t); os.stop(t + 0.3);
-  if (o.rev) { const s = ctx.createGain(); s.gain.value = o.rev; g.connect(s).connect(B.fx.rev); }
+  let s = null;
+  if (o.rev) { s = ctx.createGain(); s.gain.value = o.rev; g.connect(s).connect(B.fx.rev); }
+  os.onended = () => { try { g.disconnect(); s?.disconnect(); } catch { /* gone */ } }; // (these gains stayed in the graph for good: ~70 more every minute)
 }
 function hat(ctx, kit, B, t, vel = 0.3, open = false) {
   noiseHit(ctx, kit, B.dry, t, { f: 7500, vel, decay: open ? 0.22 : 0.04, q: 0.9 });
@@ -132,7 +134,7 @@ function clap(ctx, kit, B, t, vel = 0.6) {
   for (let i = 0; i < 3; i++) noiseHit(ctx, kit, B.dry, t + i * 0.011, { f: 1500, q: 1.2, type: 'bandpass', vel: vel * 0.7, decay: 0.03 });
   noiseHit(ctx, kit, B.dry, t + 0.033, { f: 1400, q: 1, type: 'bandpass', vel, decay: 0.16 });
   const s = ctx.createGain(); s.gain.value = 0.25; // a little room
-  noiseHit(ctx, kit, s, t + 0.033, { f: 1400, q: 1, type: 'bandpass', vel: 0.4, decay: 0.12 }); s.connect(B.fx.rev);
+  noiseHit(ctx, kit, s, t + 0.033, { f: 1400, q: 1, type: 'bandpass', vel: 0.4, decay: 0.12, done: () => s.disconnect() }); s.connect(B.fx.rev);
 }
 function crash(ctx, kit, B, t, vel = 0.3) { noiseHit(ctx, kit, B.dry, t, { f: 5200, vel, decay: 1.6, a: 0.005 }); }
 

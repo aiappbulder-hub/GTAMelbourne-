@@ -527,26 +527,42 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
     }
   }
 
-  // The engine: a low burble (two detuned saw oscillators through a low-pass, wobbled) louder with the nearest bike, higher with its speed
+  // The engine: a low burble (two detuned saw oscillators through a low-pass, wobbled) louder with the nearest bike, higher with its speed.
+  // The 11 Hz wobble modulates a gain that sits AFTER the level gain and swings around 1 (0.6..1.4), so the level alone sets the
+  // loudness: at level 0 it is silent. (It used to add +-0.45 straight onto a gain whose base was the level, so once the first pack
+  // spawned a full-scale 20-40 Hz buzz played for good, even with no bikes left: the "feedback" drone.) The nodes are released as
+  // soon as no pack is near or the city sound is off.
   let eng = null;
+  function stopEngine() {
+    if (!eng) return;
+    const e = eng; eng = null;
+    try {
+      const t = e.c.currentTime;
+      e.level.gain.cancelScheduledValues(t); e.level.gain.setValueAtTime(e.level.gain.value, t); e.level.gain.linearRampToValueAtTime(0, t + 0.12);
+      for (const o of [e.o1, e.o2, e.lfo]) o.stop(t + 0.15);
+      e.o1.onended = () => { for (const n of e.nodes) n.disconnect(); };
+    } catch { /* already stopped */ }
+  }
   function engine(dt) {
     const c = audioSystem?.context;
-    if (!pack || !c || c.state !== 'running' || !audioSystem.master || !settings.get('ambience')) { if (eng) eng.out.gain.setTargetAtTime(0, c?.currentTime || 0, 0.1); return; }
-    if (!eng) {
-      const o1 = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), out2 = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
-      o1.type = 'sawtooth'; o2.type = 'square'; lp.type = 'lowpass'; lp.frequency.value = 420; out2.gain.value = 0;
-      lfo.frequency.value = 11; lg.gain.value = 0.45; lfo.connect(lg); lg.connect(out2.gain);
-      o1.connect(lp); o2.connect(lp); lp.connect(out2); out2.connect(audioSystem.master);
-      o1.start(); o2.start(); lfo.start();
-      eng = { o1, o2, out: out2, base: 0 };
-    }
+    if (!pack || !c || c.state !== 'running' || !audioSystem.master || !settings.get('ambience')) { stopEngine(); return; }
     const pp = player();
     let d = 999, v = 0;
     for (const b of pack.bikes) { const dd = Math.hypot(b.x - pp.x, b.z - pp.z); if (dd < d && b.state !== 'parked' && b.state !== 'down') { d = dd; v = b.speed; } }
+    if (d >= 180) { stopEngine(); return; } // (out of earshot: nothing runs)
     const lvl = d < 160 ? 0.07 * (1 - d / 160) ** 2 : 0;
+    if (eng && eng.c !== c) stopEngine();
+    if (!eng) {
+      const o1 = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), level = c.createGain(), wobble = c.createGain(), lfo = c.createOscillator(), depth = c.createGain();
+      o1.type = 'sawtooth'; o2.type = 'square'; lp.type = 'lowpass'; lp.frequency.value = 420; level.gain.value = 0; wobble.gain.value = 1;
+      lfo.frequency.value = 11; depth.gain.value = 0.4; lfo.connect(depth); depth.connect(wobble.gain);
+      o1.connect(lp); o2.connect(lp); lp.connect(level); level.connect(wobble); wobble.connect(audioSystem.master);
+      o1.start(); o2.start(); lfo.start();
+      eng = { c, o1, o2, lfo, level, nodes: [o1, o2, lp, level, wobble, lfo, depth] };
+    }
     eng.o1.frequency.setTargetAtTime(38 + v * 3.2, c.currentTime, 0.1);
     eng.o2.frequency.setTargetAtTime(19.5 + v * 1.6, c.currentTime, 0.1);
-    eng.out.gain.setTargetAtTime(lvl, c.currentTime, 0.1);
+    eng.level.gain.setTargetAtTime(lvl, c.currentTime, 0.1);
   }
 
   function update(dt) {
