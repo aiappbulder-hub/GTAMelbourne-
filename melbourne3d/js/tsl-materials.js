@@ -931,6 +931,9 @@ function createPreWarBuildingMaterial(opts = {}) {
   const halfWinY = (1.0 - windowRatioY) * 0.5;
 
   mat.aoNode = canyonSkyAONode();
+  // Photo-scanned masonry detail under the procedural courses: red/brown styles get brick, pale ones rendered sandstone
+  const sr = (stoneColor >> 16) & 255, sb = stoneColor & 255;
+  const pbr = PBR_ON ? pbrWall(sr - sb > 40 ? 'brick' : 'render', sr - sb > 40 ? 1.6 : 2.4, 0.55, 0.6) : null;
 
   // The facade cell, the window opening and the apartment behind it are built once and shared by every output below,
   // so the shader carries a single copy of them (and evaluates the interior mapping once per pixel)
@@ -1099,7 +1102,8 @@ function createPreWarBuildingMaterial(opts = {}) {
     const trimMix = max(isCornice.mul(0.62).add(isGroundFloor.mul(0.28)), coping.mul(0.8));
     const masonryTint = mix(wallTint, cTrim, trimMix)
       .mul(brickRnd.mul(0.14).add(1.0))
-      .mul(brickShiftVec);
+      .mul(brickShiftVec)
+      .mul(pbr ? pbr.colorRatio : vec3(1.0));
     const masonryWithMortar = mix(masonryTint, masonryTint.mul(0.62), mortarJoint);
     const masonryWeathered = mix(masonryWithMortar, cSoot, sootDirt)
       .mul(float(1.0).sub(corniceShadow))
@@ -1142,7 +1146,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const glassRough = float(0.14).add(pooledRough);
 
     const stoneGrain = noise2D(vec2(uCoord.mul(8.0), vCoord.mul(8.0))).mul(0.12);
-    const surface = mix(mix(float(0.78).add(stoneGrain), glassRough, isWindow), storefront.roughness, storefront.mask);
+    const surface = mix(mix(float(0.78).add(stoneGrain).mul(pbr ? pbr.roughRatio : float(1.0)), glassRough, isWindow), storefront.roughness, storefront.mask);
     return mix(surface, entrance.roughness, entrance.mask);
   })();
 
@@ -1185,7 +1189,8 @@ function createPreWarBuildingMaterial(opts = {}) {
     const totalHeight = mix(wallHeight, acLouverHeight.mul(inACBox), isWindow);
 
     const relief = mix(totalHeight, storefront.relief, storefront.mask);
-    return bumpNormal(mix(relief, entrance.relief, entrance.mask).mul(detailFade));
+    const bumped = bumpNormal(mix(relief, entrance.relief, entrance.mask).mul(detailFade));
+    return pbr ? pbrNormal(bumped, pbr, float(1.0).sub(isRoof).mul(float(1.0).sub(storefront.mask)).mul(float(1.0)).mul(detailFade.mul(0.7).add(0.3))) : bumped;
   })();
 
   mat.emissiveNode = Fn(() => {
