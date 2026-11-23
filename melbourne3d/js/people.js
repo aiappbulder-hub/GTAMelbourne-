@@ -913,6 +913,7 @@ export function createCast({ scene, controllerManager }) {
       else {
         if (a.wasAir && a.land >= 0.35 && a.vs < 2.5) a.landT = 0.62;
         a.airT = 0;
+        a.pastStart = false;
         a.landT = Math.max(0, (a.landT || 0) - dt);
       }
     }
@@ -931,8 +932,9 @@ export function createCast({ scene, controllerManager }) {
     const turning = loose && Math.abs(resid) > 0.1 && has(a, 'turn_left');
     a.turnT = turning ? 0.2 : Math.max(0, a.turnT - dt);
     const dJ = a.jumpClips = jumpClips;
-    if (dJ && airborne) {
-      const rising = a.airT < 0.3 && (p.verticalVel || 0) > -1;
+    if (dJ && airborne && (a.airT > 0.12 || (p.verticalVel || 0) > 1.5)) { // (a few frames off the ground on a downhill run is not a jump)
+      const rising = a.airT < 0.3 && (p.verticalVel || 0) > -1 && !a.pastStart;
+      if (!rising) a.pastStart = true;
       if (rising) play(a, 'jump_start', a.acts.jump_start ? a.acts.jump_start.getClip().duration / 0.5 : 1.8, 0.06);
       else play(a, 'jump_air', 1, 0.15);
     } else if (dJ && a.landT > 0) play(a, 'jump_land', a.acts.jump_land ? a.acts.jump_land.getClip().duration / 0.62 : 1.9, 0.08);
