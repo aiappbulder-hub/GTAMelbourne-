@@ -167,6 +167,7 @@ async function initApp() {
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
   // Melbourne visuals: station glow, laneways, Crown fire, river boat (js/melb-night.js)
   let melbNight = null;
+  let streetArt = null;
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
@@ -254,6 +255,7 @@ async function initApp() {
   if (IS_MELBOURNE) {
     melbNight = (await import('./melb-night.js')).createMelbNight({ scene, lightingSystem });
     window.__melbNight = melbNight;
+    streetArt = (await import('./street-art.js')).createStreetArt({ scene }); // real Melbourne street art decals
   }
   scene.updateMatrixWorld(true);
   scene.matrixWorldAutoUpdate = false;
@@ -1166,6 +1168,7 @@ async function initApp() {
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     melbNight?.update(dt, cameraSystem.currentPos);
+    streetArt?.update(cameraSystem.currentPos);
     youngJackson.update(dt, { night: lightingSystem.uNightFactor.value, onFoot: controllerManager.activeMode === 'person', pos: controllerManager.entities.person?.position });
     mapSystem.update();
     helipad?.update(dt);
