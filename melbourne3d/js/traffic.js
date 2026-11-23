@@ -769,7 +769,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     }
     // where the network is sparse (the suburbs' few joined roads) fewer cars are out: about one to 400 lane metres, so they
     // are never packed onto a handful of streets
-    carCap = clamp(Math.round(cum / 400), 3, MAX_CARS_OUT);
+    carCap = clamp(Math.round(cum / 400), 3, Math.max(3, Math.round(MAX_CARS_OUT * Q.density))); // (Q.density: the frame-rate governor)
   }
 
   // Where the player is relative to v: metres ahead, metres to the right, and how fast it moves v's way

@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { IS_MELBOURNE } from './city.js';
 import { pbrGround, pbrWall, pbrNormal, PBR_ON } from './pbr.js';
-import { Q } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
+import { Q, QUALITY, IS_MOBILE } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
 import {
   Fn,
   float,
@@ -190,7 +190,7 @@ const distantWindowLight = Fn(([grid, fw, probability, seed, lod]) => {
  * Models how Manhattan street canyons occlude overhead sky irradiance near the street floor (y = 0..65m),
  * while opening up in Central Park and on upper tower shafts.
  */
-const canyonSkyAONode = Fn(() => {
+const canyonSkyAOFull = Fn(() => {
   const wp = positionWorld;
   // Open sky inside Central Park (city-config.js CENTRAL_PARK_BOUNDS, 5th Ave to Central Park West, 59th to 110th St)
   const cp = CENTRAL_PARK_BOUNDS;
@@ -217,6 +217,11 @@ const facadeAlongZ = varying(
   'vFacadeAlongZ'
 ).setInterpolation(THREE.InterpolationSamplingType.FLAT, THREE.InterpolationSamplingMode.EITHER);
 
+// Light building shading (low tier and mobile): no interior-mapping raycast, no per-pixel noise, no canyon AO. Each
+// window gets a hashed lit/dark room tint with a cheap depth gradient, so facades still read as windows and brick.
+export const LIGHT_BUILDINGS = QUALITY === 'low' || IS_MOBILE;
+const lightNoise2D = () => float(0.5);
+const canyonSkyAONode = LIGHT_BUILDINGS ? () => float(1.0) : canyonSkyAOFull;
 /**
  * Lightweight, Fast-Compiling 3D Parallax Apartment Interior Mapping (Upper Floors Only)
  * Modelled directly after `interior()` in `three/addons/generators/city/SkyscraperGenerator.js`:
@@ -401,7 +406,16 @@ const interiorDrapeFootprint = Fn(([winUV]) => {
  * The apartment interior, raycast only where `coverage` (the share of the pixel that is glazing) is non-zero. Walls,
  * frames, spandrels and roofs skip it: their outputs weight the interior by that coverage, or by a narrower mask.
  */
+function lightApartment(coverage, cellId, winUV, seed, warmth, litProb) {
+  const h = hash2D(cellId.add(vec2(seed, 7.3)));
+  const lit = step(h, litProb);
+  const warm = mix(vec3(1.0, 0.72, 0.42), vec3(0.85, 0.9, 1.0), clamp(hash2D(cellId.add(vec2(3.1, seed))).mul(1.4).sub(warmth.mul(0.8)), 0.0, 1.0));
+  const depth = mix(0.55, 1.0, winUV.y);
+  const room = mix(vec3(0.05, 0.06, 0.08), warm.mul(0.55), lit).mul(depth).mul(coverage.greaterThan(0.0).select(1.0, 0.0));
+  return vec4(room, lit.mul(0.5));
+}
 function apartmentInteriorBehind(coverage, uCoord, vCoord, winUV, cellId, winW, floorH, seed, warmth, litProb, fw) {
+  if (LIGHT_BUILDINGS) return lightApartment(coverage, cellId, winUV, seed, warmth, litProb);
   const drapeFootprint = interiorDrapeFootprint(winUV);
   return Fn(() => {
     // Both derivative-based inputs are evaluated here, outside the branch
@@ -643,6 +657,7 @@ function createStorefront(facade, seed, local) {
 }
 
 // Entrances share the facade surface, including its lighting, shadows and distance filtering.
+const bNoise2D = LIGHT_BUILDINGS ? lightNoise2D : noise2D;
 function createBuildingEntrance(facade, trim, local, modern = false) {
   const { wallS, wallW, wallH, fromTop, boxSeed, uCoord, vCoord, back, isRoof, coping, kind } = facade;
   const width = local ? wallW.div(max(floor(wallW.div(28).add(0.5)), 1)) : float(28);
@@ -815,7 +830,7 @@ function createCurtainWallMaterial(opts = {}) {
     const canyonBand = smoothstep(0.0, 14.0, vCoord).mul(float(1.0).sub(smoothstep(22.0, 75.0, vCoord)));
     const canyonGlow = cCanyonBounce.mul(canyonBand.mul(cityUniforms.uCanyonBounce).mul(0.16));
 
-    const roofNoise = noise2D(positionWorld.xz.mul(0.35));
+    const roofNoise = bNoise2D(positionWorld.xz.mul(0.35));
     const roofColor = mix(color(0x202429), color(0x3b4149), roofNoise);
 
     const facadeCol = mix(frameBase, glassColor, isGlassPane.mul(float(1.0).sub(isMechFloor))).mul(glassPbr ? glassPbr.colorRatio : vec3(1.0)).add(canyonGlow);
@@ -1027,7 +1042,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     );
     const parged = float(0.0).toVar();
     If(blank.greaterThan(0.5), () => {
-      const patch = smoothstep(0.6, 0.76, noise2D(vec2(uCoord.mul(0.11), vCoord.mul(0.07)).add(tone.mul(37.0))));
+      const patch = smoothstep(0.6, 0.76, bNoise2D(vec2(uCoord.mul(0.11), vCoord.mul(0.07)).add(tone.mul(37.0))));
       parged.assign(max(step(0.74, fract(tone.mul(3.7))), patch.mul(0.85)));
     });
     const backTint = mix(backBrick, color(0x8f8b84), parged);
@@ -1044,7 +1059,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const brickWarmShift = hash2D(brickCell.add(vec2(17.1, uSeed))).sub(0.5).mul(0.12).mul(brickVar);
     const brickShiftVec = vec3(float(1.0).add(brickWarmShift), float(1.0), float(1.0).sub(brickWarmShift));
 
-    const streakNoise = mix(float(0.5), noise2D(vec2(uCoord.mul(1.4), vCoord.mul(0.05))), float(1.0).sub(smoothstep(0.5, 1.0, uFw.mul(1.4))));
+    const streakNoise = mix(float(0.5), bNoise2D(vec2(uCoord.mul(1.4), vCoord.mul(0.05))), float(1.0).sub(smoothstep(0.5, 1.0, uFw.mul(1.4))));
     const sootDirt = smoothstep(0.25, 0.78, streakNoise).mul(float(1.0).sub(smoothstep(0.0, 180.0, vCoord))).mul(0.36);
 
     const lintelShadow = smoothstep(oneMinusEffY.sub(0.14), oneMinusEffY, cellUV.y).mul(0.58);
@@ -1097,7 +1112,7 @@ function createPreWarBuildingMaterial(opts = {}) {
         return max(verticals, bars).mul(inText);
       };
       const letters = max(lettering(0.14, 0.56, 0), lettering(0.66, 0.86, 1));
-      const flake = smoothstep(0.5, 0.74, noise2D(vec2(wallS.mul(0.7), fromTop.mul(1.1)).add(tone.mul(31.0))));
+      const flake = smoothstep(0.5, 0.74, bNoise2D(vec2(wallS.mul(0.7), fromTop.mul(1.1)).add(tone.mul(31.0))));
       const cover = mix(float(0.34), float(0.66), fract(tone.mul(7.7))).mul(float(1.0).sub(flake.mul(0.9))).mul(panel);
       signPaint.assign(vec4(mix(ground, ink, max(letters, border)), cover));
     });
@@ -1130,7 +1145,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const glassCol = mix(upperGlassBase, cityUniforms.uSkyHorizonColor, fresnel.mul(0.52).add(0.08)).mul(recessShade);
 
     const frameCol = masonryTint.mul(0.46).mul(recessShade);
-    const roofNoise = noise2D(positionWorld.xz.mul(0.35));
+    const roofNoise = bNoise2D(positionWorld.xz.mul(0.35));
     const roofCol = mix(cTrim.mul(0.42), cTrim.mul(0.62), roofNoise);
 
     const wallOrRoof = mix(masonryWeathered, roofCol, isRoof);
@@ -1150,7 +1165,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     const pooledRough = float(1.0).sub(smoothstep(0.0, 0.32, winY)).mul(0.38);
     const glassRough = float(0.14).add(pooledRough);
 
-    const stoneGrain = noise2D(vec2(uCoord.mul(8.0), vCoord.mul(8.0))).mul(0.12);
+    const stoneGrain = bNoise2D(vec2(uCoord.mul(8.0), vCoord.mul(8.0))).mul(0.12);
     const surface = mix(mix(float(0.78).add(stoneGrain).mul(pbr ? pbr.roughRatio : float(1.0)), glassRough, isWindow), storefront.roughness, storefront.mask);
     return mix(surface, entrance.roughness, entrance.mask);
   })();

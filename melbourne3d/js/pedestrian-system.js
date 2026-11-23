@@ -726,12 +726,15 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
 
     for (const n of walkedNodes) n.walkers.length = 0;
     walkedNodes.length = 0;
+    const pedLimit = Math.max(8, Math.ceil(NUM_PEDS * Q.density));
     let pedBudget = jump ? NUM_PEDS : 6;
     const keepRadius = jump ? NEAR_RADIUS : PED_RADIUS;
     const keepRadiusSq = keepRadius * keepRadius;
     for (let scanned = 0; scanned < NUM_PEDS && pedBudget > 0; scanned++) {
       const p = peds[pedCursor];
+      const pi = pedCursor;
       pedCursor = (pedCursor + 1) % NUM_PEDS;
+      if (pi >= pedLimit) continue; // governor: fewer people (Q.density)
       if (p.placed) {
         const dx = p.x - focusX, dz = p.z - focusZ;
         if (dx * dx + dz * dz <= keepRadiusSq) continue;
@@ -755,6 +758,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     pedCrowd.begin();
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
+      if (i >= pedLimit) p.placed = false;
       if (!p.placed) { if (p.actor) cast?.drop(p); continue; }
       walk(p, dt);
       renderPed(p, dt);

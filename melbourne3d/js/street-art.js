@@ -198,17 +198,21 @@ export function createStreetArt({ scene }) {
       geo.setIndex(idx);
       geo.computeBoundingSphere();
       const m = new THREE.Mesh(geo, mats[i]);
-      m.receiveShadow = true; m.frustumCulled = true;
+      m.receiveShadow = false; m.frustumCulled = true; m.matrixAutoUpdate = false; m.updateMatrix(); // static decals: no shadow sampling, no per-frame matrix
       grp.add(m);
     });
     if (!grp.children.length) continue;
-    grp.visible = false;
+    grp.visible = false; grp.matrixAutoUpdate = false;
     root.add(grp);
     list.push({ grp, cx: ch.cx, cz: ch.cz });
   }
   const lim = DIST + CHUNK * 0.75;
+  let lastX = Infinity, lastZ = Infinity;
   function update(camPos) {
     if (!camPos) return;
+    // Visibility only changes as the camera crosses chunk bounds: skip the loop until it has moved 8 m
+    if (Math.abs(camPos.x - lastX) < 8 && Math.abs(camPos.z - lastZ) < 8) return;
+    lastX = camPos.x; lastZ = camPos.z;
     for (const c of list) c.grp.visible = Math.abs(camPos.x - c.cx) < lim && Math.abs(camPos.z - c.cz) < lim
       && Math.hypot(camPos.x - c.cx, camPos.z - c.cz) < lim;
   }
