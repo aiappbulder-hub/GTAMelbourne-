@@ -30,7 +30,7 @@ const LANES = [
 const CELL = 0.25, INSET = 0.004;
 const CHUNK = 128;
 const DIST = { low: 140, medium: 260, high: 420 }[QUALITY] ?? 260;
-const MAX_QUADS = { low: 500, medium: 800, high: 1200 }[QUALITY] ?? 800;
+const MAX_QUADS = { low: 700, medium: 1000, high: 1400 }[QUALITY] ?? 800;
 
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9 >>> 0) / 4294967296); }
 function inRing(ring, x, z) {
@@ -63,16 +63,17 @@ export function createStreetArt({ scene }) {
   };
   const chunks = new Map(); // key -> {atlas: [pos[], uv[], nrm[]], cx, cz}
   let total = 0;
-  const addQuad = (it, mx, mz, y0, nx, nz, w, h) => {
+  const addQuad = (it, mx, mz, y0, nx, nz, w, h, uf = 1) => {
     const key = Math.floor(mx / CHUNK) + ',' + Math.floor(mz / CHUNK);
     let ch = chunks.get(key);
     if (!ch) chunks.set(key, ch = { cx: (Math.floor(mx / CHUNK) + 0.5) * CHUNK, cz: (Math.floor(mz / CHUNK) + 0.5) * CHUNK, a: [null, null].map(() => ({ p: [], u: [], n: [] })) });
     const g = ch.a[it[0]];
-    const rx = nz, rz = -nx; // viewer's right
+    const rx = nz, rz = -nx; // viewer's right (the wall's tangent)
+    if (Math.abs(rx * nx + rz * nz) > 1e-6) throw new Error('street-art: quad width axis not parallel to wall');
     const bx = mx - rx * w / 2, bz = mz - rz * w / 2, ex = mx + rx * w / 2, ez = mz + rz * w / 2;
     g.p.push(bx, y0, bz, ex, y0, ez, ex, y0 + h, ez, bx, y0 + h, bz);
     const col = it[1] % 4, row = Math.floor(it[1] / 4);
-    const u0 = col * CELL + INSET, u1 = (col + 1) * CELL - INSET, v1 = 1 - row * CELL - INSET, v0 = 1 - (row + 1) * CELL + INSET;
+    const u0 = col * CELL + INSET, u1 = u0 + ((col + 1) * CELL - INSET - u0) * uf, v1 = 1 - row * CELL - INSET, v0 = 1 - (row + 1) * CELL + INSET;
     g.u.push(u0, v0, u1, v0, u1, v1, u0, v1);
     for (let k = 0; k < 4; k++) g.n.push(nx, 0, nz);
     total++;
@@ -104,6 +105,7 @@ export function createStreetArt({ scene }) {
     }
     return false;
   };
+  const STRIP_H = 4.5;
   for (let pass = 0; pass < 2; pass++) for (const b of REAL_BUILDINGS) {
     if (total >= MAX_QUADS) break;
     if (!(inCBD(b.cx, b.cz) || fitzCollingwood(b.cx, b.cz))) continue;
@@ -124,42 +126,48 @@ export function createStreetArt({ scene }) {
         const mx = (p0.x + p1.x) / 2, mz = (p0.z + p1.z) / 2;
         if (inRing(ring, mx + nx * 0.3, mz + nz * 0.3)) continue; // normal must point out
         let lane = null;
-        for (const L of LANES) {
-          if (Math.abs(mx - L.x) < L.hw + 4 && mz > L.z0 - 5 && mz < L.z1 + 5 && Math.abs(nz) < 0.35) { lane = L; break; }
+        if (wallH <= 32) for (const L of LANES) {
+          if (Math.abs(mx - L.x) < L.hw + 2 && mz > L.z0 - 5 && mz < L.z1 + 5 && Math.abs(nz) < 0.2 && (L.x - mx) * nx > 0) { lane = L; break; }
         }
         if ((pass === 0) !== !!lane) continue;
-        let prob;
-        if (lane) prob = lane.dense;
-        else if (cbd) prob = len < 16 ? 0.1 : 0.012;
-        else prob = len < 30 ? 0.22 : 0.04;
-        if (r() > prob) continue;
         const tx = dx / len, tz = dz / len;
-        const rows = lane && wallH >= 6.5 ? 2 : 1;
-        for (let row = 0; row < rows; row++) {
-          let s = 0.4 + r() * 0.6;
-          while (s < len - 1.5 && total < MAX_QUADS) {
-            const it = pick(r, lane ? lane.tag : '');
-            let w = Math.min(len - s - 0.3, lane ? 2.6 + r() * 2.2 : 2 + r() * 2);
-            let h = w / it[2];
-            const maxH = row ? 2.0 : (lane ? 3.5 : 3);
-            if (h > maxH) { h = maxH; w = h * it[2]; }
-            if (w < 1.2 || s + w > len - 0.2) { s += 1; continue; }
-            const cx = p0.x + tx * (s + w / 2), cz = p0.z + tz * (s + w / 2);
-            // free air in front of the whole span (not inside, or hidden by, another footprint)
-            let ok = true;
-            for (const f of [-0.5, 0, 0.5]) for (const d of [0.5, 1.5]) {
-              if (blocked(cx + tx * f * w + nx * d, cz + tz * f * w + nz * d, b)) ok = false;
+        const free = (cx, cz, w) => {
+          for (const f of [-0.5, 0, 0.5]) for (const d of [0.5, 1.5]) if (blocked(cx + tx * f * w + nx * d, cz + tz * f * w + nz * d, b)) return false;
+          return true;
+        };
+        if (lane) {
+          // one continuous strip of pieces, edge to edge, from 0.2 m to STRIP_H, in the wall plane
+          const h = Math.min(STRIP_H, wallH - 0.4);
+          let s = 0, last = -1;
+          while (s < len - 0.05 && total < MAX_QUADS) {
+            let it = pick(r, lane.tag);
+            if (items.length > 1 && it === last) it = pick(r, lane.tag);
+            last = it;
+            const wFull = h * it[2], w = Math.min(wFull, len - s), uf = w / wFull;
+            if (w > 0.3) {
+              const cx = p0.x + tx * (s + w / 2), cz = p0.z + tz * (s + w / 2);
+              const gy = terrainHeight(cx, cz);
+              if (free(cx, cz, w)) addQuad(it, cx + nx * 0.02, cz + nz * 0.02, gy + 0.2, nx, nz, w, h, uf);
             }
-            const gy = terrainHeight(cx, cz);
-            const y0 = gy + (row ? 3.9 : 0.3);
-            const px = cx + nx * 0.02, pz = cz + nz * 0.02;
-            if (ok && y0 + h <= gy + Math.min(wallH - 0.3, 6.2) && !overlaps(px, pz, nx, nz, w, y0, y0 + h)) {
-              addQuad(it, px, pz, y0, nx, nz, w, h);
-              placed.push({ x: px, z: pz, nx, nz, w, y0, y1: y0 + h });
-            }
-            s += w + 0.2 + r() * 0.5;
-            if (!lane) break; // one piece per ordinary wall
+            s += w;
           }
+          continue;
+        }
+        // elsewhere: a few single pieces, ground level, laneway side/back walls only (never main facades)
+        let prob = 0;
+        if (cbd) prob = len < 16 ? 0.05 : 0;
+        else prob = len < 30 ? 0.18 : 0.03;
+        if (r() > prob) continue;
+        const it = pick(r, '');
+        let w = Math.min(len - 0.6, 1.8 + r() * 1.6), h = w / it[2];
+        if (h > 2.2) { h = 2.2; w = h * it[2]; }
+        if (w < 1 || w > len - 0.2) continue;
+        const sp = 0.3 + r() * (len - w - 0.6);
+        const cx = p0.x + tx * (sp + w / 2), cz = p0.z + tz * (sp + w / 2);
+        const gy = terrainHeight(cx, cz), px = cx + nx * 0.02, pz = cz + nz * 0.02;
+        if (free(cx, cz, w) && gy + 0.3 + h < gy + wallH - 0.3 && !overlaps(px, pz, nx, nz, w, gy + 0.3, gy + 0.3 + h)) {
+          addQuad(it, px, pz, gy + 0.3, nx, nz, w, h);
+          placed.push({ x: px, z: pz, nx, nz, w, y0: gy + 0.3, y1: gy + 0.3 + h });
         }
       }
     }
