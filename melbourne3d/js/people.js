@@ -35,7 +35,17 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
 // them): a walk cycle of 1.07 s covers 1.5 m, a run cycle of 0.73 s covers 2.2 m. ARA_PHASE: the fraction of each loop at which the
 // left foot is furthest forward, so a walk and a run can be played together in step and blended by speed
 const ARA_GAIT = { walk: 1.42, run: 3.12, sprint: 3.12 };
-const ARA_PHASE = { walk: 0.517, run: 0.633 };
+const ARA_PHASE = { walk: 0.517, run: 0.633, jog: 0.9545, sprint_ual: 0.875 };
+// Quaternius' Universal Animation Library (CC0), retargeted onto the Ara rig by tools/ara/retarget_ual.py into assets/ara/ual-clips.glb:
+// a jog (5.37 m/s, 0.917 s a cycle) and a sprint (7.9 m/s, 0.667 s) for the speeds the CMU run clip can't do, jump start/air/land, two
+// punches and two hit reactions. UAL_KEYS: the clip's name in that file -> the game's name for it
+const UAL_URL = new URL('ual-clips.glb', ARA_BASE);
+const UAL_KEYS = { Sprint: 'sprint_ual', Jog: 'jog', 'Jump start': 'jump_start', 'Jump air': 'jump_air', 'Jump land': 'jump_land',
+  'Punch jab': 'punch_jab', 'Punch cross': 'punch_cross', 'Hit chest': 'hit_chest', 'Hit head': 'hit_head' };
+// the punches and the hit play on the upper body only (over whatever the legs are doing): the clips cut down to these bones
+const UAL_UPPER = ['punch_jab', 'punch_cross', 'hit_chest'];
+const UPPER_BONES = /^(Spine|Spine1|Spine2|Neck|Head|(Left|Right)(Shoulder|Arm|ForeArm|Hand))\.quaternion$/;
+const JOG_STRIDE = 5.37 * 0.9167, SPRINT_STRIDE = 7.9 * 0.6667; // metres a left-foot cycle covers
 // Recoil per weapon: how far the muzzle flips up (rad), the gun is pulled back (m) and the torso rocks back (rad) at a shot
 const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0.06, back: 0.035, torso: 0.035 }, shotgun: { rise: 0.3, back: 0.13, torso: 0.17 },
   m4: { rise: 0.09, back: 0.055, torso: 0.07 }, rocket: { rise: 0.36, back: 0.17, torso: 0.22 } };
@@ -108,6 +118,23 @@ export function createCast({ scene, controllerManager }) {
   const templates = new Map(); // id → glTF scene
   const ownClips = new Map(); // id → its own clips by the game's names (Ara characters)
   const clips = { m: null, f: null }; // name → AnimationClip
+  let ualLoad = null;
+  /** The UAL clips by the game's names (and the upper-body cuts of the punches and the hit), or null if the file isn't there */
+  const loadUal = () => ualLoad || (ualLoad = loader.loadAsync(UAL_URL.href).then((g) => {
+    const out = {};
+    for (const c of g.animations) {
+      const key = UAL_KEYS[c.name];
+      if (!key) continue;
+      c.tracks = c.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === 'Hips.position');
+      out[key] = c;
+      if (UAL_UPPER.includes(key)) {
+        const up = c.clone();
+        up.tracks = up.tracks.filter((t) => UPPER_BONES.test(t.name));
+        out[`${key}_up`] = up;
+      }
+    }
+    return out;
+  }).catch((e) => { console.warn('[people] no UAL clips', e); return null; }));
   const loading = new Map();
   function loadPerson(id) {
     if (!loading.has(id)) {
@@ -118,6 +145,8 @@ export function createCast({ scene, controllerManager }) {
           const byName = Object.fromEntries(g.animations.map((c) => [c.name, c]));
           if (byName['Sit idle (chair)']) calmSeat(byName['Sit idle (chair)']);
           ownClips.set(id, Object.fromEntries(Object.entries(ARA_CLIPS).filter(([, n]) => byName[n]).map(([k, n]) => [k, byName[n]])));
+          const ual = await loadUal(); // (the others borrow the player's, so the player's set has them all before they're copied)
+          if (ual) Object.assign(ownClips.get(id), ual);
         } else if (ara) {
           // no clips of their own: the player's (the same rig), the hips' travel scaled to this body's leg length
           await loadPerson('ara:player');
@@ -184,6 +213,9 @@ export function createCast({ scene, controllerManager }) {
   })();
   // gestures that play once and then hand back to whatever the person was doing
   const ONCE = new Set(['wave', 'nod', 'deny', 'shrug', 'laugh', 'cheer', 'die']);
+  // clips that play once from their start (the jump's take-off and landing) without the gesture rules of ONCE
+  const ONESHOT = new Set(['jump_start', 'jump_land']);
+  const oneShot = (n) => ONCE.has(n) || ONESHOT.has(n) || n.endsWith('_up');
   // Clips that would visibly come round again (idles, talking, listening, sitting: motion capture cut to a length, not
   // made to loop): just before one ends, the person drifts into another from its group instead
   const VARIANTS = {
@@ -212,7 +244,7 @@ export function createCast({ scene, controllerManager }) {
     const acts = {};
     for (const [name, clip] of Object.entries(set)) {
       acts[name] = mixer.clipAction(clip);
-      if (ONCE.has(name)) { acts[name].setLoop(THREE.LoopOnce, 1); acts[name].clampWhenFinished = true; } // a gesture plays once
+      if (oneShot(name)) { acts[name].setLoop(THREE.LoopOnce, 1); acts[name].clampWhenFinished = true; } // a gesture plays once
     }
     // the face's blend shapes (Ara characters): for blinking
     const faces = [];
@@ -230,7 +262,7 @@ export function createCast({ scene, controllerManager }) {
   function action(a, name) {
     if (!a.acts[name] && a.set[name]) {
       a.acts[name] = a.mixer.clipAction(a.set[name]); // a story clip that arrived after this person was made
-      if (ONCE.has(name)) { a.acts[name].setLoop(THREE.LoopOnce, 1); a.acts[name].clampWhenFinished = true; }
+      if (oneShot(name)) { a.acts[name].setLoop(THREE.LoopOnce, 1); a.acts[name].clampWhenFinished = true; }
     }
     return a.acts[name];
   }
@@ -272,7 +304,7 @@ export function createCast({ scene, controllerManager }) {
       act.setEffectiveWeight(1);
       // idles and talk start somewhere in their first half, so a crowd doesn't move in step (and there's time before
       // the next change)
-      if (!ONCE.has(name) && !['walk', 'run', 'sprint'].includes(name)) act.time = Math.random() * act.getClip().duration * 0.5;
+      if (!oneShot(name) && !['walk', 'run', 'sprint', 'jump_air'].includes(name)) act.time = Math.random() * act.getClip().duration * 0.5;
       act.play();
       if (a.cur && a.cur !== act) act.crossFadeFrom(a.cur, fade, false);
       a.cur = act;
@@ -299,35 +331,46 @@ export function createCast({ scene, controllerManager }) {
   // the real ground speed s, and the cycle rate is the speed over the blended stride length, so the planted foot stays put on the
   // ground (no skating) from a stroll up to a sprint. Standing still, the idle takes over through the usual crossfade
   const WALK_STRIDE = ARA_GAIT.walk * 1.0667, RUN_STRIDE = ARA_GAIT.run * 0.7333;
+  // The gaits the speed is spread over (phase-locked, one cycle clock): walk, the CMU run, the UAL jog, the UAL sprint. Each has a
+  // share of the blend by speed; the cycle rate is the speed over the blended stride length
+  const EXTRA = ['run', 'jog', 'sprint_ual'];
   function locoGait(a, s, idle) {
-    const L = a.loco || (a.loco = { run: 0, f: 1, t: 0, want: 0, s: 0 });
+    const L = a.loco || (a.loco = { run: 0, jog: 0, sprint_ual: 0, f: 1, t: 0, want: 0, s: 0, w: { run: 0, jog: 0, sprint_ual: 0 } });
     L.s = s;
     if (s <= (a.cur === a.acts.walk ? 0.12 : 0.25)) { play(a, has(a, idle) ? idle : 'idle'); return; }
     L.want = 1;
-    L.t = smoothK((s - 1.9) / 1.2); // 0 = all walk, 1 = all run
-    const stride = WALK_STRIDE + (RUN_STRIDE - WALK_STRIDE) * L.t;
+    const t1 = smoothK((s - 1.9) / 1.2), t2 = a.acts.jog ? smoothK((s - 3.6) / 1.7) : 0, t3 = a.acts.sprint_ual ? smoothK((s - 6.0) / 2.0) : 0;
+    L.t = t1; // 0 = all walk, 1 = all run
+    L.w.run = (1 - t3) * (1 - t2) * t1; L.w.jog = (1 - t3) * t2; L.w.sprint_ual = t3;
+    const sRun = WALK_STRIDE + (RUN_STRIDE - WALK_STRIDE) * t1;
+    const stride = (1 - t3) * ((1 - t2) * sRun + t2 * JOG_STRIDE) + t3 * SPRINT_STRIDE;
     L.f = THREE.MathUtils.clamp(s / stride, 0.3, 3.2); // cycles per second
     play(a, 'walk', 1);
   }
   function stepLoco(a, dt) {
     const L = a.loco;
     if (!L) return;
-    const walk = a.acts.walk, run = a.acts.run;
+    const walk = a.acts.walk;
     const on = L.want && a.cur === walk;
-    L.run += ((on ? L.t : 0) - L.run) * Math.min(1, dt * 12);
+    let sum = 0;
     if (on) walk.timeScale = L.f * walk.getClip().duration;
-    if (L.run > 0.004) {
-      if (!run.isRunning()) { run.reset(); run.enabled = true; run.play(); run.time = walk.time / walk.getClip().duration * run.getClip().duration; }
-      const ph = (walk.time / walk.getClip().duration - ARA_PHASE.walk + ARA_PHASE.run + 1) % 1;
-      run.time = ph * run.getClip().duration;
-      run.timeScale = L.f * run.getClip().duration;
-      run.enabled = true;
-      run.weight = L.run;
-      walk.weight = 1 - L.run * 0.999;
-    } else {
-      if (run.isRunning() && a.cur !== run) { run.stop(); }
-      if (a.cur === walk) walk.weight = 1;
+    const wph = walk.time / walk.getClip().duration;
+    for (const k of EXTRA) {
+      const act = a.acts[k];
+      if (!act) continue;
+      if (!on) { L[k] = 0; if (act.isRunning()) act.stop(); continue; } // (not walking any more: the idle or whatever took over, alone)
+      L[k] += (L.w[k] - L[k]) * Math.min(1, dt * 12);
+      if (L[k] > 0.004) {
+        const dur = act.getClip().duration;
+        if (!act.isRunning()) { act.reset(); act.enabled = true; act.play(); }
+        act.time = ((wph - ARA_PHASE.walk + ARA_PHASE[k] + 1) % 1) * dur; // (in step with the walk: the same foot forward at the same moment)
+        act.timeScale = L.f * dur;
+        act.enabled = true;
+        act.weight = L[k];
+        sum += L[k];
+      } else if (act.isRunning()) act.stop();
     }
+    if (a.cur === walk) walk.weight = Math.max(0.001, 1 - sum * 0.999);
     L.want = 0;
   }
   const tickActor = (a, dt) => { stepLoco(a, dt); a.mixer.update(dt); };
@@ -534,6 +577,7 @@ export function createCast({ scene, controllerManager }) {
       swing(a, S.LeftArm, AX.fw, out); swing(a, S.RightArm, AX.fw, -out);
       if (up > 0) { swing(a, S.LeftArm, L, -air * up * 0.5); swing(a, S.RightArm, L, -air * up * 0.5); }
     }
+    if (k.bank) { swing(a, S.Spine, AX.fw, -k.bank * 0.3); swing(a, S.Spine1, AX.fw, -k.bank * 0.4); swing(a, S.Spine2, AX.fw, -k.bank * 0.3); }
     const fwd = k.fwd || 0;
     if (fwd) { swing(a, S.Spine, L, fwd * 0.3); swing(a, S.Spine1, L, fwd * 0.4); swing(a, S.Spine2, L, fwd * 0.3); }
     if (k.twist) { swing(a, S.Spine, AX.up, k.twist * 0.3); swing(a, S.Spine1, AX.up, k.twist * 0.4); swing(a, S.Spine2, AX.up, k.twist * 0.3); }
@@ -669,7 +713,7 @@ export function createCast({ scene, controllerManager }) {
       const H = head.getWorldPosition(new THREE.Vector3());
       const guard = gs.raise > 0.3 || gs.punch > 0;
       // a jab (the lead, left hand: short, quick) and a cross (the rear, right hand: all the way out, the shoulders and hips turning into it)
-      if (guard) for (const left of [false, true]) {
+      if (guard && !a.layerAct) for (const left of [false, true]) {
         const punching = gs.punch > 0 && left === gs.punchLeft, w = punching ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
         const reach = left ? 0.5 : 0.62;
         const T = H.clone().addScaledVector(fw, 0.26 + reach * w * 0.95).addScaledVector(right, (left ? 1 : -1) * (punching ? 0.03 : 0.15)).add(new THREE.Vector3(0, -0.3 - (punching ? 0.02 : 0.1), 0));
@@ -778,6 +822,32 @@ export function createCast({ scene, controllerManager }) {
     playerAction = name;
     if (name && ONCE.has(name) && playerActor) play(playerActor, name);
   }
+  // An upper-body layer (a punch, a hit reaction): the clip's arm, shoulder, spine and head tracks played over the legs' locomotion. The
+  // mixer averages by weight, so a layer weighted w/(1-w) takes the bones over by w (the locomotion's share is 1)
+  function startLayer(a, key, seconds) {
+    const act = action(a, `${key}_up`);
+    if (!act) return false;
+    if (a.layerAct && a.layerAct !== act) a.layerAct.stop();
+    act.reset();
+    act.enabled = true;
+    act.timeScale = act.getClip().duration / seconds;
+    act.setEffectiveWeight(0);
+    act.play();
+    a.layerAct = act;
+    a.layerT = 0;
+    a.layerDur = seconds;
+    a.layerHit = key.startsWith('hit');
+    return true;
+  }
+  function stepLayer(a, dt) {
+    const act = a.layerAct;
+    if (!act) return;
+    a.layerT += dt;
+    if (a.layerT >= a.layerDur) { act.stop(); a.layerAct = null; a.layerHit = false; return; }
+    const k = THREE.MathUtils.clamp(Math.min(a.layerT / 0.07, (a.layerDur - a.layerT) / 0.16), 0, 0.97);
+    act.enabled = true;
+    act.weight = k / (1 - k);
+  }
   function posePlayer(dt) {
     const p = controllerManager?.entities?.person;
     if (!p) return;
@@ -836,6 +906,16 @@ export function createCast({ scene, controllerManager }) {
     const airborne = air > 0.14;
     if (airborne) { a.fallV = Math.max(a.fallV || 0, -(p.verticalVel || 0)); if (!a.wasAir) a.legSide = Math.random() < 0.5 ? 1 : -1; }
     else if (a.wasAir) { a.land = Math.min(1, Math.max(0.3, (a.fallV || 0) / 7)); a.fallV = 0; }
+    // the UAL jump: take-off while rising, the air loop, a landing crouch if you stop (running on, the procedural crouch is enough)
+    const jumpClips = has(a, 'jump_start') && has(a, 'jump_air') && has(a, 'jump_land');
+    if (jumpClips) {
+      if (airborne) { a.airT = (a.airT || 0) + dt; a.landT = 0; }
+      else {
+        if (a.wasAir && a.land >= 0.35 && a.vs < 2.5) a.landT = 0.62;
+        a.airT = 0;
+        a.landT = Math.max(0, (a.landT || 0) - dt);
+      }
+    }
     a.wasAir = airborne;
     a.land = Math.max(0, (a.land || 0) - dt * 3.4);
     a.airK = (a.airK || 0) + ((airborne ? 1 : 0) - (a.airK || 0)) * Math.min(1, dt * (airborne ? 16 : 10));
@@ -850,7 +930,13 @@ export function createCast({ scene, controllerManager }) {
     a.lastHeading = p.heading;
     const turning = loose && Math.abs(resid) > 0.1 && has(a, 'turn_left');
     a.turnT = turning ? 0.2 : Math.max(0, a.turnT - dt);
-    if (playerAction && standing) play(a, has(a, playerAction) ? playerAction : 'idle');
+    const dJ = a.jumpClips = jumpClips;
+    if (dJ && airborne) {
+      const rising = a.airT < 0.3 && (p.verticalVel || 0) > -1;
+      if (rising) play(a, 'jump_start', a.acts.jump_start ? a.acts.jump_start.getClip().duration / 0.5 : 1.8, 0.06);
+      else play(a, 'jump_air', 1, 0.15);
+    } else if (dJ && a.landT > 0) play(a, 'jump_land', a.acts.jump_land ? a.acts.jump_land.getClip().duration / 0.62 : 1.9, 0.08);
+    else if (playerAction && standing) play(a, has(a, playerAction) ? playerAction : 'idle');
     else if (standing && weapon.armed && weapon.aiming && has(a, 'aim')) play(a, 'aim'); // the pistol stance (the arms then point it)
     else if (weapon.aiming && !standing && has(a, 'strafe_left') && p._strafeX !== undefined) {
       // gun up and moving: step the way they go, still facing the aim (forwards, backwards or sideways)
@@ -867,24 +953,35 @@ export function createCast({ scene, controllerManager }) {
       gait(a, a.vs, a.still > 14 ? 'wait' : a.still > 5 ? 'look' : 'idle');
     }
     place(a, p.position.x, p.position.y, p.position.z, a.vh, dt, false);
+    // a punch plays its clip on the upper body, over whatever the legs are doing
+    const fistsOut = weapon.armed && WEAPON_BY_ID[weapon.id]?.melee;
+    if (fistsOut && weapon.punch > 0 && !a.prevPunch) startLayer(a, weapon.punchLeft ? 'punch_jab' : 'punch_cross', 0.55);
+    a.prevPunch = weapon.punch > 0;
+    stepLayer(a, dt);
     tickActor(a, dt);
     faceLife(a, dt);
+    // leaning into a turn: the heading's rate of turn at speed (left turns positive), eased
+    const dh = a.prevHead === undefined || dt <= 0 ? 0 : wrapPi(p.heading - a.prevHead) / dt;
+    a.prevHead = p.heading;
+    a.yaw = (a.yaw || 0) + (THREE.MathUtils.clamp(dh, -6, 6) - (a.yaw || 0)) * Math.min(1, dt * 5);
+    const bank = airborne ? 0 : THREE.MathUtils.clamp(a.yaw * 0.035 * THREE.MathUtils.clamp(a.vs / 5, 0, 1.6), -0.2, 0.2);
     // the body layer over the clip: the lean into a run, the aim's pitch through the spine, the recoil, a flinch, the jump
     const gs = weapon, spec = WEAPON_BY_ID[gs.id];
     gs.run = a.loco && a.loco.s > 2.4 ? 1 : 0;
-    const runLean = THREE.MathUtils.clamp((a.vs - 1.6) / 6, 0, 1) * 0.2 + THREE.MathUtils.clamp(a.acc * 0.012, -0.12, 0.14);
+    const clipLean = a.acts.jog ? 0.4 : 1; // (the UAL jog and sprint carry their own lean)
+    const runLean = THREE.MathUtils.clamp((a.vs - 1.6) / 6, 0, 1) * 0.2 * clipLean + THREE.MathUtils.clamp(a.acc * 0.012, -0.12, 0.14);
     const gun = gs.armed && spec && !spec.melee;
     const pitchUp = gun ? gs.pitch * gs.raise : 0;
     const rec = RECOIL[gs.id] || { torso: 0.05 };
     const kk = gs.kick * gs.kick * (3 - 2 * gs.kick);
     a.flinchK = Math.max(0, (a.flinchK || 0) - dt * 3.2);
-    const fl = a.flinchK * a.flinchK * (a.flinchK > 0.7 ? 1 : 0.7) ;
-    const punchW = gs.armed && spec?.melee && gs.punch > 0 ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
+    const fl = a.layerHit ? 0 : a.flinchK * a.flinchK * (a.flinchK > 0.7 ? 1 : 0.7); // (a hit clip, when there is one, does the flinch)
+    const punchW = !a.layerAct && gs.armed && spec?.melee && gs.punch > 0 ? Math.sin(Math.PI * Math.min(1, gs.punch)) : 0;
     bodyLayer(a, {
       fwd: runLean * (1 - 0.6 * gs.raise) - pitchUp * 0.55 - (gun ? kk * rec.torso : 0) - fl * 0.3 + punchW * 0.08 + (turning ? 0 : 0),
       head: -pitchUp * 0.5 - fl * 0.35,
       twist: (turning ? THREE.MathUtils.clamp(resid * 0.4, -0.5, 0.5) : 0) + (punchW ? (gs.punchLeft ? -1 : 1) * punchW * (gs.punchLeft ? 0.25 : 0.55) : 0) + fl * (a.flinchSide || 1) * 0.28,
-      airK: a.airK, vy: p.verticalVel, land: a.land, crouch: a.land * 0.1 + fl * 0.03 + (a.airK > 0.1 ? 0.03 * a.airK : 0)
+      bank, airK: a.jumpClips ? 0 : a.airK, vy: p.verticalVel, land: a.jumpClips && a.landT > 0 ? 0 : a.land, crouch: a.land * 0.1 + fl * 0.03 + (a.airK > 0.1 ? 0.03 * a.airK : 0)
     });
     a.group.updateMatrixWorld(true);
     poseGun(a, weapon, dt);
@@ -893,6 +990,7 @@ export function createCast({ scene, controllerManager }) {
   function flinch(side = 0) {
     if (!playerActor) return;
     playerActor.flinchK = 1;
+    if (startLayer(playerActor, 'hit_chest', 0.45)) playerActor.layerHit = true;
     playerActor.flinchSide = side || (Math.random() < 0.5 ? 1 : -1);
   }
 
