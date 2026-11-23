@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8"><title>Ara clip viewer</title>
+<style>body{margin:0;background:#888}#c{display:block}.l{position:absolute;font:12px sans-serif;color:#000;background:#fffa;padding:1px 4px}</style>
+<canvas id="c" width="1600" height="900"></canvas>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+<script type="module">
+// Contact sheet of the player's clips (assets/ara/player.glb plus ual-clips.glb) at 25% and 60% of each, for checking a retarget by eye.
+// Serve the repo root, open /melbourne3d/tools/ara/clip-viewer.html; window.__done is true when drawn.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const base = new URL('../../assets/ara/', import.meta.url);
+const L = new GLTFLoader();
+const [pl, ual] = await Promise.all([L.loadAsync(new URL('player.glb', base).href), L.loadAsync(new URL('ual-clips.glb', base).href)]);
+const clips = {};
+for (const c of pl.animations) clips[c.name] = c;
+for (const c of ual.animations) { c.tracks = c.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === 'Hips.position'); clips[c.name] = c; }
+const LIST = ['Idle', 'Walk', 'Jog', 'Sprint', 'Jump start', 'Jump air', 'Jump land', 'Punch jab', 'Punch cross', 'Hit chest'];
+const canvas = document.getElementById('c');
+const r = new THREE.WebGLRenderer({ canvas, antialias: true });
+r.setScissorTest(true);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x777777);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(2, 4, 3); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ color: 0x555555 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const grid = new THREE.GridHelper(4, 8, 0x999999, 0x666666); scene.add(grid);
+const model = pl.scene; scene.add(model);
+model.traverse((o) => { o.frustumCulled = false; });
+const mixer = new THREE.AnimationMixer(model);
+const cols = 5, rows = 4, W = 1600 / cols, H = 900 / rows;
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50);
+cam.position.set(2.6, 1.6, 4.2); cam.lookAt(0, 0.9, 0);
+let i = 0;
+for (const name of LIST) for (const f of [0.25, 0.6]) {
+  const clip = clips[name];
+  mixer.stopAllAction();
+  const act = mixer.clipAction(clip); act.play();
+  mixer.setTime(clip.duration * f);
+  const cx = (i % cols) * W, cy = 900 - (Math.floor(i / cols) + 1) * H;
+  r.setViewport(cx, cy, W, H); r.setScissor(cx, cy, W, H);
+  r.render(scene, cam);
+  const d = document.createElement('div'); d.className = 'l'; d.textContent = `${name} ${Math.round(f * 100)}%`;
+  d.style.left = cx + 4 + 'px'; d.style.top = (Math.floor(i / cols) * H + 4) + 'px'; document.body.appendChild(d);
+  i++;
+}
+window.__done = true;
+</script>
