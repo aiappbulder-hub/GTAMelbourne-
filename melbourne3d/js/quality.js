@@ -2,10 +2,10 @@
 // toolbar), else High on every device. Changing it reloads the page. Dynamic resolution (main.js) keeps High playable
 // on weaker GPUs; Low and Medium are there to pick when it isn't enough.
 //
-//   low:    60% render scale, no antialiasing, no screen-space reflections, bloom or grade pass (direct render with
+//   low:    1 px per CSS px, no antialiasing, no screen-space reflections, bloom or grade pass (direct render with
 //           tone mapping), no sun shadows, short draw distance, simpler trees sooner, 70 cars and 140 people
-//   medium: 85% render scale, bloom and grade but no reflections, 1024 px shadow cascades, 130 cars and 240 people
-//   high:   Slop New York's full pipeline
+//   medium: up to 1.5x, bloom and grade but no reflections, 1024 px shadow cascades, 130 cars and 240 people
+//   high:   up to 2x device pixels, Slop New York's full pipeline
 // Every level also scales its resolution down (and back up) by itself to hold a playable frame rate (main.js).
 
 const LEVELS = ['low', 'medium', 'high'];
@@ -55,21 +55,26 @@ export const GPU_NAME = picked.gpu;
 
 const SETTINGS = {
   low: {
-    pixelRatio: 0.6, minPixelRatio: 0.4, antialias: false, postFX: 'none', shadows: false, shadowTile: 0,
+    pixelRatio: 1.0, minPixelRatio: 0.75, antialias: false, postFX: 'none', shadows: false, shadowTile: 0,
     cameraFar: 3500, fogScale: 2.2, cars: 70, buses: 4, peds: 140, treeLod: 0.45, treeDist: 0.35, cullScale: 0.5, viewDist: 1500
   },
   medium: {
-    pixelRatio: 0.85, minPixelRatio: 0.5, antialias: false, postFX: 'bloom', shadows: true, shadowTile: 1024,
+    pixelRatio: 1.5, minPixelRatio: 0.75, antialias: false, postFX: 'bloom', shadows: true, shadowTile: 1024,
     cameraFar: 12000, fogScale: 1.3, cars: 130, buses: 8, peds: 240, treeLod: 0.75, treeDist: 0.65, cullScale: 0.8, viewDist: 2500
   },
   high: {
-    pixelRatio: 1.0, minPixelRatio: 0.6, antialias: true, postFX: 'full', shadows: true, shadowTile: 2048,
+    pixelRatio: 2.0, minPixelRatio: 0.75, antialias: true, postFX: 'full', shadows: true, shadowTile: 2048,
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
 export const Q = { ...SETTINGS[QUALITY] };
-// Phones and tablets render at 75% of the tier's resolution (the pixel ratio is already capped at 1)
-if (IS_MOBILE) { Q.pixelRatio = Math.min(1, Q.pixelRatio) * 0.75; Q.minPixelRatio = Math.min(Q.minPixelRatio, Q.pixelRatio) * 0.75; }
+// Render scale is relative to the device pixel ratio (sharp on retina/phone screens): the tier value is a cap
+// (high 2, medium 1.5, low 1 = at least one pixel per CSS pixel); never below 0.75 CSS px, even when stepping down.
+const DPR = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+function scaleFor(t) {
+  return { pixelRatio: t.pixelRatio === 1 ? 1 : Math.min(DPR, t.pixelRatio), minPixelRatio: t.minPixelRatio };
+}
+{ const r = scaleFor(SETTINGS[QUALITY]); Q.pixelRatio = Math.max(1, r.pixelRatio); Q.minPixelRatio = r.minPixelRatio; }
 // Today's heavy extras (PBR facades and roofs, HDRI lighting, new trees and water, GTAO) are High only
 export const HEAVY_FX = QUALITY === 'high';
 
@@ -94,10 +99,8 @@ export function reloadWithAutoQuality(level) {
 /** Apply a tier's cheap settings live onto Q (view distance, fog, camera far, render scale, shadows flag) */
 export function applyTierLive(level) {
   const t = SETTINGS[level];
-  const px = IS_MOBILE ? 0.75 : 1;
   Object.assign(Q, { viewDist: t.viewDist, fogScale: t.fogScale, cameraFar: t.cameraFar, shadows: t.shadows, postFX: t.postFX, treeDist: t.treeDist, cullScale: t.cullScale });
-  Q.pixelRatio = Math.min(1, t.pixelRatio) * px;
-  Q.minPixelRatio = Math.min(t.minPixelRatio, Q.pixelRatio) * px;
+  const r = scaleFor(t); Q.pixelRatio = Math.max(1, r.pixelRatio); Q.minPixelRatio = r.minPixelRatio;
 }
 
 /** Save a level and reload with it */
