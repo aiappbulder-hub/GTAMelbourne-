@@ -1237,6 +1237,7 @@ async function initApp() {
       // Dynamic resolution: every 2 s, scale the render down while the frame rate is under 28 and back up over 48
       fpsWindow.push(currentFps);
       if (currentFps >= LOW_FPS) lowRun = 0; else if (performance.now() > 20000 && ++lowRun >= 12 && QUALITY_SOURCE !== 'url') { lowRun = 0; if (autoStepDown()) return; }
+      if (performance.now() < 20000) fpsWindow.length = 0; // loading/shader-compile frames must not drop the resolution
       if (fpsWindow.length >= 8) {
         const avg = fpsWindow.reduce((t, v) => t + v, 0) / fpsWindow.length;
         fpsWindow.length = 0;
