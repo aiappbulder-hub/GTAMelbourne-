@@ -11,12 +11,12 @@ import { REAL_BUILDINGS } from './city-buildings.js';
 
 // [atlas, cell, aspect, tag] tag: h = Hosier-ish, a = AC/DC
 const ART = [
-  [0, 0, 1.753, 'h'], [0, 1, 1.705, 'h'], [0, 2, 1.697, 'h'], [0, 3, 1.585, ''], [0, 4, 1.138, ''], [0, 5, 1.541, 'h'],
-  [0, 6, 1.365, 'h'], [0, 7, 1.115, 'h'], [0, 8, 1.365, 'h'], [0, 9, 1.117, 'h'], [0, 10, 1.516, 'h'], [0, 11, 1.711, ''],
-  [0, 12, 1.516, ''], [0, 13, 1.024, 'a'], [0, 14, 1.024, 'a'], [0, 15, 1.365, 'a'],
-  [1, 0, 1.705, 'a'], [1, 1, 1.516, ''], [1, 2, 1.707, ''], [1, 3, 1.707, ''], [1, 4, 1.634, ''], [1, 5, 1.292, ''],
-  [1, 6, 1.516, 'a'], [1, 7, 1.516, 'h'], [1, 8, 1.708, 'h'], [1, 9, 1.715, ''], [1, 10, 1.516, 'h'], [1, 11, 0.768, ''],
-  [1, 12, 1.705, ''], [1, 13, 3.154, '']
+  [0, 0, 1.982, 'h'], [0, 1, 1.726, 'h'], [0, 2, 1.735, 'h'], [0, 3, 1.163, ''],
+  [0, 4, 1.137, 'h'], [0, 5, 1.393, 'h'], [0, 6, 1.140, 'h'], [0, 7, 1.546, 'h'],
+  [0, 8, 1.751, 'h'], [0, 9, 1.546, 'h'], [0, 10, 1.045, 'a'], [0, 11, 1.045, 'a'],
+  [0, 12, 1.393, 'a'], [0, 13, 2.110, 'a'], [0, 14, 1.744, 'h'], [0, 15, 1.744, 'h'],
+  [1, 0, 1.672, ''], [1, 1, 1.320, ''], [1, 2, 1.546, 'a'], [1, 3, 1.873, 'h'],
+  [1, 4, 1.748, ''], [1, 5, 1.546, ''], [1, 6, 0.783, ''], [1, 7, 1.744, '']
 ];
 const LANES = [
   { x: 58, hw: 2.6, z0: 126, z1: 231, dense: 0.95, tag: 'h' },    // Hosier Lane
@@ -76,11 +76,38 @@ export function createStreetArt({ scene }) {
   };
 
   const r = rng(1337);
+  // Spatial index of every footprint (32 m cells): a decal is only placed where the open air in front of the wall is free
+  const GC = 32, grid = new Map();
+  for (const b of REAL_BUILDINGS) {
+    if (!(inCBD(b.cx, b.cz) || fitzCollingwood(b.cx, b.cz))) continue;
+    for (let ix = Math.floor(b.minX / GC); ix <= Math.floor(b.maxX / GC); ix++) for (let iz = Math.floor(b.minZ / GC); iz <= Math.floor(b.maxZ / GC); iz++) {
+      const k = ix + ',' + iz; (grid.get(k) || grid.set(k, []).get(k)).push(b);
+    }
+  }
+  const blocked = (x, z, self) => {
+    for (const o of grid.get(Math.floor(x / GC) + ',' + Math.floor(z / GC)) || []) {
+      if (x < o.minX || x > o.maxX || z < o.minZ || z > o.maxZ) continue;
+      for (const pl of o.polygons) if (inRing(pl.outer, x, z)) return true;
+    }
+    return false;
+  };
+  const placed = []; // {x,z,nx,nz,w,y0,y1}
+  const overlaps = (x, z, nx, nz, w, y0, y1) => {
+    for (const q of placed) {
+      if (nx * q.nx + nz * q.nz < 0.8) continue;
+      if (Math.abs((x - q.x) * nx + (z - q.z) * nz) > 0.6) continue;
+      if (Math.abs((x - q.x) * nz - (z - q.z) * nx) > (w + q.w) / 2 + 0.15) continue;
+      if (y0 < q.y1 + 0.1 && y1 > q.y0 - 0.1) return true;
+    }
+    return false;
+  };
   for (let pass = 0; pass < 2; pass++) for (const b of REAL_BUILDINGS) {
     if (total >= MAX_QUADS) break;
-    if (pass === 0 && !LANES.some((L) => Math.abs(b.cx - L.x) < 60 && b.maxZ > L.z0 && b.minZ < L.z1)) continue;
     if (!(inCBD(b.cx, b.cz) || fitzCollingwood(b.cx, b.cz))) continue;
+    if (pass === 0 && !LANES.some((L) => Math.abs(b.cx - L.x) < 60 && b.maxZ > L.z0 && b.minZ < L.z1)) continue;
     const cbd = inCBD(b.cx, b.cz);
+    const wallH = b.height || 8;
+    if (wallH < 4) continue;
     for (const poly of b.polygons) {
       const ring = poly.outer;
       let A = 0;
@@ -92,7 +119,7 @@ export function createStreetArt({ scene }) {
         if (len < 3.5) continue;
         const nx = sgn * dz / len, nz = -sgn * dx / len;
         const mx = (p0.x + p1.x) / 2, mz = (p0.z + p1.z) / 2;
-        if (inRing(ring, mx + nx * 0.3, mz + nz * 0.3)) continue; // safety: normal must point out
+        if (inRing(ring, mx + nx * 0.3, mz + nz * 0.3)) continue; // normal must point out
         let lane = null;
         for (const L of LANES) {
           if (Math.abs(mx - L.x) < L.hw + 4 && mz > L.z0 - 5 && mz < L.z1 + 5 && Math.abs(nz) < 0.35) { lane = L; break; }
@@ -100,29 +127,34 @@ export function createStreetArt({ scene }) {
         if ((pass === 0) !== !!lane) continue;
         let prob;
         if (lane) prob = lane.dense;
-        else if (cbd) prob = len < 16 ? 0.1 : 0.012; // laneway side walls / rear walls vs main facades
-        else prob = len < 30 ? 0.22 : 0.04;           // Fitzroy & Collingwood back walls
+        else if (cbd) prob = len < 16 ? 0.1 : 0.012;
+        else prob = len < 30 ? 0.22 : 0.04;
         if (r() > prob) continue;
-        const wallH = b.height || 8;
-        if (wallH < 3.5) continue;
-        const rows = lane && wallH >= 7 ? 2 : 1;
         const tx = dx / len, tz = dz / len;
+        const rows = lane && wallH >= 6.5 ? 2 : 1;
         for (let row = 0; row < rows; row++) {
-          let s = 0.5 + r() * 0.8;
-          let yb = row ? 0 : 0.3;
-          let rowTop = 0;
+          let s = 0.4 + r() * 0.6;
           while (s < len - 1.5 && total < MAX_QUADS) {
             const it = pick(r, lane ? lane.tag : '');
-            let w = Math.min(len - s - 0.4, lane ? 2.8 + r() * 2.4 : 2 + r() * 2);
+            let w = Math.min(len - s - 0.3, lane ? 2.6 + r() * 2.2 : 2 + r() * 2);
             let h = w / it[2];
-            const maxH = lane ? 3.6 : 3;
+            const maxH = row ? 2.0 : (lane ? 3.5 : 3);
             if (h > maxH) { h = maxH; w = h * it[2]; }
-            if (w < 1.2 || w > len - s) break;
-            const px = p0.x + tx * (s + w / 2) + nx * 0.04, pz = p0.z + tz * (s + w / 2) + nz * 0.04;
-            const gy = terrainHeight(px, pz);
-            const y0 = gy + (row ? 0.3 + 3.7 : 0.3);
-            if (y0 + h < gy + wallH - 0.3) addQuad(it, px, pz, y0, nx, nz, w, h);
-            s += w + 0.15 + r() * 0.6;
+            if (w < 1.2 || s + w > len - 0.2) { s += 1; continue; }
+            const cx = p0.x + tx * (s + w / 2), cz = p0.z + tz * (s + w / 2);
+            // free air in front of the whole span (not inside, or hidden by, another footprint)
+            let ok = true;
+            for (const f of [-0.5, 0, 0.5]) for (const d of [0.5, 1.5]) {
+              if (blocked(cx + tx * f * w + nx * d, cz + tz * f * w + nz * d, b)) ok = false;
+            }
+            const gy = terrainHeight(cx, cz);
+            const y0 = gy + (row ? 3.9 : 0.3);
+            const px = cx + nx * 0.02, pz = cz + nz * 0.02;
+            if (ok && y0 + h <= gy + Math.min(wallH - 0.3, 6.2) && !overlaps(px, pz, nx, nz, w, y0, y0 + h)) {
+              addQuad(it, px, pz, y0, nx, nz, w, h);
+              placed.push({ x: px, z: pz, nx, nz, w, y0, y1: y0 + h });
+            }
+            s += w + 0.2 + r() * 0.5;
             if (!lane) break; // one piece per ordinary wall
           }
         }
@@ -137,7 +169,7 @@ export function createStreetArt({ scene }) {
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = QUALITY === 'low' ? 1 : 4;
     return new THREE.MeshStandardNodeMaterial({
-      map: t, roughness: 0.92, metalness: 0,
+      map: t, color: 0xb8b8b8, roughness: 1, metalness: 0,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
     });
   });
