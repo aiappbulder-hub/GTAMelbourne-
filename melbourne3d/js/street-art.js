@@ -18,11 +18,14 @@ const ART = [
   [1, 0, 1.672, ''], [1, 1, 1.320, ''], [1, 2, 1.546, 'a'], [1, 3, 1.873, 'h'],
   [1, 4, 1.748, ''], [1, 5, 1.546, ''], [1, 6, 0.783, ''], [1, 7, 1.744, '']
 ];
+// The corridors between the surveyed footprints (found by scanning the OSM building data; the hand-built lane strips in
+// melb-night.js sit a little off these): Hosier Lane's wide gap and its narrow neighbour, AC/DC Lane, Centre Place, Degraves.
 const LANES = [
-  { x: 58, hw: 2.6, z0: 126, z1: 231, dense: 0.95, tag: 'h' },    // Hosier Lane
-  { x: 120, hw: 2.4, z0: 126, z1: 231, dense: 0.95, tag: 'a' },   // AC/DC Lane
-  { x: -88, hw: 2.4, z0: 126, z1: 231, dense: 0.5, tag: '' },     // Centre Place
-  { x: -31, hw: 3.2, z0: 126, z1: 231, dense: 0.3, tag: '' }      // Degraves St
+  { x: 75.5, hw: 4, z0: 126, z1: 231, dense: 0.95, tag: 'h' },   // Hosier Lane
+  { x: 56.5, hw: 1.5, z0: 126, z1: 231, dense: 0.9, tag: 'h' },  // Hosier Lane (narrow arm)
+  { x: 97.5, hw: 1.5, z0: 126, z1: 231, dense: 0.95, tag: 'a' }, // AC/DC Lane
+  { x: -63.5, hw: 2, z0: 126, z1: 231, dense: 0.5, tag: '' },    // Centre Place
+  { x: -31, hw: 3.2, z0: 126, z1: 231, dense: 0.3, tag: '' }     // Degraves St
 ];
 const CELL = 0.25, INSET = 0.004;
 const CHUNK = 128;
