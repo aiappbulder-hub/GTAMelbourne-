@@ -43,3 +43,9 @@ see `js/melbourne-tree-geodata.js`.
   MIT licence, Copyright (c) 2020-2023 StrandedKitty. Used by `js/water.js`, whose normal-map layering and sun-glint
   approach follow streets-gl's water shader.
 - `js/water.js` was written with Osm3dWaterShader.pas (GPL-3) in mind for ideas only; no code was ported.
+
+## Quaternius Universal Animation Library (Standard)
+
+- Project: Universal Animation Library by Quaternius (https://quaternius.com/packs/universalanimationlibrary.html), licence CC0 1.0.
+- Used: the Jog, Sprint, Jump start/loop/land, Punch jab/cross, Hit chest/head and Roll clips, retargeted onto the Ara player rig by
+  `tools/ara/retarget_ual.py` into `assets/ara/ual-clips.glb` and played by `js/people.js`. (Not verified whether they were captured or hand-keyed.)
