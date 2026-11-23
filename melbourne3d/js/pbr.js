@@ -26,7 +26,12 @@ const MEAN = {
   concrete: [[0.482, 0.482, 0.482], 0.516],
   render: [[0.682, 0.653, 0.627], 0.79],
   tiles: [[0.275, 0.106, 0.057], 0.677],
-  corrugated: [[0.23, 0.228, 0.227], 0.474]
+  corrugated: [[0.23, 0.228, 0.227], 0.474],
+  sandstone: [[0.429, 0.376, 0.223], 0.647],
+  bluestone: [[0.162, 0.153, 0.117], 0.729],
+  panel: [[0.12, 0.109, 0.1], 0.698],
+  paint: [[0.515, 0.521, 0.491], 0.514],
+  glass: [[0.061, 0.074, 0.087], 0.055]
 };
 
 const _loader = new THREE.TextureLoader();
@@ -73,7 +78,7 @@ export function pbrWall(name, metres, strength = 1.0, normalK = 0.8) {
   const ng = normalWorldGeometry;
   const alongX = step(abs(ng.x), abs(ng.z)); // 1 when the wall faces +-z (runs along x)
   const u = mix(positionWorld.z, positionWorld.x, alongX);
-  const uvNode = vec2(u, positionWorld.y).div(metres);
+  const uvNode = vec2(u, positionWorld.y).div(Array.isArray(metres) ? vec2(metres[0], metres[1]) : metres); // metres or [across, up]
   const sg = mix(sign(ng.x), sign(ng.z), alongX);
   return build(name, uvNode, (n) => mix(vec3(0.0, n.y, n.x.mul(sg)), vec3(n.x.mul(sg), n.y, 0.0), alongX), strength, normalK);
 }

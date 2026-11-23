@@ -164,6 +164,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   const facades = [
     // 0: Pre-War Limestone & Buff Brick (5th Ave / Madison Ave / Upper East Side style)
     [createPreWarBuildingMaterial, {
+      wallSet: 'sandstone',
       stoneColor: 0xd8cdb8,
       trimColor: 0x9e937f,
       windowGlassColor: 0x1a2836,
@@ -175,6 +176,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     }],
     // 1: Historic Warm Red/Terracotta Brick (Garment District / Chelsea / SoHo / Upper West Side)
     [createPreWarBuildingMaterial, {
+      wallSet: 'brick',
       stoneColor: 0xa45a45,
       trimColor: 0xcab9a0,
       windowGlassColor: 0x16222e,
@@ -216,6 +218,21 @@ function buildCityBlocks(scene, landmarkColliders = []) {
       warmth: 0.48,
       reflectivity: 0.95,
       seed: 94.3
+    }],
+    // 5: Melbourne painted render (Victorian/Edwardian terraces and shopfronts)
+    [createPreWarBuildingMaterial, {
+      wallSet: 'paint', stoneColor: 0xcdbfa6, trimColor: 0xe8e0d0, windowGlassColor: 0x16222e,
+      windowWidth: 2.5, floorHeight: 3.4, litProbability: 0.5, warmth: 0.84, seed: 41.3
+    }],
+    // 6: Bluestone (Melbourne's warehouses, banks and lane walls)
+    [createPreWarBuildingMaterial, {
+      wallSet: 'bluestone', stoneColor: 0x6a675c, trimColor: 0x9a9484, windowGlassColor: 0x16222e,
+      windowWidth: 2.4, floorHeight: 3.6, litProbability: 0.5, warmth: 0.8, seed: 55.1
+    }],
+    // 7: Concrete panel (post-war flats and offices)
+    [createPreWarBuildingMaterial, {
+      wallSet: 'panel', stoneColor: 0x9a968c, trimColor: 0xb8b4aa, windowGlassColor: 0x1a2836,
+      windowWidth: 2.8, floorHeight: 3.3, litProbability: 0.45, warmth: 0.7, seed: 72.9
     }]
   ];
   const materials = facades.map(([create, opts]) => create({ ...opts, footprintLocal: true }));
@@ -311,9 +328,12 @@ function buildCityBlocks(scene, landmarkColliders = []) {
     const seed = Math.round(b.cx * 31 + b.cz * 17);
     const rand = mulberry32(seed);
     const tone = rand();
-    const mat = b.year && b.year < 1945 ? (tone < 0.8 ? 0 : 1)
-      : b.year && b.year < 1980 ? (tone < 0.55 ? 0 : 3)
-        : tone < 0.6 ? 2 : 4;
+    // Melbourne mix: low-rise reads brick / render / bluestone / sandstone, mid-century concrete, towers glass
+    const mat = b.height > 45 ? (tone < 0.7 ? 2 : tone < 0.88 ? 4 : 3)
+      : b.year && b.year < 1945 ? (tone < 0.38 ? 1 : tone < 0.6 ? 5 : tone < 0.78 ? 0 : 6)
+        : b.year && b.year < 1980 ? (tone < 0.35 ? 1 : tone < 0.75 ? 7 : 3)
+          : b.height < 14 ? (tone < 0.3 ? 1 : tone < 0.55 ? 5 : tone < 0.8 ? 7 : 6)
+            : tone < 0.6 ? 2 : 4;
     // The survey has no building-use data; choose retail independently of facade style and roof details.
     const storefronts = b.height >= 6 && mulberry32(seed ^ 0x53544f52)() < 0.55;
     const record = { ...b, tone, storefronts, roof: roofPlan(b, mulberry32(seed ^ 0x524f4f46)) };
@@ -330,7 +350,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
       detail.footprints.push({ h: top, pts: polygon.outer, holes: polygon.holes });
     }
     const neighbours = nearbyReserves(b, 6);
-    detailsToPlace.push({ b: record, detail, masonry: mat < 2, rand });
+    detailsToPlace.push({ b: record, detail, masonry: mat < 2 || mat >= 5, rand });
     allBlocks.push(detail);
   }
   // Reserve every fire escape before placing storefronts on neighbouring buildings.
@@ -341,7 +361,7 @@ function buildCityBlocks(scene, landmarkColliders = []) {
   }
   surveyedBuckets.forEach((items, i) => {
     if (!items.length) return;
-    group.add(createBuildingFootprints(materials[i], items, i < 2 ? b => nearbyReserves(b, 2) : undefined));
+    group.add(createBuildingFootprints(materials[i], items, (i < 2 || i >= 5) ? b => nearbyReserves(b, 2) : undefined));
   });
   group.add(createRoofs(surveyedBuckets.flat()));
 

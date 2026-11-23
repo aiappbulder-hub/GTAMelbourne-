@@ -739,6 +739,8 @@ function createCurtainWallMaterial(opts = {}) {
   const cCanyonBounce = color(0xe89c68);
 
   mat.aoNode = canyonSkyAONode();
+  // Photo curtain-wall glazing (ambientCG Facade001: 16 panes x 10 floors per repeat), scaled to this style's bay and floor
+  const glassPbr = PBR_ON ? pbrWall('glass', [windowWidth * 16, floorHeight * 10], 0.85, 0.5) : null;
 
   // The facade cell and the apartment behind each pane are built once and shared by every output below, so the
   // shader carries a single copy of them (and evaluates the interior mapping once per pixel)
@@ -816,7 +818,7 @@ function createCurtainWallMaterial(opts = {}) {
     const roofNoise = noise2D(positionWorld.xz.mul(0.35));
     const roofColor = mix(color(0x202429), color(0x3b4149), roofNoise);
 
-    const facadeCol = mix(frameBase, glassColor, isGlassPane.mul(float(1.0).sub(isMechFloor))).add(canyonGlow);
+    const facadeCol = mix(frameBase, glassColor, isGlassPane.mul(float(1.0).sub(isMechFloor))).mul(glassPbr ? glassPbr.colorRatio : vec3(1.0)).add(canyonGlow);
     const mechCol = mix(cFrame.mul(0.36), cFrame.mul(0.76), louverStripes);
     const finalWall = mix(facadeCol, mechCol, isMechFloor.mul(float(1.0).sub(isRoof)));
 
@@ -887,6 +889,7 @@ function createCurtainWallMaterial(opts = {}) {
 function createPreWarBuildingMaterial(opts = {}) {
   const {
     stoneColor = 0xd8ceb8,
+    wallSet = null, // photo wall set (js/pbr.js): brick, sandstone, bluestone, paint, panel or render; default from stoneColor
     trimColor = 0x9e937f,
     windowGlassColor = 0x162432,
     windowWidth = 2.7,
@@ -903,7 +906,7 @@ function createPreWarBuildingMaterial(opts = {}) {
     cornerPier = 1.2 // solid masonry at both ends of every wall above the shopfronts (box-local mode)
   } = opts;
 
-  const cacheKey = `${stoneColor}_${trimColor}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${crownGlowHeight}_${seed}_${boxLocal}_${footprintLocal}_${cornerPier}`;
+  const cacheKey = `${wallSet}_${stoneColor}_${trimColor}_${windowWidth}_${floorHeight}_${litProbability}_${warmth}_${crownGlowHeight}_${seed}_${boxLocal}_${footprintLocal}_${cornerPier}`;
   if (_preWarCache.has(cacheKey)) {
     return _preWarCache.get(cacheKey);
   }
@@ -933,7 +936,9 @@ function createPreWarBuildingMaterial(opts = {}) {
   mat.aoNode = canyonSkyAONode();
   // Photo-scanned masonry detail under the procedural courses: red/brown styles get brick, pale ones rendered sandstone
   const sr = (stoneColor >> 16) & 255, sb = stoneColor & 255;
-  const pbr = PBR_ON ? pbrWall(sr - sb > 40 ? 'brick' : 'render', sr - sb > 40 ? 1.6 : 2.4, 0.55, 0.6) : null;
+  const WALL_SETS = { brick: [1.6, 0.9], sandstone: [2.2, 0.85], bluestone: [3.0, 0.85], paint: [2.6, 0.8], panel: [3.0, 0.8], render: [2.4, 0.7] };
+  const wsel = wallSet || (sr - sb > 40 ? 'brick' : 'render');
+  const pbr = PBR_ON ? pbrWall(wsel, WALL_SETS[wsel][0], WALL_SETS[wsel][1], 0.7) : null;
 
   // The facade cell, the window opening and the apartment behind it are built once and shared by every output below,
   // so the shader carries a single copy of them (and evaluates the interior mapping once per pixel)
