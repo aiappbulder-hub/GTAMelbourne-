@@ -27,7 +27,7 @@ const LANES = [
 const CELL = 0.25, INSET = 0.004;
 const CHUNK = 128;
 const DIST = { low: 140, medium: 260, high: 420 }[QUALITY] ?? 260;
-const MAX_QUADS = { low: 350, medium: 800, high: 1200 }[QUALITY] ?? 800;
+const MAX_QUADS = { low: 500, medium: 800, high: 1200 }[QUALITY] ?? 800;
 
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9 >>> 0) / 4294967296); }
 function inRing(ring, x, z) {
@@ -76,8 +76,9 @@ export function createStreetArt({ scene }) {
   };
 
   const r = rng(1337);
-  for (const b of REAL_BUILDINGS) {
+  for (let pass = 0; pass < 2; pass++) for (const b of REAL_BUILDINGS) {
     if (total >= MAX_QUADS) break;
+    if (pass === 0 && !LANES.some((L) => Math.abs(b.cx - L.x) < 60 && b.maxZ > L.z0 && b.minZ < L.z1)) continue;
     if (!(inCBD(b.cx, b.cz) || fitzCollingwood(b.cx, b.cz))) continue;
     const cbd = inCBD(b.cx, b.cz);
     for (const poly of b.polygons) {
@@ -94,8 +95,9 @@ export function createStreetArt({ scene }) {
         if (inRing(ring, mx + nx * 0.3, mz + nz * 0.3)) continue; // safety: normal must point out
         let lane = null;
         for (const L of LANES) {
-          if (Math.abs(mx - L.x) < L.hw + 3 && mz > L.z0 - 5 && mz < L.z1 + 5 && Math.abs(nz) < 0.35 && (L.x - mx) * nx > 0) { lane = L; break; }
+          if (Math.abs(mx - L.x) < L.hw + 4 && mz > L.z0 - 5 && mz < L.z1 + 5 && Math.abs(nz) < 0.35) { lane = L; break; }
         }
+        if ((pass === 0) !== !!lane) continue;
         let prob;
         if (lane) prob = lane.dense;
         else if (cbd) prob = len < 16 ? 0.1 : 0.012; // laneway side walls / rear walls vs main facades
