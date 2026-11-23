@@ -15,6 +15,11 @@ re-compressed (colour, NormalGL normal and roughness maps only).
 | render | Plaster001 | rendered/sandstone facades | CC0 |
 | concrete | Concrete034 | concrete (reserved, unused so far) | CC0 |
 | tiles | RoofingTiles014A | terracotta tile roofs | CC0 |
+| sandstone | Bricks084 | sandstone / limestone facades (style 0), 1K | CC0 |
+| bluestone | Bricks076A | bluestone (grey basalt block) warehouses and banks (style 6), 1K | CC0 |
+| panel | Concrete042A | post-war concrete panel facades (style 7), 1K | CC0 |
+| paint | PaintedPlaster017 | painted render facades (style 5), 1K | CC0 |
+| glass | Facade001 | glass curtain-wall panes on towers (styles 2-4), 1K | CC0 |
 | corrugated | CorrugatedSteel009 | corrugated iron roofs | CC0 |
 
 ## Roof shapes (js/roofs.js)
