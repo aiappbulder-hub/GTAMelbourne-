@@ -421,6 +421,89 @@ async function initApp() {
     rememberAutoQuality(next);
     return true;
   };
+
+  // --- Frame-rate governor (no reloads) -------------------------------------------------------------------------------
+  // After a 10 s warm-up, the median frame time over 2 s windows: under 28 fps steps one notch down, over 50 fps for
+  // three windows in a row steps one back up (never above the chosen tier). A step down soon after a step up doubles the
+  // wait for the next step up, so it doesn't oscillate. Order: post FX, shadows (smaller, then off), view distance,
+  // traffic/pedestrian density, then the render scale down to its floor. A manual GFX choice only gets the render scale.
+  const baseFx = { pipeline: renderPipeline, grade: colorGrade, tm: renderer.toneMapping, exposure: renderer.toneMappingExposure };
+  const stashedMrt = [];
+  const baseView = { viewDist: Q.viewDist, cullScale: Q.cullScale };
+  const NOTCH_NAMES = ['full', 'no post FX', 'shadows small', 'no shadows', 'short view', 'low traffic', 'scaled'];
+  const govSteps = [
+    { // post FX off: render straight to the screen with tone mapping
+      down() {
+        if (Q.postFX === 'none') return;
+        baseFx.pipeline = renderPipeline; baseFx.grade = colorGrade; baseFx.tm = renderer.toneMapping; baseFx.exposure = renderer.toneMappingExposure;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+        colorGrade = { applyPreset() {} };
+        renderPipeline = { render: () => renderer.render(scene, cameraSystem.camera) };
+        if (Q.postFX === 'full') scene.traverse((o) => {
+          const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+          for (const m of ms) if (m.mrtNode && !stashedMrt.some((e) => e.m === m)) { stashedMrt.push({ m, mrt: m.mrtNode }); m.mrtNode = null; m.needsUpdate = true; }
+        });
+      },
+      up() {
+        if (Q.postFX === 'none') return;
+        renderPipeline = baseFx.pipeline; colorGrade = baseFx.grade;
+        renderer.toneMapping = baseFx.tm; renderer.toneMappingExposure = baseFx.exposure;
+        for (const e of stashedMrt) { e.m.mrtNode = e.mrt; e.m.needsUpdate = true; }
+        stashedMrt.length = 0;
+        colorGrade.applyPreset(lightingSystem.activePresetId);
+      }
+    },
+    { down() { Q.shadowReach = 0.5; }, up() { Q.shadowReach = 1; } },
+    { down() { if (Q.shadows) { renderer.shadowMap.enabled = false; lightingSystem.sunLight.castShadow = false; } },
+      up() { if (Q.shadows) { renderer.shadowMap.enabled = true; lightingSystem.sunLight.castShadow = true; } } },
+    { down() { Q.viewDist = Math.min(Q.viewDist, 1200); Q.cullScale = baseView.cullScale * 0.7; },
+      up() { Q.viewDist = baseView.viewDist; Q.cullScale = baseView.cullScale; } },
+    { down() { Q.density = 0.5; }, up() { Q.density = 1; } }
+  ];
+  let notch = 0; // steps applied: 0 = the tier as chosen
+  const govMax = govSteps.length + 1; // the last notch is the render scale (stepped continuously down to its floor)
+  const manualOnlyScale = false; // a forced tier is only a ceiling: the governor still steps down from it
+  const govFrames = [];
+  let govClock = 0, govWindowT = 0, goodWindows = 0, upNeed = 3, lastUpAt = -1e9, govLastFps = 0;
+  const median = (a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; };
+  const stepDown = () => {
+    if (manualOnlyScale || notch >= govMax) {
+      if (pixelRatio > Q.minPixelRatio + 0.01) { pixelRatio = Math.max(Q.minPixelRatio, pixelRatio * 0.85); renderer.setPixelRatio(pixelRatio); return true; }
+      return false;
+    }
+    if (notch < govSteps.length) {
+      govSteps[notch].down(); notch++;
+      if (notch >= govSteps.length) { try { localStorage.setItem('gta-melbourne-light-buildings', '1'); } catch { /* storage unavailable */ } } // next load: light building shading
+      return true;
+    }
+    notch = govMax; // render scale, from the next window on
+    if (pixelRatio > Q.minPixelRatio + 0.01) { pixelRatio = Math.max(Q.minPixelRatio, pixelRatio * 0.85); renderer.setPixelRatio(pixelRatio); }
+    return true;
+  };
+  const stepUp = () => {
+    if (pixelRatio < Q.pixelRatio - 0.01) { pixelRatio = Math.min(Q.pixelRatio, pixelRatio * 1.1); renderer.setPixelRatio(pixelRatio); return true; }
+    if (manualOnlyScale || notch === 0) return false;
+    if (notch === govMax) notch = govSteps.length;
+    else { notch--; govSteps[notch].up(); }
+    return true;
+  };
+  /** Called every frame with the real frame time */
+  const governorFrame = (rawDt) => {
+    if (rawDt <= 0 || rawDt > 1) return; // a stall (tab switch, shader compile) says nothing about the steady rate
+    govClock += rawDt;
+    if (govClock < 10) return; // warm-up
+    govFrames.push(rawDt); govWindowT += rawDt;
+    if (govWindowT < 2) return;
+    const fps = 1 / median(govFrames);
+    govFrames.length = 0; govWindowT = 0; govLastFps = fps;
+    if (fps < 28) {
+      goodWindows = 0;
+      if (govClock - lastUpAt < 30) upNeed = Math.min(24, upNeed * 2);
+      stepDown();
+    } else if (fps > 50) {
+      if (++goodWindows >= upNeed) { goodWindows = 0; if (stepUp()) lastUpAt = govClock; }
+    } else goodWindows = 0;
+  };
   const elFps = document.getElementById('hud-fps');
   const fpsWindow = [];
   let lowRun = 0;
@@ -1231,27 +1314,13 @@ async function initApp() {
 
     // Telemetry uses wall time, not the clamped simulation step, so slow frames and high-refresh displays report
     // their actual frame rate (updates DOM every 250ms).
+    governorFrame(rawDt);
     frameCount++;
     fpsTimer += Math.max(0, rawDt);
     if (fpsTimer >= 0.25) {
       const currentFps = Math.round(frameCount / fpsTimer);
       frameCount = 0;
       fpsTimer = 0;
-      // Dynamic resolution: every 2 s, scale the render down while the frame rate is under 28 and back up over 48
-      fpsWindow.push(currentFps);
-      if (currentFps >= LOW_FPS) lowRun = 0; else if (performance.now() > 20000 && ++lowRun >= 12 && QUALITY_SOURCE !== 'url') { lowRun = 0; if (autoStepDown()) return; }
-      if (performance.now() < 20000) fpsWindow.length = 0; // loading/shader-compile frames must not drop the resolution
-      if (fpsWindow.length >= 8) {
-        const avg = fpsWindow.reduce((t, v) => t + v, 0) / fpsWindow.length;
-        fpsWindow.length = 0;
-        // (Auto step-down above: under LOW_FPS for 3 s once the game has settled)
-        const next = avg < 28 ? Math.max(Q.minPixelRatio, pixelRatio * 0.85) : avg > 48 ? Math.min(Q.pixelRatio, pixelRatio * 1.1) : pixelRatio;
-        if (Math.abs(next - pixelRatio) > 0.01) {
-          pixelRatio = next;
-          renderer.setPixelRatio(pixelRatio);
-        }
-      }
-
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
       const mph = Math.round(Math.abs(activeEnt.speed) * 3.6); // km/h
@@ -1259,7 +1328,7 @@ async function initApp() {
 
       if (statEl.style.display !== 'none') {
         const ri = renderer.info.render;
-        statEl.textContent = `${currentFps} fps  ${curTier}${MANUAL_QUALITY ? ' (manual)' : ' (auto)'}  scale ${pixelRatio.toFixed(2)}\ncalls ${ri.drawCalls}  tris ${ri.triangles}`;
+        statEl.textContent = `${currentFps} fps  ${curTier}${MANUAL_QUALITY ? ' (manual)' : ' (auto)'}  scale ${pixelRatio.toFixed(2)}\nnotch ${notch > govSteps.length ? govSteps.length + 1 : notch}/${govSteps.length + 1} ${NOTCH_NAMES[Math.min(notch > govSteps.length ? govSteps.length + 1 : notch, NOTCH_NAMES.length - 1)]}${manualOnlyScale ? ' (manual: scale only)' : ''}  gov ${govLastFps.toFixed(0)} fps\ncalls ${ri.drawCalls}  tris ${ri.triangles}`;
       }
       if (elFps) {
         elFps.textContent = String(currentFps);

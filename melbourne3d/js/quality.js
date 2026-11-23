@@ -67,13 +67,13 @@ const SETTINGS = {
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
-export const Q = { ...SETTINGS[QUALITY], density: 1 }; // density: live traffic/pedestrian multiplier (frame-rate governor)
+export const Q = { ...SETTINGS[QUALITY], density: 1, shadowReach: 1 }; // density: live traffic/pedestrian multiplier (frame-rate governor)
 // Render scale is relative to the device pixel ratio (sharp on retina/phone screens): the tier value is a cap
 // (high 2, medium 1.5, low 1 = at least one pixel per CSS pixel); never below 0.75 CSS px, even when stepping down.
 const DPR = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
 function scaleFor(t) {
-  const cap = IS_MOBILE ? Math.min(t.pixelRatio, 1.5) : t.pixelRatio; // phones: never above 1.5 even on High
-  return { pixelRatio: cap === 1 ? 1 : Math.min(DPR, cap), minPixelRatio: t.minPixelRatio };
+  const cap = Math.min(t.pixelRatio, 1.5); // never above 1.5 even on High (phones and laptops)
+  return { pixelRatio: cap === 1 ? 1 : Math.min(DPR, cap), minPixelRatio: IS_MOBILE ? 0.6 : t.minPixelRatio };
 }
 { const r = scaleFor(SETTINGS[QUALITY]); Q.pixelRatio = Math.max(1, r.pixelRatio); Q.minPixelRatio = r.minPixelRatio; }
 // Today's heavy extras (PBR facades and roofs, HDRI lighting, new trees and water, GTAO) are High only

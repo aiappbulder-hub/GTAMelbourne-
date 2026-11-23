@@ -219,7 +219,10 @@ const facadeAlongZ = varying(
 
 // Light building shading (low tier and mobile): no interior-mapping raycast, no per-pixel noise, no canyon AO. Each
 // window gets a hashed lit/dark room tint with a cheap depth gradient, so facades still read as windows and brick.
-export const LIGHT_BUILDINGS = QUALITY === 'low' || IS_MOBILE;
+// (Also on when the frame-rate governor once had to reach its bottom notches on this device: it sets the flag, used from the next load)
+let govFlag = false;
+try { govFlag = localStorage.getItem('gta-melbourne-light-buildings') === '1'; } catch { /* storage unavailable */ }
+export const LIGHT_BUILDINGS = QUALITY === 'low' || IS_MOBILE || govFlag;
 const lightNoise2D = () => float(0.5);
 const canyonSkyAONode = LIGHT_BUILDINGS ? () => float(1.0) : canyonSkyAOFull;
 /**
