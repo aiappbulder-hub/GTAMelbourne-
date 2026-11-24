@@ -1671,6 +1671,25 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
           impacted.push(o);
         }
       }
+      // a knocked car against a tram, a police unit or a mission car (setExternals): those don't give way
+      for (const o of externals) {
+        const reach = v.half + o.halfL + o.halfW + 0.5;
+        if (Math.abs(v.x - o.x) > reach + Math.abs(v.x - v.prevX) || Math.abs(v.z - o.z) > reach + Math.abs(v.z - v.prevZ)) continue;
+        readTrafficBody(v, contactA);
+        const b = contactB;
+        b.x = b.prevX = o.x; b.z = b.prevZ = o.z;
+        b.sin = Math.sin(o.yaw); b.cos = Math.cos(o.yaw);
+        b.halfW = o.halfW; b.halfL = o.halfL; b.mass = 0;
+        b.vx = b.sin * (o.speed || 0); b.vz = b.cos * (o.speed || 0); b.angularVel = 0;
+        const hit = vehicleHit;
+        if (!sweptVehicleContact(contactA, b, hit) && !vehicleContact(contactA, b, hit)) continue;
+        const speed = resolveVehicleContact(contactA, b, hit);
+        shove(v, hit.ax - v.x + hit.nx * hit.depth, hit.az - v.z + hit.nz * hit.depth);
+        if (speed <= 0) continue;
+        writeTrafficVelocity(v, contactA);
+        impactSuspension(v, hit.nx, hit.nz, hit.impulse / contactA.mass);
+        if (speed > 2.2) spawnCollisionSparks(hit.x, 0.56, hit.z, hit.nx, hit.nz, speed);
+      }
       v.contactDone = collisionStep;
     }
   }
