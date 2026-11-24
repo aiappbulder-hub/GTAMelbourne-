@@ -107,13 +107,17 @@ async function buildFlindersStreetStation(group, colliders, plinthMat) {
   const lod = new THREE.LOD();
   lod.name = 'FlindersStreetStation';
   const near = gltf.scene.getObjectByName('FSS_LOD0'), far = gltf.scene.getObjectByName('FSS_LOD1');
-  for (const m of [near, far]) {
-    if (!m) continue;
-    m.removeFromParent();
-    m.castShadow = true;
-    m.receiveShadow = m === near;
-    const mat = m.material;
-    if (mat.map) mat.map.anisotropy = 4;
+  if (!near) return;
+  // (gltfpack keeps the named nodes; the mesh may be the node itself or its child)
+  for (const n of [near, far]) {
+    if (!n) continue;
+    n.removeFromParent();
+    n.traverse((m) => {
+      if (!m.isMesh) return;
+      m.castShadow = true;
+      m.receiveShadow = n === near;
+      if (m.material.map) m.material.map.anisotropy = 4;
+    });
   }
   lod.addLevel(near, 0);
   if (far) lod.addLevel(far, FSS_FAR);
