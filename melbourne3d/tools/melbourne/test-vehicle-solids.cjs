@@ -36,15 +36,24 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
         const fx = Math.sin(o.yaw), fz = Math.cos(o.yaw);
         const dx = car.position.x - o.x, dz = car.position.z - o.z;
         const along = dx * fx + dz * fz, side = dx * fz - dz * fx;
-        // overlap of the car's footprint (as a circle-ish 0.86 m half width) with the body's box, along the hit axis
-        const ax = o.axis === 'along' ? along : side, ext = o.axis === 'along' ? o.halfL : o.halfW;
+        // how deep the car's box is inside the body's box (separating-axis test: the least overlap over the four
+        // axes; negative is a gap), and whether it came out on the far side along the hit axis
+        const ch = car.heading, cs = Math.sin(ch), cc = Math.cos(ch);
+        const axes = [[fx, fz], [fz, -fx], [cs, cc], [cc, -cs]];
+        let depth = Infinity;
+        for (const [ux, uz] of axes) {
+          const rB = o.halfL * Math.abs(ux * fx + uz * fz) + o.halfW * Math.abs(ux * fz - uz * fx);
+          const rA = 2.18 * Math.abs(ux * cs + uz * cc) + 0.86 * Math.abs(ux * cc - uz * cs);
+          depth = Math.min(depth, rA + rB - Math.abs(dx * ux + dz * uz));
+        }
+        worst = Math.max(worst, depth);
+        const ax = o.axis === 'along' ? along : side;
         if (s0 === null) s0 = Math.sign(ax);
-        worst = Math.max(worst, ext + 0.86 - Math.abs(ax));
         if (Math.sign(ax) !== s0 && Math.abs(o.axis === 'along' ? side : along) < (o.axis === 'along' ? o.halfW : o.halfL)) through = true;
       }
       minSpeed = Math.min(minSpeed, Math.abs(car.speed));
       frames++;
-      if (performance.now() - t0 < secs * 1000) requestAnimationFrame(tick);
+      if (frames < secs * 20) requestAnimationFrame(tick); // (secs of game time: a slow frame is clamped to 0.05 s)
       else res({ penetration: +worst.toFixed(2), through, frames, moved: +Math.hypot(car.position.x - start.x, car.position.z - start.z).toFixed(1), speed: +car.speed.toFixed(1), minSpeed: +minSpeed.toFixed(1), hits: __city.solids.stats.hits, last: __city.solids.stats.last });
     };
     requestAnimationFrame(tick);
@@ -81,7 +90,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
   await p.evaluate(() => __city.teleportTo(-242, -221, 0));
   for (let i = 0; i < 30 && id < 0; i++) {
     await p.waitForTimeout(3000);
-    id = await p.evaluate(() => { const P = __city.controllerManager.entities.car.position; return __city.trafficSystem.cars.findIndex((c) => c.edge && !c.driven && Math.hypot(c.x - P.x, c.z - P.z) < 150 && c.edge.len - c.s > 40); });
+    id = await p.evaluate(() => { const P = __city.controllerManager.entities.car.position; return __city.trafficSystem.cars.findIndex((c) => c.edge && !c.driven && Math.hypot(c.x - P.x, c.z - P.z) < 150 && c.edge.len - c.s > 40 && __city.tramSystem.trams.every((t) => t.cx === undefined || Math.hypot(t.cx - c.x, t.cz - c.z) > 45)); });
   }
   ok(id >= 0, 'a traffic car to hit');
   if (id >= 0) {

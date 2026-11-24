@@ -21,11 +21,16 @@ const R = 200; // m: the disc the blocks and the people are counted in
   const sample = (cx, cz) => p.evaluate(([cx, cz, R]) => {
     const ts = __city.trafficSystem, near = (x, z) => Math.hypot(x - cx, z - cz) < R;
     let blocks = 0, main = 0, occupied = 0, multi = 0, maxSeg = 0;
+    // a block: the road piece between two junctions, both directions together (the oncoming edge is its twin)
+    const twin = (e) => { const o = e.opposite; return o && o !== e && o.from === e.to && o.to === e.from ? o : null; };
     for (const e of ts.network.edges) {
       if (e.len < 40 || !near(e.sx + e.dx * e.len / 2, e.sz + e.dz * e.len / 2)) continue;
+      const t = twin(e);
+      if (t && t.id < e.id) continue;
       blocks++;
       if (e.axis === 'ave' || e.lanes.length >= 2 || e.half >= 4) main++;
       let n = 0; for (const l of e.occ) n += l.length;
+      if (t) for (const l of t.occ) n += l.length;
       if (n) occupied++; if (n > 1) multi++; maxSeg = Math.max(maxSeg, n);
     }
     const cars = [...ts.cars, ...ts.buses].filter((c) => c.edge && !c.driven && near(c.x, c.z)).length;
@@ -46,7 +51,7 @@ const R = 200; // m: the disc the blocks and the people are counted in
     while ((await p.evaluate(() => __T.t)) - t0 < +(process.env.SIM || 60)) { await p.waitForTimeout(2500); rows.push(await sample(x, z)); }
     const avg = (k) => +(rows.reduce((s, r) => s + r[k], 0) / rows.length).toFixed(1);
     const max = (k) => Math.max(...rows.map((r) => r[k]));
-    out[name] = { samples: rows.length, blocks: avg('blocks'), mainBlocks: avg('main'), cars: avg('cars'), peds: avg('peds'), carsPerBlock: +(avg('cars') / avg('blocks')).toFixed(2), pedsPerBlock: +(avg('peds') / avg('blocks')).toFixed(2), carsOutAll: avg('carsAll'), pedsAll: avg('pedsAll'), blocksWith2plusCars: avg('multi'), maxCarsOnABlock: max('maxSeg'), pedClump25: max('pedClump25') };
+    out[name] = { samples: rows.length, blocks: avg('blocks'), mainBlocks: avg('main'), cars: avg('cars'), peds: avg('peds'), carsPerBlock: +(avg('cars') / avg('blocks')).toFixed(2), carsPerMainBlock: +(avg('cars') / avg('main')).toFixed(2), pedsPerBlock: +(avg('peds') / avg('blocks')).toFixed(2), carsOutAll: avg('carsAll'), pedsAll: avg('pedsAll'), blocksWith2plusCars: avg('multi'), maxCarsOnABlock: max('maxSeg'), pedClump25: max('pedClump25') };
     console.log(name, JSON.stringify(out[name]));
   }
   console.log('ERRS', JSON.stringify(errs.slice(0, 10)));
