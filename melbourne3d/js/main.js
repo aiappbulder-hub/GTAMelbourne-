@@ -820,6 +820,7 @@ async function initApp() {
       if (wanted) for (const bx of wanted.boxes()) if (bx.key) out.push(bx);
     });
     window.__city.solids = solids;
+    window.__city.tramSystem = tramSystem;
   }
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({

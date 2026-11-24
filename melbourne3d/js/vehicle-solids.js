@@ -88,14 +88,23 @@ export function createVehicleSolids(controllerManager) {
         b.sin = Math.sin(o.yaw); b.cos = Math.cos(o.yaw);
         b.halfW = o.halfW; b.halfL = o.halfL; b.mass = o.mass;
         b.vx = b.sin * (o.speed || 0); b.vz = b.cos * (o.speed || 0); b.angularVel = 0;
-        if (!sweptVehicleContact(a, b, hit) && !vehicleContact(a, b, hit)) continue;
+        const axC = a.x, azC = a.z, bxC = b.x, bzC = b.z;
+        const swept = sweptVehicleContact(a, b, hit); // (moves a and b to the moment of impact)
+        if (!swept && !vehicleContact(a, b, hit)) continue;
+        // positional correction: all of it on the player (these bodies keep to their rails or trails; a pursuer is
+        // slowed through bump() instead): back out of the body, or for a swept hit, none of the travel into it
+        let fixX, fixZ;
+        if (swept) {
+          const into = (axC - a.x - bxC + b.x) * hit.nx + (azC - a.z - bzC + b.z) * hit.nz;
+          fixX = axC - hit.nx * (Math.min(0, into) - 0.01); fixZ = azC - hit.nz * (Math.min(0, into) - 0.01);
+        } else {
+          fixX = axC + hit.nx * (hit.depth + 0.01); fixZ = azC + hit.nz * (hit.depth + 0.01);
+        }
         const bx0 = b.vx, bz0 = b.vz;
         const speed = resolveVehicleContact(a, b, hit);
-        // positional correction: the immovable body takes none of it
-        const invA = 1 / a.mass, invB = b.mass > 0 ? 1 / b.mass : 0;
-        const share = invA / (invA + invB);
-        pe.position.x = hit.ax + hit.nx * (hit.depth * share + 0.01);
-        pe.position.z = hit.az + hit.nz * (hit.depth * share + 0.01);
+        const invB = b.mass > 0 ? 1 / b.mass : 0;
+        pe.position.x = fixX;
+        pe.position.z = fixZ;
         if (pe.mesh) pe.mesh.position.copy(pe.position);
         if (speed > 0) {
           pe.speed = a.vx * a.sin + a.vz * a.cos;
