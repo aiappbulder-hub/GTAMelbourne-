@@ -6,7 +6,7 @@ import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
 import { buildCityGrid } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
-import { Q, QUALITY, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, MANUAL_QUALITY, LOW_FPS, lowerTier, reloadWithAutoQuality, applyTierLive, rememberAutoQuality } from './quality.js';
+import { Q, QUALITY, LITE, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, MANUAL_QUALITY, LOW_FPS, lowerTier, reloadWithAutoQuality, applyTierLive, rememberAutoQuality } from './quality.js';
 import { buildCityBlocks } from './buildings.js';
 import { buildStreetDetails } from './street-details.js';
 import { createTrafficSystem, createHighwayTraffic } from './traffic.js';
@@ -111,7 +111,7 @@ async function initApp() {
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = Q.shadows;
-  console.info(`[quality] ${QUALITY} (${QUALITY_SOURCE}${GPU_NAME ? `: ${GPU_NAME}` : ''})`);
+  console.info(`[quality] ${QUALITY}${LITE ? '-lite' : ''} (${QUALITY_SOURCE}${GPU_NAME ? `: ${GPU_NAME}` : ''})`);
   renderer.lighting = new ClusteredLighting(256, 32, 28, 48);
   container.appendChild(renderer.domElement);
 
@@ -423,13 +423,13 @@ async function initApp() {
   };
 
   // --- Frame-rate governor (no reloads) -------------------------------------------------------------------------------
-  // After a 10 s warm-up, the median frame time over 2 s windows: under 28 fps steps one notch down, over 50 fps for
+  // After a 10 s warm-up, the median frame time over 2 s windows: under 45 fps steps one notch down, over 57 fps for
   // three windows in a row steps one back up (never above the chosen tier). A step down soon after a step up doubles the
   // wait for the next step up, so it doesn't oscillate. Order: post FX, shadows (smaller, then off), view distance,
   // traffic/pedestrian density, then the render scale down to its floor. A manual GFX choice only gets the render scale.
   const baseFx = { pipeline: renderPipeline, grade: colorGrade, tm: renderer.toneMapping, exposure: renderer.toneMappingExposure };
   const stashedMrt = [];
-  const baseView = { viewDist: Q.viewDist, cullScale: Q.cullScale };
+  const baseView = { viewDist: Q.viewDist, cullScale: Q.cullScale, shadowReach: Q.shadowReach };
   const NOTCH_NAMES = ['full', 'no post FX', 'shadows small', 'no shadows', 'short view', 'low traffic', 'scaled'];
   const govSteps = [
     { // post FX off: render straight to the screen with tone mapping
@@ -453,7 +453,7 @@ async function initApp() {
         colorGrade.applyPreset(lightingSystem.activePresetId);
       }
     },
-    { down() { Q.shadowReach = 0.5; }, up() { Q.shadowReach = 1; } },
+    { down() { Q.shadowReach = baseView.shadowReach * 0.5; }, up() { Q.shadowReach = baseView.shadowReach; } },
     { down() { if (Q.shadows) { renderer.shadowMap.enabled = false; lightingSystem.sunLight.castShadow = false; } },
       up() { if (Q.shadows) { renderer.shadowMap.enabled = true; lightingSystem.sunLight.castShadow = true; } } },
     { down() { Q.viewDist = Math.min(Q.viewDist, 1200); Q.cullScale = baseView.cullScale * 0.7; },
@@ -463,6 +463,8 @@ async function initApp() {
   let notch = 0; // steps applied: 0 = the tier as chosen
   const govMax = govSteps.length + 1; // the last notch is the render scale (stepped continuously down to its floor)
   const manualOnlyScale = false; // a forced tier is only a ceiling: the governor still steps down from it
+  // Target ~50 fps: under 45 steps down, over 57 (a 60 Hz display with room to spare) for a few windows steps back up
+  const GOV_DOWN_FPS = 45, GOV_UP_FPS = 57;
   const govFrames = [];
   let govClock = 0, govWindowT = 0, goodWindows = 0, upNeed = 3, lastUpAt = -1e9, govLastFps = 0;
   const median = (a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; };
@@ -496,11 +498,11 @@ async function initApp() {
     if (govWindowT < 2) return;
     const fps = 1 / median(govFrames);
     govFrames.length = 0; govWindowT = 0; govLastFps = fps;
-    if (fps < 28) {
+    if (fps < GOV_DOWN_FPS) {
       goodWindows = 0;
       if (govClock - lastUpAt < 30) upNeed = Math.min(24, upNeed * 2);
       stepDown();
-    } else if (fps > 50) {
+    } else if (fps > GOV_UP_FPS) {
       if (++goodWindows >= upNeed) { goodWindows = 0; if (stepUp()) lastUpAt = govClock; }
     } else goodWindows = 0;
   };
@@ -1175,6 +1177,7 @@ async function initApp() {
   let fpsTimer = 0;
   let nextPlayerSave = 0;
   let warmedUp = false; // see the first frame below
+  const pooledLights = []; let nextLightScan = 0; // unlit lamps leave the clustered lighting (see the loop)
 
   if (elFps) elFps.textContent = '60';
 
@@ -1236,7 +1239,7 @@ async function initApp() {
     );
     highwayTraffic.update(dt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
     // trams stop for people, cars and the player on the track ahead
-    if (tramSystem) tramSystem.update(dt, () => ({ peds: trafficSystem.peds, cars: trafficSystem.cars, player: controllerManager.getActiveEntity().position }));
+    if (tramSystem) tramSystem.update(dt, () => ({ peds: trafficSystem.peds, cars: trafficSystem.cars, player: controllerManager.getActiveEntity().position }), cameraSystem.camera.position);
     // the traffic slows and stops behind trams in its lane
     if (tramSystem && trafficSystem.setExternals) {
       const f = controllerManager.getActiveEntity().position;
@@ -1265,6 +1268,18 @@ async function initApp() {
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
+    // Unlit lamps (intensity 0: daytime, or beyond the lamp pools' reach) leave the clustered light lists, so the light
+    // grid compute and every lit pixel's cluster loop skip them (~220 of 250 by day). Hidden here, shown again when lit.
+    if (warmedUp) {
+      if (now >= nextLightScan) {
+        nextLightScan = now + 4000; pooledLights.length = 0;
+        scene.traverse((o) => { if ((o.isPointLight || o.isSpotLight) && !o.castShadow) pooledLights.push(o); });
+      }
+      for (const l of pooledLights) {
+        if (l.intensity <= 0) { if (l.visible) { l.visible = false; l.userData.unlitHidden = true; } }
+        else if (l.userData.unlitHidden) { l.visible = true; l.userData.unlitHidden = false; }
+      }
+    }
     // Traffic collisions can move the player after controller updates; finalize moving hierarchies here.
     for (const root of dynamicRoots) root.updateMatrixWorld();
     for (const child of scene.children) if (!staticChildren.has(child) && child.visible) child.updateMatrixWorld();

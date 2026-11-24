@@ -173,11 +173,31 @@ export async function createTramSystem(scene) {
     Qn.setFromEuler(EUL.set(-Math.atan2(hA - hB, 8), yaw, 0, 'YXZ')); // the body follows the slope
     POS.set((A.x + B.x) / 2, (hA + hB) / 2, (A.y + B.y) / 2);
     t.cx = POS.x; t.cz = POS.z; t.yaw = yaw; // its footprint (for the traffic and the player, footprints())
-    M4.compose(POS, Qn, ONE);
-    for (const m of meshes) m.setMatrixAt(i, M4);
+    (t.m || (t.m = new THREE.Matrix4())).compose(POS, Qn, ONE);
+  }
+  // Only the trams near the camera are drawn (and cast shadows): the nearest go in the first instance slots, the rest
+  // are cut off by the instance count; the destination signs (~7.5k triangles each) only on the closest few
+  const signMeshes = meshes.filter((m) => /dest/i.test(m.material.name || ''));
+  const order = [];
+  function compact(cam) {
+    const cx = cam ? cam.x : 0, cz = cam ? cam.z : 0, r = cam ? Math.min(1200, Q.viewDist) : Infinity;
+    order.length = 0;
+    for (const t of trams) {
+      if (!t.m) continue;
+      t.d2 = (t.cx - cx) * (t.cx - cx) + (t.cz - cz) * (t.cz - cz);
+      if (t.d2 < r * r) order.push(t);
+    }
+    order.sort((a, b) => a.d2 - b.d2);
+    let signs = 0;
+    for (let k = 0; k < order.length; k++) {
+      if (order[k].d2 < 160 * 160) signs = k + 1;
+      for (const m of meshes) m.setMatrixAt(k, order[k].m);
+    }
+    for (const m of meshes) { m.count = order.length; m.instanceMatrix.needsUpdate = true; }
+    for (const m of signMeshes) m.count = signs;
   }
   trams.forEach((t, i) => place(i, t));
-  for (const m of meshes) m.instanceMatrix.needsUpdate = true;
+  compact(null);
 
   // Is there someone or something on the track in the next LOOK metres ahead of tram t? Returns the distance, or Infinity
   const P = new THREE.Vector2();
@@ -203,7 +223,7 @@ export async function createTramSystem(scene) {
     return first;
   }
 
-  function update(dt, obstacles = null) {
+  function update(dt, obstacles = null, cam = null) {
     if (!meshes.length) return;
     dt = Math.min(dt, 0.1);
     const obs = obstacles ? obstacles() : null;
@@ -235,7 +255,7 @@ export async function createTramSystem(scene) {
       }
       place(i, t);
     });
-    for (const m of meshes) m.instanceMatrix.needsUpdate = true;
+    compact(cam);
   }
 
   console.info(`[trams] ${lines.length} route lines (${new Set(lines.map((l) => l.ref)).size} routes), ${trams.length} trams, ${tracks.rails} rail pieces`);
