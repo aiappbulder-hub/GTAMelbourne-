@@ -1033,6 +1033,10 @@ class NYCMapSystem {
     if (this.isFullMapOpen) {
       this.renderFullMap();
     } else {
+      // ~30 Hz is plenty for the radar and halves its canvas redraws (JS and raster) on 60 Hz screens
+      const now = performance.now();
+      if (now - (this._miniAt || 0) < 30) return;
+      this._miniAt = now;
       this.renderMinimap();
     }
   }

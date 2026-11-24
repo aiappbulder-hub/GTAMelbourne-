@@ -21,10 +21,12 @@ function detectGpu() {
     const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
     const lose = gl.getExtension('WEBGL_lose_context');
     if (lose) lose.loseContext();
-    let level = 'medium';
+    let level = 'medium', lite = false;
     if (/NVIDIA|GeForce|Quadro|RTX|GTX|Radeon RX|Radeon Pro|Arc\b|Intel\(R\) Arc/i.test(name)) level = 'high';
-    if (/Intel|HD Graphics|UHD|Iris|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Software|Microsoft Basic|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics/i.test(name)) level = 'low';
-    return { name, level };
+    // Laptop integrated graphics (Intel Iris Xe / UHD, AMD Vega / Radeon Graphics APUs): Medium-lite (see LITE below)
+    else if (/Intel|HD Graphics|UHD|Iris|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics|Vega/i.test(name)) { level = 'medium'; lite = true; }
+    if (/HD Graphics [2-5]\d{3}\b|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Software|Microsoft Basic/i.test(name)) { level = 'low'; lite = false; }
+    return { name, level, lite };
   } catch {
     return { name: '', level: 'low' };
   }
@@ -41,17 +43,20 @@ function choose() {
   // A manual pick (the Graphics menu) wins and is never stepped down automatically
   if (LEVELS.includes(saved)) return { level: saved, source: 'saved', gpu: '' };
   // Result of an earlier automatic step-down that needed a rebuild (so it doesn't loop on every visit)
-  if (LEVELS.includes(auto)) return { level: IS_MOBILE && auto === 'high' ? 'low' : auto, source: 'auto', gpu: '' };
+  if (LEVELS.includes(auto)) return { level: IS_MOBILE && auto === 'high' ? 'low' : auto, source: 'auto', gpu: '', lite: auto === 'medium' && detectGpu().lite };
   // No choice yet: phones, tablets and touch devices start on Low; otherwise the GPU decides (weak or unknown: Low or
   // Medium, discrete: High). The auto step-down (main.js) lowers it further if the frame rate stays under 40.
   const gpu = detectGpu();
-  return { level: IS_MOBILE ? 'low' : gpu.level, source: 'default', gpu: gpu.name };
+  return { level: IS_MOBILE ? 'low' : gpu.level, source: 'default', gpu: gpu.name, lite: !IS_MOBILE && gpu.lite };
 }
 
 const picked = choose();
 export const QUALITY = picked.level;
 export const QUALITY_SOURCE = picked.source;
 export const GPU_NAME = picked.gpu;
+/** Medium-lite: integrated laptop GPUs on the default (automatic) setting, or ?lite. Medium's bloom, grade and SMAA, with
+ *  the light building shading, shadows only near the player (1024 px), render scale 1-1.25 and less traffic. */
+export const LITE = QUALITY === 'medium' && (!!picked.lite || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('lite')));
 
 const SETTINGS = {
   low: {
@@ -67,7 +72,8 @@ const SETTINGS = {
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
-export const Q = { ...SETTINGS[QUALITY], density: 1, shadowReach: 1 }; // density: live traffic/pedestrian multiplier (frame-rate governor)
+const LITE_OVERRIDES = { pixelRatio: 1.25, shadowTile: 1024, shadowReach: 0.5, cars: 100, buses: 6, peds: 180, treeLod: 0.6, treeDist: 0.5, cullScale: 0.7, viewDist: 1800, cameraFar: 8000, fogScale: 1.6 };
+export const Q = { ...SETTINGS[QUALITY], density: 1, shadowReach: 1, ...(LITE ? LITE_OVERRIDES : {}) }; // density: live traffic/pedestrian multiplier (frame-rate governor)
 // Render scale is relative to the device pixel ratio (sharp on retina/phone screens): the tier value is a cap
 // (high 2, medium 1.5, low 1 = at least one pixel per CSS pixel); never below 0.75 CSS px, even when stepping down.
 const DPR = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
@@ -75,7 +81,7 @@ function scaleFor(t) {
   const cap = Math.min(t.pixelRatio, 1.5); // never above 1.5 even on High (phones and laptops)
   return { pixelRatio: cap === 1 ? 1 : Math.min(DPR, cap), minPixelRatio: IS_MOBILE ? 0.6 : t.minPixelRatio };
 }
-{ const r = scaleFor(SETTINGS[QUALITY]); Q.pixelRatio = Math.max(1, r.pixelRatio); Q.minPixelRatio = r.minPixelRatio; }
+{ const r = scaleFor(LITE ? { ...SETTINGS[QUALITY], ...LITE_OVERRIDES } : SETTINGS[QUALITY]); Q.pixelRatio = Math.max(1, r.pixelRatio); Q.minPixelRatio = r.minPixelRatio; }
 // Today's heavy extras (PBR facades and roofs, HDRI lighting, new trees and water, GTAO) are High only
 export const HEAVY_FX = QUALITY === 'high';
 

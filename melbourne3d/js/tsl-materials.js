@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { IS_MELBOURNE } from './city.js';
 import { pbrGround, pbrWall, pbrNormal, PBR_ON } from './pbr.js';
-import { Q, QUALITY, IS_MOBILE } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
+import { Q, QUALITY, IS_MOBILE, LITE } from './quality.js'; // (transparent effects write the SSR targets only on high quality)
 import {
   Fn,
   float,
@@ -222,7 +222,7 @@ const facadeAlongZ = varying(
 // (Also on when the frame-rate governor once had to reach its bottom notches on this device: it sets the flag, used from the next load)
 let govFlag = false;
 try { govFlag = localStorage.getItem('gta-melbourne-light-buildings') === '1'; } catch { /* storage unavailable */ }
-export const LIGHT_BUILDINGS = QUALITY === 'low' || IS_MOBILE || govFlag;
+export const LIGHT_BUILDINGS = QUALITY === 'low' || LITE || IS_MOBILE || govFlag;
 const lightNoise2D = () => float(0.5);
 const canyonSkyAONode = LIGHT_BUILDINGS ? () => float(1.0) : canyonSkyAOFull;
 /**
