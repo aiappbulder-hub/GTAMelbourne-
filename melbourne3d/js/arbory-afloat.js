@@ -214,11 +214,11 @@ export function createArboryAfloat({ scene, controllerManager = null, cast = nul
   const W2 = (a, b, face) => { const p = arboryPoint(a, b); return { x: p.x, y: Y, z: p.z, heading: face + YAW }; };
   // (a heading in the deck's frame: 0 faces out over the river; the world heading adds the deck's turn)
   const CREW = [
-    { key: 'arb_bar', id: 'Female_Adult_09', at: [-1.5, -3.3], face: 0, anims: ['idle', 'talk', 'idle', 'laugh'] },
+    { key: 'arb_bar', id: 'Female_Adult_04', at: [-1.5, -3.3], face: 0, anims: ['idle', 'talk', 'idle', 'laugh'] },
     { key: 'arb_p1', id: 'Male_Adult_14', at: [-2.6, BZ + 0.9], face: Math.PI, anims: ['talk', 'idle', 'laugh'] },
     { key: 'arb_p2', id: 'Female_Adult_04', at: [-1.4, BZ + 1.0], face: Math.PI - 0.4, anims: ['idle', 'laugh', 'talk'] },
     { key: 'arb_p3', id: 'Male_Adult_03', seat: 3, anims: ['sit_talk', 'sit_listen'] },
-    { key: 'arb_p4', id: 'Female_Adult_09', seat: 5, anims: ['sit_listen', 'sit_talk'] },
+    { key: 'arb_p4', id: 'Female_Adult_06', seat: 5, anims: ['sit_listen', 'sit_talk'] },
     { key: 'arb_p5', id: 'Male_Adult_05', seat: 7, anims: ['sit_look', 'sit_listen'] }
   ];
   // the story's own people standing at the bar in a job's scene are left room: a crew member in the way stands down
