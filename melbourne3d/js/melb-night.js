@@ -3,7 +3,8 @@
 // Everything is distance-gated and instanced; fire/boat/lanes are skipped entirely when far from the camera.
 import * as THREE from 'three/webgpu';
 import { uniform, vec3, color as tslColor } from 'three/tsl';
-import { terrainHeight } from './terrain.js';
+import { terrainHeight, drapeGeometry } from './terrain.js';
+import { REAL_BUILDINGS } from './city-buildings.js';
 import { QUALITY } from './quality.js';
 
 const LOW = QUALITY === 'low';
@@ -31,15 +32,75 @@ function bluestoneTex() {
     }
   }, [1, 1]);
 }
-// lanes: x (north-south lane), z from..to, half width
+// Laneways: a nominal centre line (x) and the stretch of block it crosses (z0..z1, kerb to kerb), at most hw wide each side.
+// The paving, festoons, bins and tables are fitted to the real gap between the surveyed building footprints (laneGaps):
+// rows where a building stands across the line get nothing, so nothing pokes out of a wall or past a facade.
+// Blocks: Flinders Lane to Flinders St is z 125..227, Collins St to Flinders Lane z 19..116 (js/melbourne-geodata.js).
 const LANES = [
-  { name: 'Degraves St', x: -31, z0: 126, z1: 231, hw: 3.2 },
-  { name: 'Hosier Lane', x: 58, z0: 126, z1: 231, hw: 2.6 },
-  { name: 'Centre Place', x: -88, z0: 126, z1: 231, hw: 2.4 },
-  { name: 'AC/DC Lane', x: 120, z0: 126, z1: 231, hw: 2.4 }
+  { name: 'Degraves St', x: -75, z0: 125.3, z1: 226.7, hw: 3.2, tables: 8 },
+  { name: 'Centre Place', x: -72.3, z0: 19.3, z1: 115.7, hw: 2, tables: 4 },
+  { name: 'Hosier Lane', x: 75.5, z0: 125.3, z1: 226.7, hw: 4, tables: 2 },
+  { name: 'Hosier Lane (narrow arm)', x: 56.5, z0: 125.3, z1: 226.7, hw: 1.6, tables: 0 },
+  { name: 'AC/DC Lane', x: 97.8, z0: 125.3, z1: 226.7, hw: 1.8, tables: 0 }
 ];
+const SW_TOP = 0.22; // the footpath slab's top over the block (js/city-grid.js): the lane is paved on it
+
+// The footprint test (outer ring minus holes) over the buildings near a lane
+function inRing(r, x, z) {
+  let c = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const a = r[i], b = r[j];
+    if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) c = !c;
+  }
+  return c;
+}
+function coveredBy(list, x, z) {
+  for (const b of list) {
+    if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
+    for (const p of b.polygons) if (inRing(p.outer, x, z) && !p.holes.some((h) => inRing(h, x, z))) return true;
+  }
+  return false;
+}
+// Rows of a lane (every 0.5 m of z): the free interval [a, b] around the centre line between the footprints, and whether a
+// wall bounds each side within reach (festoon strings need both). A row whose centre is built over (and has no free
+// spot within 1.5 m) is null.
+export function laneGaps(L, buildings = REAL_BUILDINGS) {
+  const reach = L.hw + 1.5, step = 0.25;
+  const list = buildings.filter((b) => b.maxX > L.x - reach - 2 && b.minX < L.x + reach + 2 && b.maxZ > L.z0 - 2 && b.minZ < L.z1 + 2);
+  const rows = [];
+  for (let z = L.z0 + 0.25; z < L.z1; z += 0.5) {
+    let c = null;
+    for (const d of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) if (!coveredBy(list, L.x + d, z)) { c = L.x + d; break; }
+    if (c === null) { rows.push(null); continue; }
+    let a = c, b = c, wa = false, wb = false;
+    while (a - step >= L.x - reach) { if (coveredBy(list, a - step, z)) { wa = true; break; } a -= step; }
+    while (b + step <= L.x + reach) { if (coveredBy(list, b + step, z)) { wb = true; break; } b += step; }
+    // open on a side (a car park, a forecourt): pave only the lane's own width
+    if (!wa) a = Math.max(a, L.x - L.hw);
+    if (!wb) b = Math.min(b, L.x + L.hw);
+    rows.push(b - a >= 1 ? { z, a, b, wa, wb } : null);
+  }
+  return rows;
+}
+
 const RIVER_BOAT = [[-690, 365], [-820, 395], [-926, 435], [-1020, 462], [-1110, 482], [-1170, 490]];
 const FIRE = [[-820, 463], [-926, 488], [-1115, 535]];
+
+function mergeTable() {
+  const top = new THREE.CylinderGeometry(0.4, 0.4, 0.05, 10).translate(0, 0.75, 0);
+  const leg = new THREE.CylinderGeometry(0.04, 0.04, 0.75, 5).translate(0, 0.375, 0);
+  const pos = [], nor = [], idx = [];
+  for (const g of [top, leg]) {
+    const n = pos.length / 3, gi = g.index.array;
+    pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array);
+    for (let i = 0; i < gi.length; i++) idx.push(gi[i] + n);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
 
 export function createMelbNight({ scene, lightingSystem }) {
   const root = new THREE.Group();
@@ -69,56 +130,90 @@ export function createMelbNight({ scene, lightingSystem }) {
   }
 
   // ---------- Laneways ----------
+  // All lanes share one paving mesh, one festoon bulb set, one bin set and one table set (4 draw calls), fitted to the
+  // footprint gaps (laneGaps) and laid on the footpath slab's top so they never sink under it or float above it.
   const lanes = new THREE.Group();
+  lanes.name = 'Laneways';
   root.add(lanes);
   const stone = bluestoneTex();
+  const pave = [], bulbAt = [], binAt = [], tabAt = [];
+  let lx0 = Infinity, lx1 = -Infinity, lz0 = Infinity, lz1 = -Infinity;
+  for (const L of LANES) {
+    const rows = laneGaps(L);
+    // paving: consecutive rows with the same edges become one quad (world-space UVs, 4 m per stone tile)
+    let run = null;
+    const flush = () => { if (run) pave.push(run); run = null; };
+    for (const r of rows) {
+      if (!r) { flush(); continue; }
+      if (run && Math.abs(run.a - r.a) < 0.01 && Math.abs(run.b - r.b) < 0.01) run.z1 = r.z + 0.25;
+      else { flush(); run = { a: r.a, b: r.b, z0: r.z - 0.25, z1: r.z + 0.25 }; }
+      lx0 = Math.min(lx0, r.a); lx1 = Math.max(lx1, r.b); lz0 = Math.min(lz0, r.z); lz1 = Math.max(lz1, r.z);
+    }
+    flush();
+    // festoon strings every 10 m where both walls stand; bins against a wall; tables where the lane is 3 m or wider
+    const ok = rows.filter(Boolean);
+    let lastS = -1e9;
+    for (const r of ok) {
+      if (r.wa && r.wb && r.z - lastS >= 10 && r.z > L.z0 + 4 && r.z < L.z1 - 4) {
+        lastS = r.z;
+        for (let k = 0; k < 9; k++) {
+          const u = k / 8;
+          bulbAt.push([r.a + 0.15 + u * (r.b - r.a - 0.3), 4.6 - Math.sin(Math.PI * u) * 0.55, r.z]);
+        }
+      }
+    }
+    const walled = ok.filter((r) => (r.wa || r.wb) && r.z > L.z0 + 5 && r.z < L.z1 - 5);
+    for (let i = 0; i < 6 && walled.length; i++) {
+      const r = walled[Math.floor((i + 0.5) * walled.length / 6)];
+      const left = r.wa && (i % 2 === 0 || !r.wb);
+      binAt.push([left ? r.a + 0.45 : r.b - 0.45, r.z]);
+    }
+    const wide = ok.filter((r) => r.b - r.a >= 3 && r.z > L.z0 + 10 && r.z < L.z1 - 10);
+    for (let i = 0; i < L.tables && wide.length; i++) {
+      const r = wide[Math.floor((i + 0.5) * wide.length / L.tables)];
+      tabAt.push([i % 2 ? r.b - 1.1 : r.a + 1.1, r.z]);
+    }
+  }
+  if (pave.length) {
+    const pos = [], uv = [], idx = [];
+    for (const q of pave) {
+      const n = pos.length / 3;
+      pos.push(q.a, 0, q.z0, q.b, 0, q.z0, q.b, 0, q.z1, q.a, 0, q.z1);
+      uv.push(q.a / 4, q.z0 / 4, q.b / 4, q.z0 / 4, q.b / 4, q.z1 / 4, q.a / 4, q.z1 / 4);
+      idx.push(n, n + 2, n + 1, n, n + 3, n + 2);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    drapeGeometry(g, { maxEdge: 6, lift: SW_TOP + 0.015 });
+    g.computeVertexNormals();
+    const mat = new THREE.MeshStandardNodeMaterial({ map: stone, roughness: 0.55 });
+    mat.polygonOffset = true; mat.polygonOffsetFactor = -1; mat.polygonOffsetUnits = -2;
+    const ground = new THREE.Mesh(g, mat);
+    ground.receiveShadow = true;
+    lanes.add(ground);
+  }
+  const ty = (x, z) => terrainHeight(x, z) + SW_TOP;
+  const inst = (geo, mat, list, place) => {
+    if (!list.length) return;
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((p, i) => { place(p); im.setMatrixAt(i, m4.compose(pv, q.identity(), sc)); });
+    im.computeBoundingSphere();
+    lanes.add(im);
+    return im;
+  };
   const bulbGeo = new THREE.SphereGeometry(0.1, 6, 4);
-  const bulbMat = glowMat(0xffc870);
   const binGeo = new THREE.BoxGeometry(0.7, 1.1, 0.7);
   const binMat = new THREE.MeshStandardNodeMaterial({ color: 0x1f5a34, roughness: 0.8 });
-  const tabGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.05, 10); tabGeo.translate(0, 0.75, 0);
-  const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.75, 5); legGeo.translate(0, 0.375, 0);
+  // a cafe table: top and leg in one geometry
+  const tabGeo = mergeTable();
   const tabMat = new THREE.MeshStandardNodeMaterial({ color: 0x2c2c30, roughness: 0.5, metalness: 0.4 });
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pv = new THREE.Vector3();
-  LANES.forEach((L, li) => {
-    const len = L.z1 - L.z0, cz = (L.z0 + L.z1) / 2, y = terrainHeight(L.x, cz) + 0.07;
-    const grp = new THREE.Group();
-    grp.userData.c = new THREE.Vector3(L.x, y, cz);
-    const st = stone.clone(); st.needsUpdate = true; st.repeat.set(L.hw * 2 / 4, len / 4);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(L.hw * 2, len), new THREE.MeshStandardNodeMaterial({ map: st, roughness: 0.55 }));
-    ground.rotation.x = -Math.PI / 2; ground.position.set(L.x, y, cz);
-    ground.receiveShadow = false;
-    grp.add(ground);
-    // festoon strings across the lane every 10 m, 9 bulbs each on a sag curve
-    const strings = Math.floor(len / 10);
-    const bulbs = new THREE.InstancedMesh(bulbGeo, bulbMat, strings * 9);
-    let n = 0;
-    for (let s = 0; s < strings; s++) for (let k = 0; k < 9; k++) {
-      const u = k / 8, x = L.x - L.hw + u * L.hw * 2;
-      pv.set(x, y + 4.6 - Math.sin(Math.PI * u) * 0.55, L.z0 + 5 + s * 10);
-      m4.compose(pv, q.identity(), sc);
-      bulbs.setMatrixAt(n++, m4);
-    }
-    bulbs.frustumCulled = false;
-    grp.add(bulbs);
-    // bins + cafe tables
-    const nb = 6, bins = new THREE.InstancedMesh(binGeo, binMat, nb);
-    for (let i = 0; i < nb; i++) {
-      pv.set(L.x + (i % 2 ? 1 : -1) * (L.hw - 0.6), y + 0.55, L.z0 + 8 + i * (len - 16) / (nb - 1));
-      bins.setMatrixAt(i, m4.compose(pv, q.identity(), sc));
-    }
-    bins.frustumCulled = false;
-    grp.add(bins);
-    const nt = li === 0 ? 8 : 4, tabs = new THREE.InstancedMesh(tabGeo, tabMat, nt), legs = new THREE.InstancedMesh(legGeo, tabMat, nt);
-    for (let i = 0; i < nt; i++) {
-      pv.set(L.x + (i % 2 ? 1 : -1) * (L.hw - 1.2), y, L.z0 + 14 + i * (len - 28) / Math.max(1, nt - 1));
-      m4.compose(pv, q.identity(), sc);
-      tabs.setMatrixAt(i, m4); legs.setMatrixAt(i, m4);
-    }
-    tabs.frustumCulled = legs.frustumCulled = false;
-    grp.add(tabs, legs);
-    lanes.add(grp);
-  });
+  inst(bulbGeo, glowMat(0xffc870), bulbAt, ([x, y, z]) => pv.set(x, ty(x, z) + y, z));
+  inst(binGeo, binMat, binAt, ([x, z]) => pv.set(x, ty(x, z) + 0.55, z));
+  inst(tabGeo, tabMat, tabAt, ([x, z]) => pv.set(x, ty(x, z), z));
+  lanes.userData.box = { x0: lx0, x1: lx1, z0: lz0, z1: lz1 };
 
   // ---------- Crown fire pillars ----------
   const fire = new THREE.Group();
@@ -194,7 +289,8 @@ export function createMelbNight({ scene, lightingSystem }) {
     const stationNear = near(camPos, -177, 265, 500);
     for (const l of upl) l.intensity = stationNear ? nf * 900 : 0;
     // lanes
-    for (const g of lanes.children) g.visible = near(camPos, g.userData.c.x, g.userData.c.z, LOW ? 450 : 800);
+    { const b = lanes.userData.box; const cx = Math.max(b.x0, Math.min(b.x1, camPos.x)), cz = Math.max(b.z0, Math.min(b.z1, camPos.z));
+      lanes.visible = near(camPos, cx, cz, LOW ? 450 : 800); }
     // fire
     let best = null, bd = 1e12;
     const fireNear = near(camPos, -960, 500, 900);
