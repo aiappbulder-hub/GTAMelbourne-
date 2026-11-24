@@ -13,7 +13,9 @@ import { terrainRange } from './terrain.js';
 const LANDMARKS = [
   // id, OSM site, long x short (m), height (m), long side along ('x' = the grid's east-west, 'z' = north-south)
   ['eureka', 'Eureka Tower', 50, 42, 297, 'x'],
-  ['stpauls', "St Paul's Cathedral", 76, 44, 98, 'x'],
+  // (St Paul's: its OSM footprint is 31 m across Swanston St's side by 83 m along it, Flinders Lane to Flinders St; a box
+  // turned the other way used to stand 25 m across Rutledge and Hosier Lanes)
+  ['stpauls', "St Paul's Cathedral", 82, 31, 98, 'z'],
   ['mcg', 'Melbourne Cricket Ground', 235, 205, 75, 'x'],
   ['parliament', 'Parliament House', 115, 80, 32, 'z'],
   ['reb', 'Royal Exhibition Building', 155, 92, 68, 'x'],

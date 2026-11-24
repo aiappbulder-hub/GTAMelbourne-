@@ -40,7 +40,7 @@ const LANES = [
   { name: 'Degraves St', x: -75, z0: 125.3, z1: 226.7, hw: 3.2, tables: 8 },
   { name: 'Centre Place', x: -72.3, z0: 19.3, z1: 115.7, hw: 2, tables: 4 },
   { name: 'Hosier Lane', x: 75.5, z0: 125.3, z1: 226.7, hw: 4, tables: 2 },
-  { name: 'Hosier Lane (narrow arm)', x: 56.5, z0: 125.3, z1: 226.7, hw: 1.6, tables: 0 },
+  { name: 'Rutledge Lane', x: 56.5, z0: 125.3, z1: 226.7, hw: 1.6, tables: 0 },
   { name: 'AC/DC Lane', x: 97.8, z0: 125.3, z1: 226.7, hw: 1.8, tables: 0 }
 ];
 const SW_TOP = 0.22; // the footpath slab's top over the block (js/city-grid.js): the lane is paved on it
