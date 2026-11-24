@@ -27,6 +27,15 @@ export function terrainHeight(x, z) {
   return GRID[k] * (1 - u) * (1 - v) + GRID[k + 1] * u * (1 - v) + GRID[k + NX] * (1 - u) * v + GRID[k + NX + 1] * u * v;
 }
 
+/** Layered surfaces under the terrain or over it (the freeways' tunnels and decks, js/freeways.js): fn(x, z, y) returns
+ * the surface for something at height y there, or null. The cameras use floorAt so they follow a car into a tunnel. */
+export const groundHooks = { under: null };
+/** The floor under (x, z) for something at height y: a layered surface if one applies, else the terrain. */
+export function floorAt(x, z, y) {
+  if (groundHooks.under) { const v = groundHooks.under(x, z, y); if (v !== null) return v; }
+  return terrainHeight(x, z);
+}
+
 /** Highest terrain over a footprint (a list of {x, z} or [x, z] corners, or a bounding box {minX, maxX, minZ, maxZ}). */
 export function terrainRange(pts) {
   let lo = Infinity, hi = -Infinity;

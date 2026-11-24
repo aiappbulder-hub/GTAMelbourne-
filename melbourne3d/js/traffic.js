@@ -2663,7 +2663,8 @@ function createHighwayTraffic(scene, lanes) {
       const z = a.z + (b.z - a.z) * t;
       const toEnd = lane.len - c.u;
       const dip = c.u < toEnd ? c.u : toEnd;
-      const y = a.y + (b.y - a.y) * t - 2.4 * (1 - ease(dip));
+      // (a freeway lane, js/freeways.js, keeps its height to the ends: a car is just not drawn in its last 30 m)
+      const y = a.y + (b.y - a.y) * t - (lane.noDip ? 0 : 2.4 * (1 - ease(dip)));
       let dYaw = lane.yaw[i + 1] - lane.yaw[i];
       if (dYaw > Math.PI) dYaw -= Math.PI * 2;
       else if (dYaw < -Math.PI) dYaw += Math.PI * 2;
@@ -2678,11 +2679,14 @@ function createHighwayTraffic(scene, lanes) {
       const dz = z - cam.z;
       const dy = y - cam.y;
       const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 > HWY_FAR_CULL * HWY_FAR_CULL) continue;
+      // (no further than half the tier's view distance: 600 m on Low-lite)
+      const far = Math.min(HWY_FAR_CULL, Q.viewDist * 0.5);
+      if (d2 > far * far) continue;
+      if (lane.noDip && dip < 30) continue;
       const lod = d2 < HWY_NEAR_LOD * HWY_NEAR_LOD ? 0 : d2 < HWY_MID_LOD * HWY_MID_LOD ? 1 : 2;
       if (lod > 0 && dx * fwd.x + dz * fwd.z < -40) continue;
-      if (y < -3.6) continue; // in the Battery Park Underpass, out of sight behind the portals' screens
-      const slope = (b.y - a.y) / segLen + 2.4 * easeSlope(dip) * (c.u < toEnd ? 1 : -1);
+      if (y < -3.6 && !lane.noDip) continue; // in the Battery Park Underpass, out of sight behind the portals' screens
+      const slope = (b.y - a.y) / segLen + (lane.noDip ? 0 : 2.4 * easeSlope(dip) * (c.u < toEnd ? 1 : -1));
       euler.set(-Math.atan(slope), yaw, 0);
       q.setFromEuler(euler);
       m4.compose(pos.set(x, y, z), q, ONE);

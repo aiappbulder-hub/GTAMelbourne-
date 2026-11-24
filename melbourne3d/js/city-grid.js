@@ -59,6 +59,7 @@ import {
 import { createRoadPaintChunkBuilder } from './road-paint.js';
 import { drapeGroup } from './terrain.js';
 import { GEO } from './geodata.js';
+import { FREEWAYS } from './melbourne-freeways.js';
 import { createMelbourneWaterMaterial } from './water.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, HEAVY_FX } from './quality.js';
@@ -3570,7 +3571,17 @@ function buildMelbourneGrid(scene) {
 
   // 1. Water: one plane under everything, seen through the holes in the land deck
   const waterMat = (!HEAVY_FX || (typeof location !== 'undefined' && /[?&]oldwater/.test(location.search)) ? createWaterMaterial() : createMelbourneWaterMaterial(GEO)); // ?oldwater: A/B against the old look
-  const waterGeo = new THREE.PlaneGeometry(60000, 60000, 1, 1);
+  // the freeways' open cuttings (js/melbourne-freeways.js) are holes in the land deck and in this plane, which would
+  // otherwise hide the cutting's road below the water level
+  const cuttings = (FREEWAYS.trenches || []).map((r) => toPts(r)).filter((r) => r.length >= 3);
+  const ringPath = (ring, P) => { ring.forEach((p, i) => (i ? P.lineTo(p.x, -p.z) : P.moveTo(p.x, -p.z))); P.closePath(); return P; };
+  let waterGeo;
+  if (cuttings.length) {
+    const sq = new THREE.Shape();
+    sq.moveTo(-30000, 30000); sq.lineTo(-30000, -30000); sq.lineTo(30000, -30000); sq.lineTo(30000, 30000); sq.closePath();
+    for (const r of cuttings) sq.holes.push(ringPath(r, new THREE.Path()));
+    waterGeo = new THREE.ShapeGeometry(sq, 1);
+  } else waterGeo = new THREE.PlaneGeometry(60000, 60000, 1, 1);
   waterGeo.rotateX(-Math.PI / 2);
   const waterMesh = new THREE.Mesh(waterGeo, waterMat);
   waterMesh.position.set(0, WL, 0);
@@ -3598,6 +3609,7 @@ function buildMelbourneGrid(scene) {
       hole.closePath();
       shape.holes.push(hole);
     }
+    for (const r of cuttings) shape.holes.push(ringPath(r, new THREE.Path()));
     const geo = new THREE.ShapeGeometry(shape, 1);
     geo.rotateX(-Math.PI / 2);
     const deck = new THREE.Mesh(geo, roadMat);

@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { Q } from './quality.js';
 import { SCENIC_VIEWS } from './city-config.js';
-import { terrainHeight } from './terrain.js';
+import { terrainHeight, floorAt } from './terrain.js';
 
 // Chase, action, cockpit, fixed-location and aerial cameras, with mouse/touch orbit and zoom.
 
@@ -239,7 +239,7 @@ class CameraSystem {
 
         desiredPos.set(
           entity.position.x - Math.sin(totalYaw) * horizDist,
-          Math.max(0.65 + terrainHeight(entity.position.x - Math.sin(totalYaw) * horizDist, entity.position.z - Math.cos(totalYaw) * horizDist), entity.position.y + height),
+          Math.max(0.65 + floorAt(entity.position.x - Math.sin(totalYaw) * horizDist, entity.position.z - Math.cos(totalYaw) * horizDist, entity.position.y + height), entity.position.y + height),
           entity.position.z - Math.cos(totalYaw) * horizDist
         );
 
@@ -403,7 +403,7 @@ class CameraSystem {
     }
 
     // never under the hills
-    this.currentPos.y = Math.max(this.currentPos.y, terrainHeight(this.currentPos.x, this.currentPos.z) + 0.55);
+    this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, this.currentPos.y) + 0.55);
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentLookAt);
 

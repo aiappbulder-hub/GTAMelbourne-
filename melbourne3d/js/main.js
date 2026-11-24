@@ -20,6 +20,7 @@ import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
 import { settings } from './settings.js';
 import { CityAudioSystem } from './audio-system.js';
+import { groundHooks } from './terrain.js';
 
 // Saved player positions, per city (the frames differ)
 const PLAYER_STATE_KEY = IS_MELBOURNE ? 'melbourne-player-state' : 'nyc-player-state';
@@ -163,7 +164,10 @@ async function initApp() {
     ...allColliders.filter((c) => !c.obb && (c.minY ?? 0) - (c.groundY ?? 0) < 3.5)
   ], streetDetails.signalIntersections);
   markInit('traffic');
-  const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
+  // Melbourne's freeways (js/freeways.js): viaducts, ramps, cuttings and the CityLink tunnels; their lanes carry the
+  // ambient highway traffic, their colliders join the player's (below, after traffic took its obstacles)
+  const freeways = IS_MELBOURNE ? (await import('./freeways.js')).createFreeways({ scene }) : null;
+  const highwayTraffic = createHighwayTraffic(scene, [...cityGrid.highwayLanes, ...(freeways ? freeways.lanes : [])]);
   // Melbourne's trams on the real routes (js/trams.js)
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
   // Melbourne visuals: station glow, laneways, Crown fire, river boat (js/melb-night.js)
@@ -176,11 +180,18 @@ async function initApp() {
   // has taken its obstacles, so AI lanes are unaffected) and their decks the ground height, below.
   const bridges = IS_MELBOURNE ? (await import('./bridges.js')).createBridges({ scene }) : null;
   if (bridges) allColliders.push(...bridges.colliders);
+  if (freeways) allColliders.push(...freeways.colliders);
 
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
+  if (freeways) {
+    // the freeways first: a tunnel under a bridge is still a tunnel (js/freeways.js)
+    (controllerManager.extraGround ||= []).unshift(freeways.groundHeight);
+    controllerManager.layerHeight = (x, z, y) => freeways.surfaceAt(x, z, y);
+    groundHooks.under = (x, z, y) => freeways.surfaceAt(x, z, y);
+  }
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
   let helipad = null; // js/helipad.js
   let interiors = null; // js/interiors.js: the Quiet Room
@@ -746,7 +757,7 @@ async function initApp() {
     return destination;
   }
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
-  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, get map() { return mapSystem; }, selectCamera: (id) => selectCamera(id, true) };
+  window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, freeways, highwayTraffic, get map() { return mapSystem; }, selectCamera: (id) => selectCamera(id, true) };
 
   const mapSystem = new NYCMapSystem({
     controllerManager,
@@ -1269,6 +1280,7 @@ async function initApp() {
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
+    if (warmedUp && freeways) freeways.update(cameraSystem.camera.position, dt);
     // Unlit lamps (intensity 0: daytime, or beyond the lamp pools' reach) leave the clustered light lists, so the light
     // grid compute and every lit pixel's cluster loop skip them (~220 of 250 by day). Hidden here, shown again when lit.
     if (warmedUp) {

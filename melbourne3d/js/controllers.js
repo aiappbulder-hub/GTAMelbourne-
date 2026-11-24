@@ -893,10 +893,11 @@ class ThirdPersonControllerManager {
     return !!b && !(b.park > 0.6 && !b.median);
   }
 
-  getGroundHeight(x, z, mode = 'person') {
+  getGroundHeight(x, z, mode = 'person', y = undefined) {
     // extra surfaces other modules lay down (St Kilda Pier's deck, js/stkilda.js; the Yarra's bridges, js/bridges.js,
-    // whose footpaths are raised for people only, hence the mode)
-    if (this.extraGround) for (const f of this.extraGround) { const y = f(x, z, mode); if (y !== null) return y; }
+    // whose footpaths are raised for people only, hence the mode; the freeways' decks and tunnels, js/freeways.js, which
+    // are layered and need the height `y` of whoever asks: without it they leave it to the ground)
+    if (this.extraGround) for (const f of this.extraGround) { const h = f(x, z, mode, y); if (h !== null) return h; }
     // Inside Central Park (5th Ave to Central Park West, 59th St to 110th St)
     const cp = CENTRAL_PARK_BOUNDS;
     // (everything below sits on the terrain, js/terrain.js: `?flat` makes it 0 again)
@@ -1057,7 +1058,7 @@ class ThirdPersonControllerManager {
       } else if (this.activeMode === 'person') {
         p._charHidden = false;
         if (p.mesh) p.mesh.visible = true;
-        const air = p.position.y - this.getGroundHeight(p.position.x, p.position.z, 'person');
+        const air = p.position.y - this.getGroundHeight(p.position.x, p.position.z, 'person', p.position.y);
         p.rig.aim += ((this.aiming ? 1 : 0) - p.rig.aim) * Math.min(1, dt * 12);
         p.rig.update(dt, p.position.x, p.position.z, p.heading, personGround, this, air > 0.02 ? air : 0);
         p.crowd.begin();
@@ -1218,7 +1219,7 @@ class ThirdPersonControllerManager {
     p.position.z += dirZ * p.speed * dt;
     this.resolveHorizontalCollision(p.position, 0.42);
 
-    const groundY = this.getGroundHeight(p.position.x, p.position.z, 'person');
+    const groundY = this.getGroundHeight(p.position.x, p.position.z, 'person', p.position.y);
     if (this.keys.up && p.position.y <= groundY + 0.02 && !this.aiming) {
       p.verticalVel = 4.6;
     }
@@ -1320,7 +1321,10 @@ class ThirdPersonControllerManager {
       const fx = Math.sin(c.heading), fz = Math.cos(c.heading), lx = Math.cos(c.heading), lz = -Math.sin(c.heading);
       // grass (a park's lawn): the wheels sink into the turf (lawn top 0.41 m, 0.1 m down into it)
       let grass = 0;
+      // on a freeway's deck, ramp or tunnel floor (js/freeways.js): no kerbs or grass, its own height under each wheel
+      const layer = this.layerHeight ? this.layerHeight(c.position.x, c.position.z, c.position.y) : null;
       const at = (along, side) => {
+        if (layer !== null) return 0;
         const wx = c.position.x + fx * along + lx * side, wz = c.position.z + fz * along + lz * side;
         // the Albert Park race track: asphalt, at its own height (over the grass where it leaves the roads)
         const track = trackHeight(wx, wz, 1.3);
@@ -1334,7 +1338,12 @@ class ThirdPersonControllerManager {
       };
       const fl = at(1.3, 0.78), fr = at(1.3, -0.78), bl = at(-1.3, 0.78), br = at(-1.3, -0.78);
       // the terrain under each wheel: the body rides at its mean and pitches and rolls with the slope
-      const th = (along, side) => terrainHeight(c.position.x + fx * along + lx * side, c.position.z + fz * along + lz * side);
+      const th = (along, side) => {
+        const wx = c.position.x + fx * along + lx * side, wz = c.position.z + fz * along + lz * side;
+        if (layer === null) return terrainHeight(wx, wz);
+        const h = this.layerHeight(wx, wz, c.position.y);
+        return h === null ? layer : h;
+      };
       const tfl = th(1.3, 0.78), tfr = th(1.3, -0.78), tbl = th(-1.3, 0.78), tbr = th(-1.3, -0.78);
       // On the grass the car digs in: it loses speed (more the faster it goes), grip drops and it bounces about
       c.onGrass = grass >= 2;
@@ -1358,7 +1367,7 @@ class ThirdPersonControllerManager {
       c.kerbPitch = (c.kerbPitch || 0) + (-Math.atan2((fl + tfl + fr + tfr - bl - tbl - br - tbr) / 2, 2.6) - (c.kerbPitch || 0)) * k;
       c.kerbRoll = (c.kerbRoll || 0) + (Math.atan2((fl + tfl + bl + tbl - fr - tfr - br - tbr) / 2, 1.56) - (c.kerbRoll || 0)) * k;
     }
-    c.position.y = Math.max(this.getGroundHeight(c.position.x, c.position.z, 'car'), c.rideY);
+    c.position.y = Math.max(this.getGroundHeight(c.position.x, c.position.z, 'car', c.position.y), c.rideY);
     c.chassisPivot.position.y = c.heaveY;
 
     if (c.carState) {
