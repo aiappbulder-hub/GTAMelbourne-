@@ -242,7 +242,8 @@ function setupSceneCulling(scene, roots, shadow = null, extraRoots = []) {
       largeMeshes.push(mesh);
       continue;
     }
-    const cell = Math.min(600, Math.max(250, cullDist * 0.5));
+    // (on the short-view tiers the cells are as big as the cull distance: a few more instances, far fewer draw calls)
+    const cell = Q.cullScale < 0.5 ? Math.min(600, Math.max(300, cullDist)) : Math.min(600, Math.max(250, cullDist * 0.5));
     for (const chunk of replaceWithChunks(mesh, cell)) {
       const sphere = chunk.boundingSphere.clone().applyMatrix4(chunk.matrixWorld);
       pushCulled(chunk, sphere, cullDist);

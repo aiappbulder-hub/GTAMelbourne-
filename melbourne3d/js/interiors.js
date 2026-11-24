@@ -359,6 +359,7 @@ export function createInteriors({ scene, controllerManager, cameraSystem, lighti
   const group = new THREE.Group();
   group.name = 'Interiors';
   group.add(roomMesh, neon, outMesh, sign, signBack, glow);
+  roomMesh.visible = neon.visible = false; // until the player goes in (setInside)
   scene.add(group);
   group.updateMatrixWorld(true);
   for (const o of group.children) { o.matrixAutoUpdate = false; o.updateMatrix(); o.updateMatrixWorld(true); }
@@ -442,6 +443,7 @@ body.in-room #minimap-card { display: none; }
   }
 
   function setInside(v, { place = true } = {}) {
+    roomMesh.visible = neon.visible = !!v; // (never drawn from the street: it is unculled and ~16k triangles)
     if (v) {
       inside = true;
       document.body.classList.add('in-room');
