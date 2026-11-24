@@ -3672,7 +3672,14 @@ function buildMelbourneGrid(scene) {
     return { ring, x0, x1, z0, z1 };
   });
   const holesIn = (b) => holeRings.filter((h) => h.x0 > b.minX - 1 && h.x1 < b.maxX + 1 && h.z0 > b.minZ - 1 && h.z1 < b.maxZ + 1
-    && pointInPolygonXZ(b.poly, h.ring[0].x, h.ring[0].z)).map((h) => h.ring);
+    && pointInPolygonXZ(b.poly, h.ring[0].x, h.ring[0].z)).map((h) => h.ring).concat(b.cutHoles || []);
+  // Kerb islands and parks that cover a freeway cutting are drawn as their pieces round it (js/melbourne-freeways.js
+  // blockPatches, by tools/melbourne/build-freeways.mjs), with any cutting wholly inside a piece as a hole
+  const FWY_PATCH = FREEWAYS.blockPatches || {};
+  const visualBlocks = (list) => list.flatMap((b) => {
+    const patch = !b.rect && FWY_PATCH[b.id];
+    return patch ? patch.map(([outer, ...holes]) => ({ ...b, poly: toPts(outer), cutHoles: holes.map(toPts) })) : [b];
+  });
   function extrudeHoles(pts, holes, bottomY, height, material) {
     if (!holes.length) return createExtrudedPolygonMesh(pts, bottomY, height, material);
     const shape = createWorldXZShape(pts);
@@ -3699,7 +3706,7 @@ function buildMelbourneGrid(scene) {
   const slabGeos = [];
   const curbGeos = [];
   const SW_TOP = 0.22;
-  for (const b of BLOCKS) {
+  for (const b of visualBlocks(BLOCKS)) {
     if (b.park > 0.6 && !b.median && b.area > 250) continue; // parks build their own walks (section 4)
     if (b.rect) {
       const slab = { cx: (b.minX + b.maxX) * 0.5, cz: (b.minZ + b.maxZ) * 0.5, w: b.maxX - b.minX, d: b.maxZ - b.minZ, block: b };
@@ -3761,7 +3768,7 @@ function buildMelbourneGrid(scene) {
   const parkLawnGeos = [], parkWalkGeos = [], parkEdgeGeos = [], parkCurbGeos = [];
   const lampM = new THREE.Matrix4();
   const addLamp = (x, y, z) => lampMatrices.push(lampM.clone().makeTranslation(x, y, z));
-  for (const b of BLOCKS) {
+  for (const b of visualBlocks(BLOCKS)) {
     if (!(b.park > 0.6 && !b.median && b.area > 250)) continue;
     const slab = offsetPolygonInward(b.poly, 0.1) || b.poly;
     const holes = holesIn(b);

@@ -34,6 +34,7 @@ const DECK_T = 1.4; // a viaduct deck's depth
 const BARRIER_H = 1.0;
 const PILLAR_EVERY = 4; // samples (about 32 m)
 const LAMP_EVERY = 6; // samples (about 48 m)
+const TUNNEL_SEEN = 260;
 
 const C = {
   asphalt: [0.2, 0.205, 0.215], paint: [0.86, 0.86, 0.82], concrete: [0.62, 0.61, 0.58], concreteDark: [0.42, 0.41, 0.39],
@@ -325,18 +326,20 @@ export function createFreeways({ scene }) {
   }
 
   // --- Distance culling: cells beyond the view distance hidden, four times a second ----------------------------------
-  const cellList = [...cells.values()];
+  // (by each mesh's bounding sphere: the lit structure to 85% of the view distance, where the fog has nearly hidden it;
+  // a tunnel's inside only within TUNNEL_SEEN m, since from further off it is underground or deep in a cutting)
+  const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat }));
   let clock = 0;
   function update(camPos, dt = 0.016) {
     clock -= dt;
     if (clock > 0) return;
     clock = 0.25;
-    const R = (Number.isFinite(Q.viewDist) ? Q.viewDist : 1e9) + CELL * 0.71;
-    for (const c of cellList) {
-      const vis = Math.hypot(c.x - camPos.x, c.z - camPos.z) < R;
-      for (const m of c.meshes) m.visible = vis;
+    const far = Number.isFinite(Q.viewDist) ? Q.viewDist * 0.85 : 1e9;
+    for (const e of meshList) {
+      const d = Math.hypot(e.s.center.x - camPos.x, e.s.center.z - camPos.z) - e.s.radius;
+      e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : far);
     }
   }
 
-  return { group, colliders, groundHeight, surfaceAt, lanes, update, stats: { cells: cellList.length, meshes: group.children.length, triangles, colliders: colliders.length, lanes: lanes.length } };
+  return { group, colliders, groundHeight, surfaceAt, lanes, update, stats: { cells: cells.size, meshes: group.children.length, triangles, colliders: colliders.length, lanes: lanes.length } };
 }
