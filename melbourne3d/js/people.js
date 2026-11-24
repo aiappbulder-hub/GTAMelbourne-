@@ -1273,6 +1273,8 @@ export function createCast({ scene, controllerManager }) {
       return { held, drawK: weapon.drawK, raise: weapon.raise, muzzle: weapon.muzzleValid };
     },
     setGunman,
+    /** For checks (tools/ara/npc-sheet.html): the actor drawing a gunman */
+    _gunman: (key) => gunmen.get(key) || null,
     setRider,
     /** Where the gun's muzzle is (for the flash and tracers), or null */
     muzzle() { return weapon.muzzleValid ? weapon.muzzle : null; },

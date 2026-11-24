@@ -1,0 +1,132 @@
+<!doctype html>
+<meta charset="utf-8"><title>NPC locomotion sheet</title>
+<style>body{margin:0;background:#666}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+<script type="module">
+// Everyone else's locomotion as the game drives it: the street crowd (js/pedestrians.js PersonRig in a PersonCrowd, as
+// js/pedestrian-system.js does) and the people of js/people.js on foot (gunmen, officers, bikies off their bikes: setGunman).
+// Serve the repo root, open /melbourne3d/tools/ara/npc-sheet.html, then from Playwright:
+//   await page.evaluate(() => window.sheet(rows, title))
+// rows: [{ label, who: 'ped' | <model id>, steps: [{ t, speed, heading }], shots: [s, s, s, s], seed }]
+// Each frame's numbers: heading (deg) and the speed; each row's: stance-foot slip (m/s, a planted foot's ground speed) and the
+// largest heading change in one frame (deg: a snap shows as a big number).
+import * as THREE from 'three/webgpu';
+import { PersonCrowd, PersonRig } from '../../js/pedestrians.js';
+import { createCast } from '../../js/people.js';
+const W = 200, H = 260;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8a8a8a);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 5, 4); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: 0x5a5a5a })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const grid = new THREE.GridHelper(400, 800, 0x777777, 0x6a6a6a); grid.position.y = 0.002; scene.add(grid);
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: !location.search.includes('gpu') });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+await renderer.init();
+const cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 80);
+const crowd = new PersonCrowd(1, { farDistance: Infinity, castShadow: false });
+for (const m of crowd.meshes) scene.add(m);
+const person = { position: new THREE.Vector3(0, 0, 0), heading: 0, speed: 0, verticalVel: 0 };
+const cm = { activeMode: 'car', entities: { person }, getGroundHeight: () => 0 };
+const cast = createCast({ scene, controllerManager: cm });
+const dt = 1 / 60;
+const ground = () => 0;
+window.preload = async (ids) => {
+  for (const id of ids) {
+    for (let i = 0; i < 300; i++) {
+      if (cast.setGunman('probe', id, { x: 0, y: -50, z: 0, heading: 0, speed: 0, weapon: 'pistol', dt })) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    cast.setGunman('probe', id, null);
+  }
+  return true;
+};
+const out = document.createElement('canvas');
+document.body.appendChild(out);
+window.sheet = async (rows, title = '') => {
+  const cols = 8, top = 24;
+  out.width = cols * W; out.height = top + rows.length * H;
+  const g = out.getContext('2d');
+  g.fillStyle = '#444'; g.fillRect(0, 0, out.width, out.height);
+  g.font = '14px sans-serif'; g.fillStyle = '#fff'; g.fillText(title + '   (left 4: side view; right 4: front view, same moments)', 6, 17);
+  const report = [];
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const ped = row.who === 'ped';
+    const st = { x: 0, z: 0, heading: 0, speed: 0 };
+    let rig = null, gm = null, key = `g${r}`;
+    if (ped) rig = new PersonRig({ seed: row.seed ?? 3.3, scale: 1, female: !!row.female, girth: 1, hair: 0.2, armSwing: row.armSwing ?? 1, stride: 1 });
+    let lastYaw = null, maxSnap = 0;
+    const samp = [];
+    const prev = [null, null];
+    const draw = () => {
+      if (ped) {
+        rig.update(dt, st.x, st.z, st.heading, ground, null, 0, true);
+        crowd.begin(); crowd.add(rig, 0); crowd.end();
+        return rig.yaw;
+      }
+      cast.setGunman(key, row.who, { x: st.x, y: 0, z: st.z, heading: st.heading, speed: st.speed, weapon: 'pistol', armed: !!row.armed, officer: !!row.officer, vest: !!row.vest, dt });
+      gm = gm || cast._gunman?.(key);
+      return gm ? gm.heading : st.heading;
+    };
+    const feet = () => {
+      if (ped) return rig.feet.map((f) => ({ x: f.ax, y: f.ay, z: f.az, down: !f.swing }));
+      if (!gm) return null;
+      gm.group.updateMatrixWorld(true);
+      gm.toes = gm.toes || ['L', 'R'].map((s) => { let b = null; gm.root.traverse((o) => { if (!b && o.isBone && new RegExp(s === 'L' ? '(^|_)(Left|L_?)Toe' : '(^|_)(Right|R_?)Toe').test(o.name)) b = o; }); return b; });
+      return gm.toes.map((b) => { const p = b.getWorldPosition(new THREE.Vector3()); return { x: p.x, y: p.y, z: p.z, down: null }; });
+    };
+    const steps = row.steps;
+    let t = 0, si = 0;
+    const adv = (track) => {
+      while (si < steps.length && steps[si].t <= t + 1e-6) { const s = steps[si++]; if (s.speed !== undefined) st.speed = s.speed; if (s.heading !== undefined) st.heading = s.heading; }
+      st.x += Math.sin(st.heading) * st.speed * dt; st.z += Math.cos(st.heading) * st.speed * dt;
+      const yaw = draw();
+      if (lastYaw !== null) maxSnap = Math.max(maxSnap, Math.abs(Math.atan2(Math.sin(yaw - lastYaw), Math.cos(yaw - lastYaw))) * 180 / Math.PI);
+      lastYaw = yaw;
+      if (track) {
+        const f = feet();
+        if (f) for (let i = 0; i < 2; i++) {
+          if (prev[i]) samp.push([f[i].y, Math.hypot(f[i].x - prev[i].x, f[i].z - prev[i].z) / dt, f[i].down]);
+          prev[i] = f[i];
+        }
+      }
+      t += dt;
+    };
+    const shots = row.shots;
+    const ms = [];
+    for (let c = 0; c < 4; c++) {
+      while (t < shots[c] - 1e-6) adv(t > (row.track0 ?? 1.5));
+      const yaw = lastYaw ?? 0;
+      for (const v of [0, 1]) {
+        const dir = v === 0 ? new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw)) : new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        cam.position.set(st.x, 0.95, st.z).addScaledVector(dir, row.dist || 5.2);
+        cam.lookAt(st.x, 0.9, st.z);
+        await new Promise((res) => requestAnimationFrame(res));
+        renderer.render(scene, cam);
+        const x = (v * 4 + c) * W, y = top + r * H;
+        g.drawImage(renderer.domElement, x, y);
+        if (v === 0) { const hp = new THREE.Vector3(st.x, 0.95, st.z).project(cam); const px = x + (hp.x + 1) / 2 * W; g.strokeStyle = '#ff0a'; g.beginPath(); g.moveTo(px, y + 20); g.lineTo(px, y + H - 10); g.stroke(); }
+        g.fillStyle = '#000a'; g.fillRect(x, y + H - 34, W, 34); g.fillStyle = '#fff'; g.font = '11px sans-serif';
+        if (v === 0) { g.fillText(`${row.label}`, x + 3, y + H - 21); g.fillText(`t ${t.toFixed(2)}s  v ${st.speed.toFixed(1)}  yaw ${(yaw * 180 / Math.PI).toFixed(0)}`, x + 3, y + H - 7); }
+        else { const clip = gm ? Object.entries(gm.acts).filter(([, a]) => a.isRunning() && a.getEffectiveWeight() > 0.05).map(([k, a]) => `${k}:${a.getEffectiveWeight().toFixed(1)}`).join(' ') : `gait ${rig.gait.toFixed(2)} run ${rig.run.toFixed(2)}`; g.fillText(clip.slice(0, 38), x + 3, y + H - 21); }
+        g.strokeStyle = '#222'; g.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
+      }
+    }
+    // stance slip: planted feet (the rig says which; for the clip people, within 2.5 cm of the lowest the toe goes)
+    let slip = null;
+    if (samp.length) {
+      const lo = Math.min(...samp.map((s) => s[0]));
+      const stance = samp.filter((s) => s[2] === null ? s[0] < lo + 0.025 : s[2]);
+      slip = stance.length ? +(stance.reduce((q, s) => q + s[1], 0) / stance.length).toFixed(2) : null;
+    }
+    report.push({ label: row.label, slip, maxSnapDeg: +maxSnap.toFixed(1) });
+    if (!ped) cast.setGunman(key, row.who, null);
+    for (const m of crowd.meshes) m.visible = ped;
+    crowd.begin(); crowd.end();
+  }
+  return report;
+};
+window.__ready = true;
+</script>
