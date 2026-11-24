@@ -1764,15 +1764,18 @@ class PersonRig {
 
     // Arms swing against the legs, a little behind them (elbows bend more on the forward swing, ~90 degrees running).
     // Aiming (this.aim 0..1, the player with a gun drawn) raises both arms forward into a two-handed grip.
-    const swingAmp = 0.42 * this.armSwing * g * (1 + run * 0.3) * (1 - this.aim);
+    // (a walk swings the arm ~15-20 degrees either way at the shoulder, more forward than back; running, the upper arm turns in
+    // so the bent forearms cross towards the chest instead of flaring out sideways)
+    const swingAmp = 0.72 * this.armSwing * g * (1 - run * 0.15) * (1 - this.aim);
     for (let i = 0; i < 2; i++) {
       const side = SIDES[i];
-      const flex = lerp(0.06 - side * this.arm * swingAmp + idle * 0.02, 1.42, this.aim);
-      const abduction = lerp(0.1 + (this.girth - 1) * 0.35 + run * 0.08, -0.22, this.aim);
+      const sw = -side * this.arm * swingAmp;
+      const flex = lerp(0.06 + (sw > 0 ? sw : sw * 0.7) + idle * 0.02 + run * 0.1, 1.42, this.aim);
+      const abduction = lerp(0.1 + (this.girth - 1) * 0.35 + run * 0.02, -0.22, this.aim);
       this.jointFrom(BONE.CHEST, LIMB.upperArm[i], _qChest, _chest, _shoulder);
-      _qUpper.copy(_qChest).multiply(qZ(_q, side * (abduction - ARM_BIND_ABDUCTION))).multiply(qX(_q, -flex));
+      _qUpper.copy(_qChest).multiply(qZ(_q, side * (abduction - ARM_BIND_ABDUCTION))).multiply(qX(_q, -flex)).multiply(qY(_q, -side * 0.45 * run * (1 - this.aim)));
       this.writeBone(LIMB.upperArm[i], _qUpper, _shoulder);
-      const elbow = lerp(0.2 + 0.55 * Math.max(0, flex) + 0.1 * g + run * 1.05, 0.12, this.aim);
+      const elbow = lerp(0.2 + 0.55 * Math.max(0, flex) + 0.1 * g + run * 1.0, 0.12, this.aim);
       this.jointFrom(LIMB.upperArm[i], LIMB.forearm[i], _qUpper, _shoulder, _v);
       this.writeBone(LIMB.forearm[i], _q2.copy(_qUpper).multiply(qX(_q, -elbow)), _v);
     }
