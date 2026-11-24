@@ -150,6 +150,7 @@ if (trenchSegs.length) {
     const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, nx = -dz / L * r, nz = dx / L * r, ex = dx / L * 0.6, ez = dz / L * 0.6;
     R.fillRing([[a[0] + nx - ex, a[1] + nz - ez], [b[0] + nx + ex, b[1] + nz + ez], [b[0] - nx + ex, b[1] - nz + ez], [a[0] - nx - ex, a[1] - nz - ez]], 1);
   }
+  R.close(4); // pieces closer than 8 m merge into one outline (holes that touch break the land deck's triangulation)
   const bodies = makeBlocks({ land: R, roads: [], sidewalk: 1, log: () => {} });
   for (const b of bodies) if (b.area > 40) trenches.push(rdpRing(b.poly, 0.5).flatMap(([x, z]) => [q(x), q(z)]));
 }
