@@ -839,11 +839,13 @@ async function initApp() {
   // Ambient city events (js/city-events.js)
   const cityEvents = IS_MELBOURNE ? (await import('./city-events.js')).createCityEvents({ scene, controllerManager, cameraSystem, lightingSystem, trafficSystem, voices }) : null;
   window.__city.events = cityEvents;
-  // Free roam (the default): the taxi on Flinders St by the station at early dusk; no title film, intro or phone call
+  // Free roam (the default): the Clubbie on Flinders St by the station at early dusk; no title film, intro or phone call
   function freeRoamStart() {
     if (new URLSearchParams(location.search).has('nointro')) return;
     selectMode('car');
     if (freshPlayer) teleportTo(FREE_START.x, FREE_START.z, FREE_START.heading);
+    // The game starts behind the wheel of the HSB Clubbie R8, not the taxi (the car button still cycles to the taxi)
+    if (controllerManager.entities.car?.label === 'Melbourne Taxi') gameplay?.cycleCar();
   }
   const areaCards = IS_MELBOURNE ? (await import('./area-cards.js')).createAreaCards({ controllerManager }) : null;
   window.__city.areaCards = areaCards;
