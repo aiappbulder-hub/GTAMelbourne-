@@ -943,7 +943,9 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   let gameplay = null, traffic = null;
   const counters = { talk: 0, rob: 0 };
   const placeMarker = (m, p, r) => {
-    m.position.set(p.x, (p.y ?? terrainHeight(p.x, p.z)) + 0.2, p.z); // (p.y: a place inside the Quiet Room, js/interiors.js, or a footpath spot)
+    // on whatever is underfoot there: the footpath, a park's lawn, a bridge, St Kilda Pier, Arbory Afloat's deck (p.y: a place
+    // inside the Quiet Room, js/interiors.js, or a footpath spot)
+    m.position.set(p.x, (p.y ?? controllerManager.getGroundHeight(p.x, p.z, 'person')) + 0.2, p.z);
     m.scale.set(r, 1, r);
     m.visible = true;
   };
