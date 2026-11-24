@@ -89,10 +89,11 @@ export function laneGaps(L, buildings = REAL_BUILDINGS) {
   for (let i = 0; i < rows.length; i++) {
     if (!keep[i]) continue;
     const from = last < 0 ? (i <= MOUTH ? 0 : i) : (i - last - 1 <= BR ? last + 1 : i);
-    for (let k = from; k < i; k++) keep[k] = !!rows[k];
+    // (only through open rows: a mouth or break with a building across it stays unpaved)
+    if (rows.slice(from, i).every(Boolean)) for (let k = from; k < i; k++) keep[k] = true;
     last = i;
   }
-  if (last >= 0 && rows.length - 1 - last <= MOUTH) for (let k = last + 1; k < rows.length; k++) keep[k] = !!rows[k];
+  if (last >= 0 && rows.length - 1 - last <= MOUTH && rows.slice(last + 1).every(Boolean)) for (let k = last + 1; k < rows.length; k++) keep[k] = true;
   return rows.map((r, i) => (keep[i] ? r : null));
 }
 
