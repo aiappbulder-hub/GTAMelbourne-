@@ -23,9 +23,8 @@ function detectGpu() {
     if (lose) lose.loseContext();
     let level = 'medium', lite = false;
     if (/NVIDIA|GeForce|Quadro|RTX|GTX|Radeon RX|Radeon Pro|Arc\b|Intel\(R\) Arc/i.test(name)) level = 'high';
-    // Laptop integrated graphics (Intel UHD / Iris Xe, AMD Vega / Radeon Graphics APUs): Low plus, on the stronger ones
-    // (Iris, Vega / Radeon APUs), sun shadows near the player only (see LITE below)
-    else if (/Intel|HD Graphics|UHD|Iris|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics|Vega/i.test(name)) { level = 'low'; lite = /Iris|Vega|Radeon/i.test(name); }
+    // Laptop integrated graphics (Intel UHD / Iris Xe, AMD Vega / Radeon Graphics APUs): Low-lite (see LITE below)
+    else if (/Intel|HD Graphics|UHD|Iris|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics|Vega/i.test(name)) { level = 'low'; lite = true; }
     if (/Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Software|Microsoft Basic/i.test(name)) { level = 'low'; lite = false; }
     return { name, level, lite };
   } catch {
@@ -55,8 +54,8 @@ const picked = choose();
 export const QUALITY = picked.level;
 export const QUALITY_SOURCE = picked.source;
 export const GPU_NAME = picked.gpu;
-/** Low-lite: the default on stronger laptop integrated GPUs (Iris Xe, Vega), or ?lite with Low. Low (1 px per CSS px, no
- *  post FX, light building shading, short view) plus 1024 px sun shadows near the player only. */
+/** Low-lite: the default on laptop integrated GPUs (Intel UHD / Iris Xe, AMD Vega), or ?lite with Low. Low (1 px per CSS
+ *  px, no post FX, no shadows, light building shading) with a shorter view: fewer draw calls (budget ~300) and triangles. */
 export const LITE = QUALITY === 'low' && (!!picked.lite || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('lite')));
 
 const SETTINGS = {
@@ -73,7 +72,7 @@ const SETTINGS = {
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
-const LITE_OVERRIDES = { shadows: true, shadowTile: 1024, shadowReach: 0.5 };
+const LITE_OVERRIDES = { viewDist: 1200, cullScale: 0.4, treeDist: 0.3 };
 export const Q = { ...SETTINGS[QUALITY], density: 1, shadowReach: 1, ...(LITE ? LITE_OVERRIDES : {}) }; // density: live traffic/pedestrian multiplier (frame-rate governor)
 // Render scale is relative to the device pixel ratio (sharp on retina/phone screens): the tier value is a cap
 // (high 2, medium 1.5, low 1 = at least one pixel per CSS pixel); never below 0.75 CSS px, even when stepping down.
