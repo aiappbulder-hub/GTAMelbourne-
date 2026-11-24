@@ -222,7 +222,7 @@ ELIZ_X = -242.1  # Elizabeth St
 PAVILIONS = [-318.0, -276.0, -205.0, -160.0, -128.0]  # projecting pavilions along the front with copper caps
 
 
-def tower(mb, cx, cz, half, y0, y1, clock_y, cap_h, lod=0, front_dir=None):
+def tower(mb, cx, cz, half, y0, y1, clock_y, cap_h, lod=0, strip='B'):
     """square red-brick tower shaft, clock faces on 4 sides, cornice, copper ogee cap with a finial"""
     c = [(cx - half, cz - half), (cx + half, cz - half), (cx + half, cz + half), (cx - half, cz + half)]
     # shaft in strip B, 9 m rows stacked
@@ -231,7 +231,7 @@ def tower(mb, cx, cz, half, y0, y1, clock_y, cap_h, lod=0, front_dir=None):
     while y < y1 - 0.01:
         top = min(y1, y + 9.0)
         for i in range(4):
-            mb.wall(c[i], c[(i + 1) % 4], y, top, 'B', (cx, cz), 0.0, top - y, variants=8, start=k + i, bay=half * 2 + 0.01)
+            mb.wall(c[i], c[(i + 1) % 4], y, top, strip, (cx, cz), 0.0, top - y, variants=8, start=k + i, bay=half * 2 + 0.01)
         y, k = top, k + 1
     # cornice band
     mb.swatch_box(cx, cz, half + 0.35, half + 0.35, y1, y1 + 0.9, 'cream')
@@ -332,11 +332,11 @@ def build(lod):
         mb.revolve(cx, cz, prof, 4, ROWS['D'], (0, 512), ang0=math.atan2(hz, hx))
     # ---- the Elizabeth St clock tower -----------------------------------------------------------------------------
     ez = fz(ELIZ_X) + 2.6
-    tower(mb, ELIZ_X, ez, 3.2, H_MAIN, 30.0, 27.2 if lod == 0 else None, 6.0, lod)
+    tower(mb, ELIZ_X, ez, 3.2, H_MAIN, 30.0, 27.2 if lod == 0 else None, 6.0, lod, 'C')
     # ---- the main clock tower ---------------------------------------------------------------------------------
     cz_ = fz(CLOCK_X) + 3.2
     # tower base projects from the facade
-    tower(mb, CLOCK_X, cz_, 4.4, 0.0 if lod == 0 else H_MAIN, 36.0, 33.0 if lod == 0 else None, 9.0, lod)
+    tower(mb, CLOCK_X, cz_, 4.4, 0.0 if lod == 0 else H_MAIN, 36.0, 33.0 if lod == 0 else None, 9.0, lod, 'C')
     # ---- the dome pavilion at Flinders and Swanston -----------------------------------------------------------
     ring = [(-71.0, 260.2), (-71.1, 262.7), (-67.3, 266.3), (-66.5, 280.3), (-22.5, 279.4), (-22.6, 270.2),
             (-26.5, 266.4), (-23.3, 263.2), (-36.2, 250.4), (-40.0, 249.0)]
@@ -372,9 +372,9 @@ def build(lod):
     mb.flat([(dcx + (R + 1.6) * math.cos(math.pi / 8 + k * math.pi / 4), dcz + (R + 1.6) * math.sin(math.pi / 8 + k * math.pi / 4)) for k in range(8)], 23.5, sw_uv('cream'))
     # drum with arched windows (strip C, its upper storey), 23.5 -> 29.5
     nd = 16 if lod == 0 else 8
-    mb.revolve(dcx, dcz, [(R, 23.5), (R, 29.5)], nd, (ROWS['C'][1] - 9.0 * PX, ROWS['C'][1] - 3.0 * PX), (0, 2048 * (16 / 16) if lod == 0 else 1024))
+    mb.revolve(dcx, dcz, [(R, 23.5), (R, 30.5)], nd, (ROWS['C'][1] - 9.0 * PX, ROWS['C'][1] - 2.0 * PX), (0, 2048 if lod == 0 else 1024))
     # cornice ring
-    mb.revolve(dcx, dcz, [(R, 29.5), (R + 0.6, 29.8), (R + 0.6, 30.4), (R, 30.6)], nd, (1882, 2038), (SWATCH['cream'][0] + 2, SWATCH['cream'][1] - 2))
+    mb.revolve(dcx, dcz, [(R, 30.5), (R + 0.6, 30.8), (R + 0.6, 31.4), (R, 31.6)], nd, (1882, 2038), (SWATCH['cream'][0] + 2, SWATCH['cream'][1] - 2))
     # the dome: a raised (slightly pointed) profile in copper with 32 ribs
     prof = []
     steps = 9 if lod == 0 else 4
@@ -382,7 +382,7 @@ def build(lod):
         t = i / steps
         ang = t * math.pi / 2
         r = R * math.cos(ang)
-        y = 30.6 + 11.0 * math.sin(ang) ** 0.9
+        y = 31.6 + 12.5 * math.sin(ang) ** 0.85
         prof.append((max(r, 1.5 if i == steps else r), y))
     prof[-1] = (1.5, prof[-1][1])
     mb.revolve(dcx, dcz, prof, 32 if lod == 0 else 12, ROWS['D'], (0, 2048))
@@ -393,7 +393,7 @@ def build(lod):
         mb.revolve(dcx, dcz, [(1.9, ytop + 2.4), (1.2, ytop + 3.4), (0.0, ytop + 5.2)], 8, ROWS['D'], (0, 512))
         # four small turrets around the drum's base, on the pavilion roof corners
         for k in range(4):
-            a = math.pi / 4 + k * math.pi / 2
+            a = k * math.pi / 2  # on the axes: two flank the corner portal, none stands in front of it
             tx, tz = dcx + (R + 3.4) * math.cos(a), dcz + (R + 3.4) * math.sin(a)
             mb.revolve(tx, tz, [(1.3, H_MAIN), (1.3, 26.0)], 8, (ROWS['B'][1] - 5 * PX, ROWS['B'][1]), (0, 256))
             mb.revolve(tx, tz, [(1.6, 26.0), (1.6, 26.5), (1.0, 27.8), (0.0, 29.6)], 8, ROWS['D'], (0, 256))

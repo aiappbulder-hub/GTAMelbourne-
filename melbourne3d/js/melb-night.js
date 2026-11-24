@@ -113,7 +113,7 @@ export function createMelbNight({ scene, lightingSystem }) {
   // ---------- Flinders St Station ----------
   const stationMats = [];
   const lm = scene.getObjectByName('MelbourneLandmarks');
-  const warm = { Ochre: [0xffa83a, 0.55], Copper: [0xffc060, 0.5], Cream: [0xffd48a, 0.5], ClockFace: [0xfff0b0, 1.6] };
+  const warm = { FSS: [0xffe6b8, 1.5], Ochre: [0xffa83a, 0.55], Copper: [0xffc060, 0.5], Cream: [0xffd48a, 0.5], ClockFace: [0xfff0b0, 1.6] };
   lm?.traverse((o) => {
     if (!o.isMesh) return;
     for (const m of [].concat(o.material)) {

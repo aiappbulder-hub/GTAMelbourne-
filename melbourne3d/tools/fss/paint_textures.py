@@ -323,7 +323,7 @@ def main(out):
     strip_e(img, ImageDraw.Draw(img))
     strip_f(img, ImageDraw.Draw(img), e)
     img.save(out + '/fss_color.png')
-    emi.save(out + '/fss_emit.png')
+    emi.resize((W // 2, H // 2), Image.BILINEAR).save(out + '/fss_emit.png')
     print('painted', out)
 
 
