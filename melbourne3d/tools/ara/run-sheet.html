@@ -74,17 +74,17 @@ window.sheet = async (rows, title = '') => {
       step(); t += dt;
     };
     const warm = row.warm ?? 2.5;
-    // stance slip: the lower foot's ground speed, while it is under 6 cm up
-    let slip = 0, slipN = 0; const prevF = { Left: null, Right: null };
+    // stance slip: a planted foot's ground speed (the ball of the foot, while within 2.5 cm of its lowest over the second before)
+    const samp = []; const prevF = { Left: null, Right: null };
     const footTrack = () => {
       a.group.updateMatrixWorld(true);
       for (const s of ['Left', 'Right']) {
         const p = P(`${s}ToeBase`);
-        if (prevF[s] && p.y < 0.06) { const v = person.speed; slip += Math.hypot((p.x - prevF[s].x) / dt + Math.sin(person.heading) * v, (p.z - prevF[s].z) / dt + Math.cos(person.heading) * v); slipN++; } // (the body stands still here: a planted foot moves back at the ground speed)
+        if (prevF[s]) { const v = person.speed; samp.push([p.y, -((p.x - prevF[s].x) * Math.sin(person.heading) + (p.z - prevF[s].z) * Math.cos(person.heading)) / dt, Math.hypot((p.x - prevF[s].x) / dt + Math.sin(person.heading) * v, (p.z - prevF[s].z) / dt + Math.cos(person.heading) * v)]); } // (the body stands still here: a planted foot moves back at the ground speed)
         prevF[s] = p;
       }
     };
-    while (t < warm - 1e-6) { adv(); if (t > warm - 1.2) footTrack(); }
+    while (t < warm - 1e-6) { adv(); if (t > warm - (row.track || 1.2)) footTrack(); }
     let shots = row.shots || 'cycle';
     if (shots === 'cycle') { const f = a.loco && a.loco.f > 0 && person.speed > 0.2 ? a.loco.f : 0.5; shots = [0, 1, 2, 3].map((k) => t + k / f / 4); }
     else shots = shots.map((s) => s);
@@ -99,8 +99,8 @@ window.sheet = async (rows, title = '') => {
         // side view: the camera off the person's right, so they face right on screen; front: in front of them
         const side = v === 0 ? -1 : 0;
         const dir = v === 0 ? new THREE.Vector3(-Math.cos(person.heading), 0, Math.sin(person.heading)) : new THREE.Vector3(Math.sin(person.heading), 0, Math.cos(person.heading));
-        cam.position.set(a.group.position.x, 0.95 + person.position.y * 0.5, a.group.position.z).addScaledVector(dir, 5.2);
-        cam.lookAt(a.group.position.x, 0.9 + person.position.y * 0.5, a.group.position.z);
+        cam.position.set(a.group.position.x, (row.lookY || 0.95) + person.position.y * 0.5, a.group.position.z).addScaledVector(dir, row.dist || 5.2);
+        cam.lookAt(a.group.position.x, (row.lookY || 0.9) + person.position.y * 0.5, a.group.position.z);
         await new Promise((res) => requestAnimationFrame(res)); // (the GPU skinning updates once a frame)
         renderer.render(scene, cam);
         const x = (v * 4 + c) * W, y = top + r * H;
@@ -116,9 +116,11 @@ window.sheet = async (rows, title = '') => {
         g.strokeStyle = '#222'; g.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
       }
     }
+    const lo = Math.min(...samp.map((x) => x[0])), st = samp.filter((x) => x[0] < lo + 0.025);
+    const slip = st.reduce((q, x) => q + x[2], 0), slipN = st.length, footV = st.reduce((q, x) => q + x[1], 0) / Math.max(1, slipN);
     const avg = (k) => ms.reduce((s, m) => s + m[k], 0) / ms.length;
     report.push({ label: row.label, pitch: +avg('pitch').toFixed(1), shAhead: +avg('shAhead').toFixed(1), shVsNeck: +avg('shVsNeck').toFixed(1),
-      elbow: +((avg('elL') + avg('elR')) / 2).toFixed(0), slip: slipN ? +(slip / slipN).toFixed(2) : null, f: a.loco ? +a.loco.f.toFixed(2) : null });
+      elbow: +((avg('elL') + avg('elR')) / 2).toFixed(0), slip: slipN ? +(slip / slipN).toFixed(2) : null, footV: +footV.toFixed(2), n: slipN, f: a.loco ? +a.loco.f.toFixed(2) : null });
   }
   return report;
 };

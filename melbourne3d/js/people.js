@@ -37,7 +37,7 @@ const ARA_CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sprint: 'Run', back:
 const ARA_GAIT = { walk: 1.42, run: 3.12, sprint: 3.12 };
 const ARA_PHASE = { walk: 0.517, run: 0.633, jog: 0.9545, sprint_ual: 0.875 };
 // Quaternius' Universal Animation Library (CC0), retargeted onto the Ara rig by tools/ara/retarget_ual.py into assets/ara/ual-clips.glb:
-// a jog (5.37 m/s, 0.917 s a cycle) and a sprint (7.9 m/s, 0.667 s) for the speeds the CMU run clip can't do, jump start/air/land, two
+// a jog (5.75 m/s on Ara's legs, 0.917 s a cycle) and a sprint (7.2 m/s, 0.667 s) for the speeds the CMU run clip can't do, jump start/air/land, two
 // punches and two hit reactions. UAL_KEYS: the clip's name in that file -> the game's name for it
 const UAL_URL = new URL('ual-clips.glb', ARA_BASE);
 const UAL_KEYS = { Sprint: 'sprint_ual', Jog: 'jog', 'Jump start': 'jump_start', 'Jump air': 'jump_air', 'Jump land': 'jump_land',
@@ -45,7 +45,7 @@ const UAL_KEYS = { Sprint: 'sprint_ual', Jog: 'jog', 'Jump start': 'jump_start',
 // the punches and the hit play on the upper body only (over whatever the legs are doing): the clips cut down to these bones
 const UAL_UPPER = ['punch_jab', 'punch_cross', 'hit_chest'];
 const UPPER_BONES = /^(Spine|Spine1|Spine2|Neck|Head|(Left|Right)(Shoulder|Arm|ForeArm|Hand))\.quaternion$/;
-const JOG_STRIDE = 5.37 * 0.9167, SPRINT_STRIDE = 7.9 * 0.6667; // metres a left-foot cycle covers
+const JOG_STRIDE = 5.75 * 0.9167, SPRINT_STRIDE = 7.2 * 0.6667; // metres a left-foot cycle covers (the planted foot's speed on Ara's legs, tools/ara/run-sheet.html)
 // Recoil per weapon: how far the muzzle flips up (rad), the gun is pulled back (m) and the torso rocks back (rad) at a shot
 const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0.06, back: 0.035, torso: 0.035 }, shotgun: { rise: 0.3, back: 0.13, torso: 0.17 },
   m4: { rise: 0.09, back: 0.055, torso: 0.07 }, rocket: { rise: 0.36, back: 0.17, torso: 0.22 } };
