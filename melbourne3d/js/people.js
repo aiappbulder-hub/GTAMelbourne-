@@ -1258,7 +1258,7 @@ export function createCast({ scene, controllerManager }) {
     }
   }
   // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
-  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
+  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt, plain (true: no bikie vest) }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
   // the bike. Returns false until the model is in.
   const riders = new Map();
   function setRider(key, id, o) {
@@ -1276,7 +1276,7 @@ export function createCast({ scene, controllerManager }) {
     play(a, has(a, 'sit') ? 'sit' : 'idle');
     tickActor(a, dt);
     a.group.rotation.set(0, 0, 0);
-    dressBikie(a);
+    if (!o.plain) dressBikie(a); // (o.plain: no bikie vest, for cyclists and delivery riders)
     a.group.scale.setScalar(1);
     a.group.position.set(0, 0, 0);
     a.group.visible = true;
