@@ -262,7 +262,7 @@ export function createFreeways({ scene }) {
       }
       if (raised) {
         // the deck's underside
-        L.quad(E(a, -hw - 0.2, -DECK_T), E(a, hw + 0.2, -DECK_T), E(b, hw + 0.2, -DECK_T), E(b, -hw - 0.2, -DECK_T), C.concreteDark);
+        L.quad(E(a, -hw - 0.2, -DECK_T), E(a, hw + 0.2, -DECK_T), E(b, hw + 0.2, -DECK_T), E(b, -hw - 0.2, -DECK_T), C.concrete);
         // pillars (and a crosshead under the deck) every few samples, where the deck stands clear of the ground
         if (i % PILLAR_EVERY === 0 && a.h > 3.2) {
           const n = hw > 7 ? 2 : 1;
@@ -326,7 +326,7 @@ export function createFreeways({ scene }) {
   }
 
   // --- Distance culling: cells beyond the view distance hidden, four times a second ----------------------------------
-  // (by each mesh's bounding sphere: the lit structure to 85% of the view distance, where the fog has nearly hidden it;
+  // (by each mesh's bounding sphere: the lit structure to 70% of the view distance, where the fog has nearly hidden it;
   // a tunnel's inside only within TUNNEL_SEEN m, since from further off it is underground or deep in a cutting)
   const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat }));
   let clock = 0;
@@ -334,7 +334,7 @@ export function createFreeways({ scene }) {
     clock -= dt;
     if (clock > 0) return;
     clock = 0.25;
-    const far = Number.isFinite(Q.viewDist) ? Q.viewDist * 0.85 : 1e9;
+    const far = Number.isFinite(Q.viewDist) ? Q.viewDist * 0.7 : 1e9;
     for (const e of meshList) {
       const d = Math.hypot(e.s.center.x - camPos.x, e.s.center.z - camPos.z) - e.s.radius;
       e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : far);
