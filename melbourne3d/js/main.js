@@ -814,6 +814,18 @@ async function initApp() {
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
   window.__city.race = race;
+  // trams, police units and mission cars are solid to the player's car or bike (js/vehicle-solids.js)
+  const solids = IS_MELBOURNE ? (await import('./vehicle-solids.js')).createVehicleSolids(controllerManager) : null;
+  if (solids) {
+    if (tramSystem) solids.addProvider((x, z, r, out) => { for (const f of tramSystem.footprints(x, z, r)) out.push(f); });
+    solids.addProvider((x, z, r, out) => {
+      const tail = missionSystem?.pursuerBox?.();
+      if (tail) out.push(tail);
+      if (wanted) for (const bx of wanted.boxes()) if (bx.key) out.push(bx);
+    });
+    window.__city.solids = solids;
+    window.__city.tramSystem = tramSystem;
+  }
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
@@ -1248,7 +1260,11 @@ async function initApp() {
     // the traffic slows and stops behind trams in its lane
     if (tramSystem && trafficSystem.setExternals) {
       const f = controllerManager.getActiveEntity().position;
-      trafficSystem.setExternals(tramSystem.footprints(f.x, f.z, 500));
+      const ext = tramSystem.footprints(f.x, f.z, 500);
+      const tail = missionSystem?.pursuerBox?.(); // (and behind police and mission cars, which the knocked traffic can't pass through)
+      if (tail) ext.push(tail);
+      if (wanted) for (const bx of wanted.boxes()) if (bx.key) ext.push(bx);
+      trafficSystem.setExternals(ext);
     }
     if (!document.hidden && now >= nextPlayerSave) {
       savePlayerState();
@@ -1271,6 +1287,7 @@ async function initApp() {
     if (police) police.update(dt);
     bikies?.update(dt);
     race?.update(dt);
+    if (!interiors?.inside) solids?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk

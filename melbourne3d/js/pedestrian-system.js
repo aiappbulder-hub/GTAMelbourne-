@@ -16,7 +16,11 @@ const PED_SPAWN_DISTANCE = 150;
 const PED_AVOID_INTERVAL = 0.12;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
-function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCross, walkOn, visible, nearView }) {
+// One person to a city block round the player (density.pedBlocks, counted by js/traffic.js), spread out: a new one is
+// put at least PED_SPREAD m from everyone else, and one too many is taken away out of sight.
+const PED_SPREAD = 30;
+
+function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCross, walkOn, visible, nearView, density = null }) {
   let clock = 0;
   let focusX = 0, focusZ = 140;
   let hasView = false;
@@ -183,13 +187,15 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       const d2 = dx * dx + dz * dz;
       if (d2 < rMinSq || d2 > rMaxSq || (protectView && nearView(x, z, 2, PED_SPAWN_DISTANCE))) continue;
       if (player.active && (x - player.x) * (x - player.x) + (z - player.z) * (z - player.z) < 100) continue;
-      // not into a crowd: nobody within 3 m, and no more than two others within 10 m
+      // spread out: nobody within PED_SPREAD m (one to a block); without the block count, nobody within 3 m and no
+      // more than two others within 10 m
       let crowd = 0;
+      const spreadSq = density ? PED_SPREAD * PED_SPREAD : 9;
       for (let i = 0; i < peds.length; i++) {
         const q = peds[i];
         if (q === p || !q.placed) continue;
         const ex = q.x - x, ez = q.z - z, dd = ex * ex + ez * ez;
-        if (dd < 9) { crowd = 9; break; }
+        if (dd < spreadSq) { crowd = 9; break; }
         if (dd < 100) crowd++;
       }
       if (crowd > 2) continue;
@@ -740,6 +746,21 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     walkedNodes.length = 0;
     const pedLimit = Math.max(8, Math.ceil(NUM_PEDS * Q.density));
     let pedBudget = jump ? NUM_PEDS : 6;
+    // one person to a block: no more spawns once there are that many, and one too many out of sight goes
+    const blockCap = density && density.pedBlocks ? Math.max(4, Math.round(density.pedBlocks * Math.min(1, Q.density))) : Infinity;
+    let out = 0;
+    for (let i = 0; i < NUM_PEDS; i++) if (peds[i].placed && !peds[i].dead) out++;
+    if (out > blockCap) {
+      for (let i = 0; i < NUM_PEDS; i++) {
+        const p = peds[i];
+        if (!p.placed || p.dead || p.actor || p.conversation) continue;
+        const dx = p.x - focusX, dz = p.z - focusZ;
+        if (dx * dx + dz * dz < 3600 || (hasView && visible(p.x, p.z, 2))) continue;
+        p.placed = false;
+        out--;
+        break;
+      }
+    }
     const keepRadius = jump ? NEAR_RADIUS : PED_RADIUS;
     const keepRadiusSq = keepRadius * keepRadius;
     for (let scanned = 0; scanned < NUM_PEDS && pedBudget > 0; scanned++) {
@@ -752,7 +773,9 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
         if (dx * dx + dz * dz <= keepRadiusSq) continue;
       }
       pedBudget--;
-      spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 300, !jump);
+      if (p.placed && !p.dead) out--; // (being moved on)
+      if (out >= blockCap) { p.placed = false; continue; }
+      if (spawnPed(p, jump ? 0 : 60, jump ? NEAR_RADIUS : 300, !jump)) out++;
     }
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];

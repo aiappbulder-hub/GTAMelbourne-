@@ -124,7 +124,7 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
       if (leaving > 7) stop();
       return;
     }
-    if (parked) { collide(); return; } // waiting at the kerb: still solid
+    if (parked) return; // waiting at the kerb: still solid (box(), js/vehicle-solids.js)
     // drop a trail point wherever the player has got to
     const p = player().position;
     const last = trail.length ? trail[trail.length - 1] : pos;
@@ -159,37 +159,10 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
       heading += Math.atan2(Math.sin(h - heading), Math.cos(h - heading)) * Math.min(1, dt * 6);
     }
     place(dt);
-    collide();
   }
-  // The pursuer is solid: the player's car can't drive through it. Two oriented boxes; if they overlap, the player is
-  // pushed out along the axis of least overlap and loses speed in the hit (the pursuer just keeps to its trail)
-  const PH = { L: 2.3, W: 0.95 }; // the pursuer's half length and width
-  function collide() {
-    if (!active || !car || !car.root.visible || controllerManager.activeMode !== 'car') return;
-    const pe = player();
-    const dx = pe.position.x - pos.x, dz = pe.position.z - pos.z;
-    if (Math.abs(dx) > 7 || Math.abs(dz) > 7) return;
-    const ph = pe.heading || 0, PL = 2.25, PW = 0.95;
-    const axes = [[Math.sin(heading), Math.cos(heading)], [Math.cos(heading), -Math.sin(heading)], [Math.sin(ph), Math.cos(ph)], [Math.cos(ph), -Math.sin(ph)]];
-    let best = Infinity, nx = 0, nz = 0;
-    for (let i = 0; i < 4; i++) {
-      const [ax, az] = axes[i];
-      const rA = PH.L * Math.abs(ax * axes[0][0] + az * axes[0][1]) + PH.W * Math.abs(ax * axes[1][0] + az * axes[1][1]);
-      const rB = PL * Math.abs(ax * axes[2][0] + az * axes[2][1]) + PW * Math.abs(ax * axes[3][0] + az * axes[3][1]);
-      const d = dx * ax + dz * az, overlap = rA + rB - Math.abs(d);
-      if (overlap <= 0) return; // a separating axis: no contact
-      if (overlap < best) { best = overlap; const sg = d >= 0 ? 1 : -1; nx = ax * sg; nz = az * sg; }
-    }
-    pe.position.x += nx * best;
-    pe.position.z += nz * best;
-    if (pe.mesh) pe.mesh.position.copy(pe.position);
-    // the part of the player's velocity going into the pursuer is lost (a bump, not a wall)
-    const fx = Math.sin(ph), fz = Math.cos(ph);
-    const into = -(nx * fx + nz * fz) * (pe.speed || 0);
-    if (into > 0.5) pe.speed = (pe.speed || 0) * 0.55;
-    pe.vx = (pe.vx || 0) + nx * Math.min(3, best * 4);
-    pe.vz = (pe.vz || 0) + nz * Math.min(3, best * 4);
-  }
+  // The pursuer is solid: js/vehicle-solids.js collides the player's car or bike with box() (an oriented box with the
+  // pursuer's mass and speed) and hands back its speed after a hit through bump()
+  const solidKey = { kind: 'police' };
   function place(dt) {
     if (!car) return;
     const fx = Math.sin(heading) * 2, fz = Math.cos(heading) * 2, hF = terrainHeight(pos.x + fx, pos.z + fz), hB = terrainHeight(pos.x - fx, pos.z - fz);
@@ -217,6 +190,9 @@ export function createPursuer({ scene, controllerManager, traffic = () => null }
     /** Straight-line distance to the player */
     distance() { const p = player().position; return Math.hypot(p.x - pos.x, p.z - pos.z); },
     /** Its footprint, for the player on foot to bump into */
-    box() { return active && car ? { x: pos.x, z: pos.z, yaw: heading, halfL: 2.3, halfW: 0.95 } : null; }
+    box() {
+      return active && car ? { key: solidKey, kind: 'police', x: pos.x, z: pos.z, yaw: heading, halfL: 2.3, halfW: 0.95, speed: v, mass: 1800,
+        bump: (s) => { v = Math.max(0, Math.min(v, s)); } } : null;
+    }
   };
 }

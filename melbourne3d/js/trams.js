@@ -264,7 +264,7 @@ export async function createTramSystem(scene) {
     const out = [];
     for (const t of trams) {
       if (t.cx === undefined || Math.abs(t.cx - x) > r || Math.abs(t.cz - z) > r) continue;
-      out.push({ x: t.cx, z: t.cz, yaw: t.yaw, halfL: TRAM_HALF_L, halfW: TRAM_HALF_W, speed: t.v });
+      out.push({ key: t, kind: 'tram', x: t.cx, z: t.cz, yaw: t.yaw, halfL: TRAM_HALF_L, halfW: TRAM_HALF_W, speed: t.v, mass: 0 });
     }
     return out;
   }
