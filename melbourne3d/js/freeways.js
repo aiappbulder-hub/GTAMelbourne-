@@ -43,7 +43,9 @@ const C = {
 
 class Buf {
   constructor() { this.p = []; this.c = []; }
-  tri(a, b, c, col) { this.p.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) this.c.push(col[0], col[1], col[2]); }
+  // (the world frame is x east, z south, y up: seen from the front, a quad's corners listed a-b-c-d run clockwise in x-z
+  // terms, so the triangles are stored a-c-b to face the right way)
+  tri(a, b, c, col) { this.p.push(...a, ...c, ...b); for (let i = 0; i < 3; i++) this.c.push(col[0], col[1], col[2]); }
   // a quad a-b-c-d (counter-clockwise seen from the front)
   quad(a, b, c, d, col) { this.tri(a, b, c, col); this.tri(a, c, d, col); }
   // both faces

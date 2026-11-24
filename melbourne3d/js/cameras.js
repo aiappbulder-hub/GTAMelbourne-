@@ -243,6 +243,7 @@ class CameraSystem {
           entity.position.z - Math.cos(totalYaw) * horizDist
         );
 
+        this._floorRef = entity.position.y + 1.5; // (the floor the camera keeps above is the one at the entity's level)
         const lookUpBias = entity.type === 'helicopter' ? 0.2 : (entity.type === 'car' ? 0.52 : 1.55);
         const lookYaw = entity.type === 'person' ? totalYaw : entity.heading;
         desiredLook.set(
@@ -403,7 +404,7 @@ class CameraSystem {
     }
 
     // never under the hills
-    this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, this.currentPos.y) + 0.55);
+    this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, Math.min(this.currentPos.y, this._floorRef ?? Infinity)) + 0.55);
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentLookAt);
 
