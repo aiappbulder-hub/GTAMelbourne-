@@ -4,7 +4,7 @@ import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { createPostProcessing, createScreenEffects } from './post-processing.js';
 import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
-import { buildCityGrid } from './city-grid.js';
+import { buildCityGrid, getStreetGroundHeight } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, QUALITY, LITE, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, MANUAL_QUALITY, LOW_FPS, lowerTier, reloadWithAutoQuality, applyTierLive, rememberAutoQuality } from './quality.js';
 import { buildCityBlocks } from './buildings.js';
@@ -185,6 +185,7 @@ async function initApp() {
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
+  if (IS_MELBOURNE) controllerManager.parkGroundHeight = getStreetGroundHeight; // people stand on the parks' walks and lawns
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   if (freeways) {
     // the freeways first: a tunnel under a bridge is still a tunnel (js/freeways.js)
@@ -377,11 +378,11 @@ async function initApp() {
   const weatherLabel = document.getElementById('weather-label');
   if (!IS_MELBOURNE) { if (carCycleBtn) carCycleBtn.hidden = true; }
   const nextWeather = () => { const name = lightingSystem.cycleWeather(); if (weatherLabel) weatherLabel.textContent = name; };
-  if (weatherBtn) weatherBtn.addEventListener('click', nextWeather);
+  if (weatherBtn) weatherBtn.style.display = 'none'; // weather switching is off: always clear
   if (carCycleBtn) carCycleBtn.addEventListener('click', () => gameplay?.cycleCar());
   window.addEventListener('keydown', (e) => {
     if (isTypingInField(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'KeyY') nextWeather();
+    // (Y no longer changes the weather: weather switching is off)
     else if (e.code === 'KeyX' && gameplay) gameplay.cycleCar();
   });
 
@@ -791,6 +792,18 @@ async function initApp() {
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
   window.__city.stkilda = stkilda;
+  // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
+  const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
+  window.__city.arbory = arbory;
+  // Hot air balloons over the city by day (js/balloons.js)
+  const balloons = IS_MELBOURNE ? (await import('./balloons.js')).createBalloons({ scene, lightingSystem }) : null;
+  window.__city.balloons = balloons;
+  // The Yarra's bike and foot path with cyclists on it (js/river-path.js)
+  const riverPath = IS_MELBOURNE ? (await import('./river-path.js')).createRiverPath({ scene, controllerManager, cast: castSystem }) : null;
+  window.__city.riverPath = riverPath;
+  // Food-delivery scooters riding the CBD's roads (js/delivery-scooters.js)
+  const deliveryScooters = IS_MELBOURNE ? (await import('./delivery-scooters.js')).createDeliveryScooters({ scene, trafficSystem, controllerManager, cast: castSystem }) : null;
+  window.__city.deliveryScooters = deliveryScooters;
   window.__city.audio = audioSystem;
   // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
   interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
@@ -821,6 +834,18 @@ async function initApp() {
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
   window.__city.race = race;
+  // trams, police units and mission cars are solid to the player's car or bike (js/vehicle-solids.js)
+  const solids = IS_MELBOURNE ? (await import('./vehicle-solids.js')).createVehicleSolids(controllerManager) : null;
+  if (solids) {
+    if (tramSystem) solids.addProvider((x, z, r, out) => { for (const f of tramSystem.footprints(x, z, r)) out.push(f); });
+    solids.addProvider((x, z, r, out) => {
+      const tail = missionSystem?.pursuerBox?.();
+      if (tail) out.push(tail);
+      if (wanted) for (const bx of wanted.boxes()) if (bx.key) out.push(bx);
+    });
+    window.__city.solids = solids;
+    window.__city.tramSystem = tramSystem;
+  }
   // The opening cut scene (js/intro.js): golden-hour wide shots and the story's set-up
   const intro = IS_MELBOURNE ? (await import('./intro.js')).createIntro({
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
@@ -831,16 +856,21 @@ async function initApp() {
   // Ambient city events (js/city-events.js)
   const cityEvents = IS_MELBOURNE ? (await import('./city-events.js')).createCityEvents({ scene, controllerManager, cameraSystem, lightingSystem, trafficSystem, voices }) : null;
   window.__city.events = cityEvents;
-  // Free roam (the default): the taxi on Flinders St by the station at early dusk; no title film, intro or phone call
+  // Free roam (the default): the Clubbie on Flinders St by the station at early dusk; no title film, intro or phone call
   function freeRoamStart() {
     if (new URLSearchParams(location.search).has('nointro')) return;
     selectMode('car');
     if (freshPlayer) teleportTo(FREE_START.x, FREE_START.z, FREE_START.heading);
+    // The game starts behind the wheel of the HSB Clubbie R8, not the taxi (the car button still cycles to the taxi)
+    if (controllerManager.entities.car?.label === 'Melbourne Taxi') gameplay?.cycleCar();
   }
   const areaCards = IS_MELBOURNE ? (await import('./area-cards.js')).createAreaCards({ controllerManager }) : null;
   window.__city.areaCards = areaCards;
   const rideshare = IS_MELBOURNE && missionSystem ? (await import('./rideshare.js')).createRideshare({ controllerManager, missionSystem, mapSystem, scene }) : null;
   window.__city.rideshare = rideshare;
+  // Food delivery side job, L (js/delivery-job.js)
+  const deliveryJob = IS_MELBOURNE && missionSystem ? (await import('./delivery-job.js')).createDeliveryJob({ controllerManager, missionSystem, mapSystem, scene }) : null;
+  window.__city.deliveryJob = deliveryJob;
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
@@ -1255,7 +1285,11 @@ async function initApp() {
     // the traffic slows and stops behind trams in its lane
     if (tramSystem && trafficSystem.setExternals) {
       const f = controllerManager.getActiveEntity().position;
-      trafficSystem.setExternals(tramSystem.footprints(f.x, f.z, 500));
+      const ext = tramSystem.footprints(f.x, f.z, 500);
+      const tail = missionSystem?.pursuerBox?.(); // (and behind police and mission cars, which the knocked traffic can't pass through)
+      if (tail) ext.push(tail);
+      if (wanted) for (const bx of wanted.boxes()) if (bx.key) ext.push(bx);
+      trafficSystem.setExternals(ext);
     }
     if (!document.hidden && now >= nextPlayerSave) {
       savePlayerState();
@@ -1271,12 +1305,18 @@ async function initApp() {
     mapSystem.update();
     helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);
+    balloons?.update(dt, cameraSystem.currentPos);
+    riverPath?.update(dt);
+    deliveryScooters?.update(dt);
+    deliveryJob?.update(dt);
+    arbory?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music });
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
     if (police) police.update(dt);
     bikies?.update(dt);
     race?.update(dt);
+    if (!interiors?.inside) solids?.update(dt);
     audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk

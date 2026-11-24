@@ -126,6 +126,7 @@ export function createLeader({ scene, controllerManager, cast = null }) {
     car.root.rotation.set(0, heading, 0);
     for (const w of car.wheels) w.rotation.x += (v * dt) / 0.33;
   }
+  const solidKey = { kind: 'mission' }; // (js/vehicle-solids.js)
   function distance() { const p = player(); return Math.hypot(p.x - pos.x, p.z - pos.z); }
 
   return {
@@ -136,6 +137,9 @@ export function createLeader({ scene, controllerManager, cast = null }) {
     get position() { return pos; },
     get speed() { return v; },
     /** A car's footprint (for the player to bump into), or null */
-    box() { return active && !person && car ? { x: pos.x, z: pos.z, yaw: heading, halfL: 2.2, halfW: 0.95 } : null; }
+    box() {
+      return active && !person && car ? { key: solidKey, kind: 'mission', x: pos.x, z: pos.z, yaw: heading, halfL: 2.2, halfW: 0.95, speed: v, mass: 1600,
+        bump: (s) => { v = Math.max(0, Math.min(v, s)); } } : null;
+    }
   };
 }

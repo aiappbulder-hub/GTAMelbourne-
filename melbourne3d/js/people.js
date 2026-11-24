@@ -51,7 +51,9 @@ const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0
   m4: { rise: 0.09, back: 0.055, torso: 0.07 }, rocket: { rise: 0.36, back: 0.17, torso: 0.22 } };
 // (Act I's people are Rocketbox bodies for now; each loads when their job first wants them)
 const ACT1_CAST = { Gus: 'Male_Adult_07', Ruby: 'Business_Female_01', Nico: 'Male_Adult_04', Marsh: 'Business_Female_02', Terry: 'Business_Male_02',
-  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17' };
+  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17',
+  // Act II's side jobs: Arbory Afloat, Penguin Parade, Boundary Line
+  Jules: 'Female_Adult_09', Dazza: 'Male_Adult_10', Inspector: 'Male_Adult_14', Collector: 'Male_Adult_05', Shane: 'Male_Adult_03' };
 const EAGER_CAST = ['Vince', 'Kaz', 'Mick'];
 export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10', ...ACT1_CAST }
   : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo', ...ACT1_CAST };
@@ -874,6 +876,65 @@ export function createCast({ scene, controllerManager }) {
     act.enabled = true;
     act.weight = k / (1 - k);
   }
+  // The player on their bike (cyclist mode): their own character on the saddle, hands on the grips, feet on the
+  // pedals (two-bone legs solved onto them each frame), the bike's helmet on their head
+  const _bw = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bh = new THREE.Vector3();
+  function legTo(a, left, T, fwd) {
+    const U = a.root.getObjectByName(left ? 'LeftUpLeg' : 'RightUpLeg'), K = a.root.getObjectByName(left ? 'LeftLeg' : 'RightLeg'), F = a.root.getObjectByName(left ? 'LeftFoot' : 'RightFoot');
+    if (!U || !K || !F) return;
+    const S = U.getWorldPosition(new THREE.Vector3()), K0 = K.getWorldPosition(new THREE.Vector3()), F0 = F.getWorldPosition(new THREE.Vector3());
+    const L1 = S.distanceTo(K0), L2 = K0.distanceTo(F0);
+    const d = Math.max(1e-3, Math.min(S.distanceTo(T), L1 + L2 - 1e-3)), dir = new THREE.Vector3().subVectors(T, S).normalize();
+    const along = (L1 * L1 - L2 * L2 + d * d) / (2 * d), up = Math.sqrt(Math.max(0, L1 * L1 - along * along));
+    const pole = fwd.clone().addScaledVector(dir, -fwd.dot(dir)).normalize(); // knees forward over the bars
+    const knee = S.clone().addScaledVector(dir, along).addScaledVector(pole, up);
+    pointBone(U, K, knee.sub(S).normalize(), 1);
+    const Kn = K.getWorldPosition(new THREE.Vector3());
+    pointBone(K, F, T.clone().sub(Kn).normalize(), 1);
+  }
+  function rideBike(a, bike, dt) {
+    const piv = bike.leanPivot, fr = bike.bikeFrame;
+    play(a, has(a, 'sit') ? 'sit' : 'idle');
+    tickActor(a, dt);
+    // the hips' height above the feet in the seated clip, measured once standing at the origin
+    if (a.bikeHipH === undefined) {
+      a.group.position.set(0, 0, 0); a.group.rotation.set(0, 0, 0); a.group.updateMatrixWorld(true);
+      const hips = a.root.getObjectByName('Hips') || a.root.getObjectByName('Bip01_Pelvis');
+      const hp = hips ? hips.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0, 0.5, 0);
+      a.bikeHipH = hp.y; a.bikeHipZ = hp.z;
+    }
+    piv.updateMatrixWorld(true);
+    piv.getWorldQuaternion(_bq);
+    a.group.quaternion.copy(_bq);
+    _bw.set(0, fr.seat.y + 0.1 - a.bikeHipH, fr.seat.z - a.bikeHipZ + 0.03);
+    a.group.position.copy(piv.localToWorld(_bw));
+    a.heading = bike.heading;
+    a.vh = bike.heading;
+    a.group.visible = true;
+    a.group.updateMatrixWorld(true);
+    // a lean towards the bars
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(_bq);
+    for (const i of [0, 1]) {
+      const g = piv.localToWorld(new THREE.Vector3(i === 0 ? fr.gripHalf : -fr.gripHalf, fr.bars.y + 0.02, fr.bars.z - 0.02));
+      reachArm(a, { x: g.x, y: g.y, z: g.z, left: i === 0 }, 1);
+    }
+    for (const pd of bike.pedals || []) {
+      const w = pd.getWorldPosition(new THREE.Vector3());
+      const local = piv.worldToLocal(w.clone());
+      w.y += 0.06; // the sole on the pedal, not the ankle in it
+      legTo(a, local.x > 0, w, fwd);
+    }
+    // the helmet on their head
+    const head = a.root.getObjectByName('Head');
+    if (head && bike.helmet) {
+      head.getWorldPosition(_bh);
+      head.getWorldQuaternion(bike.helmet.quaternion);
+      bike.helmet.position.set(0, 0.075, 0.0).applyQuaternion(bike.helmet.quaternion).add(_bh);
+      bike.helmet.visible = true;
+    }
+    faceLife(a, dt, false);
+    bike.castModel = true;
+  }
   function posePlayer(dt) {
     const p = controllerManager?.entities?.person;
     if (!p) return;
@@ -909,6 +970,14 @@ export function createCast({ scene, controllerManager }) {
       a.group.updateMatrixWorld(true);
       if (o.reach && o.reach.w > 0.01) reachArm(a, o.reach, Math.min(1, o.reach.w));
       hideGuns(weapon); // (the gun is away while both hands are busy)
+      return;
+    }
+    const bike = controllerManager.entities.cyclist;
+    if (bike) bike.castModel = false;
+    if (controllerManager.activeMode === 'cyclist' && bike?.leanPivot && bike.bikeFrame) {
+      rideBike(playerActor, bike, dt);
+      p.castModel = false;
+      hideGuns(weapon);
       return;
     }
     if (controllerManager.activeMode !== 'person') {
@@ -1256,7 +1325,7 @@ export function createCast({ scene, controllerManager }) {
     }
   }
   // A rider seated on a motorbike (js/bikies.js), drawn each frame: key → one person (model id), o = { parent (the bike's
-  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
+  // THREE group: the rider is carried in it), seat { y, z } (where the hips go, in the bike's space), grips [left, right] (Object3Ds on the bars), dt, plain (true: no bikie vest) }; null: gone. The seated clip with both hands solved onto the bars, a torso lean from
   // the bike. Returns false until the model is in.
   const riders = new Map();
   function setRider(key, id, o) {
@@ -1274,7 +1343,7 @@ export function createCast({ scene, controllerManager }) {
     play(a, has(a, 'sit') ? 'sit' : 'idle');
     tickActor(a, dt);
     a.group.rotation.set(0, 0, 0);
-    dressBikie(a);
+    if (!o.plain) dressBikie(a); // (o.plain: no bikie vest, for cyclists and delivery riders)
     a.group.scale.setScalar(1);
     a.group.position.set(0, 0, 0);
     a.group.visible = true;

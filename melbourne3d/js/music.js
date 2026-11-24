@@ -561,6 +561,8 @@ export function createMusic({ audioSystem = null, controllerManager, voices = nu
     const mode = controllerManager?.activeMode;
     if (mode === 'car' && station !== null && station >= 0) return `radio:${station}`;
     const tense = (wanted?.stars > 0) || (missionSystem?.onJob && (gameplay?.combat?.alive ?? 0) > 0);
+    // a venue's own music on foot (api.venue: a RADIO style, e.g. Arbory Afloat's deck plays house, js/arbory-afloat.js)
+    if (!tense && mode !== 'car' && api.venue && RADIO.includes(api.venue)) return `radio:${RADIO.indexOf(api.venue)}`;
     return tense ? 'tense' : (mode === 'car' ? 'none' : 'foot');
   };
   function applyScene(next) {

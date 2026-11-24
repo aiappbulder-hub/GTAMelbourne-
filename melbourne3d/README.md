@@ -68,6 +68,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   the marker to start. Saves are unchanged.
 - **Area cards** (`js/area-cards.js`): entering a new district fades its name in bottom-right for ~3 s (it must hold ~1.2 s,
   so borders don't flicker).
+- **Food delivery** (`js/delivery-job.js`): **L** starts a delivery shift (L again ends it): collect an order at a CBD restaurant (orange marker), deliver it to the blue marker before the timer ends; pay is distance plus a speed bonus. Any vehicle or on foot. `js/delivery-scooters.js` puts 2-5 delivery scooters on the CBD roads, and `js/river-path.js` a bike/foot path with cyclists along the Yarra's north bank.
 - **Rideshare** (`js/rideshare.js`): **P** in a car goes on shift (P again ends it). Stop in the green marker for a fare, then
   drive to a named spot (GPS route on the map); pay is distance plus a speed bonus, hard crashes cost stars. Cash is saved.
 - **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the
@@ -111,6 +112,17 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
     or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
   - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+  - **Act II side jobs** (jobs 14-16, after the Act II card): *Arbory Afloat* (Jules at the floating bar's counter: fetch
+    Captain Dazza from the Southbank Promenade, lose Golden Reef's four-wheel drive, walk him onto the deck before the council
+    inspector), *Penguin Parade* (Luna Park's spare Mr Moon: Catani Gardens, St Kilda Pier, back to Mick on the Esplanade) and
+    *Boundary Line* (fake MCG tickets with the Quiet Room's name: Punt Rd x Swan St, Shane's mates, Shane). Each has a timer to
+    fail on and a choice. `__city.missions.startNow(13)` (14, 15) starts one from the console.
+- **Arbory Afloat** (`js/arbory-afloat.js`): the floating bar moored off Flinders Walk below Flinders Street Station: a
+  pontoon with two gangways from the quay, the bar under a shade sail, stools, tables under umbrellas, planters and festoon
+  lights that glow at night (8 merged meshes, hidden beyond 700 m, no real lights). Walkable; a bartender and patrons appear
+  when you're near, and on foot by the deck the music turns to the house set (`music.venue`).
+- **Parks**: people stand on a park's paved walk (0.26 m) or its raised lawn (0.41 m) over the terrain, not at road level
+  inside the grass (`controllerManager.parkGroundHeight`, from the parks' own surfaces in `js/city-grid.js`).
 - **Inside** (`js/interiors.js`): the Quiet Room, Gus's bar at Flinders Lane x Elizabeth St. A door on the building's
   Elizabeth St face (sign, awning, a warm pool of light on the footpath): **F** (or tap the prompt) beside it on foot fades
   to black and puts you in a small bar (counter and stools, bottle shelves, booth, tables, jukebox, back office door, neon),
@@ -262,9 +274,19 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 - **Steering**: more grip and a lock that falls off more gently with speed. The standard car turns a ~26 m circle at
   70 km/h, and both cars corner at about 1–1.4 g.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
-- **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
+- **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the
-  real buildings.
+  real buildings. **Flinders Street Station** has its own model (`assets/landmarks/flinders-station.glb`, 0.7 MB) built on
+  the real OSM footprint: the green dome over the corner entrance at Swanston St with the row of clocks under its arch,
+  the clock tower, the Elizabeth St tower, the long arcaded Flinders St front with arched windows on three storeys, red
+  brick attic pavilions and the platform canopies behind. One trim-sheet material and two levels of detail (one draw
+  call each, the plain one beyond 520 m); lit windows and clocks at night (`js/melb-night.js`). Rebuild:
+  `python3 tools/fss/paint_textures.py OUT && blender -b -P tools/fss/build_fss.py -- OUT OUT/fss.glb && gltfpack -i
+  OUT/fss.glb -o assets/landmarks/flinders-station.glb -c -kn -km -vt 16`.
+- **Laneways** (`js/melb-night.js`): Degraves St, Centre Place, Hosier Lane (and its narrow arm) and AC/DC Lane are paved
+  in bluestone on the footpath slab, fitted row by row to the real gap between the surveyed building footprints
+  (`laneGaps`), with festoon lights only where both walls stand, bins against a wall and cafe tables where it is wide
+  enough. All lanes share four draw calls.
 - **Graphics quality** (`js/quality.js`): Picked by device on first run (phones, touch devices and weak GPUs start on Low, discrete GPUs on High) and stepped down a tier automatically if the frame rate stays under 40 for 3 s; GTAO, TRAA, HDRI lighting, PBR facades and roofs, the new trees and water are High only; **F3** toggles an FPS / draw-call overlay; the GFX menu in the toolbar picks High, Medium or Low (saved), or `?quality=`;
   dynamic resolution keeps any level playable.
 - **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white

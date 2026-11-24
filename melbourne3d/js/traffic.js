@@ -64,8 +64,14 @@ const CAR_KINDS = {
 // Retire distant actors even when looking their way: keeping them indefinitely starves upcoming streets.
 // Replacements may enter the far view, but nearby visible roads and sidewalks are protected from pop-in.
 // (the same cars spread over a wide area, so streets stay drivable and no part of the map is packed)
-const VEHICLE_RADIUS = 400;
+const VEHICLE_RADIUS = 330;
 const NEAR_RADIUS = 390;
+// One moving car and one pedestrian to a city block (a road piece between two junctions, both directions together,
+// BLOCK_MIN m or longer) within DENSITY_RADIUS of the player: cars spawn on empty blocks out of view (ahead when moving)
+// and are taken off beyond VEHICLE_RADIUS behind; the fleet size, the frame-rate governor (Q.density) and
+// MAX_CARS_OUT cap it.
+const DENSITY_RADIUS = 280;
+const BLOCK_MIN = 40;
 const VEHICLE_SPAWN_DISTANCE = 200;
 
 // 8-row LED destination sign atlas (route badge + destination) aligned with the 4-slot bus livery cycle
@@ -161,6 +167,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     e.to.road[e.inSide] = e.from.road[e.outSide] = e;
     e.through = 0; // vehicles from e crossing e.to straight on or to the right
     e.lefts = 0; // and to the left
+  }
+  // its block: the road piece both ways (the oncoming edge between the same two junctions)
+  for (const e of edges) {
+    const o = e.opposite;
+    e.twin = o && o !== e && o.from === e.to && o.to === e.from ? o : null;
   }
   // Is the intersection box held by vehicles of any road but group g's?
   const boxBusy = (n, g) => {
@@ -540,11 +551,18 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   // (it was 22% of the fleet over the whole 390 m disc: two or three cars in sight in the grid, none in the suburbs)
   const MAX_CARS_OUT = Math.min(44, Math.max(12, Math.round(NUM_CARS * 0.45)));
   const MAX_BUSES_OUT = Math.min(2, NUM_BUSES);
-  const MAX_PER_SEGMENT = 3;
+  const MAX_PER_SEGMENT = 1; // (a driver at a junction favours a block without a car: one car to a block)
   // (the suburbs' roads are mostly single-lane collectors of half-width 4-6 m: only the narrowest ones (laneways, 2.4-2.6 m) are left out)
   const mainRoad = (e) => e.axis === 'ave' || e.lanes.length >= 2 || e.half >= 4;
   let carCap = MAX_CARS_OUT;
-  const segmentLoad = (e) => { let n = 0; for (const l of e.occ) n += l.length; return n; };
+  const segmentLoad = (e) => {
+    let n = 0;
+    for (const l of e.occ) n += l.length;
+    if (e.twin) for (const l of e.twin.occ) n += l.length;
+    return n;
+  };
+  const nearBlocks = []; // one edge of each main-road block within DENSITY_RADIUS (spawn spots: one car to a block)
+  const density = { stamp: 0, carBlocks: 0, pedBlocks: 0 }; // (shared with the pedestrians)
   let carsOut = 0;
   let busesOut = 0;
   const CBD_CARS = Math.max(8, Math.round(NUM_CARS * 0.5)); // at most this many vehicles in the grid at once
@@ -552,7 +570,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   const nearCum = []; // running total of lane metres over nearEdges: spawn points are drawn in proportion to road length
   const nearSignals = [];
   const pedestrianSystem = createPedestrianSystem(network, {
-    player, nearEdges, nearSignals, mayCross, walkOn, visible, nearView
+    player, nearEdges, nearSignals, mayCross, walkOn, visible, nearView, density
   });
   group.add(...pedestrianSystem.meshes);
 
@@ -753,7 +771,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     nearEdges.length = 0;
     nearCum.length = 0;
     nearSignals.length = 0;
-    let cum = 0;
+    nearBlocks.length = 0;
+    let cum = 0, pedBlocks = 0;
     for (const e of edges) {
       const s = clamp((focusX - e.sx) * e.dx + (focusZ - e.sz) * e.dz, 0, e.len);
       const dx = e.sx + e.dx * s - focusX, dz = e.sz + e.dz * s - focusZ;
@@ -761,6 +780,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
         nearEdges.push(e);
         cum += (mainRoad(e) ? 1 : 0) * Math.min(e.len, 2 * NEAR_RADIUS) * e.lanes.length * (inCbd(e.sx + e.dx * e.len / 2, e.sz + e.dz * e.len / 2) ? 0.85 : 1);
         nearCum.push(cum);
+        // a block counts once (its lower-numbered direction), if its middle is within the density disc
+        if (e.len >= BLOCK_MIN && !(e.twin && e.twin.id < e.id)) {
+          const mx = e.sx + e.dx * e.len / 2 - focusX, mz = e.sz + e.dz * e.len / 2 - focusZ;
+          if (mx * mx + mz * mz < DENSITY_RADIUS * DENSITY_RADIUS) {
+            pedBlocks++;
+            if (mainRoad(e)) nearBlocks.push(e);
+          }
+        }
       }
     }
     for (const n of nodes) {
@@ -769,7 +796,11 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     }
     // where the network is sparse (the suburbs' few joined roads) fewer cars are out: about one to 400 lane metres, so they
     // are never packed onto a handful of streets
-    carCap = clamp(Math.round(cum / 400), 3, Math.max(3, Math.round(MAX_CARS_OUT * Q.density))); // (Q.density: the frame-rate governor)
+    // one car to a block (Q.density: the frame-rate governor)
+    carCap = clamp(nearBlocks.length, 3, Math.max(3, Math.round(MAX_CARS_OUT * Q.density)));
+    density.stamp++;
+    density.carBlocks = nearBlocks.length;
+    density.pedBlocks = pedBlocks;
   }
 
   // Where the player is relative to v: metres ahead, metres to the right, and how fast it moves v's way
@@ -1671,6 +1702,25 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
           impacted.push(o);
         }
       }
+      // a knocked car against a tram, a police unit or a mission car (setExternals): those don't give way
+      for (const o of externals) {
+        const reach = v.half + o.halfL + o.halfW + 0.5;
+        if (Math.abs(v.x - o.x) > reach + Math.abs(v.x - v.prevX) || Math.abs(v.z - o.z) > reach + Math.abs(v.z - v.prevZ)) continue;
+        readTrafficBody(v, contactA);
+        const b = contactB;
+        b.x = b.prevX = o.x; b.z = b.prevZ = o.z;
+        b.sin = Math.sin(o.yaw); b.cos = Math.cos(o.yaw);
+        b.halfW = o.halfW; b.halfL = o.halfL; b.mass = 0;
+        b.vx = b.sin * (o.speed || 0); b.vz = b.cos * (o.speed || 0); b.angularVel = 0;
+        const hit = vehicleHit;
+        if (!sweptVehicleContact(contactA, b, hit) && !vehicleContact(contactA, b, hit)) continue;
+        const speed = resolveVehicleContact(contactA, b, hit);
+        shove(v, hit.ax - v.x + hit.nx * hit.depth, hit.az - v.z + hit.nz * hit.depth);
+        if (speed <= 0) continue;
+        writeTrafficVelocity(v, contactA);
+        impactSuspension(v, hit.nx, hit.nz, hit.impulse / contactA.mass);
+        if (speed > 2.2) spawnCollisionSparks(hit.x, 0.56, hit.z, hit.nx, hit.nz, speed);
+      }
       v.contactDone = collisionStep;
     }
   }
@@ -1780,13 +1830,20 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     if (!jumping && trafficClock - lastSpawnAt < SPAWN_EVERY) return false;
     let best = null, bestScore = SPAWN_GAP, be = null, bl = 0, bs = 0;
     for (let attempt = 0; attempt < 16; attempt++) {
-      const pick = Math.random() * total;
-      let lo = 0, hi = nearCum.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (nearCum[mid] < pick) lo = mid + 1; else hi = mid;
+      // one car to a block: a block is drawn evenly from the main-road blocks around (either direction), not by length
+      let e;
+      if (nearBlocks.length) {
+        e = nearBlocks[Math.floor(Math.random() * nearBlocks.length)];
+        if (e.twin && Math.random() < 0.5) e = e.twin;
+      } else {
+        const pick = Math.random() * total;
+        let lo = 0, hi = nearCum.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (nearCum[mid] < pick) lo = mid + 1; else hi = mid;
+        }
+        e = nearEdges[lo];
       }
-      const e = nearEdges[lo];
       if (!e || (v.bus && e.axis !== 'ave') || e.len < 2 * v.half + 10) continue;
       const lane = Math.floor(Math.random() * e.lanes.length);
       const along = (focusX - e.sx) * e.dx + (focusZ - e.sz) * e.dz;
@@ -1803,7 +1860,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
       if (focusSpeed > 8 && ((x - focusX) * focusVX + (z - focusZ) * focusVZ) < 0 && Math.random() < Math.min(0.85, focusSpeed / 40)) continue;
       if (!laneClear(e.occ[lane], s, v.half + SPAWN_LANE_GAP)) continue;
       if (cbdCount >= CBD_CARS && inCbd(x, z)) continue;
-      if (!mainRoad(e) || segmentLoad(e) >= (e.len < 60 ? 1 : MAX_PER_SEGMENT)) continue;
+      if (!mainRoad(e) || segmentLoad(e) >= 1) continue; // (a block that has its car)
       // distance to the nearest other vehicle in any lane or street: the farther the better
       let nn = 1e9;
       for (const o of vehicles) {
@@ -2191,6 +2248,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     cbdCount = 0;
     carsOut = busesOut = 0;
     for (const v of vehicles) if (v.edge && !v.driven) { if (inCbd(v.x, v.z)) cbdCount++; if (v.bus) busesOut++; else carsOut++; }
+    // one car to a block round the player, and fewer when the frame-rate governor turns Q.density down
+    carCap = clamp(nearBlocks.length || carCap, 3, Math.max(3, Math.round(MAX_CARS_OUT * Q.density)));
     let budget = jump ? vehicles.length : 4;
     for (let scanned = 0; scanned < vehicles.length && budget > 0; scanned++) {
       const v = vehicles[vehicleCursor];
@@ -2210,7 +2269,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
         continue;
       }
       const crowded = cbdCount > CBD_CARS && d > 60 && !jump && inCbd(v.x, v.z) && !visible(v.x, v.z, v.half + 4);
-      if (d <= (jump ? NEAR_RADIUS : VEHICLE_RADIUS) && !(d > 45 && !jump && stuckAway(v)) && !crowded) continue;
+      if (d <= (jump ? DENSITY_RADIUS + 20 : VEHICLE_RADIUS) && !(d > 45 && !jump && stuckAway(v)) && !crowded) continue;
       if (crowded) cbdCount--;
       budget--;
       // a car left far behind gives up its place in the fleet count before it is re-spawned near the player: otherwise
@@ -2220,7 +2279,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
         if (v.bus) busesOut--; else carsOut--;
         v.edge = null; v.move = null; v.conn = null; v.trail = null; v.commit = null; v.claimed = false; v.speed = 0;
       }
-      spawnVehicle(v, jump ? 0 : 70, NEAR_RADIUS, !jump);
+      spawnVehicle(v, jump ? 0 : 70, DENSITY_RADIUS, !jump);
     }
     buildOccupancy();
     for (const m of bodyMeshes) m.count = 0;
@@ -2349,6 +2408,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     setPedHitListener: pedestrianSystem.setHitListener,
     nearestCar,
     setExternals,
+    /** Blocks round the player (one car and one pedestrian to each): { carBlocks, pedBlocks } */
+    density,
     /** A car model (a THREE object, +Z forward, metres) for the street's sedans near the camera */
     useSedanModel,
     takeCar,
