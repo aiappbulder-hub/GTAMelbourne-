@@ -1,0 +1,126 @@
+<!doctype html>
+<meta charset="utf-8"><title>Player locomotion sheet</title>
+<style>body{margin:0;background:#666}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js","three/tsl":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.tsl.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+<script type="module">
+// The player's locomotion as the game plays it (js/people.js's posePlayer: the blend, the body layer, the gun), driven by a fake
+// controller, drawn side-on and head-on. Serve the repo root, open /melbourne3d/tools/ara/run-sheet.html, then from Playwright:
+//   await page.evaluate(() => window.sheet(rows))   rows: [{ label, speed, warm, shots ('cycle' = 4 quarter cycles, or [s...]), steps }]
+// Each row's numbers: torso pitch (deg, + forward: hips to neck), shoulder line ahead of hips (cm), elbow angle, stance-foot slip (m/s).
+import * as THREE from 'three/webgpu';
+import { createCast } from '../../js/people.js';
+const W = 200, H = 260;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8a8a8a);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 5, 4); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color: 0x5a5a5a })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const grid = new THREE.GridHelper(40, 80, 0x777777, 0x6a6a6a); grid.position.y = 0.002; scene.add(grid);
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+await renderer.init();
+const cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 60);
+const person = { position: new THREE.Vector3(), heading: 0, speed: 0, verticalVel: 0 };
+const cm = { activeMode: 'person', entities: { person }, getGroundHeight: () => 0 };
+const cast = createCast({ scene, controllerManager: cm });
+const weapon = { id: 'pistol', armed: false, aiming: false, yaw: 0, pitch: 0, punch: 0 };
+const dt = 1 / 60;
+function step(s) {
+  cast.setPlayerWeapon(weapon);
+  cast.tick(dt);
+  cast.posePlayer(dt);
+}
+// wait for the player
+for (let i = 0; i < 600; i++) { step(); if (cast.actor('player') && cast.actor('player').acts.jog) break; await new Promise((r) => setTimeout(r, 100)); }
+const a = cast.actor('player');
+const B = (n) => a.root.getObjectByName(n);
+const bones = Object.fromEntries(['Hips', 'Neck', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase'].map((n) => [n, B(n)]));
+const P = (n, v = new THREE.Vector3()) => bones[n].getWorldPosition(v);
+function measure() {
+  a.group.updateMatrixWorld(true);
+  const fw = new THREE.Vector3(Math.sin(person.heading), 0, Math.cos(person.heading));
+  const hips = P('Hips'), neck = P('Neck'), la = P('LeftArm'), ra = P('RightArm');
+  const sh = la.clone().add(ra).multiplyScalar(0.5);
+  const up = neck.clone().sub(hips);
+  const pitch = Math.atan2(up.dot(fw), up.y) * 180 / Math.PI;
+  const shAhead = sh.clone().sub(hips).dot(fw) * 100;
+  // shoulder ahead of the neck base (the clavicles pulled back read as negative)
+  const shVsNeck = sh.clone().sub(neck).dot(fw) * 100;
+  const elbow = (s) => { const u = P(`${s}Arm`), e = P(`${s}ForeArm`), h = P(`${s}Hand`); return u.sub(e).angleTo(h.sub(e)) * 180 / Math.PI; };
+  return { pitch, shAhead, shVsNeck, elL: elbow('Left'), elR: elbow('Right') };
+}
+const out = document.createElement('canvas');
+document.body.appendChild(out);
+window.sheet = async (rows, title = '') => {
+  const cols = 8, top = 24;
+  out.width = cols * W; out.height = top + rows.length * H;
+  const g = out.getContext('2d');
+  g.fillStyle = '#444'; g.fillRect(0, 0, out.width, out.height);
+  g.font = '14px sans-serif'; g.fillStyle = '#fff'; g.fillText(title + '   (left 4: side view, facing right; right 4: front view)', 6, 17);
+  const report = [];
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    // reset: stand still a while
+    Object.assign(weapon, { armed: false, aiming: false, punch: 0, id: 'pistol' }, row.weapon || {});
+    person.speed = 0; person.heading = 0; person.position.set(0, 0, 0); person.verticalVel = 0;
+    for (let i = 0; i < 90; i++) step();
+    const steps = row.steps || [{ t: 0, speed: row.speed }];
+    let t = 0, si = 0;
+    const apply = () => { while (si < steps.length && steps[si].t <= t + 1e-6) { const s = steps[si++]; if (s.speed !== undefined) person.speed = s.speed; if (s.heading !== undefined) person.heading = s.heading; if (s.y !== undefined) person.position.y = s.y; if (s.vy !== undefined) person.verticalVel = s.vy; if (s.weapon) Object.assign(weapon, s.weapon); } };
+    const adv = () => {
+      apply();
+      if (row.jump) { const j = row.jump(t); person.position.y = j.y; person.verticalVel = j.vy; }
+      step(); t += dt;
+    };
+    const warm = row.warm ?? 2.5;
+    // stance slip: the lower foot's ground speed, while it is under 6 cm up
+    let slip = 0, slipN = 0; const prevF = { Left: null, Right: null };
+    const footTrack = () => {
+      a.group.updateMatrixWorld(true);
+      for (const s of ['Left', 'Right']) {
+        const p = P(`${s}ToeBase`);
+        if (prevF[s] && p.y < 0.06) { const v = person.speed; slip += Math.hypot((p.x - prevF[s].x) / dt + Math.sin(person.heading) * v, (p.z - prevF[s].z) / dt + Math.cos(person.heading) * v); slipN++; } // (the body stands still here: a planted foot moves back at the ground speed)
+        prevF[s] = p;
+      }
+    };
+    while (t < warm - 1e-6) { adv(); if (t > warm - 1.2) footTrack(); }
+    let shots = row.shots || 'cycle';
+    if (shots === 'cycle') { const f = a.loco && a.loco.f > 0 && person.speed > 0.2 ? a.loco.f : 0.5; shots = [0, 1, 2, 3].map((k) => t + k / f / 4); }
+    else shots = shots.map((s) => s);
+    const ms = [];
+    for (let c = 0; c < 4; c++) {
+      while (t < shots[c] - 1e-6) adv();
+      const m = measure(); ms.push(m);
+      const acts = Object.entries(a.acts).filter(([, x]) => x.isRunning() && x.getEffectiveWeight() > 0.02).map(([k, x]) => `${k}:${x.getEffectiveWeight().toFixed(2)}`).join(' ');
+      const hips = P('Hips');
+      for (const v of [0, 1]) {
+        const h = person.heading + (v === 0 ? Math.PI / 2 : 0) + (v === 0 ? 0 : 0);
+        // side view: the camera off the person's right, so they face right on screen; front: in front of them
+        const side = v === 0 ? -1 : 0;
+        const dir = v === 0 ? new THREE.Vector3(-Math.cos(person.heading), 0, Math.sin(person.heading)) : new THREE.Vector3(Math.sin(person.heading), 0, Math.cos(person.heading));
+        cam.position.set(a.group.position.x, 0.95 + person.position.y * 0.5, a.group.position.z).addScaledVector(dir, 5.2);
+        cam.lookAt(a.group.position.x, 0.9 + person.position.y * 0.5, a.group.position.z);
+        await new Promise((res) => requestAnimationFrame(res)); // (the GPU skinning updates once a frame)
+        renderer.render(scene, cam);
+        const x = (v * 4 + c) * W, y = top + r * H;
+        g.drawImage(renderer.domElement, x, y);
+        if (v === 0) { // a plumb line through the hips, for judging the lean
+          const hp = hips.clone().project(cam);
+          const px = x + (hp.x + 1) / 2 * W;
+          g.strokeStyle = '#ff0a'; g.beginPath(); g.moveTo(px, y + 20); g.lineTo(px, y + H - 10); g.stroke();
+        }
+        g.fillStyle = '#000a'; g.fillRect(x, y + H - 34, W, 34); g.fillStyle = '#fff'; g.font = '11px sans-serif';
+        if (v === 0) { g.fillText(`${row.label}  pitch ${m.pitch.toFixed(0)}°  sh ${m.shAhead.toFixed(0)}cm`, x + 3, y + H - 21); g.fillText(acts.slice(0, 40), x + 3, y + H - 7); }
+        else { g.fillText(`elbows ${m.elL.toFixed(0)}° ${m.elR.toFixed(0)}°  shVsNeck ${m.shVsNeck.toFixed(0)}`, x + 3, y + H - 21); g.fillText(acts.slice(40, 80), x + 3, y + H - 7); }
+        g.strokeStyle = '#222'; g.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
+      }
+    }
+    const avg = (k) => ms.reduce((s, m) => s + m[k], 0) / ms.length;
+    report.push({ label: row.label, pitch: +avg('pitch').toFixed(1), shAhead: +avg('shAhead').toFixed(1), shVsNeck: +avg('shVsNeck').toFixed(1),
+      elbow: +((avg('elL') + avg('elR')) / 2).toFixed(0), slip: slipN ? +(slip / slipN).toFixed(2) : null, f: a.loco ? +a.loco.f.toFixed(2) : null });
+  }
+  return report;
+};
+window.__ready = true;
+</script>
