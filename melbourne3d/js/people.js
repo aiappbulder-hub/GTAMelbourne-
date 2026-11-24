@@ -1200,6 +1200,20 @@ export function createCast({ scene, controllerManager }) {
     bone.add(holder);
     return holder;
   }
+  // how far the top of the head (hair included) is above the head bone, in the bind pose (metres; Ara bodies are in metres)
+  function headTop(a, head) {
+    let top = -Infinity, headY = null;
+    const m = new THREE.Matrix4();
+    a.root.traverse((o) => {
+      if (!o.isSkinnedMesh) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      top = Math.max(top, o.geometry.boundingBox.max.y);
+      const i = o.skeleton.bones.indexOf(head);
+      if (i >= 0 && headY === null) headY = m.copy(o.skeleton.boneInverses[i]).invert().elements[13];
+    });
+    const d = headY === null ? NaN : top - headY;
+    return d > 0.08 && d < 0.35 ? d : 0.2175;
+  }
   function dressOfficer(a) {
     if (a.uniformed) return;
     a.uniformed = true;
@@ -1220,12 +1234,15 @@ export function createCast({ scene, controllerManager }) {
     const black = new THREE.MeshStandardNodeMaterial({ color: 0x0a0a0c, roughness: 0.6, metalness: 0.2 });
     if (head) {
       const h = boneHolder(a, head);
+      // the cap sits on this body's own head: the crown's top 2 cm over the top of the head (hair included, from the bind
+      // pose), not at a fixed height that left it floating over the Ara heads
+      const y = a.ara ? headTop(a, head) - 0.0175 : 0.2;
       const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.098, 0.075, 20), navy);
-      crown.position.set(0, 0.2, 0.02);
+      crown.position.set(0, y, 0.02);
       const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.035, 20, 1, true), band);
-      ring.position.set(0, 0.162, 0.02);
+      ring.position.set(0, y - 0.038, 0.02);
       const peak = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.008, 0.075), black);
-      peak.position.set(0, 0.155, 0.125);
+      peak.position.set(0, y - 0.045, 0.125);
       peak.rotation.x = 0.15;
       h.add(crown, ring, peak);
     }
