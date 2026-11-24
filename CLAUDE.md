@@ -4,12 +4,11 @@ The live game is `melbourne3d/` (see `melbourne3d/README.md`). The root `index.h
 
 ## Model budget (owner's standing rule, applies to every task)
 
-Owner's update (2026-11-24): use the top-tier model (`opus`) for everything, for best results.
+Owner's update (2026-11-24, later): back to conservative mode. Save usage as much as possible.
 
-- **Every Agent call sets `model: opus` explicitly.** This overrides the `model: sonnet` pin in `.claude/agents/`.
-- The main session still delegates coding, debugging and browser tests to subagents and reviews their screenshots
-  itself before shipping.
-- **Up to four subagents at a time** (owner, 2026-11-24). Queue the rest. Prefer resuming an agent over starting a new one.
+- Subagents use the `model: sonnet` pin in `.claude/agents/`. Use `opus` only for the hardest 10-15% of work.
+- One subagent at a time. Keep tasks small and prefer resuming an agent over starting a new one.
+- The main session still reviews subagent screenshots itself before shipping.
 - **Commit early.** Subagents commit working progress to their branch as they go, so a cut-off loses little.
 - Subagents do the assigned task without stopping to ask for sign-off on file edits; they report what they did.
 
