@@ -516,7 +516,7 @@ export function createCast({ scene, controllerManager }) {
   const skelOf = (a) => a.sk || (a.sk = Object.fromEntries(SK.map((n) => [n, a.root.getObjectByName(n) || a.root.getObjectByName(`Bip01_${n}`)
     || a.root.getObjectByName(n.replace('Hips', 'Pelvis').replace('Left', 'L_').replace('Right', 'R_'))])));
   const AX = { up: new THREE.Vector3(0, 1, 0), left: new THREE.Vector3(), fw: new THREE.Vector3() };
-  const _sw = new THREE.Quaternion(), _sp = new THREE.Quaternion();
+  const _sw = new THREE.Quaternion(), _sp = new THREE.Quaternion(), _spi = new THREE.Quaternion();
   // (Some clips don't key every bone: the aim clip leaves the spine alone. A bone the mixer didn't write this frame still holds
   // last frame's layered rotation, so each bone's pre-layer rotation is kept and put back first, and the layer is never cumulative)
   function unlayer(a) {
@@ -541,7 +541,7 @@ export function createCast({ scene, controllerManager }) {
     bone.parent.updateWorldMatrix(true, false);
     bone.parent.getWorldQuaternion(_sp);
     _sw.setFromAxisAngle(axis, ang);
-    _sw.premultiply(_sp.clone().invert()).multiply(_sp.clone()); // parent^-1 * delta * parent
+    _sw.premultiply(_spi.copy(_sp).invert()).multiply(_sp); // parent^-1 * delta * parent (no allocation: this runs ~20 times a frame)
     bone.quaternion.premultiply(_sw);
     rec.post = (rec.post || new THREE.Quaternion()).copy(bone.quaternion);
     bone.updateWorldMatrix(false, true);

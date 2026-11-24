@@ -70,7 +70,7 @@ window.sheet = async (rows, title = '') => {
     const apply = () => { while (si < steps.length && steps[si].t <= t + 1e-6) { const s = steps[si++]; if (s.speed !== undefined) person.speed = s.speed; if (s.heading !== undefined) person.heading = s.heading; if (s.y !== undefined) person.position.y = s.y; if (s.vy !== undefined) person.verticalVel = s.vy; if (s.weapon) Object.assign(weapon, s.weapon); } };
     const adv = () => {
       apply();
-      if (row.jump) { const j = row.jump(t); person.position.y = j.y; person.verticalVel = j.vy; }
+      if (row.fn) { const j = row.fn(t, weapon); for (const k of ['speed', 'heading', 'verticalVel']) if (j[k] !== undefined) person[k] = j[k]; if (j.y !== undefined) person.position.y = j.y; }
       step(); t += dt;
     };
     const warm = row.warm ?? 2.5;
