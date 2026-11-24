@@ -273,9 +273,19 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
 - **Steering**: more grip and a lock that falls off more gently with speed. The standard car turns a ~26 m circle at
   70 km/h, and both cars corner at about 1–1.4 g.
 - **Trams** (`js/trams.js`): 22 real routes from OpenStreetMap with rails and overhead wire, the old game's tram model.
-- **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Flinders Street Station, Eureka, St Paul's,
+- **Landmarks** (`js/melbourne-landmarks.js`): the old game's models of Eureka, St Paul's,
   the MCG, Parliament, the Exhibition Building, the Shrine, the Arts Centre spire, Rialto and Fed Square, sized to the
-  real buildings.
+  real buildings. **Flinders Street Station** has its own model (`assets/landmarks/flinders-station.glb`, 0.7 MB) built on
+  the real OSM footprint: the green dome over the corner entrance at Swanston St with the row of clocks under its arch,
+  the clock tower, the Elizabeth St tower, the long arcaded Flinders St front with arched windows on three storeys, red
+  brick attic pavilions and the platform canopies behind. One trim-sheet material and two levels of detail (one draw
+  call each, the plain one beyond 520 m); lit windows and clocks at night (`js/melb-night.js`). Rebuild:
+  `python3 tools/fss/paint_textures.py OUT && blender -b -P tools/fss/build_fss.py -- OUT OUT/fss.glb && gltfpack -i
+  OUT/fss.glb -o assets/landmarks/flinders-station.glb -c -kn -km -vt 16`.
+- **Laneways** (`js/melb-night.js`): Degraves St, Centre Place, Hosier Lane (and its narrow arm) and AC/DC Lane are paved
+  in bluestone on the footpath slab, fitted row by row to the real gap between the surveyed building footprints
+  (`laneGaps`), with festoon lights only where both walls stand, bins against a wall and cafe tables where it is wide
+  enough. All lanes share four draw calls.
 - **Graphics quality** (`js/quality.js`): Picked by device on first run (phones, touch devices and weak GPUs start on Low, discrete GPUs on High) and stepped down a tier automatically if the frame rate stays under 40 for 3 s; GTAO, TRAA, HDRI lighting, PBR facades and roofs, the new trees and water are High only; **F3** toggles an FPS / draw-call overlay; the GFX menu in the toolbar picks High, Medium or Low (saved), or `?quality=`;
   dynamic resolution keeps any level playable.
 - **Melbourne, not New York:** Victoria Police chequers, PTV bus colours, Victorian plates, a Melbourne taxi, white

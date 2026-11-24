@@ -91,3 +91,13 @@ them; the rest of the game is GPL-3.0).
 | 22 | Street art in Melbourne, Australia | atlai | not named by photographer | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | https://www.flickr.com/photos/10815162@N07/9159172136 | cropped, resized |
 | 23 | 3D Kardashians ...in graffiti, Melbourne Laneways | Angel Lite Photography | not named by photographer | [Public Domain Mark 1.0](https://creativecommons.org/publicdomain/mark/1.0/) | https://www.flickr.com/photos/136038519@N08/25773618252 | cropped, resized |
 | 24 | Be Free | Derek Midgley | not named by photographer | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | https://www.flickr.com/photos/26258401@N03/12561362133 | cropped, resized |
+
+## Flinders Street Station (assets/landmarks/flinders-station.glb)
+
+- Modelled for this game by `tools/fss/build_fss.py` (Blender 4.2, headless) on the station's OpenStreetMap footprint
+  (© OpenStreetMap contributors, ODbL) and packed with gltfpack (meshoptimizer, MIT, https://github.com/zeux/meshoptimizer).
+- Its trim sheet (facade bays, the corner portal with the row of clocks, red brick, copper, roof, clock face, night
+  windows) is painted from scratch by `tools/fss/paint_textures.py` (Pillow); no photographs or third-party textures are
+  in it. The look follows the real building as it appears in public photos (Wikimedia Commons, Category:Flinders Street
+  railway station); none of those photos are shipped.
+- Decoded in the browser with three.js's `meshopt_decoder.module.js` (meshoptimizer, MIT).
