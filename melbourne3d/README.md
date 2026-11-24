@@ -68,6 +68,7 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   the marker to start. Saves are unchanged.
 - **Area cards** (`js/area-cards.js`): entering a new district fades its name in bottom-right for ~3 s (it must hold ~1.2 s,
   so borders don't flicker).
+- **Food delivery** (`js/delivery-job.js`): **L** starts a delivery shift (L again ends it): collect an order at a CBD restaurant (orange marker), deliver it to the blue marker before the timer ends; pay is distance plus a speed bonus. Any vehicle or on foot. `js/delivery-scooters.js` puts 2-5 delivery scooters on the CBD roads, and `js/river-path.js` a bike/foot path with cyclists along the Yarra's north bank.
 - **Rideshare** (`js/rideshare.js`): **P** in a car goes on shift (P again ends it). Stop in the green marker for a fare, then
   drive to a named spot (GPS route on the map); pay is distance plus a speed bonus, hard crashes cost stars. Cash is saved.
 - **The story: "The Ferryman"** (`js/missions.js`; the design is in `docs/story/SYNOPSIS.md`, `EMPIRE_DESIGN.md`, and the

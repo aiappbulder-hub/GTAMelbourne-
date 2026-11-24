@@ -790,6 +790,9 @@ async function initApp() {
   // The Yarra's bike and foot path with cyclists on it (js/river-path.js)
   const riverPath = IS_MELBOURNE ? (await import('./river-path.js')).createRiverPath({ scene, controllerManager, cast: castSystem }) : null;
   window.__city.riverPath = riverPath;
+  // Food-delivery scooters riding the CBD's roads (js/delivery-scooters.js)
+  const deliveryScooters = IS_MELBOURNE ? (await import('./delivery-scooters.js')).createDeliveryScooters({ scene, trafficSystem, controllerManager, cast: castSystem }) : null;
+  window.__city.deliveryScooters = deliveryScooters;
   window.__city.audio = audioSystem;
   // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
   interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
@@ -854,6 +857,9 @@ async function initApp() {
   window.__city.areaCards = areaCards;
   const rideshare = IS_MELBOURNE && missionSystem ? (await import('./rideshare.js')).createRideshare({ controllerManager, missionSystem, mapSystem, scene }) : null;
   window.__city.rideshare = rideshare;
+  // Food delivery side job, L (js/delivery-job.js)
+  const deliveryJob = IS_MELBOURNE && missionSystem ? (await import('./delivery-job.js')).createDeliveryJob({ controllerManager, missionSystem, mapSystem, scene }) : null;
+  window.__city.deliveryJob = deliveryJob;
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
@@ -1290,6 +1296,8 @@ async function initApp() {
     if (missionSystem) missionSystem.update(dt, elapsed);
     balloons?.update(dt, cameraSystem.currentPos);
     riverPath?.update(dt);
+    deliveryScooters?.update(dt);
+    deliveryJob?.update(dt);
     arbory?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music });
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
