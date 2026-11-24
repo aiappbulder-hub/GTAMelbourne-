@@ -453,9 +453,9 @@ const MISSIONS = [
         lines: [[2, 'Dazza', "Hard to port! That's left. I think that's left."], [16, 'Dazza', "I've been chased by worse. A pelican, once. Mordialloc."],
           [40, 'Dazza', 'If we die, tell Jules the gin was me. All of it.']],
         say: 'Dazza: "Gone. Shall we go and be a boat, then?"' },
-      { text: 'Drop the car on Flinders St by Elizabeth St, by the station.', at: { place: 'M13_CAR' }, r: 14, car: true, time: 120,
+      { text: 'Drop the car on Flinders St at Queen St, where the steps go down to the river.', at: { grid: ['Flinders St', 'Queen St'] }, r: 14, car: true, time: 120,
         lines: [[3, 'Dazza', 'The inspector. Is it the tall one? The tall one hates me. I sank his cousin. Small boat. Long story.']] },
-      { text: 'Walk Dazza down to Flinders Walk and onto the deck before the inspector does.', at: { place: 'ARBORY' }, r: 3, foot: true, time: 150,
+      { text: 'Walk Dazza down Queen St to the river, east along Flinders Walk and down the gangway onto the deck before the inspector does.', at: { place: 'ARBORY' }, r: 3, foot: true, time: 150,
         actors: [{ key: 'b_dazza', who: 'Dazza', near: 'player', anim: 'idle' }] },
       { text: 'The inspector is on the deck.',
         talk: { who: 'Inspector', at: { place: 'ARBORY_DECK' }, with: ['Jules', 'Dazza'], lines: [
