@@ -11,7 +11,7 @@
 // Each frame's numbers: heading (deg) and the speed; each row's: stance-foot slip (m/s, a planted foot's ground speed) and the
 // largest heading change in one frame (deg: a snap shows as a big number).
 import * as THREE from 'three/webgpu';
-import { PersonCrowd, PersonRig } from '../../js/pedestrians.js';
+import { PersonRig } from '../../js/pedestrians.js';
 import { createCast } from '../../js/people.js';
 const W = 200, H = 260;
 const scene = new THREE.Scene();
@@ -25,8 +25,24 @@ renderer.setPixelRatio(1);
 renderer.setSize(W, H);
 await renderer.init();
 const cam = new THREE.PerspectiveCamera(28, W / H, 0.1, 80);
-const crowd = new PersonCrowd(1, { farDistance: Infinity, castShadow: false });
-for (const m of crowd.meshes) scene.add(m);
+// (the crowd's instanced body doesn't draw in headless WebGL here: the rig is drawn as a stick figure from its bone joints)
+const LINKS = [0, 1, 1, 2, 1, 3, 3, 4, 1, 5, 5, 6, 0, 7, 7, 8, 8, 9, 9, 10, 0, 11, 11, 12, 12, 13, 13, 14, 4, 15, 6, 16, 2, 17];
+const stickPos = new Float32Array(LINKS.length * 3);
+const stickGeo = new THREE.BufferGeometry(); stickGeo.setAttribute('position', new THREE.BufferAttribute(stickPos, 3));
+const stick = new THREE.LineSegments(stickGeo, new THREE.LineBasicMaterial({ color: 0x101820 })); stick.frustumCulled = false; scene.add(stick);
+const joints = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd040 }), 18); joints.frustumCulled = false; scene.add(joints);
+const _jm = new THREE.Matrix4();
+function watchRig(rig) {
+  rig.j = Array.from({ length: 18 }, () => new THREE.Vector3());
+  const wb = rig.writeBone.bind(rig);
+  rig.writeBone = (b, q, p) => { wb(b, q, p); rig.j[b].copy(p); if (b === 4 || b === 6) rig.j[b === 4 ? 15 : 16].set(0, -0.26 * rig.s, 0).applyQuaternion(q).add(p); if (b === 2) rig.j[17].set(0, 0.22 * rig.s, 0).applyQuaternion(q).add(p); };
+}
+function drawStick(rig) {
+  for (let i = 0; i < LINKS.length; i++) { const v = rig.j[LINKS[i]]; stickPos[i * 3] = v.x; stickPos[i * 3 + 1] = v.y; stickPos[i * 3 + 2] = v.z; }
+  stickGeo.attributes.position.needsUpdate = true;
+  for (let i = 0; i < 18; i++) joints.setMatrixAt(i, _jm.makeTranslation(rig.j[i].x, rig.j[i].y, rig.j[i].z));
+  joints.instanceMatrix.needsUpdate = true;
+}
 const person = { position: new THREE.Vector3(0, 0, 0), heading: 0, speed: 0, verticalVel: 0 };
 const cm = { activeMode: 'car', entities: { person }, getGroundHeight: () => 0 };
 const cast = createCast({ scene, controllerManager: cm });
@@ -57,13 +73,15 @@ window.sheet = async (rows, title = '') => {
     const st = { x: 0, z: 0, heading: 0, speed: 0 };
     let rig = null, gm = null, key = `g${r}`;
     if (ped) rig = new PersonRig({ seed: row.seed ?? 3.3, scale: 1, female: !!row.female, girth: 1, hair: 0.2, armSwing: row.armSwing ?? 1, stride: 1 });
+    if (ped) watchRig(rig);
+    stick.visible = joints.visible = ped;
     let lastYaw = null, maxSnap = 0;
     const samp = [];
     const prev = [null, null];
     const draw = () => {
       if (ped) {
         rig.update(dt, st.x, st.z, st.heading, ground, null, 0, true);
-        crowd.begin(); crowd.add(rig, 0); crowd.end();
+        drawStick(rig);
         return rig.yaw;
       }
       cast.setGunman(key, row.who, { x: st.x, y: 0, z: st.z, heading: st.heading, speed: st.speed, weapon: 'pistol', armed: !!row.armed, officer: !!row.officer, vest: !!row.vest, dt });
@@ -123,8 +141,6 @@ window.sheet = async (rows, title = '') => {
     }
     report.push({ label: row.label, slip, maxSnapDeg: +maxSnap.toFixed(1) });
     if (!ped) cast.setGunman(key, row.who, null);
-    for (const m of crowd.meshes) m.visible = ped;
-    crowd.begin(); crowd.end();
   }
   return report;
 };
