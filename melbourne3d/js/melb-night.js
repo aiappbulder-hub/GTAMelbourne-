@@ -39,7 +39,7 @@ function bluestoneTex() {
 const LANES = [
   { name: 'Degraves St', x: -75, z0: 125.3, z1: 226.7, hw: 3.2, tables: 8 },
   { name: 'Centre Place', x: -72.3, z0: 19.3, z1: 115.7, hw: 2, tables: 4 },
-  { name: 'Hosier Lane', x: 75.5, z0: 125.3, z1: 226.7, hw: 4, tables: 2 },
+  { name: 'Hosier Lane', x: 75.5, z0: 125.3, z1: 226.7, hw: 4, tables: 2, oneWall: true }, // (its west side is open ground in the survey)
   { name: 'Rutledge Lane', x: 56.5, z0: 125.3, z1: 226.7, hw: 1.6, tables: 0 },
   { name: 'AC/DC Lane', x: 97.8, z0: 125.3, z1: 226.7, hw: 1.8, tables: 0 }
 ];
@@ -80,7 +80,20 @@ export function laneGaps(L, buildings = REAL_BUILDINGS) {
     if (!wb) b = Math.min(b, L.x + L.hw);
     rows.push(b - a >= 1 ? { z, a, b, wa, wb } : null);
   }
-  return rows;
+  // a lane is a corridor: keep the rows walled on both sides (or one, for L.oneWall), bridge breaks of up to 6 m between them (a doorway, a
+  // gap between two buildings) and the mouths of up to 12 m to the kerb (across the footpath). Open ground beyond that
+  // (a forecourt, a car park, the cathedral's close) stays footpath.
+  const keep = rows.map((r) => !!(r && (L.oneWall ? r.wa || r.wb : r.wa && r.wb)));
+  const BR = 12, MOUTH = 24; // rows (0.5 m each): 6 m breaks, 12 m mouths (Flinders St's footpath is wide)
+  let last = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (!keep[i]) continue;
+    const from = last < 0 ? (i <= MOUTH ? 0 : i) : (i - last - 1 <= BR ? last + 1 : i);
+    for (let k = from; k < i; k++) keep[k] = !!rows[k];
+    last = i;
+  }
+  if (last >= 0 && rows.length - 1 - last <= MOUTH) for (let k = last + 1; k < rows.length; k++) keep[k] = !!rows[k];
+  return rows.map((r, i) => (keep[i] ? r : null));
 }
 
 const RIVER_BOAT = [[-690, 365], [-820, 395], [-926, 435], [-1020, 462], [-1110, 482], [-1170, 490]];
