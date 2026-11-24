@@ -210,16 +210,14 @@ export function createArboryAfloat({ scene, controllerManager = null, cast = nul
   };
   if (controllerManager) (controllerManager.extraGround ||= []).push(ground);
 
-  // the people on the deck: a bartender behind the bar, two drinkers at the counter, three at the tables
+  // the people on the deck: a bartender behind the bar, a drinker at the counter, one at a table
   const W2 = (a, b, face) => { const p = arboryPoint(a, b); return { x: p.x, y: Y, z: p.z, heading: face + YAW }; };
   // (a heading in the deck's frame: 0 faces out over the river; the world heading adds the deck's turn)
-  const CREW = [
+  // (three people, not more: each is a skinned figure drawn every frame; ?nocrew leaves them out)
+  const CREW = new URLSearchParams(location.search).has('nocrew') ? [] : [
     { key: 'arb_bar', id: 'Female_Adult_04', at: [-1.5, -3.3], face: 0, anims: ['idle', 'talk', 'idle', 'laugh'] },
-    { key: 'arb_p1', id: 'Male_Adult_14', at: [-2.6, BZ + 0.9], face: Math.PI, anims: ['talk', 'idle', 'laugh'] },
-    { key: 'arb_p2', id: 'Female_Adult_04', at: [-1.4, BZ + 1.0], face: Math.PI - 0.4, anims: ['idle', 'laugh', 'talk'] },
-    { key: 'arb_p3', id: 'Male_Adult_03', seat: 3, anims: ['sit_talk', 'sit_listen'] },
-    { key: 'arb_p4', id: 'Female_Adult_06', seat: 5, anims: ['sit_listen', 'sit_talk'] },
-    { key: 'arb_p5', id: 'Male_Adult_05', seat: 7, anims: ['sit_look', 'sit_listen'] }
+    { key: 'arb_p1', id: 'Male_Adult_14', at: [-2.4, BZ + 0.9], face: Math.PI, anims: ['talk', 'idle', 'laugh'] },
+    { key: 'arb_p2', id: 'Female_Adult_06', seat: 5, anims: ['sit_listen', 'sit_talk'] }
   ];
   // the story's own people standing at the bar in a job's scene are left room: a crew member in the way stands down
   let clock = 0, peopleOn = false, lastNight = -1;
@@ -234,7 +232,7 @@ export function createArboryAfloat({ scene, controllerManager = null, cast = nul
       M.bulb.emissiveIntensity = 0.15 + nf * 6;
       M.sign.emissiveIntensity = 0.05 + nf * 0.6;
     }
-    const want = !!player && near(player, 70) && !busy;
+    const want = !!player && near(player, 50) && !busy;
     if (cast && (want || peopleOn)) {
       for (const [i, p] of CREW.entries()) {
         if (!want) { cast.setActor(p.key, p.id, null); continue; }
