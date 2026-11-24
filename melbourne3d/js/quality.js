@@ -1,5 +1,5 @@
 // Graphics quality: 'low', 'medium' or 'high': ?quality= or the player's saved choice (the Graphics menu in the
-// toolbar), else High on every device. Changing it reloads the page. Dynamic resolution (main.js) keeps High playable
+// toolbar), else by the GPU (phones and integrated laptop GPUs: Low, see detectGpu). Changing it reloads the page. The frame-rate governor (main.js) keeps it playable
 // on weaker GPUs; Low and Medium are there to pick when it isn't enough.
 //
 //   low:    1 px per CSS px, no antialiasing, no screen-space reflections, bloom or grade pass (direct render with
@@ -23,9 +23,10 @@ function detectGpu() {
     if (lose) lose.loseContext();
     let level = 'medium', lite = false;
     if (/NVIDIA|GeForce|Quadro|RTX|GTX|Radeon RX|Radeon Pro|Arc\b|Intel\(R\) Arc/i.test(name)) level = 'high';
-    // Laptop integrated graphics (Intel Iris Xe / UHD, AMD Vega / Radeon Graphics APUs): Medium-lite (see LITE below)
-    else if (/Intel|HD Graphics|UHD|Iris|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics|Vega/i.test(name)) { level = 'medium'; lite = true; }
-    if (/HD Graphics [2-5]\d{3}\b|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Software|Microsoft Basic/i.test(name)) { level = 'low'; lite = false; }
+    // Laptop integrated graphics (Intel UHD / Iris Xe, AMD Vega / Radeon Graphics APUs): Low plus, on the stronger ones
+    // (Iris, Vega / Radeon APUs), sun shadows near the player only (see LITE below)
+    else if (/Intel|HD Graphics|UHD|Iris|Radeon\(TM\) (Graphics|R[2-7]|Vega)|Radeon Graphics|Vega/i.test(name)) { level = 'low'; lite = /Iris|Vega|Radeon/i.test(name); }
+    if (/Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Software|Microsoft Basic/i.test(name)) { level = 'low'; lite = false; }
     return { name, level, lite };
   } catch {
     return { name: '', level: 'low' };
@@ -43,7 +44,7 @@ function choose() {
   // A manual pick (the Graphics menu) wins and is never stepped down automatically
   if (LEVELS.includes(saved)) return { level: saved, source: 'saved', gpu: '' };
   // Result of an earlier automatic step-down that needed a rebuild (so it doesn't loop on every visit)
-  if (LEVELS.includes(auto)) return { level: IS_MOBILE && auto === 'high' ? 'low' : auto, source: 'auto', gpu: '', lite: auto === 'medium' && detectGpu().lite };
+  if (LEVELS.includes(auto)) return { level: IS_MOBILE && auto === 'high' ? 'low' : auto, source: 'auto', gpu: '', lite: auto === 'low' && detectGpu().lite };
   // No choice yet: phones, tablets and touch devices start on Low; otherwise the GPU decides (weak or unknown: Low or
   // Medium, discrete: High). The auto step-down (main.js) lowers it further if the frame rate stays under 40.
   const gpu = detectGpu();
@@ -54,9 +55,9 @@ const picked = choose();
 export const QUALITY = picked.level;
 export const QUALITY_SOURCE = picked.source;
 export const GPU_NAME = picked.gpu;
-/** Medium-lite: integrated laptop GPUs on the default (automatic) setting, or ?lite. Medium's bloom, grade and SMAA, with
- *  the light building shading, shadows only near the player (1024 px), render scale 1-1.25 and less traffic. */
-export const LITE = QUALITY === 'medium' && (!!picked.lite || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('lite')));
+/** Low-lite: the default on stronger laptop integrated GPUs (Iris Xe, Vega), or ?lite with Low. Low (1 px per CSS px, no
+ *  post FX, light building shading, short view) plus 1024 px sun shadows near the player only. */
+export const LITE = QUALITY === 'low' && (!!picked.lite || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('lite')));
 
 const SETTINGS = {
   low: {
@@ -72,7 +73,7 @@ const SETTINGS = {
     cameraFar: 60000, fogScale: 1.0, cars: 200, buses: 12, peds: 340, treeLod: 1.0, treeDist: 1.0, cullScale: 1.0, viewDist: Infinity
   }
 };
-const LITE_OVERRIDES = { pixelRatio: 1.25, shadowTile: 1024, shadowReach: 0.5, cars: 100, buses: 6, peds: 180, treeLod: 0.6, treeDist: 0.5, cullScale: 0.7, viewDist: 1800, cameraFar: 8000, fogScale: 1.6 };
+const LITE_OVERRIDES = { shadows: true, shadowTile: 1024, shadowReach: 0.5 };
 export const Q = { ...SETTINGS[QUALITY], density: 1, shadowReach: 1, ...(LITE ? LITE_OVERRIDES : {}) }; // density: live traffic/pedestrian multiplier (frame-rate governor)
 // Render scale is relative to the device pixel ratio (sharp on retina/phone screens): the tier value is a cap
 // (high 2, medium 1.5, low 1 = at least one pixel per CSS pixel); never below 0.75 CSS px, even when stepping down.

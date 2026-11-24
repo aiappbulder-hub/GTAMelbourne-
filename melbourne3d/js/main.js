@@ -101,7 +101,8 @@ async function initApp() {
   const isFirefox = typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
   const renderer = new THREE.WebGPURenderer({
     // ?webgl forces three's WebGL2 backend (for browsers whose WebGPU is missing or unstable, and for testing)
-    forceWebGL: new URLSearchParams(location.search).has('webgl'),
+    // (?backend=webgl does the same; ?backend=webgpu, the default, keeps WebGPU: its clustered-light compute is native)
+    forceWebGL: new URLSearchParams(location.search).has('webgl') || new URLSearchParams(location.search).get('backend') === 'webgl',
     antialias: !isFirefox && Q.antialias,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true
