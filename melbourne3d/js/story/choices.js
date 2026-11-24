@@ -53,6 +53,22 @@ export const CHOICE_INFO = {
       davo: 'Davo holds it. This only changes what The Book says about it; the raid has already happened.',
       sully: 'Sully holds it. This only changes what The Book says about it; the raid has already happened.',
       self: 'Only you know where it is. This only changes what The Book says about it; the raid has already happened.' }
+  },
+  arbory: {
+    who: 'The council inspector', ask: 'The inspector wants to see the skipper\'s ticket for Arbory Afloat. How do you handle it?',
+    notes: { ticket: 'Free. Dazza digs out his 1998 ticket. This only goes in The Book (Record).',
+      bribe: 'Costs $500. The inspector is bought, and will be again. This only goes in The Book (Record).',
+      reef: 'Free. You let him know you know Golden Reef sent him. This only goes in The Book (Record).' }
+  },
+  moon: {
+    who: 'The collector', ask: 'The Toorak collector has Luna Park\'s spare Mr Moon. What do you take from him?',
+    notes: { returned: 'Free. Just the face back. This only goes in The Book (Record).',
+      cheque: 'Free. The face and his cheque (the job pays the same). This only goes in The Book (Record).' }
+  },
+  scalps: {
+    who: 'Shane Scalps', ask: 'Shane printed fake tickets with your bar\'s name on them. What happens to him?',
+    notes: { informant: 'Free. Shane rings you when the grey car comes back. This only goes in The Book (Record).',
+      gone: 'Free. Shane leaves town till the finals are over. This only goes in The Book (Record).' }
   }
 };
 

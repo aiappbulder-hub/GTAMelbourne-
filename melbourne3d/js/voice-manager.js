@@ -282,7 +282,9 @@ export async function createVoiceManager({ audioSystem, cameraSystem, trafficSys
     Vince: { pitch: 0.7, rate: 0.95, male: true }, Kaz: { pitch: 1.05, rate: 1.15, male: false }, Mick: { pitch: 0.9, rate: 1.0, male: true },
     Marsh: { pitch: 1.0, rate: 1.15, male: false }, Ruby: { pitch: 1.1, rate: 1.17, male: false },
     Gus: { pitch: 0.8, rate: 0.95, male: true }, Nico: { pitch: 1.1, rate: 1.0, male: true }, Terry: { pitch: 0.82, rate: 0.95, male: true },
-    Sully: { pitch: 0.72, rate: 0.92, male: true }, Shooter: { pitch: 1.2, rate: 1.05, male: true }, Bouncer: { pitch: 0.65, rate: 0.95, male: true } };
+    Sully: { pitch: 0.72, rate: 0.92, male: true }, Shooter: { pitch: 1.2, rate: 1.05, male: true }, Bouncer: { pitch: 0.65, rate: 0.95, male: true },
+    Jules: { pitch: 1.12, rate: 1.12, male: false }, Dazza: { pitch: 0.68, rate: 0.88, male: true }, Inspector: { pitch: 0.95, rate: 1.2, male: true },
+    Collector: { pitch: 0.9, rate: 0.98, male: true }, Shane: { pitch: 1.05, rate: 1.25, male: true } };
   let speechVoices = null;
   function pickVoice(male) {
     const all = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];

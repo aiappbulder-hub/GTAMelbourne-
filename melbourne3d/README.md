@@ -111,6 +111,17 @@ modules still carry an `IS_MELBOURNE` branch for it (`js/city.js` is now a const
   - An on-screen pointer shows the distance to the marker that matters: the next job (pink), the objective (yellow)
     or the nearest target (red). The marker beams are 140 m tall. The minimap and its GPS route stay on phones.
   - The Albert Park Grand Prix is no longer a job: it is under "Race" in the Jobs list.
+  - **Act II side jobs** (jobs 14-16, after the Act II card): *Arbory Afloat* (Jules at the floating bar's counter: fetch
+    Captain Dazza from the Southbank Promenade, lose Golden Reef's four-wheel drive, walk him onto the deck before the council
+    inspector), *Penguin Parade* (Luna Park's spare Mr Moon: Catani Gardens, St Kilda Pier, back to Mick on the Esplanade) and
+    *Boundary Line* (fake MCG tickets with the Quiet Room's name: Punt Rd x Swan St, Shane's mates, Shane). Each has a timer to
+    fail on and a choice. `__city.missions.startNow(13)` (14, 15) starts one from the console.
+- **Arbory Afloat** (`js/arbory-afloat.js`): the floating bar moored off Flinders Walk below Flinders Street Station: a
+  pontoon with two gangways from the quay, the bar under a shade sail, stools, tables under umbrellas, planters and festoon
+  lights that glow at night (8 merged meshes, hidden beyond 700 m, no real lights). Walkable; a bartender and patrons appear
+  when you're near, and on foot by the deck the music turns to the house set (`music.venue`).
+- **Parks**: people stand on a park's paved walk (0.26 m) or its raised lawn (0.41 m) over the terrain, not at road level
+  inside the grass (`controllerManager.parkGroundHeight`, from the parks' own surfaces in `js/city-grid.js`).
 - **Inside** (`js/interiors.js`): the Quiet Room, Gus's bar at Flinders Lane x Elizabeth St. A door on the building's
   Elizabeth St face (sign, awning, a warm pool of light on the footpath): **F** (or tap the prompt) beside it on foot fades
   to black and puts you in a small bar (counter and stools, bottle shelves, booth, tables, jukebox, back office door, neon),

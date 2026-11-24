@@ -51,7 +51,9 @@ const RECOIL = { pistol: { rise: 0.17, back: 0.05, torso: 0.07 }, uzi: { rise: 0
   m4: { rise: 0.09, back: 0.055, torso: 0.07 }, rocket: { rise: 0.36, back: 0.17, torso: 0.22 } };
 // (Act I's people are Rocketbox bodies for now; each loads when their job first wants them)
 const ACT1_CAST = { Gus: 'Male_Adult_07', Ruby: 'Business_Female_01', Nico: 'Male_Adult_04', Marsh: 'Business_Female_02', Terry: 'Business_Male_02',
-  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17' };
+  Sully: 'Male_Adult_12', Bianca: 'Female_Adult_06', Shooter: 'Male_Adult_18', Bouncer: 'Male_Adult_17',
+  // Act II's side jobs: Arbory Afloat, Penguin Parade, Boundary Line
+  Jules: 'Female_Adult_09', Dazza: 'Male_Adult_10', Inspector: 'Male_Adult_14', Collector: 'Male_Adult_05', Shane: 'Male_Adult_03' };
 const EAGER_CAST = ['Vince', 'Kaz', 'Mick'];
 export const STORY_CAST = CLASSIC ? { Vince: 'Male_Adult_03', Kaz: 'Female_Adult_04', Mick: 'Male_Adult_05', Davo: 'Male_Adult_10', ...ACT1_CAST }
   : { Vince: 'ara:vince', Kaz: 'ara:kaz', Mick: 'ara:mick', Davo: 'ara:davo', ...ACT1_CAST };

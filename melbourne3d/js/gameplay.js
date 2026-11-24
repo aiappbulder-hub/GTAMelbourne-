@@ -5,6 +5,7 @@ import { createCarSounds } from './car-sounds.js';
 import { SPORTS_DRIVE } from './controllers.js';
 import { WEAPONS, WEAPON_BY_ID, weaponIconSVG } from './weapons.js';
 import { createCombat } from './combat.js';
+import { terrainHeight } from './terrain.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
 // The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
@@ -1675,7 +1676,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       rutQ.setFromAxisAngle(UPV, car.heading);
       for (const side of [0.78, -0.78]) {
         const rx = car.position.x - fx * 1.3 + lx * side, rz = car.position.z - fz * 1.3 + lz * side;
-        rutP.set(rx, inAlbertPark(rx, rz) ? OPEN_PARK_LAWN_Y + 0.012 : 0.418, rz); // on the grass: level ground in Albert Park, a raised lawn elsewhere
+        rutP.set(rx, terrainHeight(rx, rz) + (inAlbertPark(rx, rz) ? OPEN_PARK_LAWN_Y + 0.012 : 0.418), rz); // on the grass (over the hill under it): level ground in Albert Park, a raised lawn elsewhere
         rutMesh.setMatrixAt(rutNext, rutM.compose(rutP, rutQ, rutS));
         rutNext = (rutNext + 1) % RUTS;
         rutMesh.count = Math.min(RUTS, rutMesh.count + 1);
