@@ -636,6 +636,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
   // Visible people (and hidden ones within footstep/turn range) advance their gait; only those the camera may see
   // solve their bone transforms and are drawn, the far ones with the light LOD. Walkers also begin turning towards
   // the next leg of their route over its last metre so the body rounds corners instead of swinging about on the spot.
+  let animFrame = 0;
   function renderPed(p, dt) {
     const draw = !hasView || visible(p.x, p.z, 7);
     // the dead fall as in a dive and stay down (prone from 0.72 s to 1.15 s of it)
@@ -671,7 +672,18 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
       castHook.cast.posePed(p, pedGround(p, p.x, p.z), heading, dt, { dead: p.dead, talking: clock < p.talkUntil || !!partner, scared: clock < (p.fleeUntil || 0) });
       return;
     }
-    p.rig.update(dt, p.x, p.z, heading, pedGround, p, 0, draw, diving ? diveTime : -1);
+    // Animation LOD: the rig (footsteps, IK, the bones) steps every frame within 30 m, every second frame to 60 m and every
+    // fourth beyond, with the skipped frames' time (people are staggered over the frames, so the cost is spread). Divers and
+    // the falling dead keep the full rate
+    p.animDt = (p.animDt || 0) + dt;
+    const every = diving || distSq < 900 ? 1 : distSq < 3600 ? 2 : 4;
+    if (every > 1 && p.rig.placed && (animFrame + p.index) % every !== 0) {
+      if (draw) pedCrowd.add(p.rig, Math.sqrt(distSq));
+      return;
+    }
+    const adt = p.animDt;
+    p.animDt = 0;
+    p.rig.update(adt, p.x, p.z, heading, pedGround, p, 0, draw, diving ? diveTime : -1);
     if (!draw) return;
     pedCrowd.add(p.rig, Math.sqrt(distSq));
   }
@@ -756,6 +768,7 @@ function createPedestrianSystem(network, { player, nearEdges, nearSignals, mayCr
     if (cast && lastCandidates) cast.assign(lastCandidates);
     castCandidates = cast ? [] : null;
     pedCrowd.begin();
+    animFrame++;
     for (let i = 0; i < NUM_PEDS; i++) {
       const p = peds[i];
       if (i >= pedLimit) p.placed = false;
