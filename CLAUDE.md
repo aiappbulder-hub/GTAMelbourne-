@@ -9,7 +9,7 @@ Owner's update (2026-11-24): use the top-tier model (`opus`) for everything, for
 - **Every Agent call sets `model: opus` explicitly.** This overrides the `model: sonnet` pin in `.claude/agents/`.
 - The main session still delegates coding, debugging and browser tests to subagents and reviews their screenshots
   itself before shipping.
-- **At most two subagents at a time.** Queue the rest. Prefer resuming an agent over starting a new one.
+- **Up to four subagents at a time** (owner, 2026-11-24). Queue the rest. Prefer resuming an agent over starting a new one.
 - **Commit early.** Subagents commit working progress to their branch as they go, so a cut-off loses little.
 - Subagents do the assigned task without stopping to ask for sign-off on file edits; they report what they did.
 
