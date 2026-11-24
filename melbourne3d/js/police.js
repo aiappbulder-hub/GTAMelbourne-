@@ -21,7 +21,8 @@ import { lightbarActive } from './cars.js';
 import { settings } from './settings.js';
 
 const CLASSIC = typeof location !== 'undefined' && new URLSearchParams(location.search).has('classic');
-const OFFICERS = CLASSIC ? ['Police_Male_01', 'Police_Male_03'] : ['ara:cons', 'ara:sgt'];
+// (on foot both are the sergeant's body: the constable's is a skirt and strappy heels, wrong for an officer running after you)
+const OFFICERS = CLASSIC ? ['Police_Male_01', 'Police_Male_03'] : ['ara:sgt', 'ara:sgt'];
 const RUN = 5.2; // m/s on foot
 const ARREST_DIST = 3.2;
 const LINES_ARREST = ['Police! Get on the ground!', 'Stop right there! Police!', 'Hands where I can see them!', 'You are under arrest!'];

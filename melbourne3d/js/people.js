@@ -81,8 +81,23 @@ const ACTIVE = (() => {
 // Rocketbox people in the street crowd too (the nearest few)? Off: the procedural crowd moves better and costs less
 const CROWD = false;
 
-// Ground speeds (m/s) the clips' feet are matched to at their normal rate
+// Ground speeds (m/s) the clips' feet are matched to at their normal rate (the Rocketbox clips' own are measured as they load:
+// stripRoot)
 const GAIT = { walk: 1.4, run: 3.3, sprint: 5.0 };
+const RB_GAIT = { m: null, f: null };
+// The Rocketbox walk, run and sprint were captured moving forward: the root (Bip01) travels 1.2 m, 2.1 m and 3.5 m over a loop. Played
+// in place on a person whose position the game moves, the body ran ahead of its feet' ground and jumped back each loop (the feet
+// slid at 2-4 m/s). The steady travel comes off the root (its bob and sway stay); its rate is the clip's ground speed, so the
+// playback can be matched to the real speed. Returns that speed (m/s; the clips are in centimetres) or 0
+function stripRoot(clip) {
+  const t = clip.tracks.find((k) => k.name === 'Bip01.position');
+  if (!t || t.times.length < 2) return 0;
+  const v = t.values, n = t.times.length, last = (n - 1) * 3, T = t.times[n - 1] - t.times[0];
+  const dx = v[last] - v[0], dz = v[last + 2] - v[2];
+  if (Math.hypot(dx, dz) < 5 || T <= 0) return 0;
+  for (let i = 0; i < n; i++) { const k = (t.times[i] - t.times[0]) / T; v[i * 3] -= dx * k; v[i * 3 + 2] -= dz * k; }
+  return Math.hypot(dx, dz) / T / 100;
+}
 
 const hash = (i, k) => { const s = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return s - Math.floor(s); };
 /** The person who plays pedestrian i (stable), from its sex and role ('police', 'gang' or a civilian) */
@@ -190,6 +205,8 @@ export function createCast({ scene, controllerManager }) {
     clips[sex] = Object.fromEntries(j.clips.map((c) => {
       const a = THREE.AnimationClip.parse(c);
       a.tracks = a.tracks.filter((t) => !t.name.startsWith('MotionExtractionHelper')); // a helper of the motion capture's export
+      const v = stripRoot(a);
+      if (v && GAIT[a.name]) (RB_GAIT[sex] || (RB_GAIT[sex] = { ...GAIT }))[a.name] = v;
       return [a.name, a];
     }));
   }).catch((e) => console.warn('[people] no clips', sex, e));
@@ -198,6 +215,7 @@ export function createCast({ scene, controllerManager }) {
     for (const c of j.clips) {
       const a = THREE.AnimationClip.parse(c);
       a.tracks = a.tracks.filter((t) => !t.name.startsWith('MotionExtractionHelper'));
+      stripRoot(a); // (a story walk would carry its travel too)
       clips[sex][a.name] = a;
     }
   }).catch((e) => console.warn('[people] no story clips', sex, e));
@@ -257,7 +275,7 @@ export function createCast({ scene, controllerManager }) {
     scene.add(group);
     const ara = ownClips.has(id);
     return { id, group, root, mixer, acts, set, cur: null, heading: 0, fall: 0, owner: null, onceUntil: 0, still: 0,
-      ara, faces, gaitSpeed: ara ? ARA_GAIT : GAIT, blinkAt: 1 + Math.random() * 3, blinkT: -1, lastHeading: null, turnT: 0 };
+      ara, faces, gaitSpeed: ara ? ARA_GAIT : RB_GAIT[isFemale(id) ? 'f' : 'm'] || GAIT, blinkAt: 1 + Math.random() * 3, blinkT: -1, lastHeading: null, turnT: 0 };
   }
   function action(a, name) {
     if (!a.acts[name] && a.set[name]) {
@@ -320,11 +338,14 @@ export function createCast({ scene, controllerManager }) {
     const s = Math.abs(v);
     if (a.ara && a.acts.walk && a.acts.run) return locoGait(a, s, idle);
     const was = a.cur === a.acts.sprint ? 3 : a.cur === a.acts.run ? 2 : a.cur === a.acts.walk ? 1 : 0;
-    const g = s > (was === 3 ? 6.2 : 6.8) ? 3 : s > (was >= 2 ? 2.2 : 2.6) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
     const G = a.gaitSpeed || GAIT;
-    if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / G.sprint, 0.8, 2.0));
-    else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / G.run, 0.75, 1.45));
-    else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / G.walk, 0.55, 1.6));
+    // a gait changes about where the two clips' cadences meet (hysteresis either side so nobody flickers); the rate is the speed over
+    // the clip's own, so the planted foot stays put
+    const toSprint = (G.run + G.sprint) * 0.5;
+    const g = s > toSprint * (was === 3 ? 0.92 : 1.05) ? 3 : s > (was >= 2 ? 1.8 : 2.1) ? 2 : s > (was >= 1 ? 0.12 : 0.25) ? 1 : 0;
+    if (g === 3) play(a, 'sprint', THREE.MathUtils.clamp(s / G.sprint, 0.6, 1.6));
+    else if (g === 2) play(a, 'run', THREE.MathUtils.clamp(s / G.run, 0.6, 1.6));
+    else if (g === 1) play(a, 'walk', THREE.MathUtils.clamp(s / G.walk, 0.45, 2.1));
     else play(a, has(a, idle) ? idle : 'idle');
   }
   // Locomotion for the Ara bodies: the walk and the run clips play together, in step (same foot forward at the same moment), blended by
@@ -375,10 +396,14 @@ export function createCast({ scene, controllerManager }) {
   }
   const tickActor = (a, dt) => { stepLoco(a, dt); a.mixer.update(dt); };
   const wrapPi = (d) => Math.atan2(Math.sin(d), Math.cos(d));
+  const TURN_RATE = 7; // rad/s, as the crowd's walkers (js/pedestrians.js GAIT.walkTurnRate)
   function place(a, x, y, z, heading, dt, ease = true) {
     let d = heading - a.heading;
     d = Math.atan2(Math.sin(d), Math.cos(d));
-    a.heading = ease ? a.heading + d * Math.min(1, dt * 10) : heading; // ease round rather than snap
+    // ease round rather than snap, and no faster than a person turns (a 180 takes about half a second: it used to be 30 degrees a
+    // frame at first)
+    const maxTurn = TURN_RATE * dt;
+    a.heading = ease ? a.heading + THREE.MathUtils.clamp(d * Math.min(1, dt * 10), -maxTurn, maxTurn) : heading;
     a.group.position.set(x, y, z);
     // the dead go down backwards over 0.55 s (there's no death clip: the body tips over and lies still)
     // (a body tipped over as one piece lies with its hips about 0.2 m up; a death clip lies by itself, and the body then follows the
