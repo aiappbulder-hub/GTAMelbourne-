@@ -281,7 +281,7 @@ def build(lod):
     d = (xw + ins, back_z(xw) - ins)
     rh = H_MAIN + 3.2
     ra = (xw + 6, (a[1] + d[1]) / 2)
-    rb = (xe, (b[1] + c[1]) / 2)
+    rb = (xe - 5, (b[1] + c[1]) / 2)
     E = (0, 2048, e0 + 2, e1 - 2)
 
     def tri_or_quad(pts3, out):
@@ -292,6 +292,7 @@ def build(lod):
     tri_or_quad([(a[0], H_MAIN, a[1]), (b[0], H_MAIN, b[1]), (rb[0], rh, rb[1]), (ra[0], rh, ra[1])], (0.0, 1.0, 0.3))
     tri_or_quad([(d[0], H_MAIN, d[1]), (c[0], H_MAIN, c[1]), (rb[0], rh, rb[1]), (ra[0], rh, ra[1])], (0.0, -1.0, 0.3))
     tri_or_quad([(a[0], H_MAIN, a[1]), (d[0], H_MAIN, d[1]), (ra[0], rh, ra[1])], (-1.0, 0.0, 0.3))
+    tri_or_quad([(b[0], H_MAIN, b[1]), (c[0], H_MAIN, c[1]), (rb[0], rh, rb[1])], (1.0, 0.0, 0.3))
     # parapet top (the wall's thickness is not modelled: a cream cap strip on the front only)
     if lod == 0:
         # projecting cornice along the front: a long cream box at 17.6-18.7 m, 0.55 m proud
@@ -327,8 +328,8 @@ def build(lod):
         for i in range(4):
             mb.wall(cc[i], cc[(i + 1) % 4], H_MAIN, top, 'B', (cx, cz), 4.6, 8.6, variants=8, start=i, bay=hx * 2 + 0.01)
         mb.swatch_box(cx, cz, hx + 0.3, hz + 0.3, top, top + 0.6, 'cream')
-        # a copper roof: a low pyramid (4 sides) to a short finial
-        prof = [(math.hypot(hx, hz) + 0.3, top + 0.6), (2.2, top + 4.2), (0.0, top + 5.0)]
+        # a low copper mansard (4 sides) to a short finial
+        prof = [(math.hypot(hx, hz) + 0.3, top + 0.6), (math.hypot(hx, hz) * 0.8, top + 2.0), (1.0, top + 2.9), (0.0, top + 3.4)]
         mb.revolve(cx, cz, prof, 4, ROWS['D'], (0, 512), ang0=math.atan2(hz, hx))
     # ---- the Elizabeth St clock tower -----------------------------------------------------------------------------
     ez = fz(ELIZ_X) + 2.6
