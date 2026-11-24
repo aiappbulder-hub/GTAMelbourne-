@@ -121,14 +121,15 @@ async function buildFlindersStreetStation(group, colliders, plinthMat) {
   }
   lod.addLevel(near, 0);
   if (far) lod.addLevel(far, FSS_FAR);
-  // on a hill: lifted rigidly to the highest ground under the footprint (less 0.3 m), on a plinth down to the lowest
+  // on a hill: lifted rigidly to the highest ground under the footprint (less 0.3 m); the model's own stone skirt reaches
+  // 6 m down to the lowest, following the footprint (a plinth box only if the ground falls further)
   const box = { minX: -332.5, maxX: -22.5, minZ: 248.6, maxZ: 280.4 };
   const { lo, hi } = terrainRange(box);
   const base = Math.max(lo, hi - 0.3);
   lod.position.set(s.x, base, s.z);
   group.add(lod);
   for (const b of FSS_BOXES) {
-    if (base - lo > 0.05) {
+    if (base - lo > 5.8) {
       const plinth = new THREE.Mesh(new THREE.BoxGeometry(b.maxX - b.minX - 0.4, base - lo + 0.5, b.maxZ - b.minZ - 0.4), plinthMat);
       plinth.position.set((b.minX + b.maxX) / 2, (base + lo - 0.5) / 2, (b.minZ + b.maxZ) / 2);
       plinth.receiveShadow = true;

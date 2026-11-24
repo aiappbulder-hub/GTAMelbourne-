@@ -31,6 +31,7 @@ BAYW = 256 / PX  # 7.53 m
 FRONT_W, FRONT_E = (-332.5, 254.2), (-40.0, 249.0)  # Flinders St frontage
 BACK_W, BACK_E = (-332.4, 266.6), (-71.0, 260.2)
 H_MAIN = 21.0
+SKIRT = 6.0
 
 
 def lerp(a, b, t):
@@ -78,6 +79,10 @@ class MeshB:
             # we want the face's front (CCW from outside); with Blender's Y flip, swapping keeps the rule simple
             pass
         L = math.hypot(x1 - x0, z1 - z0)
+        if y0 == 0:
+            # a stone skirt 6 m into the ground: the game lifts the model rigidly to the highest ground under it
+            t0, t1 = SWATCH['stone']
+            self.oriented_quad(p0, p1, -SKIRT, 0.0, t0 + 2, t1 - 2, 1882, 2038, inside)
         n = max(1, round(L / bay))
         rt, rb = ROWS[strip]
         if m0 is None:
@@ -357,6 +362,7 @@ def build(lod):
         if is_portal:
             # one portal panel, the full 21 m
             mb.oriented_quad(p0, p1, 0, H_MAIN, 1536.5, 2047.5, 0, 714, inside)
+            mb.oriented_quad(p0, p1, -SKIRT, 0.0, SWATCH['stone'][0] + 2, SWATCH['stone'][1] - 2, 1882, 2038, inside)
         elif is_front or is_swan:
             mb.wall(p0, p1, 0, H_MAIN, 'A', inside, 0, 21, bay=BAYW if lod == 0 else L)
         else:
