@@ -9,6 +9,11 @@ import { createLeader } from './story/leader.js';
 import { ROUTES } from './story/routes.js';
 import { terrainHeight } from './terrain.js';
 import { describeChoice } from './story/choices.js';
+import { ARBORY_PLACES } from './arbory-afloat.js';
+
+// the places Act II's side jobs add: Arbory Afloat's deck (js/arbory-afloat.js), and Captain Dazza's spot on the Southbank
+// Promenade, on the river's south bank under Eureka
+Object.assign(PLACES, ARBORY_PLACES, { ARB_DAZZA: { x: -262, z: 450, label: 'Southbank Promenade, under Eureka', territory: 'SOUTHBANK' } });
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
 // after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
@@ -417,8 +422,127 @@ const MISSIONS = [
         ] },
         actors: [{ key: 'a_sully', who: 'Sully', at: { place: 'FEDSQ_PLAZA' }, face: 'player', anim: 'talk_cool' }] }
     ]
+  },
+  // ---------------------------------------------------------------------------------------------------------------
+  // Act II's side jobs: favours round the city between the big moves. Real places: Arbory Afloat (the floating bar on
+  // the Yarra below Flinders Street Station, js/arbory-afloat.js), St Kilda Pier and Luna Park, the MCG and Richmond.
+  // ---------------------------------------------------------------------------------------------------------------
+  {
+    id: 'B1', act: 'Act II', name: 'Arbory Afloat', call: ['Jules', "Jules, from Arbory Afloat. The bar on the river, under the station. Davo says you fix things that float. Get down here."],
+    giver: 'Jules', crew: 'Arbory Afloat', start: { place: 'ARBORY' }, giverAt: { place: 'ARBORY_JULES' }, reward: 3500,
+    begin: { card: ['ARBORY AFLOAT', 'Flinders Walk · the Yarra'], quick: true },
+    ride: [[3, 'Davo', "Jules runs the bar on the pontoon under Flinders Street. Best spritz in the city and the worst neighbours."],
+      [16, 'Davo', "Golden Reef have wanted her mooring for two years. Vellacott thinks the river should have a casino on it."]],
+    cut: [['Jules', "You're Davo's mate. He said you fix things that float."],
+      ['You', 'I fix things that sink. Floating is extra.'],
+      ['Jules', "Council inspector's due in five minutes. On paper this bar is a vessel, and a vessel needs its licensed skipper on board."],
+      ['Jules', 'Our skipper is Captain Dazza. Last seen on the Southbank steps under Eureka, explaining tides to a seagull.'],
+      ['You', "And if he isn't here?"],
+      ['Jules', 'Then Golden Reef gets my mooring, and you get to tell Davo his tab is closed.']],
+    outro: ['Jules', "Drinks are on the house. Your drinks. Not Dazza's. Never Dazza's."],
+    steps: [
+      { text: 'Fetch Captain Dazza from the Southbank Promenade, across the river under Eureka (over Princes Bridge, or a car round by Queens Bridge).',
+        at: { place: 'ARB_DAZZA', kerb: true }, r: 5, time: 240,
+        lines: [[4, 'Jules', "He'll be the one in the captain's hat. It's a costume hat. Don't tell him."]],
+        actors: [{ key: 'b_dazza', who: 'Dazza', at: { place: 'ARB_DAZZA', kerb: true }, off: [1.4, 0.8], face: 'player', anim: 'laugh' }],
+        say: 'Dazza: "Is it Tuesday? It feels like a Tuesday."' },
+      { text: "Golden Reef's lads want Dazza kept ashore. Get in a car (F by any car, or the CAR button).", car: true, time: 90, keepTime: true,
+        actors: [{ key: 'b_dazza', who: 'Dazza', near: 'player', anim: 'idle' }],
+        lines: [[1, 'Dazza', 'Is that a black four-wheel drive or am I seeing in the dark again?']] },
+      { text: 'A Golden Reef four-wheel drive is on you. Lose it: get 200 m clear and stay clear.', evade: { lose: 200, hold: 8, speed: 25, file: 'territorial', color: 0x0c0c0e }, time: 150,
+        lines: [[2, 'Dazza', "Hard to port! That's left. I think that's left."], [16, 'Dazza', "I've been chased by worse. A pelican, once. Mordialloc."],
+          [40, 'Dazza', 'If we die, tell Jules the gin was me. All of it.']],
+        say: 'Dazza: "Gone. Shall we go and be a boat, then?"' },
+      { text: 'Drop the car on Flinders St by Elizabeth St, by the station.', at: { place: 'M13_CAR' }, r: 14, car: true, time: 120,
+        lines: [[3, 'Dazza', 'The inspector. Is it the tall one? The tall one hates me. I sank his cousin. Small boat. Long story.']] },
+      { text: 'Walk Dazza down to Flinders Walk and onto the deck before the inspector does.', at: { place: 'ARBORY' }, r: 3, foot: true, time: 150,
+        actors: [{ key: 'b_dazza', who: 'Dazza', near: 'player', anim: 'idle' }] },
+      { text: 'The inspector is on the deck.',
+        talk: { who: 'Inspector', at: { place: 'ARBORY_DECK' }, with: ['Jules', 'Dazza'], lines: [
+          ['Inspector', 'City of Melbourne, waterways compliance. I am told this is a vessel.'],
+          ['Jules', 'It is. It goes up and down with the tide. That is what boats do.'],
+          ['Inspector', 'And the master of this vessel?'],
+          ['Dazza', 'Present. Sober. Ish.'],
+          ['Inspector', "I'll need to see a skipper's ticket."]] },
+        actors: [{ key: 'b_dazza', who: 'Dazza', at: { place: 'ARBORY_DECK' }, off: [-1.6, 0.6], face: 'player', anim: 'idle' }] },
+      { text: 'The inspector wants a ticket.', choice: { who: 'Inspector', text: "Ticket. Today, please.",
+        options: [
+          { label: "Dazza's ticket is in his hat. Let him find it.", set: { arbory: 'ticket' }, reply: 'Laminated. Nineteen ninety-eight. Valid, technically. Fine. You float.' },
+          { label: 'Here. A round on the house, and five hundred for your trouble.', cost: 500, set: { arbory: 'bribe' }, reply: "I didn't see that. I'll have a spritz. A small one." },
+          { label: 'Ask Vellacott who sent you.', set: { arbory: 'reef' }, reply: 'Nobody sent me. Nobody. I am leaving now. You float.' }
+        ] },
+        actors: [{ key: 'b_dazza', who: 'Dazza', at: { place: 'ARBORY_DECK' }, off: [-1.6, 0.6], face: 'player', anim: 'laugh' },
+          { key: 'b_insp', who: 'Inspector', at: { place: 'ARBORY_DECK' }, off: [1.6, 1.0], face: 'player', anim: 'talk' }] }
+    ]
+  },
+  {
+    // St Kilda: Luna Park's Mr Moon has gone walkabout (the replica face from the workshop), and Mick knows who's buying
+    id: 'B2', act: 'Act II', name: 'Penguin Parade', call: ['Mick', "Mick. The Esplanade at Fitzroy Street, St Kilda. Luna Park has lost its face, and I know who's found it."],
+    giver: 'Mick', crew: 'Broadmeadows', start: { place: 'ESPL_FITZROY' }, reward: 4000,
+    ride: [[3, 'Davo', "Mick's still in St Kilda. Still moving watches. Still calls me 'young fella', and I'm fifty-eight."],
+      [18, 'Davo', "Luna Park. Mr Moon's mouth over the gate. You walked through it in 1994 and threw up on the Scenic Railway."]],
+    cut: [['Mick', "Luna Park keeps a spare Mr Moon in the workshop. Big fibreglass face, the mouth, the teeth. Somebody's lifted it."],
+      ['You', 'Who steals a mouth?'],
+      ['Mick', 'A collector from Toorak, out on the end of the pier tonight with a boat and a cheque. The van it went in is by Catani Gardens.'],
+      ['Mick', "Get it back to me before he sails, and Luna Park owes us. Luna Park owing you is worth more than you'd think."],
+      ['You', 'Free rides?'],
+      ['Mick', 'Free silence. Their security sees everything on the foreshore.']],
+    outro: ['Mick', "Mr Moon's home. Look at him smiling. That's our smile now."],
+    steps: [
+      { text: 'Check the van at Catani Gardens: on foot, stay in the marker.', at: { place: 'CATANI', kerb: true }, r: 5, wait: 3, foot: true,
+        say: 'Mick: "Empty? Then he has it on the pier already. Run."' },
+      { text: "The buyer's on the end of St Kilda Pier. Get there before his boat goes. Watch his minders.", at: { pier: true }, r: 8, time: 110,
+        ambush: { n: 2, weapons: ['pistol', 'pistol'], near: 90 },
+        lines: [[3, 'Mick', 'Two minders. Toorak minders. They bruise like peaches, but they carry.']] },
+      { text: 'The collector.',
+        talk: { who: 'Collector', at: { pier: true }, lines: [
+          ['Collector', "This is a private transaction. I've paid for the moon."],
+          ['You', "You've paid for a mouth. The moon is the bit in the sky."],
+          ['Collector', 'Do you know what a Mr Moon fetches in Dubai?'],
+          ['You', 'More than a swim in the bay in July. Less than your boat.']] } },
+      { text: 'The collector is weighing it up.', choice: { who: 'Collector', text: 'Fine. What do you want?',
+        options: [
+          { label: 'The face, and you sail. Tonight.', set: { moon: 'returned' }, reply: 'Tasteless city. Take it.' },
+          { label: 'The face, and your cheque, for the trouble.', set: { moon: 'cheque' }, reply: 'You are a common thief. Here. Made out to cash, naturally.' }
+        ] },
+        actors: [{ key: 'b_coll', who: 'Collector', at: { pier: true }, off: [1.4, 0.6], face: 'player', anim: 'talk' }] },
+      { text: "Get Mr Moon back to Mick on the Esplanade at Fitzroy St before the pier's security shuts the gate.", at: { place: 'ESPL_FITZROY' }, r: 9, time: 150,
+        lines: [[4, 'Mick', 'Big grin in the boot of your car. Mind the speed humps on Jacka Boulevard.']] }
+    ]
+  },
+  {
+    // the MCG on a big day: a tout is selling fakes stamped with the Quiet Room's name
+    id: 'B3', act: 'Act II', name: 'Boundary Line', call: ['Davo', "Yarra Park, by the MCG. Big game today. Someone's selling fake tickets with our bar's name on the back."],
+    giver: 'Davo', crew: 'The Crossing', start: { place: 'YARRA_PARK' }, reward: 4500,
+    ride: [[3, 'Ruby', "A hundred thousand people at the G, and a tout called Shane Scalps selling seats that don't exist."],
+      [17, 'Ruby', "Each fake has 'compliments of the Quiet Room' printed on the back. Someone wants Kestrel to come asking."]],
+    cut: [['Davo', "That's Shane's stock. A boot full of seats in the Southern Stand that aren't there. And our name on every one."],
+      ['You', 'Who printed them?'],
+      ['Davo', "Shane won't say. Shane's frightened of whoever it is, and he's not frightened of me."],
+      ['Davo', "The boot's on Punt Road at Swan Street. Grab the bag, then get it away from the ground before the first bounce."],
+      ['You', 'And Shane?'],
+      ['Davo', "Shane will come looking. Shane always comes looking. Shane's mates are bigger than Shane."]],
+    outro: ['You', 'Nobody reads the back of a ticket. Unless somebody tells them to.'],
+    steps: [
+      { text: "Grab the bag of fakes from the car boot at Punt Rd and Swan St: on foot, stay in the marker.", at: { place: 'PUNT_SWAN', kerb: true }, r: 5, wait: 3, foot: true, time: 150,
+        lines: [[4, 'Davo', 'Red Commodore. The boot is held shut with a footy scarf. Collingwood. Of course.']] },
+      { text: 'Get in a car and get the fakes clear of the ground.', car: true, time: 60, keepTime: false },
+      { text: "Shane's mates are coming down Brunton Avenue. Lose them: get 250 m clear of the MCG.", away: 250, time: 70,
+        ambush: { n: 3, weapons: ['pistol', 'uzi', 'pistol'] } },
+      { text: 'Shane rings.',
+        talk: { who: 'Shane', at: { place: 'PUNT_SWAN', kerb: true }, lines: [
+          ['Shane', "That's my stock, mate. Two grand of seats."],
+          ['You', 'Two grand of seats that are in the river by tonight. Who printed them?'],
+          ['Shane', 'A bloke in a grey Comodo paid for the printing. Said your name would be good for business.']] } },
+      { text: 'Shane is waiting on an answer.', choice: { who: 'Shane', text: 'So are we square, or what?',
+        options: [
+          { label: "We're square. Ring me when the grey car comes back.", set: { scalps: 'informant' }, reply: "Yeah. Yeah, all right. You didn't hear it from me." },
+          { label: 'Leave town till the finals are over.', set: { scalps: 'gone' }, reply: 'Geelong it is, then. Nobody looks for anyone in Geelong.' }
+        ] } }
+    ]
   }
 ];
+
 
 const SAVE_KEY = 'gta-melbourne3d-save-v2';
 const SAVE_KEY_V1 = 'gta-melbourne3d-save-v1';
@@ -826,11 +950,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
   // Where a job's giver stands: on the footpath nearest the job's marker (not out in the road)
   const giverCache = new Map();
-  const giverSpot = (def) => kerbSpot(def.start);
+  const giverSpot = (def) => kerbSpot(def.giverAt || def.start); // (giverAt: where the giver stands, when it isn't the marker)
   // the footpath nearest a place (where someone stands waiting: a job's giver, Davo at his pickup)
   function kerbSpot(at) {
     if (giverCache.has(at)) return giverCache.get(at);
-    const best = footpathNear(resolve(at));
+    const q = resolve(at);
+    const best = q.y !== undefined ? q : footpathNear(q); // (a place with its own height, a deck or a room, is used as it is)
     giverCache.set(at, best);
     return best;
   }
@@ -1296,7 +1421,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     const n = MISSIONS.indexOf(def) + 1, rew = `+$${def.reward.toLocaleString('en-AU')}`;
     if (n === MISSIONS.length && save.progress >= MISSIONS.length) {
       big('MISSION PASSED', '#ffd23f', 5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
-      sub('Act I is done. Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
+      sub('That is every job for now. More of Act II, "The Board", comes in the next update; the city is yours to roam.', 7);
     } else big('MISSION PASSED', '#ffd23f', 3.5, `Job ${n} of ${MISSIONS.length} \u00B7 ${rew}`);
     // the next job runs on from this one (def.chain): it starts by itself once MISSION PASSED has been read
     const nxt = MISSIONS[n];
@@ -1536,8 +1661,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       if (m.timer <= 0) return fail('Out of time.');
     } else elTimer.hidden = true;
 
-    if (s.ambush && !m.ambushed && s.at && gameplay?.combat) { // armed men waiting at the marker open up as you come near
-      const ag = resolve(s.at);
+    if (s.ambush && !m.ambushed && gameplay?.combat) { // armed men waiting at the marker open up as you come near (no marker: round where the step began)
+      const ag = s.at ? resolve(s.at) : m.from;
       if (Math.hypot(p.x - ag.x, p.z - ag.z) < (s.ambush.near || 110)) { m.ambushed = true; gameplay.combat.spawnGroup(ag, s.ambush.n, s.ambush.weapons, (x, z) => !!blockAt(x, z), [10, 22]); }
     }
     let done = false;
