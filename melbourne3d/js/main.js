@@ -784,6 +784,9 @@ async function initApp() {
   // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
   const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
   window.__city.arbory = arbory;
+  // Hot air balloons over the city by day (js/balloons.js)
+  const balloons = IS_MELBOURNE ? (await import('./balloons.js')).createBalloons({ scene, lightingSystem }) : null;
+  window.__city.balloons = balloons;
   window.__city.audio = audioSystem;
   // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
   interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
@@ -1280,6 +1283,7 @@ async function initApp() {
     mapSystem.update();
     helipad?.update(dt);
     if (missionSystem) missionSystem.update(dt, elapsed);
+    balloons?.update(dt, cameraSystem.currentPos);
     arbory?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music });
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
