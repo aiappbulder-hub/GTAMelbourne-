@@ -905,7 +905,13 @@ class ThirdPersonControllerManager {
       return t + 1.24;
     }
     if (mode === 'person') {
-      return t + (this.isPointOnSidewalk(x, z) ? ISLAND_BOUNDS.sidewalkHeight : 0.0);
+      const b = blockAt(x, z);
+      if (!b) return t;
+      if (!(b.park > 0.6 && !b.median)) return t + ISLAND_BOUNDS.sidewalkHeight;
+      // a park: on its paved walk (0.26 m) or up on the lawn bed (0.41 m), not down at road level inside the grass
+      // (js/city-grid.js section 4 lays them; Albert Park's open grass is level with its roads)
+      if (b.area > 250 && this.parkGroundHeight && !(x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ)) return t + this.parkGroundHeight(x, z);
+      return t;
     }
     return t;
   }

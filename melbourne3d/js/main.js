@@ -4,7 +4,7 @@ import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { createPostProcessing, createScreenEffects } from './post-processing.js';
 import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { getLocationLabel, isTypingInField, ROADS, NYC_LANDMARKS, TELEPORT_LOCATIONS } from './city-config.js';
-import { buildCityGrid } from './city-grid.js';
+import { buildCityGrid, getStreetGroundHeight } from './city-grid.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, QUALITY, LITE, QUALITY_SOURCE, GPU_NAME, QUALITY_LEVELS, setQuality, MANUAL_QUALITY, LOW_FPS, lowerTier, reloadWithAutoQuality, applyTierLive, rememberAutoQuality } from './quality.js';
 import { buildCityBlocks } from './buildings.js';
@@ -180,6 +180,7 @@ async function initApp() {
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
+  if (IS_MELBOURNE) controllerManager.parkGroundHeight = getStreetGroundHeight; // people stand on the parks' walks and lawns
   if (bridges) (controllerManager.extraGround ||= []).push(bridges.groundHeight); // walk and drive on the bridge decks
   let gameplay = null; // js/gameplay.js (Melbourne), created once the HUD is up
   let helipad = null; // js/helipad.js

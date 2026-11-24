@@ -81,9 +81,26 @@ function addStreetGround(poly, height) {
   });
 }
 
+// (indexed into 64 m cells the first time it is asked, so a lookup tests only the few surfaces near the point)
+let streetGroundCells = null, streetGroundCount = -1;
+const SG_CELL = 64;
 function getStreetGroundHeight(x, z) {
+  if (streetGroundCount !== streetGroundSurfaces.length) {
+    streetGroundCount = streetGroundSurfaces.length;
+    streetGroundCells = new Map();
+    for (const s of streetGroundSurfaces) {
+      for (let ix = Math.floor(s.minX / SG_CELL); ix <= Math.floor(s.maxX / SG_CELL); ix++) {
+        for (let iz = Math.floor(s.minZ / SG_CELL); iz <= Math.floor(s.maxZ / SG_CELL); iz++) {
+          const k = ix * 100003 + iz;
+          let l = streetGroundCells.get(k);
+          if (!l) streetGroundCells.set(k, (l = []));
+          l.push(s);
+        }
+      }
+    }
+  }
   let height = 0.22;
-  for (const s of streetGroundSurfaces) {
+  for (const s of streetGroundCells.get(Math.floor(x / SG_CELL) * 100003 + Math.floor(z / SG_CELL)) || []) {
     if (s.height > height && x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ
       && pointInPolygonXZ(s.poly, x, z)) height = s.height;
   }
