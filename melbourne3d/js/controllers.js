@@ -1084,7 +1084,13 @@ class ThirdPersonControllerManager {
     if (b) {
       const dx = focus ? b.position.x - focus.x : 0;
       const dz = focus ? b.position.z - focus.z : 0;
-      if (this.activeMode === 'cyclist' || dx * dx + dz * dz <= maxDistSq) {
+      if (this.activeMode === 'cyclist' && b.castModel) {
+        // the player's own character rides (js/people.js poses it on the saddle and moves the helmet): no stand-in
+        b.riderCrowd.begin();
+        b.riderCrowd.end();
+        b._riderHidden = false;
+        b._posedX = NaN;
+      } else if (this.activeMode === 'cyclist' || dx * dx + dz * dz <= maxDistSq) {
         if (b.helmet) b.helmet.visible = true;
         const moved =
           this.activeMode === 'cyclist' ||
