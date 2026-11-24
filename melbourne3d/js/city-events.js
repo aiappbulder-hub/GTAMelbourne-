@@ -199,7 +199,7 @@ export function createCityEvents({ scene, controllerManager, cameraSystem, light
       }
     },
     seasons: {
-      weight: () => 0.9,
+      weight: () => 0, // weather switching is off (owner's request)
       start() {
         const p = player();
         const ev = { actors: [], x: p.x, z: p.z, life: 70, headline: 'Four seasons in one day', sub: 'The southerly just arrived. Everyone is wearing the wrong jacket.', global: true };

@@ -367,11 +367,11 @@ async function initApp() {
   const weatherLabel = document.getElementById('weather-label');
   if (!IS_MELBOURNE) { if (carCycleBtn) carCycleBtn.hidden = true; }
   const nextWeather = () => { const name = lightingSystem.cycleWeather(); if (weatherLabel) weatherLabel.textContent = name; };
-  if (weatherBtn) weatherBtn.addEventListener('click', nextWeather);
+  if (weatherBtn) weatherBtn.style.display = 'none'; // weather switching is off: always clear
   if (carCycleBtn) carCycleBtn.addEventListener('click', () => gameplay?.cycleCar());
   window.addEventListener('keydown', (e) => {
     if (isTypingInField(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.code === 'KeyY') nextWeather();
+    // (Y no longer changes the weather: weather switching is off)
     else if (e.code === 'KeyX' && gameplay) gameplay.cycleCar();
   });
 

@@ -162,10 +162,44 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
   const SEAT = { y: 1.03, z: -0.3 };
   let t = 0;
 
+  // Walkers on the path: a few people strolling both ways along its edges, kept within a window round the player's
+  // place on the path (so whenever the player is by the river there are people about), wrapping out of sight
+  const WALK_N = LITE ? 3 : QUALITY === 'low' ? 5 : 7, WIN = 110;
+  const walkers = [];
+  for (let i = 0; i < WALK_N; i++) {
+    walkers.push({
+      key: `riverwalker${i}`, model: CONFIG.models[(i + 2) % CONFIG.models.length], dir: i % 2 ? -1 : 1,
+      off: (Math.random() * 2 - 1) * WIN, speed: 1.1 + Math.random() * 0.45, edge: 1.35 + Math.random() * 0.35, posed: false
+    });
+  }
+  let nearS = 0, nearD = Infinity, nearT = 0;
+  function playerOnPath(pp) {
+    let bs = 0, bd = Infinity;
+    for (const q of line) { const d = (q.x - pp.x) ** 2 + (q.z - pp.z) ** 2; if (d < bd) { bd = d; bs = q.cum; } }
+    nearS = bs; nearD = Math.sqrt(bd);
+  }
+  function updateWalkers(dt, pp) {
+    nearT -= dt;
+    if (nearT <= 0) { playerOnPath(pp); nearT = 0.5; }
+    const near = nearD < 160;
+    for (const w of walkers) {
+      if (!near) { if (w.posed) { cast?.setActor(w.key, null, null); w.posed = false; } continue; }
+      w.off += w.dir * w.speed * dt;
+      if (w.off > WIN) w.off -= 2 * WIN; else if (w.off < -WIN) w.off += 2 * WIN; // (round again at the window's far side)
+      const sAt = Math.max(0, Math.min(total, nearS + w.off));
+      const p = pointAt(line, sAt);
+      const fx = p.dx * w.dir, fz = p.dz * w.dir;
+      const x = p.x + fz * w.edge, z = p.z - fx * w.edge; // keep left, on the path's edge
+      cast?.setActor(w.key, w.model, { x, y: terrainHeight(x, z) + 0.07, z, heading: Math.atan2(fx, fz), speed: w.speed, ease: 3 }, 'idle');
+      w.posed = true;
+    }
+  }
+
   function update(dt) {
     dt = Math.min(dt, 0.1);
     t += dt;
     const pp = cm.getActiveEntity().position;
+    updateWalkers(dt, pp);
     for (const c of cyclists) {
       c.s += c.dir * c.speed * dt;
       if (c.s > total) c.s -= total; else if (c.s < 0) c.s += total; // (the far end: round again, out of sight)
@@ -197,7 +231,7 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
     }
   }
   return {
-    update, group: root, cyclists, line,
+    update, group: root, cyclists, walkers, line,
     /** For checks: a point on the path beside rider i (x, z, heading) */
     cyclistPos(i = 0) { const c = cyclists[i]; return c && { x: c.parts.group.position.x, z: c.parts.group.position.z, heading: c.heading, shown: c.parts.group.visible }; }
   };
