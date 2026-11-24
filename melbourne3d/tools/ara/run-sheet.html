@@ -73,7 +73,7 @@ window.sheet = async (rows, title = '') => {
       if (row.fn) { const j = row.fn(t, weapon); for (const k of ['speed', 'heading', 'verticalVel']) if (j[k] !== undefined) person[k] = j[k]; if (j.y !== undefined) person.position.y = j.y; }
       step(); t += dt;
     };
-    const warm = row.warm ?? 2.5;
+    const warm = row.warm ?? (Array.isArray(row.shots) ? row.shots[0] - 0.02 : 2.5);
     // stance slip: a planted foot's ground speed (the ball of the foot, while within 2.5 cm of its lowest over the second before)
     const samp = []; const prevF = { Left: null, Right: null };
     const footTrack = () => {

@@ -547,7 +547,7 @@ export function createCast({ scene, controllerManager }) {
     bone.updateWorldMatrix(false, true);
   }
   /** k: { fwd (torso bend forward, over Spine..Spine2), head (neck+head extra bend), twist (torso turn left about the up axis), legs:
-   *  { airK, vy, land }, crouch (hips lowered, m), armsOut } */
+   *  { airK, vy, land }, crouch (hips lowered, m), armsOut, protract (the shoulders brought forward, rad) } */
   function bodyLayer(a, k) {
     const S = skelOf(a);
     if (!S.Spine) return;
@@ -577,6 +577,7 @@ export function createCast({ scene, controllerManager }) {
       swing(a, S.LeftArm, AX.fw, out); swing(a, S.RightArm, AX.fw, -out);
       if (up > 0) { swing(a, S.LeftArm, L, -air * up * 0.5); swing(a, S.RightArm, L, -air * up * 0.5); }
     }
+    if (k.protract) { swing(a, S.LeftShoulder, AX.up, -k.protract); swing(a, S.RightShoulder, AX.up, k.protract); } // the shoulders forward (about the up axis)
     if (k.bank) { swing(a, S.Spine, AX.fw, -k.bank * 0.3); swing(a, S.Spine1, AX.fw, -k.bank * 0.4); swing(a, S.Spine2, AX.fw, -k.bank * 0.3); }
     const fwd = k.fwd || 0;
     if (fwd) { swing(a, S.Spine, L, fwd * 0.3); swing(a, S.Spine1, L, fwd * 0.4); swing(a, S.Spine2, L, fwd * 0.3); }
@@ -970,8 +971,13 @@ export function createCast({ scene, controllerManager }) {
     // the body layer over the clip: the lean into a run, the aim's pitch through the spine, the recoil, a flinch, the jump
     const gs = weapon, spec = WEAPON_BY_ID[gs.id];
     gs.run = a.loco && a.loco.s > 2.4 ? 1 : 0;
-    const clipLean = a.acts.jog ? 0.4 : 1; // (the UAL jog and sprint carry their own lean)
-    const runLean = THREE.MathUtils.clamp((a.vs - 1.6) / 6, 0, 1) * 0.2 * clipLean + THREE.MathUtils.clamp(a.acc * 0.012, -0.12, 0.14);
+    // The lean: the Ara clips carry their own (the UAL jog and sprint straightened to about 10 and 14 degrees by tools/ara/retarget_ual.py);
+    // the CMU run stoops a little more than a jog should, so its share is eased back 8.5 degrees; the shoulders come forward a touch while
+    // running (relaxed, not pinned back). Other bodies lean with the speed. Speeding up tips the body forward, slowing down back
+    const L = a.loco, inGait = L && a.cur === a.acts.walk;
+    const runW = inGait ? L.run + L.jog + L.sprint_ual : 0;
+    const runLean = (a.acts.jog ? (inGait ? -0.15 * L.run : 0) : THREE.MathUtils.clamp((a.vs - 1.6) / 6, 0, 1) * 0.2)
+      + THREE.MathUtils.clamp(a.acc * 0.012, -0.12, 0.14);
     const gun = gs.armed && spec && !spec.melee;
     const pitchUp = gun ? gs.pitch * gs.raise : 0;
     const rec = RECOIL[gs.id] || { torso: 0.05 };
@@ -983,7 +989,7 @@ export function createCast({ scene, controllerManager }) {
       fwd: runLean * (1 - 0.6 * gs.raise) - pitchUp * 0.55 - (gun ? kk * rec.torso : 0) - fl * 0.3 + punchW * 0.08 + (turning ? 0 : 0),
       head: -pitchUp * 0.5 - fl * 0.35,
       twist: (turning ? THREE.MathUtils.clamp(resid * 0.4, -0.5, 0.5) : 0) + (punchW ? (gs.punchLeft ? -1 : 1) * punchW * (gs.punchLeft ? 0.25 : 0.55) : 0) + fl * (a.flinchSide || 1) * 0.28,
-      bank, airK: a.jumpClips ? 0 : a.airK, vy: p.verticalVel, land: a.jumpClips && a.landT > 0 ? 0 : a.land, crouch: a.land * 0.1 + fl * 0.03 + (a.airK > 0.1 ? 0.03 * a.airK : 0)
+      bank, protract: a.acts.jog ? runW * 0.15 * (1 - gs.raise) : 0, airK: a.jumpClips ? 0 : a.airK, vy: p.verticalVel, land: a.jumpClips && a.landT > 0 ? 0 : a.land, crouch: a.land * 0.1 + fl * 0.03 + (a.airK > 0.1 ? 0.03 * a.airK : 0)
     });
     a.group.updateMatrixWorld(true);
     poseGun(a, weapon, dt);

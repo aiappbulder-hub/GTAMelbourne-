@@ -40,7 +40,7 @@ CLAV = {'Jog': 0.35, 'Sprint': 0.35}
 # running hands: a loose fist (each finger joint bent CURL degrees about its own x axis; the rig's rest hand is open)
 CURL = {'Jog': (50.0, 70.0, 45.0, 20.0), 'Sprint': (55.0, 75.0, 50.0, 20.0)}  # knuckle, middle, tip, thumb
 FINGERS = [f'{s}Hand{f}{i}' for s in ('Left', 'Right') for f in ('Index', 'Middle', 'Ring', 'Pinky', 'Thumb') for i in (1, 2, 3)]
-TUCK = {'Jog': 14.0, 'Sprint': 12.0}  # the upper arms brought in towards the sides (degrees; the clip holds the elbows out wide)
+TUCK = {'Jog': 14.0, 'Sprint': 12.0, 'Jump start': 12.0, 'Jump air': 32.0, 'Jump land': 18.0}  # the upper arms brought in towards the sides (degrees; the clips hold the elbows out wide, the jump's air loop the arms out level like a T)
 TRUNK_SHARE = {'Hips': 0.3, 'Spine': 0.6, 'Spine1': 0.85, 'Spine2': 1.0, 'Neck': 0.7, 'Head': 0.4}
 ARMS = {'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand'}
 src_act = {a.name.split('_Armature')[0]: a for a in bpy.data.actions if a.name.endswith('_Armature.001')}
