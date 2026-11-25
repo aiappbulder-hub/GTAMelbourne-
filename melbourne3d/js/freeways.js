@@ -252,6 +252,8 @@ export function createFreeways({ scene }) {
           const P = (off, y) => [s.x + s.nx * off, y, s.z + s.nz * off];
           const face = sign > 0 ? (p, q, r, t) => L.quad2(p, q, r, t, C.portal) : (p, q, r, t) => L.quad2(p, q, r, t, C.portal);
           face(P(-oo, ce), P(oo, ce), P(oo, top), P(-oo, top));
+          // solid above the opening: something on the ground over the tunnel can't drive off the headwall into the cutting
+          obb(s.x - s.nx * oo, s.z - s.nz * oo, s.x + s.nx * oo, s.z + s.nz * oo, 1.0, ce + 0.2, top + 2);
           face(P(-oo, s.y - 0.5), P(-o, s.y - 0.5), P(-o, ce), P(-oo, ce));
           face(P(o, s.y - 0.5), P(oo, s.y - 0.5), P(oo, ce), P(o, ce));
           // a dark lintel band and the name plate's strip
