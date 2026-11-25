@@ -220,7 +220,7 @@ export function createArboryAfloat({ scene, controllerManager = null, cast = nul
     { key: 'arb_p2', id: 'Female_Adult_06', seat: 5, anims: ['sit_listen', 'sit_talk'] }
   ];
   // the story's own people standing at the bar in a job's scene are left room: a crew member in the way stands down
-  let clock = 0, peopleOn = false, lastNight = -1;
+  let clock = 0, peopleOn = false, lastNight = -1, owns = false;
   const near = (p, r) => (p.x - CX) ** 2 + (p.z - CZ) ** 2 < r * r;
   /** Each frame: camPos (the camera), player (the player's position), music (js/music.js, for the deck's set) */
   function update(dt, { camPos, player, music = null, busy = false } = {}) {
@@ -246,7 +246,7 @@ export function createArboryAfloat({ scene, controllerManager = null, cast = nul
     // the deck's music: house, on foot within 45 m
     if (music) {
       const v = player && near(player, 45) && controllerManager?.activeMode === 'person' ? 'house' : null;
-      if (music.venue !== v) music.venue = v;
+      if (v) { music.venue = v; owns = true; } else if (owns) { owns = false; if (music.venue === 'house') music.venue = null; } // (only clears its own: the rave sets it too)
     }
   }
   console.info('[arbory] Arbory Afloat moored at', CX.toFixed(1), CZ.toFixed(1), `(${meshes.length} meshes)`);

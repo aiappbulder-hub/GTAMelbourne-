@@ -10,10 +10,11 @@ import { ROUTES } from './story/routes.js';
 import { terrainHeight } from './terrain.js';
 import { describeChoice } from './story/choices.js';
 import { ARBORY_PLACES } from './arbory-afloat.js';
+import { RAVE_PLACES } from './citylink-rave.js';
 
 // the places Act II's side jobs add: Arbory Afloat's deck (js/arbory-afloat.js), and Captain Dazza's spot on the Southbank
 // Promenade, on the river's south bank under Eureka
-Object.assign(PLACES, ARBORY_PLACES, { ARB_DAZZA: { x: -262, z: 450, label: 'Southbank Promenade, under Eureka', territory: 'SOUTHBANK' } });
+Object.assign(PLACES, ARBORY_PLACES, RAVE_PLACES, { ARB_DAZZA: { x: -262, z: 450, label: 'Southbank Promenade, under Eureka', territory: 'SOUTHBANK' } });
 
 // GTA Melbourne's story: "The Ferryman". Tonight, Callum Reid (the player) comes back to Melbourne by boat, twenty-two years
 // after he left the same way with Vince Lombardo's black book (who paid whom: police, a developer, a minister's office).
@@ -539,6 +540,36 @@ const MISSIONS = [
           { label: "We're square. Ring me when the grey car comes back.", set: { scalps: 'informant' }, reply: "Yeah. Yeah, all right. You didn't hear it from me." },
           { label: 'Leave town till the finals are over.', set: { scalps: 'gone' }, reply: 'Geelong it is, then. Nobody looks for anyone in Geelong.' }
         ] } }
+    ]
+  },
+  {
+    // the CityLink rave under the viaduct at Punt Rd (js/citylink-rave.js): the DJ's USB of sets has walked
+    id: 'B4', act: 'Act II', name: 'Bass Drop', call: ['Kez', "Kez. Promoter. Under the CityLink off Punt Road, by the river. Two hundred people, zero council approval, and my DJ has no music. Drive."],
+    giver: 'Spud', crew: 'The Crossing', start: { place: 'RAVE' }, giverAt: { place: 'RAVE_DJ' }, reward: 4200,
+    begin: { card: ['BASS DROP', 'Under the CityLink · Punt Rd'], quick: true },
+    ride: [[3, 'Kez', "It's in a car park under a freeway. In Melbourne that's called a venue."],
+      [14, 'Kez', "The cops think it's a Pilates class. The Pilates class thinks it's a rave. Everyone's happy."]],
+    cut: [['Spud', 'Legend. Kez said you were coming. You have got to hear this. Actually you cannot, that is the problem.'],
+      ['You', 'Where is the music?'],
+      ['Spud', "On a USB. Four years of sets. Rhys, my so-called roadie, grabbed it and legged it up Batman Ave to sell it to a bloke from Hawthorn."],
+      ['You', 'Why Hawthorn?'],
+      ['Spud', 'Nobody in Hawthorn has ever danced. He thinks it is an investment.'],
+      ['Spud', "Get it back before the generator runs out of diesel. Rhys is slow. He's wearing a puffer jacket in this heat."]],
+    outro: ['Spud', 'The drop! Do you feel that in your chest? That is love, mate. Or the sub. Either way, free entry for life.'],
+    steps: [
+      { text: "Run Rhys down: he's on foot up Batman Ave by the river path, with the USB.", at: { place: 'RAVE_THIEF', kerb: true }, r: 6, time: 200,
+        lines: [[3, 'Spud', "He'll be the one in the puffer jacket, sweating like a Mr Whippy in January."]],
+        actors: [{ key: 'b4_rhys', who: 'Rhys', at: { place: 'RAVE_THIEF', kerb: true }, off: [1.2, 0.6], face: 'player', anim: 'idle' }] },
+      { text: 'Rhys.',
+        talk: { who: 'Rhys', at: { place: 'RAVE_THIEF', kerb: true }, lines: [
+          ['Rhys', "Whoa. Whoa. I was going to bring it back. After. Tuesday. Probably."],
+          ['You', 'Spud wants his sets.'],
+          ['Rhys', "They're not even good. Track nine is eleven minutes of a dishwasher."],
+          ['You', 'Hand it over, or you can explain the dishwasher to Kez.'],
+          ['Rhys', "Take it. Take it! I'll be in Hawthorn, apologising to nobody."]] },
+        actors: [{ key: 'b4_rhys', who: 'Rhys', at: { place: 'RAVE_THIEF', kerb: true }, off: [1.2, 0.6], face: 'player', anim: 'talk' }] },
+      { text: "Take the USB back to Spud at the DJ booth, under the viaduct, before the generator dies.", at: { place: 'RAVE_DJ' }, r: 5, time: 180,
+        lines: [[4, 'Spud', 'Dirty South, Kez says. I say clean, and loud.'], [20, 'Kez', 'The bass is already rattling the footy club. Hurry.']] }
     ]
   }
 ];
@@ -1842,6 +1873,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     set storyMode(v) { storyMode = !!v; try { if (storyMode) localStorage.setItem(STORY_KEY, '1'); else localStorage.removeItem(STORY_KEY); } catch { /* storage unavailable */ } },
     /** A job is under way */
     get onJob() { return !!mission; },
+    /** The name of the job under way (or null) */
+    get jobName() { return mission ? mission.def.name : null; },
     /** No shooting, aiming, talking to people or getting into cars: a cut scene, a choice or a black card is up */
     get busy() { return !!cut || !!choiceOpen || cardUp || !!(mission && mission.blackout); },
     /** Start a job now, wherever the player is (the Jobs list) */

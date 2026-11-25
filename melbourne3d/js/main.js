@@ -795,6 +795,9 @@ async function initApp() {
   // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
   const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
   window.__city.arbory = arbory;
+  // The CityLink rave under the viaduct at Punt Rd (js/citylink-rave.js)
+  const rave = IS_MELBOURNE ? (await import('./citylink-rave.js')).createCitylinkRave({ scene, cast: castSystem, lightingSystem }) : null;
+  window.__city.rave = rave;
   // Hot air balloons over the city by day (js/balloons.js)
   const balloons = IS_MELBOURNE ? (await import('./balloons.js')).createBalloons({ scene, lightingSystem }) : null;
   window.__city.balloons = balloons;
@@ -1310,6 +1313,7 @@ async function initApp() {
     deliveryScooters?.update(dt);
     deliveryJob?.update(dt);
     arbory?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music });
+    rave?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music, job: missionSystem?.jobName ?? null });
     if (empire) empire.update(dt);
     interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
