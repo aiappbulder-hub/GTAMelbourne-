@@ -8,6 +8,7 @@
 //     cuttings and the kerb islands round them (trenches, blockPatches) are traced again for it.
 //  3. headroom where a street crosses under a deck or over a cutting; 4. piers moved out of the streets' carriageways,
 //     and the segments over a street listed (js/freeways.js leaves the walls and colliders down to the ground off them).
+//  6. fewer layers: duplicate carriageways and stacked or hanging ramps dropped (runs first); chains rebuilt.
 //  5. smooth centrelines (rounded corners, even samples) and smooth cutting outlines (no raster stair steps).
 //  1. waterHoles: the outlines (merged, non-overlapping) where the water plane under the land (js/city-grid.js, at the
 //     river level, -1.6 m) must be cut out: every open cutting, and every tunnel whose inside reaches below that level, so
@@ -74,6 +75,67 @@ export async function refineFreeways(body, { log = console.log } = {}) {
     for (let i = 0; i < flat.length; i += 4) S.push({ x: flat[i], z: flat[i + 1], h: flat[i + 2], cov: flat[i + 3] });
     return { name, kind, width, lanes, S, opts };
   });
+
+  // --- 6. Fewer, cleaner layers ------------------------------------------------------------------------------------------
+  // OSM maps every slip lane, so the junctions stacked up to four ramps over and beside one another. Kept: every
+  // motorway carriageway (but one that runs on top of another, a duplicate), and the ramps that run clear of the others.
+  // Dropped: a ramp lying over, under or along another kept way for more than a fifth of its length, then (repeatedly)
+  // a ramp left with an end in the air or underground (it led to a dropped one), then ramp pieces under 100 m.
+  {
+    const segsOf = (w) => w.S.slice(0, -1).map((a, i) => { const b = w.S[i + 1], dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1; return { a, ux: dx / L, uz: dz / L, L, hw: w.width / 2 }; });
+    for (const w of ways) w.segs = segsOf(w);
+    // share of w's samples on o's footprint (and the mean height gap there)
+    const overlap = (w, o) => {
+      let n = 0, gap = 0;
+      for (const s of w.S) for (const g of o.segs) {
+        const dx = s.x - g.a.x, dz = s.z - g.a.z, al = dx * g.ux + dz * g.uz;
+        if (al < 0 || al > g.L) continue;
+        if (Math.abs(dx * g.uz - dz * g.ux) < g.hw + w.width / 2 - 1.5) { n++; gap += Math.abs(s.h - (g.a.h)); break; }
+      }
+      return [n / w.S.length, n ? gap / n : 0];
+    };
+    const bb = (w) => { const xs = w.S.map((s) => s.x), zs = w.S.map((s) => s.z); return [Math.min(...xs) - 12, Math.max(...xs) + 12, Math.min(...zs) - 12, Math.max(...zs) + 12]; };
+    for (const w of ways) w.bb = bb(w);
+    const touch = (a, b) => a.bb[0] < b.bb[1] && b.bb[0] < a.bb[1] && a.bb[2] < b.bb[3] && b.bb[2] < a.bb[3];
+    const len = (w) => w.segs.reduce((t, g) => t + g.L, 0);
+    const keep = new Set(ways);
+    // duplicate carriageways: a motorway way lying on another (longer) one at about the same height
+    for (const w of [...ways].filter((w) => w.kind === 0).sort((a, b) => len(a) - len(b))) {
+      for (const o of keep) {
+        if (o === w || o.kind !== 0 || !touch(w, o) || len(o) < len(w)) continue;
+        const [f, gap] = overlap(w, o);
+        if (f > 0.7 && gap < 1.5) { keep.delete(w); break; }
+      }
+    }
+    // stacked ramps
+    for (const w of [...ways].filter((w) => w.kind === 1).sort((a, b) => len(a) - len(b))) {
+      let f = 0;
+      for (const o of keep) if (o !== w && touch(w, o)) f += overlap(w, o)[0];
+      if (f > 0.2) keep.delete(w);
+    }
+    // ramps left hanging, and short leftovers
+    const endKey = (s) => `${Math.round(s.x / 2)},${Math.round(s.z / 2)}`;
+    const nearEnd = (s, w) => { for (const o of keep) if (o !== w && touch(w, o) && o.S.some((p) => Math.abs(p.x - s.x) < 2 && Math.abs(p.z - s.z) < 2)) return true; return false; };
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const w of [...keep]) {
+        if (w.kind !== 1) continue;
+        const hang = [w.S[0], w.S[w.S.length - 1]].some((s) => Math.abs(s.h) >= 0.3 && !nearEnd(s, w));
+        if (hang) { keep.delete(w); changed = true; }
+      }
+    }
+    // ramp pieces (ramps joined end to end) under 100 m in all
+    const comp = new Map();
+    for (const w of keep) if (w.kind === 1) comp.set(w, new Set([w]));
+    for (const w of keep) if (w.kind === 1) for (const o of keep) if (o !== w && o.kind === 1 && touch(w, o) && [w.S[0], w.S[w.S.length - 1]].some((s) => [o.S[0], o.S[o.S.length - 1]].some((p) => endKey(p) === endKey(s)))) {
+      const A = comp.get(w), B = comp.get(o); if (A === B) continue; for (const x of B) { A.add(x); comp.set(x, A); }
+    }
+    for (const c of new Set(comp.values())) if ([...c].reduce((t, w) => t + len(w), 0) < 100) for (const w of c) keep.delete(w);
+    const before = ways.length, kept = ways.filter((w) => keep.has(w));
+    log(`simplified: ${before} ways -> ${kept.length} (motorway ${ways.filter((w) => w.kind === 0).length} -> ${kept.filter((w) => w.kind === 0).length}, ramps ${ways.filter((w) => w.kind === 1).length} -> ${kept.filter((w) => w.kind === 1).length})`);
+    ways.length = 0; ways.push(...kept);
+    for (const w of ways) { delete w.segs; delete w.bb; }
+  }
 
   // --- 5. Smooth centrelines: OSM's corners rounded (a few passes of neighbour averaging, the ends and any sample another
   // way's end meets held still), then resampled evenly by arc length at no more than STEP m ------------------------------
@@ -300,7 +362,31 @@ export async function refineFreeways(body, { log = console.log } = {}) {
   log(`piers: ${moved} moved off a street, ${dropped} dropped`);
 
   const out = ways.map((w) => [w.name, w.kind, w.width, w.lanes, w.S.flatMap((s) => [q(s.x), q(s.z), q(s.h), s.cov ? 1 : 0]), w.opts]);
-  return { ...body, ways: out, trenches, blockPatches, waterHoles, refined: 1 };
+  // --- Chains for the traffic, for the kept ways: a motorway way continues into the one that starts where it ends ------
+  const chains = [];
+  {
+    const k = (s) => `${Math.round(s.x)},${Math.round(s.z)}`;
+    const startsAt = new Map();
+    ways.forEach((w, i) => { if (w.kind === 0) (startsAt.get(k(w.S[0])) || startsAt.set(k(w.S[0]), []).get(k(w.S[0]))).push(i); });
+    const hasPred = new Set();
+    ways.forEach((w) => { if (w.kind === 0) for (const j of startsAt.get(k(w.S[w.S.length - 1])) || []) hasPred.add(j); });
+    const order = ways.map((w, i) => i).filter((i) => ways[i].kind === 0).sort((a, b) => ways[b].S.length - ways[a].S.length);
+    const used = new Set();
+    for (const i0 of [...order.filter((i) => !hasPred.has(i)), ...order]) {
+      if (used.has(i0)) continue;
+      const chain = [i0]; used.add(i0);
+      for (let cur = i0; ;) {
+        const next = (startsAt.get(k(ways[cur].S[ways[cur].S.length - 1])) || []).filter((j) => !used.has(j));
+        if (!next.length) break;
+        const j = next.find((n) => ways[n].name === ways[cur].name) ?? next[0];
+        chain.push(j); used.add(j); cur = j;
+      }
+      if (chain.reduce((a, i) => a + ways[i].S.length * STEP, 0) >= 400) chains.push(chain);
+    }
+    log(`traffic chains: ${chains.length}`);
+  }
+
+  return { ...body, ways: out, chains, trenches, blockPatches, waterHoles, refined: 1 };
 }
 
 export function writeFreeways(OUT, body) {

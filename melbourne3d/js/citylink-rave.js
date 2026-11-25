@@ -1,5 +1,5 @@
-// CityLink rave: an underground party on the ground under the elevated CityLink viaduct (way 197 of js/melbourne-freeways.js,
-// deck 13 m up) beside the Yarra near Punt Road and Batman Avenue. Centre (1265, 1935). The job "Bass Drop" (B4,
+// CityLink rave: an underground party on the ground under the elevated CityLink viaduct (way 50 of js/melbourne-freeways.js,
+// deck about 11 m up) beside the Yarra near Punt Road and Batman Avenue. Centre (1265, 1935). The job "Bass Drop" (B4,
 // js/missions.js, start it with __city.missions.startNow(16)) starts on the dance floor.
 //
 // A DJ booth on a riser at the north end with a sound-stack either side, a truss on four poles with strips of coloured light
@@ -15,7 +15,7 @@ import { terrainHeight } from './terrain.js';
 import { LITE } from './quality.js';
 
 const CX = 1265, CZ = 1935;
-// along the deck there (from way 197: (1272.7, 1967.9) to (1258.9, 1909.3)): local z runs along it, local x across
+// along the deck there (from that way: (1272.7, 1967.9) to (1258.9, 1909.3)): local z runs along it, local x across
 const DX = 1258.9 - 1272.7, DZ = 1909.3 - 1967.9, DL = Math.hypot(DX, DZ);
 const YAW = Math.atan2(DX / DL, DZ / DL);
 const SIN = Math.sin(YAW), COS = Math.cos(YAW);
