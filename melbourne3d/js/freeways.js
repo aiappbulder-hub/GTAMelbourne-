@@ -299,6 +299,18 @@ export function createFreeways({ scene }) {
     }
   }
 
+  // A tunnel or cutting that stops underground with nothing beyond (no join with another way): a closed concrete end
+  // wall across it, solid, so it never leads into the ground
+  for (const w of ways) {
+    for (const [s, n] of [[w.S[0], w.S[1]], [w.S[w.S.length - 1], w.S[w.S.length - 2]]]) {
+      if (!n || joined(s, w.wi) || !(s.cov || s.h < -0.6)) continue;
+      const o = w.hw + 0.7, top = s.cov ? ceilingAt(s) : s.t + 0.7, cell = cellOf(s.x, s.z);
+      const P = (off, y) => [s.x + s.nx * off, y, s.z + s.nz * off];
+      (s.cov ? cell.glow : cell.lit).quad2(P(-o, s.y - 0.3), P(o, s.y - 0.3), P(o, top), P(-o, top), C.portal);
+      obb(s.x - s.nx * o, s.z - s.nz * o, s.x + s.nx * o, s.z + s.nz * o, 1.2, s.y - 1, top);
+    }
+  }
+
   for (const c of cells.values()) {
     c.meshes = [];
     for (const [buf, mat, lit] of [[c.lit, litMat, true], [c.glow, glowMat, false]]) {
