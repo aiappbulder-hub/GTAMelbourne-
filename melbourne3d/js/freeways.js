@@ -87,8 +87,9 @@ export function createFreeways({ scene }) {
 
   // --- Ways: samples in the world ----------------------------------------------------------------------------------
   // City Road's bridge over St Kilda Road (js/city-road-bridge.js) is one more way after the data's, so the chains'
-  // indices stay valid; `opts.piers` names the samples that get a pier pair, `opts.ramp` leaves the barriers off where the
-  // deck is within 0.7 m of the ground (its ends lie on existing streets)
+  // indices stay valid; `opts.piers` names the samples that get a pier pair (every way's, from the refine pass, which
+  // keeps them out of the streets), `opts.street` the segments a street crosses under; any way's barriers are left off
+  // where its deck is within 0.7 m of the ground (ramps meeting their streets)
   const cityRoad = buildCityRoadWay(terrainHeight);
   const ways = [...FREEWAYS.ways, cityRoad.way].map(([name, kind, width, lanes, flat, opts], wi) => {
     const S = [];
@@ -192,6 +193,8 @@ export function createFreeways({ scene }) {
       const roadCol = covered ? C.tunnelFloor : C.asphalt;
       const paint = covered ? C.tunnelPaint : C.paint;
       const R = covered ? G : L;
+      // a street crosses under this segment (tools/melbourne/refine-freeways.mjs): no walls or colliders down to it
+      const overStreet = !!(w.opts && w.opts.street && w.opts.street.includes(i));
       // roadway
       R.quad(E(a, -hw), E(b, -hw), E(b, hw), E(a, hw), roadCol);
       // lane paint: edge lines, dashed lines between lanes (3 m dash in each 9 m)
@@ -242,7 +245,8 @@ export function createFreeways({ scene }) {
       for (const side of [-1, 1]) {
         const o = side * (hw + 0.2);
         if (onOther(a, side * hw) && onOther(b, side * hw)) continue;
-        if (w.opts && w.opts.ramp && Math.max(a.h, b.h) < 0.7) continue;
+        // at grade (a ramp meeting its street, a carriageway on the ground) no barriers: the streets stay passable
+        if (Math.max(a.h, b.h) < 0.7) continue;
         const bA = [a.x + a.nx * o, a.y, a.z + a.nz * o], bB = [b.x + b.nx * o, b.y, b.z + b.nz * o];
         const tA = [bA[0], a.y + BARRIER_H, bA[2]], tB = [bB[0], b.y + BARRIER_H, bB[2]];
         const iA = [a.x + a.nx * (o - side * 0.25), a.y + BARRIER_H, a.z + a.nz * (o - side * 0.25)], iB = [b.x + b.nx * (o - side * 0.25), b.y + BARRIER_H, b.z + b.nz * (o - side * 0.25)];
@@ -253,12 +257,12 @@ export function createFreeways({ scene }) {
         const low = raised ? -DECK_T : cut ? 0 : -0.3;
         L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
         L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
-        obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
-        // an embankment (raised a little): a solid wall down to the ground
-        if (!raised && Math.max(a.h, b.h) > 0.05 && !cut) {
+        obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.max(Math.min(a.y, b.y) - 0.4, overStreet ? Math.min(a.t, b.t) + 2.6 : -Infinity), Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
+        if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
         }
-        if (raised && Math.max(a.h, b.h) < 4.5) {
+        if (raised && Math.max(a.h, b.h) < 4.5 && !overStreet) {
           // a low viaduct end: retaining wall to the ground (an embankment between walls)
           L.quad2([bA[0], a.y - DECK_T, bA[2]], [bB[0], b.y - DECK_T, bB[2]], [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
           obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.t, b.t) - 1, Math.max(a.y, b.y) - DECK_T);
