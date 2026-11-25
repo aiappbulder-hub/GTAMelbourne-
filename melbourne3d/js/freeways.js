@@ -2,9 +2,9 @@
 // and the Burnley and Domain Tunnels, from js/melbourne-freeways.js (tools/melbourne/build-freeways.mjs, OSM).
 //
 // Built once at load, cheaply:
-//  - Everything is merged per 500 m cell into at most two meshes (one lit material with vertex colours for the decks,
-//    lane paint, barriers, pillars, poles and cutting walls; one unlit for the tunnels' inside and the lamp heads), so a
-//    cell costs at most two draws. Cells beyond the tier's view distance (Q.viewDist) are hidden, checked four times a
+//  - Everything is merged per 500 m cell into at most three meshes (one lit material with vertex colours for the decks,
+//    lane paint, barriers, pillars, poles and cutting walls; one unlit for the tunnels' inside and the lamp heads; the
+//    streets' asphalt over the open decks, drawn only within ROAD_SEEN m), so a cell costs at most three draws. Cells beyond the tier's view distance (Q.viewDist) are hidden, checked four times a
 //    second against the camera.
 //  - Tunnel walls are unlit with their lighting baked into the vertex colours (bright under each ceiling light), so the
 //    sun doesn't light the inside and no light sources are added.
@@ -27,6 +27,7 @@ import { FREEWAYS } from './melbourne-freeways.js';
 import { terrainHeight } from './terrain.js';
 import { Q } from './quality.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
+import { createRoadSurfaceMaterial } from './tsl-materials.js';
 
 const CELL = 500;
 const INDEX = 32; // ground-query grid
@@ -36,9 +37,10 @@ const BARRIER_H = 1.0;
 const PILLAR_EVERY = 4; // samples (about 32 m)
 const LAMP_EVERY = 6; // samples (about 48 m)
 const TUNNEL_SEEN = 260;
+const ROAD_SEEN = 380; // the street asphalt over the decks within this (beyond it the lit mesh's flat asphalt shows)
 
 const C = {
-  asphalt: [0.2, 0.205, 0.215], paint: [0.86, 0.86, 0.82], concrete: [0.62, 0.61, 0.58], concreteDark: [0.42, 0.41, 0.39],
+  asphalt: [0.25, 0.255, 0.265], paint: [0.9, 0.885, 0.84], concrete: [0.62, 0.61, 0.58], concreteDark: [0.42, 0.41, 0.39],
   pole: [0.45, 0.47, 0.5], lamp: [1.0, 0.86, 0.6], tunnelFloor: [0.13, 0.13, 0.14], tunnelWall: [0.78, 0.78, 0.72],
   tunnelCeil: [0.16, 0.17, 0.18], tunnelLight: [1.0, 0.97, 0.88], tunnelPaint: [0.6, 0.6, 0.56], portal: [0.55, 0.53, 0.5]
 };
@@ -77,11 +79,15 @@ export function createFreeways({ scene }) {
   const litMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
   const glowMat = new THREE.MeshBasicNodeMaterial({ vertexColors: true });
   litMat.name = 'FreewayLit'; glowMat.name = 'FreewayGlow';
+  // the streets' own asphalt (js/tsl-materials.js, world-space: cracks, patches, wear, wetness) over each open deck and
+  // carriageway, 1.2 cm above the lit mesh's plain asphalt top, which stands in for it further off
+  const roadMat = createRoadSurfaceMaterial();
+  roadMat.name = 'FreewayRoad';
   const cells = new Map();
   const cellOf = (x, z) => {
     const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
     let c = cells.get(k);
-    if (!c) cells.set(k, (c = { lit: new Buf(), glow: new Buf(), x: (Math.floor(x / CELL) + 0.5) * CELL, z: (Math.floor(z / CELL) + 0.5) * CELL }));
+    if (!c) cells.set(k, (c = { lit: new Buf(), glow: new Buf(), road: new Buf(), x: (Math.floor(x / CELL) + 0.5) * CELL, z: (Math.floor(z / CELL) + 0.5) * CELL }));
     return c;
   };
 
@@ -218,6 +224,7 @@ export function createFreeways({ scene }) {
       const overStreet = !!(w.opts && w.opts.street && w.opts.street.includes(i));
       // roadway
       R.quad(E(a, -hw), E(b, -hw), E(b, hw), E(a, hw), roadCol);
+      if (!covered) cell.road.quad(E(a, -hw, 0.012), E(b, -hw, 0.012), E(b, hw, 0.012), E(a, hw, 0.012), roadCol);
       // lane paint: edge lines, dashed lines between lanes (3 m dash in each 9 m)
       const line = (o, w0, f0 = 0, f1 = 1) => {
         const p = (s, t, oo) => { const x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t), y = lerp(a.y, b.y, t); return [x + s.nx * oo, y + 0.025, z + s.nz * oo]; };
@@ -340,18 +347,18 @@ export function createFreeways({ scene }) {
 
   for (const c of cells.values()) {
     c.meshes = [];
-    for (const [buf, mat, lit] of [[c.lit, litMat, true], [c.glow, glowMat, false]]) {
+    for (const [buf, mat, lit] of [[c.lit, litMat, true], [c.glow, glowMat, false], [c.road, roadMat, true]]) {
       const geo = buf.geometry(lit);
       if (!geo) continue;
       triangles += geo.attributes.position.count / 3;
       const m = new THREE.Mesh(geo, mat);
-      m.name = lit ? 'Freeway' : 'FreewayTunnel';
+      m.name = mat === roadMat ? 'FreewayRoad' : lit ? 'Freeway' : 'FreewayTunnel';
       m.receiveShadow = lit;
       m.castShadow = false;
       group.add(m);
       c.meshes.push(m);
     }
-    c.lit = c.glow = null;
+    c.lit = c.glow = c.road = null;
   }
   scene.add(group);
 
@@ -379,7 +386,7 @@ export function createFreeways({ scene }) {
   // --- Distance culling: cells beyond the view distance hidden, four times a second ----------------------------------
   // (by each mesh's bounding sphere: the lit structure to 70% of the view distance, where the fog has nearly hidden it;
   // a tunnel's inside only within TUNNEL_SEEN m, since from further off it is underground or deep in a cutting)
-  const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat }));
+  const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat, road: m.material === roadMat }));
   let clock = 0;
   function update(camPos, dt = 0.016) {
     clock -= dt;
@@ -388,7 +395,7 @@ export function createFreeways({ scene }) {
     const far = Number.isFinite(Q.viewDist) ? Q.viewDist * 0.7 : 1e9;
     for (const e of meshList) {
       const d = Math.hypot(e.s.center.x - camPos.x, e.s.center.z - camPos.z) - e.s.radius;
-      e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : far);
+      e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : e.road ? Math.min(far, ROAD_SEEN) : far);
     }
   }
 
