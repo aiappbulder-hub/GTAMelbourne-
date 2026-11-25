@@ -26,6 +26,7 @@ import * as THREE from 'three/webgpu';
 import { FREEWAYS } from './melbourne-freeways.js';
 import { terrainHeight } from './terrain.js';
 import { Q } from './quality.js';
+import { buildCityRoadWay } from './city-road-bridge.js';
 
 const CELL = 500;
 const INDEX = 32; // ground-query grid
@@ -85,7 +86,11 @@ export function createFreeways({ scene }) {
   };
 
   // --- Ways: samples in the world ----------------------------------------------------------------------------------
-  const ways = FREEWAYS.ways.map(([name, kind, width, lanes, flat], wi) => {
+  // City Road's bridge over St Kilda Road (js/city-road-bridge.js) is one more way after the data's, so the chains'
+  // indices stay valid; `opts.piers` names the samples that get a pier pair, `opts.ramp` leaves the barriers off where the
+  // deck is within 0.7 m of the ground (its ends lie on existing streets)
+  const cityRoad = buildCityRoadWay(terrainHeight);
+  const ways = [...FREEWAYS.ways, cityRoad.way].map(([name, kind, width, lanes, flat, opts], wi) => {
     const S = [];
     for (let i = 0; i < flat.length; i += 4) {
       const x = flat[i], z = flat[i + 1], h = flat[i + 2], t = terrainHeight(x, z);
@@ -97,7 +102,7 @@ export function createFreeways({ scene }) {
       const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
       S[i].ux = dx / L; S[i].uz = dz / L; S[i].nx = -dz / L; S[i].nz = dx / L;
     }
-    return { name, kind, width, hw: width / 2, lanes, S, wi };
+    return { name, kind, width, hw: width / 2, lanes, S, wi, opts: opts || null };
   });
 
   // --- Ground index: every segment in the 32 m cells it touches ------------------------------------------------------
@@ -231,6 +236,7 @@ export function createFreeways({ scene }) {
       for (const side of [-1, 1]) {
         const o = side * (hw + 0.2);
         if (onOther(a, side * hw) && onOther(b, side * hw)) continue;
+        if (w.opts && w.opts.ramp && Math.max(a.h, b.h) < 0.7) continue;
         const bA = [a.x + a.nx * o, a.y, a.z + a.nz * o], bB = [b.x + b.nx * o, b.y, b.z + b.nz * o];
         const tA = [bA[0], a.y + BARRIER_H, bA[2]], tB = [bB[0], b.y + BARRIER_H, bB[2]];
         const iA = [a.x + a.nx * (o - side * 0.25), a.y + BARRIER_H, a.z + a.nz * (o - side * 0.25)], iB = [b.x + b.nx * (o - side * 0.25), b.y + BARRIER_H, b.z + b.nz * (o - side * 0.25)];
@@ -264,7 +270,7 @@ export function createFreeways({ scene }) {
         // the deck's underside
         L.quad(E(a, -hw - 0.2, -DECK_T), E(a, hw + 0.2, -DECK_T), E(b, hw + 0.2, -DECK_T), E(b, -hw - 0.2, -DECK_T), C.concrete);
         // pillars (and a crosshead under the deck) every few samples, where the deck stands clear of the ground
-        if (i % PILLAR_EVERY === 0 && a.h > 3.2) {
+        if ((w.opts && w.opts.piers ? w.opts.piers.includes(i) : i % PILLAR_EVERY === 0) && a.h > 3.2) {
           const n = hw > 7 ? 2 : 1;
           for (let k = 0; k < n; k++) {
             const off = n === 1 ? 0 : (k ? 1 : -1) * hw * 0.5;
@@ -305,7 +311,7 @@ export function createFreeways({ scene }) {
   scene.add(group);
 
   // --- Ambient traffic lanes along the long chains -----------------------------------------------------------------------
-  const lanes = [];
+  const lanes = cityRoad.lanes.map((l) => ({ pts: l.map(([x, y, z]) => new THREE.Vector3(x, y, z)), speed: 13, noDip: true }));
   for (const chain of FREEWAYS.chains || []) {
     const pts = [];
     let nl = 3;
