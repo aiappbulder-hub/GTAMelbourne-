@@ -34,6 +34,7 @@ const INDEX = 32; // ground-query grid
 const TUNNEL_H = 5.4; // floor to ceiling
 const DECK_T = 1.4; // a viaduct deck's depth
 const BARRIER_H = 1.0;
+const HIGH_EDGE = 4; // a deck higher than this keeps solid barriers (falling off); lower ones are drive-through
 const PILLAR_EVERY = 4; // samples (about 32 m)
 const LAMP_EVERY = 6; // samples (about 48 m)
 const TUNNEL_SEEN = 260;
@@ -287,7 +288,9 @@ export function createFreeways({ scene }) {
         const low = raised ? -DECK_T : cut ? 0 : -0.3;
         L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
         L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
-        obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.max(Math.min(a.y, b.y) - 0.4, overStreet ? Math.min(a.t, b.t) + 2.6 : -Infinity), Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
+        // the car from going over the edge; there they are solid from the deck up only
+        if (Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
         if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
@@ -295,7 +298,7 @@ export function createFreeways({ scene }) {
         if (raised && Math.max(a.h, b.h) < 4.5 && !overStreet) {
           // a low viaduct end: retaining wall to the ground (an embankment between walls)
           L.quad2([bA[0], a.y - DECK_T, bA[2]], [bB[0], b.y - DECK_T, bB[2]], [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
-          obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.t, b.t) - 1, Math.max(a.y, b.y) - DECK_T);
+          if (Math.min(a.h, b.h) > 1.6) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.t, b.t) - 1, Math.max(a.y, b.y) - DECK_T);
         }
         // a cutting: the retaining wall from the road up past the ground
         if (cut) {
@@ -303,7 +306,7 @@ export function createFreeways({ scene }) {
           const gA = [a.x + a.nx * wo, a.y - 0.2, a.z + a.nz * wo], gB = [b.x + b.nx * wo, b.y - 0.2, b.z + b.nz * wo];
           L.quad2(gA, gB, [gB[0], b.t + 0.7, gB[2]], [gA[0], a.t + 0.7, gA[2]], C.concrete);
           L.quad2([gA[0], a.t + 0.7, gA[2]], [gB[0], b.t + 0.7, gB[2]], [gB[0] + b.nx * side * 0.4, b.t + 0.7, gB[2] + b.nz * side * 0.4], [gA[0] + a.nx * side * 0.4, a.t + 0.7, gA[2] + a.nz * side * 0.4], C.concreteDark);
-          obb(gA[0], gA[2], gB[0], gB[2], 0.8, Math.min(a.y, b.y) - 1, Math.max(a.t, b.t) + 0.7);
+          if (Math.max(a.h, b.h) < -1.6) obb(gA[0], gA[2], gB[0], gB[2], 0.8, Math.min(a.y, b.y) - 1, Math.max(a.t, b.t) + 0.7);
         }
       }
       if (raised) {
