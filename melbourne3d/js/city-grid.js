@@ -57,7 +57,8 @@ import {
   createTunnelShadeMaterial
 } from './tsl-materials.js';
 import { createRoadPaintChunkBuilder } from './road-paint.js';
-import { drapeGroup } from './terrain.js';
+import { drapeGroup, terrainHeight as terrainY } from './terrain.js';
+import { buildCityRoadWay } from './city-road-bridge.js';
 import { GEO } from './geodata.js';
 import { FREEWAYS } from './melbourne-freeways.js';
 import { createMelbourneWaterMaterial } from './water.js';
@@ -3592,8 +3593,10 @@ function buildMelbourneGrid(scene) {
   // otherwise hide the cutting's road below the water level; the plane's holes (waterHoles, by
   // tools/melbourne/refine-freeways.mjs) also take in every tunnel whose inside reaches below the water level, or the
   // plane would be drawn across the tunnel's road (under the land deck, so only seen from inside the tunnel)
-  const cuttings = (FREEWAYS.trenches || []).map((r) => toPts(r)).filter((r) => r.length >= 3);
-  const waterHoles = FREEWAYS.waterHoles ? FREEWAYS.waterHoles.map((r) => toPts(r)).filter((r) => r.length >= 3) : cuttings;
+  // City Road's underpass (js/city-road-bridge.js) is added at runtime, so its cuttings and wet run join the lists here
+  const cityRoad = buildCityRoadWay(terrainY);
+  const cuttings = (FREEWAYS.trenches || []).concat(cityRoad.cuts).map((r) => toPts(r)).filter((r) => r.length >= 3);
+  const waterHoles = (FREEWAYS.waterHoles ? FREEWAYS.waterHoles.concat(cityRoad.wet) : (FREEWAYS.trenches || []).concat(cityRoad.cuts, cityRoad.wet)).map((r) => toPts(r)).filter((r) => r.length >= 3);
   const ringPath = (ring, P) => { ring.forEach((p, i) => (i ? P.lineTo(p.x, -p.z) : P.moveTo(p.x, -p.z))); P.closePath(); return P; };
   let waterGeo;
   if (waterHoles.length) {
@@ -3686,7 +3689,7 @@ function buildMelbourneGrid(scene) {
 
   // Water inside a kerb island or park block (Albert Park Lake, the Domain's Ornamental Lake): its outline is a hole in
   // the island's slabs and lawn (the traced block outline has the outside edge only)
-  const holeRings = waters.map(([ring]) => {
+  const holeRings = waters.concat(cityRoad.cuts.map((r) => [toPts(r)])).map(([ring]) => {
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const q of ring) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); }
     return { ring, x0, x1, z0, z1 };

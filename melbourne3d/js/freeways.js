@@ -93,10 +93,11 @@ export function createFreeways({ scene }) {
   };
 
   // --- Ways: samples in the world ----------------------------------------------------------------------------------
-  // City Road's bridge over St Kilda Road (js/city-road-bridge.js) is one more way after the data's, so the chains'
-  // indices stay valid; `opts.piers` names the samples that get a pier pair (every way's, from the refine pass, which
-  // keeps them out of the streets), `opts.street` the segments a street crosses under; any way's barriers are left off
-  // where its deck is within 0.7 m of the ground (ramps meeting their streets)
+  // City Road's underpass beneath St Kilda Road (js/city-road-bridge.js) is one more way after the data's, so the chains'
+  // indices stay valid; its cutting's water and land-deck holes are cut in js/city-grid.js. `opts.piers` names the
+  // samples that get a pier pair (every way's, from the refine pass, which keeps them out of the streets),
+  // `opts.street` the segments a street crosses under; any way's barriers are left off where its deck is within 0.7 m
+  // of the ground (ramps meeting their streets)
   const cityRoad = buildCityRoadWay(terrainHeight);
   const ways = [...FREEWAYS.ways, cityRoad.way].map(([name, kind, width, lanes, flat, opts], wi) => {
     const S = [];
