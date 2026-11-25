@@ -276,24 +276,27 @@ export function createFreeways({ scene }) {
       for (const side of [-1, 1]) {
         const o = side * (hw + 0.2);
         if (onOther(a, side * hw) && onOther(b, side * hw)) continue;
-        // at grade (a ramp meeting its street, a carriageway on the ground) no barriers: the streets stay passable
-        if (Math.max(a.h, b.h) < 0.7) continue;
+        // at grade (a ramp meeting its street, a carriageway on the ground) no barriers: the streets stay passable (a
+        // cutting keeps its walls, below)
+        const noBarrier = Math.max(a.h, b.h) < 0.7;
         const bA = [a.x + a.nx * o, a.y, a.z + a.nz * o], bB = [b.x + b.nx * o, b.y, b.z + b.nz * o];
         const tA = [bA[0], a.y + BARRIER_H, bA[2]], tB = [bB[0], b.y + BARRIER_H, bB[2]];
         const iA = [a.x + a.nx * (o - side * 0.25), a.y + BARRIER_H, a.z + a.nz * (o - side * 0.25)], iB = [b.x + b.nx * (o - side * 0.25), b.y + BARRIER_H, b.z + b.nz * (o - side * 0.25)];
         const fA = [a.x + a.nx * (o - side * 0.45), a.y, a.z + a.nz * (o - side * 0.45)], fB = [b.x + b.nx * (o - side * 0.45), b.y, b.z + b.nz * (o - side * 0.45)];
         // inner face (sloped), top, outer face down to the deck's underside (raised) or the ground
-        L.quad2(fA, fB, iB, iA, C.concrete);
-        L.quad2(iA, iB, tB, tA, C.concrete);
         const low = raised ? -DECK_T : cut ? 0 : -0.3;
-        L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
-        L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
+        if (!noBarrier) {
+          L.quad2(fA, fB, iB, iA, C.concrete);
+          L.quad2(iA, iB, tB, tA, C.concrete);
+          L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
+          L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
+        }
         // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
         // the car from going over the edge; there they are solid from the deck up only (City Road's bridge, opts.ramp,
         // keeps its railings solid from 1.5 m up: it bends over open parkland, and its ends lie on its own streets)
         if (Math.min(a.h, b.h) > (w.opts && w.opts.ramp ? 1.5 : HIGH_EDGE)) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
-        if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet) {
+        if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet && !noBarrier) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
         }
         if (raised && Math.max(a.h, b.h) < 4.5 && !overStreet) {
