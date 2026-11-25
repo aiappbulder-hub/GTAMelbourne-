@@ -21,7 +21,7 @@ export const CONFIG = {
   inset: 4.2, // metres north of the bank line (the quay's edge)
   halfWidth: 1.9, // the strip is 3.8 m wide: two lanes
   lane: 0.85, // a rider's offset from the centre line (to the left of travel)
-  count: LITE ? 2 : QUALITY === 'low' ? 3 : 4,
+  count: LITE ? 3 : QUALITY === 'low' ? 4 : 6,
   speed: [4.2, 7.0], // m/s
   showDist: 250, poseDist: 110,
   models: ['Male_Adult_04', 'Female_Adult_04', 'Male_Adult_10', 'Female_Adult_06', 'Male_Adult_05'],
@@ -203,6 +203,8 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
     for (const c of cyclists) {
       c.s += c.dir * c.speed * dt;
       if (c.s > total) c.s -= total; else if (c.s < 0) c.s += total; // (the far end: round again, out of sight)
+      // with the player by the river, keep the riders within 150 m of them along the path (round again past that)
+      if (nearD < 160) { const w = 150, r = c.s - nearS; if (Math.abs(r) > w) c.s = Math.max(0, Math.min(total, nearS + ((((r + w) % (2 * w)) + 2 * w) % (2 * w)) - w)); }
       const p = pointAt(line, c.s);
       const fx = p.dx * c.dir, fz = p.dz * c.dir; // the way it faces
       const x = p.x + fz * CONFIG.lane, z = p.z - fx * CONFIG.lane; // to the left of travel (right of travel is x - dz, z + dx)
