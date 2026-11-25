@@ -237,11 +237,11 @@ class CameraSystem {
         const height = entity.chaseHeight * this.zoomMultiplier + Math.sin(this.orbitPitchOffset) * dist * 0.85;
         const horizDist = Math.cos(this.orbitPitchOffset) * dist + speedLag;
 
-        desiredPos.set(
-          entity.position.x - Math.sin(totalYaw) * horizDist,
-          Math.max(0.65 + floorAt(entity.position.x - Math.sin(totalYaw) * horizDist, entity.position.z - Math.cos(totalYaw) * horizDist, entity.position.y + height), entity.position.y + height),
-          entity.position.z - Math.cos(totalYaw) * horizDist
-        );
+        // (kept over a rise in the ground behind; a floor far above the entity is a tunnel's or a cutting's side, which
+        // the camera arm below keeps the camera out of, rather than lifting it up to the ground over the tunnel)
+        const backX = entity.position.x - Math.sin(totalYaw) * horizDist, backZ = entity.position.z - Math.cos(totalYaw) * horizDist;
+        const backFloor = 0.65 + floorAt(backX, backZ, entity.position.y + height);
+        desiredPos.set(backX, backFloor < entity.position.y + height + 1.5 ? Math.max(backFloor, entity.position.y + height) : entity.position.y + height, backZ);
 
         this._floorRef = entity.position.y + 1.5; // (the floor the camera keeps above is the one at the entity's level)
         const lookUpBias = entity.type === 'helicopter' ? 0.2 : (entity.type === 'car' ? 0.52 : 1.55);
@@ -395,7 +395,7 @@ class CameraSystem {
       this.followLookOffset.lerp(desiredLook.sub(entity.position), k);
       this.currentPos.set(entity.position.x, this.followBaseY, entity.position.z).add(this.followOffset);
       this.currentLookAt.set(entity.position.x, this.followBaseY, entity.position.z).add(this.followLookOffset);
-      this.currentPos.y = Math.max(0.55, this.currentPos.y);
+      this.clampArm(entity, dt);
     } else {
       this.followEntity = null;
       const k = 1 - Math.exp(-dt * 8.5);
@@ -403,8 +403,8 @@ class CameraSystem {
       this.currentLookAt.lerp(desiredLook, k);
     }
 
-    // never under the hills
-    this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, Math.min(this.currentPos.y, this._floorRef ?? Infinity)) + 0.55);
+    // never under the hills (the follow cameras: clampArm)
+    if (!this.followEntity) this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, Math.min(this.currentPos.y, this._floorRef ?? Infinity)) + 0.55);
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentLookAt);
 
@@ -417,6 +417,34 @@ class CameraSystem {
       this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 2.5);
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  /**
+   * The follow cameras' arm: the camera stays where the line from a pivot over the entity to it is clear of the ground
+   * layer at each point's own height (js/terrain.js floorAt: the terrain, a freeway's deck, a cutting's floor, a
+   * tunnel's floor, and beyond a tunnel's ceiling or a cutting's side the ground over it). Where the line enters solid
+   * ground (a tunnel's ceiling or wall, a deck's slab, a hill), the camera is pulled in along it at once to just short
+   * of that point, and lets out again at two arm-lengths a second once the way is clear, so it can't stick inside
+   * geometry or lose the car on a bend in a tunnel. Not thread-safe (runs on the main thread each frame); no allocation.
+   * Example: `this.clampArm(entity, dt)` after `currentPos` has been eased to its framing.
+   */
+  clampArm(entity, dt) {
+    const p = entity.position, cur = this.currentPos;
+    const px = p.x, py = p.y + (entity.type === 'helicopter' ? 1.0 : 1.35), pz = p.z;
+    const dx = cur.x - px, dy = cur.y - py, dz = cur.z - pz;
+    const free = (f) => { const x = px + dx * f, y = py + dy * f, z = pz + dz * f; return y > floorAt(x, z, y) + 0.45; };
+    const N = 14;
+    let reach = 1;
+    for (let k = 1; k <= N; k++) {
+      if (free(k / N)) continue;
+      // blocked between (k - 1) / N and k / N: halve the gap three times, then stop a little short of it
+      let lo = (k - 1) / N, hi = k / N;
+      for (let it = 0; it < 3; it++) { const m = (lo + hi) / 2; if (free(m)) lo = m; else hi = m; }
+      reach = Math.max(0, lo - 0.04);
+      break;
+    }
+    this._arm = reach < (this._arm ?? 1) ? reach : Math.min(reach, (this._arm ?? 1) + dt * 2);
+    if (this._arm < 1) cur.set(px + dx * this._arm, py + dy * this._arm, pz + dz * this._arm);
   }
 }
 
