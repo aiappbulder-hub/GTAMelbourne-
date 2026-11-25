@@ -289,8 +289,9 @@ export function createFreeways({ scene }) {
         L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
         L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
         // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
-        // the car from going over the edge; there they are solid from the deck up only
-        if (Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        // the car from going over the edge; there they are solid from the deck up only (City Road's bridge, opts.ramp,
+        // keeps its railings solid from 1.5 m up: it bends over open parkland, and its ends lie on its own streets)
+        if (Math.min(a.h, b.h) > (w.opts && w.opts.ramp ? 1.5 : HIGH_EDGE)) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
         if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
