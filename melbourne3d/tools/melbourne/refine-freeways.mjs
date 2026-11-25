@@ -8,6 +8,7 @@
 //     cuttings and the kerb islands round them (trenches, blockPatches) are traced again for it.
 //  3. headroom where a street crosses under a deck or over a cutting; 4. piers moved out of the streets' carriageways,
 //     and the segments over a street listed (js/freeways.js leaves the walls and colliders down to the ground off them).
+//  5. smooth centrelines (rounded corners, even samples) and smooth cutting outlines (no raster stair steps).
 //  1. waterHoles: the outlines (merged, non-overlapping) where the water plane under the land (js/city-grid.js, at the
 //     river level, -1.6 m) must be cut out: every open cutting, and every tunnel whose inside reaches below that level, so
 //     no water is drawn across a cutting's or a tunnel's road.
@@ -21,6 +22,7 @@ const JS = new URL('../../js/', import.meta.url);
 const WL = -1.6; // the water plane's height (js/melbourne-config.js ISLAND_BOUNDS.waterLevel)
 const TUNNEL_H = 5.4; // js/freeways.js
 const CLEAR = 6.6; // a deck's height over a street it crosses (5.2 m clear under a 1.4 m deck)
+const STEP = 8; // the longest gap between samples
 const GRADE = 0.06; // the steepest grade anywhere on the network (6%)
 // a tunnel's ceiling over a floor at y under ground at t (js/freeways.js ceilingAt)
 const ceilingAt = (y, t) => Math.max(y + 2.4, Math.min(y + TUNNEL_H, t - 0.3));
@@ -53,6 +55,15 @@ function outlines(caps, closeR = 4, minArea = 40, tol = 0.5) {
   if (closeR) R.close(closeR);
   return makeBlocks({ land: R, roads: [], sidewalk: 1, log: () => {} }).filter((b) => b.area > minArea).map((b) => rdpRing(b.poly, tol));
 }
+// Chaikin's corner cutting of a closed ring, `n` times
+function chaikin(r, n) {
+  for (let it = 0; it < n; it++) {
+    const o = [];
+    for (let i = 0; i < r.length; i++) { const [ax, az] = r[i], [bx, bz] = r[(i + 1) % r.length]; o.push([ax * 0.75 + bx * 0.25, az * 0.75 + bz * 0.25], [ax * 0.25 + bx * 0.75, az * 0.25 + bz * 0.75]); }
+    r = o;
+  }
+  return r;
+}
 const flatRing = (r) => r.flatMap(([x, z]) => [q(x), q(z)]);
 
 export async function refineFreeways(body, { log = console.log } = {}) {
@@ -63,6 +74,39 @@ export async function refineFreeways(body, { log = console.log } = {}) {
     for (let i = 0; i < flat.length; i += 4) S.push({ x: flat[i], z: flat[i + 1], h: flat[i + 2], cov: flat[i + 3] });
     return { name, kind, width, lanes, S, opts };
   });
+
+  // --- 5. Smooth centrelines: OSM's corners rounded (a few passes of neighbour averaging, the ends and any sample another
+  // way's end meets held still), then resampled evenly by arc length at no more than STEP m ------------------------------
+  {
+    const ends = ways.flatMap((w) => [w.S[0], w.S[w.S.length - 1]]);
+    for (const w of ways) {
+      const S = w.S;
+      if (S.length < 3) continue;
+      const pin = S.map((s, i) => i === 0 || i === S.length - 1 || ends.some((e) => !w.S.includes(e) && Math.abs(e.x - s.x) < 2.5 && Math.abs(e.z - s.z) < 2.5));
+      for (let it = 0; it < 8; it++) {
+        const P = S.map((s) => [s.x, s.z]);
+        for (let i = 1; i + 1 < S.length; i++) if (!pin[i]) { S[i].x = P[i][0] + 0.5 * ((P[i - 1][0] + P[i + 1][0]) / 2 - P[i][0]); S[i].z = P[i][1] + 0.5 * ((P[i - 1][1] + P[i + 1][1]) / 2 - P[i][1]); }
+      }
+      // resample: pinned samples kept, evenly spaced samples between them
+      const out = [S[0]];
+      let start = 0;
+      for (let i = 1; i < S.length; i++) {
+        if (!pin[i]) continue;
+        const run = S.slice(start, i + 1), cum = [0];
+        for (let k = 1; k < run.length; k++) cum.push(cum[k - 1] + Math.hypot(run[k].x - run[k - 1].x, run[k].z - run[k - 1].z));
+        const L = cum[cum.length - 1], n = Math.max(1, Math.ceil(L / STEP - 0.01));
+        for (let m = 1; m < n; m++) {
+          const d = (L * m) / n;
+          let k = 1; while (k < run.length - 1 && cum[k] < d) k++;
+          const f = (d - cum[k - 1]) / (cum[k] - cum[k - 1] || 1), A = run[k - 1], B = run[k];
+          out.push({ x: A.x + (B.x - A.x) * f, z: A.z + (B.z - A.z) * f, h: A.h + (B.h - A.h) * f, cov: A.cov && B.cov });
+        }
+        out.push(S[i]);
+        start = i;
+      }
+      w.S = out;
+    }
+  }
 
   // --- The network: every sample a node, joined along its way and where a way's end meets another way -----------------
   const nodes = [];
@@ -154,15 +198,21 @@ export async function refineFreeways(body, { log = console.log } = {}) {
       }
     });
   }
-  const upB = up.length ? envelope(up, GRADE, 1) : null, downB = down.length ? envelope(down, GRADE, -1) : null;
+  // (a crossing whose headroom would lift a cutting or tunnel nearby out of the ground, or sink a deck, is left as it is)
+  const mean = nodes.map((s) => (lo[s.id] + hi[s.id]) / 2);
+  const negs = nodes.filter((s) => mean[s.id] < -0.3).map((s) => [s.id, mean[s.id]]), poss = nodes.filter((s) => mean[s.id] > 0.3).map((s) => [s.id, mean[s.id]]);
+  const belowEnv = negs.length ? envelope(negs, GRADE, -1) : null, aboveEnv = poss.length ? envelope(poss, GRADE, 1) : null;
+  const upOk = up.filter(([id, v]) => !belowEnv || Number.isNaN(belowEnv[id]) || v <= belowEnv[id]);
+  const downOk = down.filter(([id, v]) => !aboveEnv || Number.isNaN(aboveEnv[id]) || v >= aboveEnv[id]);
+  const upB = upOk.length ? envelope(upOk, GRADE, 1) : null, downB = downOk.length ? envelope(downOk, GRADE, -1) : null;
   for (const s of nodes) {
-    let h = (lo[s.id] + hi[s.id]) / 2;
-    if (upB && !Number.isNaN(upB[s.id]) && upB[s.id] > h && h > -0.3) h = upB[s.id];
-    if (downB && !Number.isNaN(downB[s.id]) && downB[s.id] < h && h < 0.3) h = downB[s.id];
+    let h = mean[s.id];
+    if (upB && !Number.isNaN(upB[s.id])) h = Math.max(h, upB[s.id]);
+    if (downB && !Number.isNaN(downB[s.id])) h = Math.min(h, downB[s.id]);
     if (da && !Number.isNaN(da[s.id])) h = Math.max(-GRADE * da[s.id], Math.min(GRADE * da[s.id], h));
     s.h = Math.abs(h) < 0.05 ? 0 : h;
   }
-  log(`street crossings given headroom: ${up.length} under decks, ${down.length} over cuttings`);
+  log(`street crossings given headroom: ${upOk.length} of ${up.length} under decks, ${downOk.length} of ${down.length} over cuttings`);
   for (const w of ways) {
     const tunnel = w.S.every((s) => s.cov);
     for (const s of w.S) s.cov = tunnel ? s.h <= -5.7 : s.cov && s.h < -2.7;
@@ -176,9 +226,10 @@ export async function refineFreeways(body, { log = console.log } = {}) {
   for (const w of ways) for (let i = 0; i + 1 < w.S.length; i++) {
     const a = w.S[i], b = w.S[i + 1];
     if ((a.cov && b.cov) || Math.max(a.h, b.h) > -0.6) continue;
-    tcaps.push([a.x, a.z, b.x, b.z, w.width / 2 + 1.2]);
+    tcaps.push([a.x, a.z, b.x, b.z, w.width / 2 + 1.6]);
   }
-  const trenches = outlines(tcaps).map(flatRing);
+  // (traced on the 1 m raster, then the stair steps simplified away and the corners rounded: the walls stand 0.9 m in)
+  const trenches = outlines(tcaps, 4, 40, 1.0).map((r) => chaikin(r, 2)).map(flatRing);
   log(`open cuttings: ${trenches.length}`);
 
   // --- Kerb islands over a cutting (js/city-grid.js blockPatches: each block's outline minus the cuttings) ---------------
@@ -222,7 +273,7 @@ export async function refineFreeways(body, { log = console.log } = {}) {
       if (wet) caps.push([a.x, a.z, b.x, b.z, w.width / 2 + 1.6]);
     }
   }
-  const waterHoles = outlines(caps).map(flatRing);
+  const waterHoles = outlines(caps, 4, 40, 1.0).map((r) => chaikin(r, 1)).map(flatRing);
   log(`water holes: ${waterHoles.length} outlines, ${waterHoles.reduce((a, r) => a + r.length / 2, 0)} points`);
 
   // --- 4. Piers out of the streets' carriageways; segments over a street (no walls or colliders down to it) ----------

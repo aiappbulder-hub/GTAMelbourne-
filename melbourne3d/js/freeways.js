@@ -100,11 +100,32 @@ export function createFreeways({ scene }) {
     // headings (averaged at the joints) and normals (left of travel)
     for (let i = 0; i < S.length; i++) {
       const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)];
+      if (i === 0 || i === S.length - 1) S[i].end = i ? 1 : -1;
       const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
       S[i].ux = dx / L; S[i].uz = dz / L; S[i].nx = -dz / L; S[i].nz = dx / L;
     }
     return { name, kind, width, hw: width / 2, lanes, S, wi, opts: opts || null };
   });
+
+  // A way's end that continues straight into another way's start (or end): both ends take the heading through the
+  // neighbouring samples either side of the join, so the decks and barriers meet without a kink
+  {
+    const ends = new Map(), ek = (s) => `${Math.round(s.x)},${Math.round(s.z)}`;
+    for (const w of ways) for (const s of [w.S[0], w.S[w.S.length - 1]]) (ends.get(ek(s)) || ends.set(ek(s), []).get(ek(s))).push([w, s]);
+    for (const list of ends.values()) {
+      if (list.length !== 2 || list[0][0] === list[1][0]) continue;
+      const [[wa, sa], [wb, sb]] = list;
+      if (wa.S.length < 2 || wb.S.length < 2 || Math.hypot(sa.x - sb.x, sa.z - sb.z) > 0.5) continue;
+      // the sample before the join on a's side and after it on b's (a ends where b starts, or the reverse, or head to head)
+      const before = sa.end > 0 ? wa.S[wa.S.length - 2] : wa.S[1], after = sb.end < 0 ? wb.S[1] : wb.S[wb.S.length - 2];
+      const dx = after.x - before.x, dz = after.z - before.z, L = Math.hypot(dx, dz) || 1;
+      const ux0 = (sa.end > 0 ? 1 : -1) * dx / L, uz0 = (sa.end > 0 ? 1 : -1) * dz / L;
+      if (ux0 * sa.ux + uz0 * sa.uz < 0.8) continue; // not a straight continuation (a merge at an angle)
+      const sgn = (sb.end < 0) === (sa.end > 0) ? 1 : -1;
+      sa.ux = ux0; sa.uz = uz0; sa.nx = -uz0; sa.nz = ux0;
+      sb.ux = ux0 * sgn; sb.uz = uz0 * sgn; sb.nx = -sb.uz; sb.nz = sb.ux;
+    }
+  }
 
   // --- Ground index: every segment in the 32 m cells it touches ------------------------------------------------------
   const segs = [];
