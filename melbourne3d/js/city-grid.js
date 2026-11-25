@@ -3588,15 +3588,18 @@ function buildMelbourneGrid(scene) {
 
   // 1. Water: one plane under everything, seen through the holes in the land deck
   const waterMat = (!HEAVY_FX || (typeof location !== 'undefined' && /[?&]oldwater/.test(location.search)) ? createWaterMaterial() : createMelbourneWaterMaterial(GEO)); // ?oldwater: A/B against the old look
-  // the freeways' open cuttings (js/melbourne-freeways.js) are holes in the land deck and in this plane, which would
-  // otherwise hide the cutting's road below the water level
+  // the freeways' open cuttings (js/melbourne-freeways.js) are holes in the land deck and in this plane, which would the cutting's road below the water level
+  // otherwise hide the cutting's road below the water level; the plane's holes (waterHoles, by
+  // tools/melbourne/refine-freeways.mjs) also take in every tunnel whose inside reaches below the water level, or the
+  // plane would be drawn across the tunnel's road (under the land deck, so only seen from inside the tunnel)
   const cuttings = (FREEWAYS.trenches || []).map((r) => toPts(r)).filter((r) => r.length >= 3);
+  const waterHoles = FREEWAYS.waterHoles ? FREEWAYS.waterHoles.map((r) => toPts(r)).filter((r) => r.length >= 3) : cuttings;
   const ringPath = (ring, P) => { ring.forEach((p, i) => (i ? P.lineTo(p.x, -p.z) : P.moveTo(p.x, -p.z))); P.closePath(); return P; };
   let waterGeo;
-  if (cuttings.length) {
+  if (waterHoles.length) {
     const sq = new THREE.Shape();
     sq.moveTo(-30000, 30000); sq.lineTo(-30000, -30000); sq.lineTo(30000, -30000); sq.lineTo(30000, 30000); sq.closePath();
-    for (const r of cuttings) sq.holes.push(ringPath(r, new THREE.Path()));
+    for (const r of waterHoles) sq.holes.push(ringPath(r, new THREE.Path()));
     waterGeo = new THREE.ShapeGeometry(sq, 1);
   } else waterGeo = new THREE.PlaneGeometry(60000, 60000, 1, 1);
   waterGeo.rotateX(-Math.PI / 2);

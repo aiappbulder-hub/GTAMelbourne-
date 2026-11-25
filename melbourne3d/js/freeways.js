@@ -109,13 +109,16 @@ export function createFreeways({ scene }) {
   const segs = [];
   const index = new Map();
   const key = (ix, iz) => ix * 65536 + iz;
+  // a way's end that meets another way (a join, a merge): the ground there is rounded (see surfaceAt), elsewhere square
+  const joined = (s, wi) => ways.some((o) => o.wi !== wi && o.S.some((p) => Math.abs(p.x - s.x) < 2 && Math.abs(p.z - s.z) < 2));
   for (const w of ways) {
+    const j0 = joined(w.S[0], w.wi), j1 = joined(w.S[w.S.length - 1], w.wi);
     for (let i = 0; i + 1 < w.S.length; i++) {
       const a = w.S[i], b = w.S[i + 1];
       const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
       if (L < 0.01) continue;
       const seg = { w: w.wi, ax: a.x, az: a.z, ux: dx / L, uz: dz / L, L, hw: w.hw, ya: a.y, yb: b.y, ta: a.t, tb: b.t,
-        cov: a.cov && b.cov, ceilA: ceilingAt(a), ceilB: ceilingAt(b) };
+        cov: a.cov && b.cov, ceilA: ceilingAt(a), ceilB: ceilingAt(b), capA: i > 0 || j0, capB: i + 2 < w.S.length || j1 };
       segs.push(seg);
       const r = w.hw + 1;
       for (let ix = Math.floor((Math.min(a.x, b.x) - r) / INDEX); ix <= Math.floor((Math.max(a.x, b.x) + r) / INDEX); ix++)
@@ -136,9 +139,12 @@ export function createFreeways({ scene }) {
       if (s.w === skipWay) continue;
       const dx = x - s.ax, dz = z - s.az;
       const along = dx * s.ux + dz * s.uz;
-      if (along < -0.5 || along > s.L + 0.5) continue;
       const off = dx * s.uz - dz * s.ux;
       if (Math.abs(off) > s.hw + 0.25) continue;
+      // past a segment's end: square at a way's free end, rounded at a joint (the outside of a bend, a join with another
+      // way), so the deck has no wedge-shaped gaps where a car could drop through (to the street or the river below)
+      if (along < -0.5 && !(s.capA && along * along + off * off < (s.hw + 0.25) ** 2)) continue;
+      if (along > s.L + 0.5 && !(s.capB && (along - s.L) ** 2 + off * off < (s.hw + 0.25) ** 2)) continue;
       const f = Math.max(0, Math.min(1, along / s.L));
       const surf = s.ya + (s.yb - s.ya) * f;
       if (s.cov) {
