@@ -14,11 +14,12 @@
 // The line follows City Road's centreline east from x = -140, bends through the open parkland (no building footprint
 // within 15 m: checked against GEO's buildings), crosses St Kilda Road (carriageways, trams and service roads, x -18 to
 // 34) and lands on Alexandra Avenue's centreline. The road is covered from COVER[0] to COVER[1], on a flat floor
-// HEAD m under St Kilda Road's lowest ground over the tube, and climbs out each side at GRADE until it meets the
+// TUBE + ROOF m under St Kilda Road's lowest ground over the tube, and climbs out each side at GRADE until it meets the
 // terrain. Everything is tuned by the constants below. The terrain is passed in so this stays testable without the engine.
 
 const GRADE = 0.1; // ramp slope: the streets' last stretch is short, so the ramps are steeper than a freeway's 6%
-const HEAD = 4.8; // headroom: the tube's floor to the underside of the ground over it, m
+const TUBE = 4.8; // the tube's floor to ceiling (a car, and a bus, with room to spare), m
+const ROOF = 0.7; // the roof slab and the ground's cover over it, m
 const WIDTH = 15; // kerb to kerb: two lanes each way less the footpaths
 const STEP = 6; // sample spacing, m
 const COVER = [-21, 37]; // the covered tube (the route's x): St Kilda Rd's carriageways, trams and footpaths (x -18 to 34) plus a margin
@@ -59,10 +60,14 @@ export function buildCityRoadWay(terrainHeight) {
   const T = P.map(([x, z]) => terrainHeight(x, z));
   const cov = P.map(([x]) => x >= COVER[0] && x <= COVER[1]);
   const iW = cov.indexOf(true), iE = cov.lastIndexOf(true);
-  // the floor: HEAD under the lowest ground over the tube (the tube's ceiling stands 0.3 m below the ground)
+  // the floor: TUBE + ROOF under the lowest ground over the tube's footprint (the ground slopes across St Kilda Rd, and the
+  // roof must stay under it right out to the walls)
   let low = Infinity;
-  for (let i = iW; i <= iE; i++) low = Math.min(low, T[i]);
-  const yFloor = low - 0.3 - HEAD;
+  for (let i = iW; i <= iE; i++) {
+    const dx = P[Math.min(P.length - 1, i + 1)][0] - P[Math.max(0, i - 1)][0], dz = P[Math.min(P.length - 1, i + 1)][1] - P[Math.max(0, i - 1)][1], L = Math.hypot(dx, dz) || 1;
+    for (const o of [-1, 0, 1]) low = Math.min(low, terrainHeight(P[i][0] - (dz / L) * o * (WIDTH / 2 + 1.5), P[i][1] + (dx / L) * o * (WIDTH / 2 + 1.5)));
+  }
+  const yFloor = low - ROOF - TUBE;
   const y = P.map((_, i) => (i < iW ? yFloor + GRADE * STEP * (iW - i) : i > iE ? yFloor + GRADE * STEP * (i - iE) : yFloor));
   // trim to where the ramps come up to the ground
   let a = iW, b = iE;
@@ -82,7 +87,7 @@ export function buildCityRoadWay(terrainHeight) {
   lanes[1].reverse();
   // outlines (flat [x, z, ...], like FREEWAYS.trenches) round the runs of samples that go below the ground (cuts: the open
   // cuttings, cut out of the land deck) and below the water plane (wet: from the first to the last, tube included, cut out
-  // of the water plane; the river level is -1.6 m), WIDTH / 2 + 1.6 m each side as refine-freeways.mjs does
+  // of the water plane, as refine-freeways.mjs does for every open cutting and every tube that reaches below the river level, -1.6 m), WIDTH / 2 + 1.6 m each side as refine-freeways.mjs does
   const outline = (i0, i1) => {
     const left = [], right = [];
     for (let i = i0; i <= i1; i++) {
@@ -104,9 +109,9 @@ export function buildCityRoadWay(terrainHeight) {
     return out;
   };
   const cuts = run((i) => !cov[i] && h(i) < -0.3);
-  const wet = run((i) => T[i] + h(i) < -1.3 && (cov[i] || h(i) < -0.3));
+  const wet = run((i) => (cov[i] ? T[i] + h(i) < -1.3 : h(i) < -0.3));
   memo = {
-    way: ['City Road Underpass', 0, WIDTH, 4, samples, { ramp: true, piers: [] }],
+    way: ['City Road Underpass', 0, WIDTH, 4, samples, { piers: [], tube: TUBE }],
     lanes, cuts, wet, floor: yFloor, start: P[a], end: P[b], samples: samples.length / 4
   };
   return memo;

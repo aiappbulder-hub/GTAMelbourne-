@@ -96,14 +96,14 @@ export function createFreeways({ scene }) {
   // City Road's underpass beneath St Kilda Road (js/city-road-bridge.js) is one more way after the data's, so the chains'
   // indices stay valid; its cutting's water and land-deck holes are cut in js/city-grid.js. `opts.piers` names the
   // samples that get a pier pair (every way's, from the refine pass, which keeps them out of the streets),
-  // `opts.street` the segments a street crosses under; any way's barriers are left off where its deck is within 0.7 m
+  // `opts.street` the segments a street crosses under, `opts.tube` a lower tunnel height than TUNNEL_H; any way's barriers are left off where its deck is within 0.7 m
   // of the ground (ramps meeting their streets)
   const cityRoad = buildCityRoadWay(terrainHeight);
   const ways = [...FREEWAYS.ways, cityRoad.way].map(([name, kind, width, lanes, flat, opts], wi) => {
     const S = [];
     for (let i = 0; i < flat.length; i += 4) {
       const x = flat[i], z = flat[i + 1], h = flat[i + 2], t = terrainHeight(x, z);
-      S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1 });
+      S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1, tube: opts && opts.tube });
     }
     // headings (averaged at the joints) and normals (left of travel)
     for (let i = 0; i < S.length; i++) {
@@ -158,7 +158,7 @@ export function createFreeways({ scene }) {
         }
     }
   }
-  function ceilingAt(s) { return Math.max(s.y + 2.4, Math.min(s.y + TUNNEL_H, s.t - 0.3)); }
+  function ceilingAt(s) { return Math.max(s.y + 2.4, Math.min(s.y + (s.tube || TUNNEL_H), s.t - 0.3)); } // (`opts.tube`: a way's own floor-to-ceiling height)
 
   // The surface under (x, z) for something at height y (see the header); `skipWay` leaves one way out (barrier test)
   function surfaceAt(x, z, y, skipWay = -1, out = null) {
@@ -225,7 +225,9 @@ export function createFreeways({ scene }) {
       // a street crosses under this segment (tools/melbourne/refine-freeways.mjs): no walls or colliders down to it
       const overStreet = !!(w.opts && w.opts.street && w.opts.street.includes(i));
       // roadway
-      R.quad(E(a, -hw), E(b, -hw), E(b, hw), E(a, hw), roadCol);
+      // (a cutting's floor runs on to its retaining walls, 0.7 m beyond the kerb, so nothing below shows between)
+      const rw = cut ? hw + 0.7 : hw;
+      R.quad(E(a, -rw), E(b, -rw), E(b, rw), E(a, rw), roadCol);
       if (!covered) cell.road.quad(E(a, -hw, 0.012), E(b, -hw, 0.012), E(b, hw, 0.012), E(a, hw, 0.012), roadCol);
       // lane paint: edge lines, dashed lines between lanes (3 m dash in each 9 m)
       const line = (o, w0, f0 = 0, f1 = 1) => {
@@ -293,9 +295,8 @@ export function createFreeways({ scene }) {
           L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
         }
         // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
-        // the car from going over the edge; there they are solid from the deck up only (City Road's bridge, opts.ramp,
-        // keeps its railings solid from 1.5 m up: it bends over open parkland, and its ends lie on its own streets)
-        if (Math.min(a.h, b.h) > (w.opts && w.opts.ramp ? 1.5 : HIGH_EDGE)) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        // the car from going over the edge; there they are solid from the deck up only
+        if (Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
         if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet && !noBarrier) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
