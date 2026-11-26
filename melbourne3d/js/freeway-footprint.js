@@ -7,7 +7,7 @@
 // is no open freeway (the tunnels are underground and don't count).
 // polygonFreewayClearance(ring, pad) is the same for a polygon ([{x, z}]): its edges (sampled every 3 m) and any deck
 // sample inside it.
-import { FREEWAYS } from './melbourne-freeways.js';
+import { FREEWAYS } from './freeway-data.js';
 
 const INDEX = 32;
 const DECK_T = 1.4; // a deck's depth (js/freeways.js)
