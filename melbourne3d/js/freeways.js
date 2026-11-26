@@ -104,6 +104,24 @@ export function createFreeways({ scene }) {
       S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1, tube: opts && opts.tube, oi: i / 4, f: 0 });
     }
     if (wi < FREEWAYS.ways.length) ({ S, opts } = smoothWay(S, opts));
+    // An at-grade or low stretch is a straight line between samples up to 8 m apart, and the ground between them can
+    // bulge over it (the road vanishing under the land deck in patches): each sample is lifted by what the ground between
+    // it and its neighbours stands over the road, plus 2 cm (up to 0.7 m, at a cutting's shallow mouth)
+    if (wi < FREEWAYS.ways.length) {
+      const lift = S.map(() => 0), o = width / 2 - 0.5;
+      for (let i = 0; i + 1 < S.length; i++) {
+        const a = S[i], b = S[i + 1];
+        if ((a.cov || b.cov) || Math.max(a.h, b.h) > 0.3 || Math.max(a.h, b.h) <= -0.6) continue; // (a deep cutting has its hole)
+        const L = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / L, nz = (b.x - a.x) / L;
+        let over = 0;
+        for (const t of [0.2, 0.4, 0.6, 0.8]) for (const k of [-1, 0, 1]) {
+          const x = a.x + (b.x - a.x) * t + nx * o * k, z = a.z + (b.z - a.z) * t + nz * o * k;
+          over = Math.max(over, terrainHeight(x, z) + 0.02 - (a.y + (b.y - a.y) * t));
+        }
+        if (over > 0) { lift[i] = Math.max(lift[i], Math.min(0.7, over)); lift[i + 1] = Math.max(lift[i + 1], Math.min(0.7, over)); }
+      }
+      S.forEach((s, i) => { if (lift[i] > 0) { s.y += lift[i]; s.h = s.y - s.t; } });
+    }
     // headings (averaged at the joints) and normals (left of travel)
     for (let i = 0; i < S.length; i++) {
       const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)];
@@ -216,7 +234,11 @@ export function createFreeways({ scene }) {
   function surfaceAt(x, z, y, skipWay = -1, out = null) {
     const list = index.get(key(Math.floor(x / INDEX), Math.floor(z / INDEX)));
     if (!list) return null;
-    let best = null, bestSeg = null;
+    // (two picks: among the segments the point lies along, and among the caps past segment ends; a cap counts only where
+    // no segment does, and carries its segment's slope on rather than holding its end's height: held flat, the next
+    // segment's start cap lifted the road a step ahead of every sample on a ramp, and the car jolted up each one)
+    let best = null, bestSeg = null, cap = null, capSeg = null;
+    const better = (cur, surf) => cur === null || (surf <= y + 1.0 && (surf > cur || cur > y + 1.0)) || (cur > y + 1.0 && surf < cur);
     for (const s of list) {
       if (s.w === skipWay) continue;
       const dx = x - s.ax, dz = z - s.az;
@@ -227,8 +249,9 @@ export function createFreeways({ scene }) {
       // way), so the deck has no wedge-shaped gaps where a car could drop through (to the street or the river below)
       if (along < -0.5 && !(s.capA && along * along + off * off < (s.hw + 0.25) ** 2)) continue;
       if (along > s.L + 0.5 && !(s.capB && (along - s.L) ** 2 + off * off < (s.hw + 0.25) ** 2)) continue;
+      const onSeg = along >= -0.5 && along <= s.L + 0.5;
       const f = Math.max(0, Math.min(1, along / s.L));
-      const surf = s.ya + (s.yb - s.ya) * f;
+      const surf = s.ya + ((s.yb - s.ya) * along) / s.L;
       if (s.cov) {
         const ceil = s.ceilA + (s.ceilB - s.ceilA) * f;
         if (!(y < ceil - 0.8)) continue; // on the ground above the tunnel
@@ -238,8 +261,10 @@ export function createFreeways({ scene }) {
         if (surf > ground + 0.05 && y < surf - 1.6) continue;
       }
       // of several (stacked decks, a ramp beside its road): the highest not far above
-      if (best === null || (surf <= y + 1.0 && (surf > best || best > y + 1.0)) || (best > y + 1.0 && surf < best)) { best = surf; bestSeg = s; }
+      if (onSeg) { if (better(best, surf)) { best = surf; bestSeg = s; } }
+      else if (better(cap, surf)) { cap = surf; capSeg = s; }
     }
+    if (best === null) { best = cap; bestSeg = capSeg; }
     if (out) out.seg = bestSeg;
     return best;
   }

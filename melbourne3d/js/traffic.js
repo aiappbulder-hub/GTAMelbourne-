@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { Q } from './quality.js';
+import { Q, QUALITY, LITE } from './quality.js';
 import { buildRoadNetwork } from './road-network.js';
 import { createPedestrianSystem } from './pedestrian-system.js';
 import { vehicleContact, resolveVehicleContact, sweptVehicleContact } from './vehicle-physics.js';
@@ -2430,7 +2430,12 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
 // driving in their lane. Within HWY_NEAR_LOD m of the camera they use the full model with wheels and cast shadows,
 // up to HWY_MID_LOD m a wheel-less body, further out a coarse ~250-triangle lofted proxy; beyond HWY_FAR_CULL m (or well behind
 // the camera) they aren't drawn.
-const HWY_DRIVER = { a: 1.6, b: 2.8, T: 1.3, s0: 3.0 };
+// (a 1.8 s time gap and 8 m at a standstill: at freeway speed a car keeps 40 m or more behind the one ahead)
+const HWY_DRIVER = { a: 1.6, b: 2.8, T: 1.8, s0: 8.0 };
+// Cars per metre of lane by quality tier (a car every ~100 m on High, ~160 m on Low-lite), and a cap on the whole fleet
+const HWY_SPACING = { high: [70, 60], medium: [80, 70], low: [95, 80], lite: [120, 90] }; // [least, plus up to]
+const HWY_CAP = { high: 450, medium: 360, low: 300, lite: 180 };
+const HWY_STALL = 5; // s under 2 m/s with nothing in the way: the car is recycled to a gap out of view
 const HWY_CAR_LEN = 4.6;
 const HWY_NEAR_LOD = 170;
 const HWY_MID_LOD = 450;
@@ -2502,7 +2507,12 @@ function createHighwayTraffic(scene, lanes) {
   let seed = 20240917;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-  // Lanes: arc length and heading at every centre-line vertex, bounds for the player test, cars every 24-74 m
+  // Lanes: arc length and heading at every centre-line vertex, bounds for the player test, cars spread out by the
+  // quality tier (HWY_SPACING), the fleet capped (HWY_CAP)
+  const tier = LITE ? 'lite' : HWY_SPACING[QUALITY] ? QUALITY : 'low';
+  const totalLen = lanes.reduce((t, l) => { let s = 0; for (let i = 1; i < l.pts.length; i++) s += l.pts[i].distanceTo(l.pts[i - 1]); return t + s; }, 0);
+  const [least, extra] = HWY_SPACING[tier];
+  const stretch = Math.max(1, totalLen / (least + extra / 2) / HWY_CAP[tier]);
   const cars = [];
   const counts = Object.fromEntries(KINDS.map((kind) => [kind, 0]));
   for (const lane of lanes) {
@@ -2523,7 +2533,7 @@ function createHighwayTraffic(scene, lanes) {
       lane.box.push(Math.min(...run.map((p) => p.x)), Math.max(...run.map((p) => p.x)), Math.min(...run.map((p) => p.z)), Math.max(...run.map((p) => p.z)));
     }
     lane.cars = [];
-    for (let u = rand() * 30; u < lane.len - 12; u += 24 + rand() * 50) {
+    for (let u = rand() * least; u < lane.len - 12; u += (least + rand() * extra) * stretch) {
       const h = rand();
       // Fewer vans than in town: commercial vehicles are barred from the parkways
       const kind = h < (IS_MELBOURNE ? 0.05 : 0.2) ? 'taxi' : h < 0.56 ? 'sedan' : h < 0.82 ? 'suv' : h < 0.89 ? 'minivan' : h < 0.95 ? 'pickup' : 'van';
@@ -2532,7 +2542,8 @@ function createHighwayTraffic(scene, lanes) {
       const spec = BODY_SPECS[kind];
       // (float32 values, so update() can tell whether an instance slot's paint changes by comparing with the buffer)
       const car = {
-        lane, kind, u, v: lane.speed, acc: 0, seg: 0,
+        // (each driver's own cruising speed: 94-106% of the lane's, so the traffic isn't one block, yet nobody crawls)
+        lane, kind, u, v: lane.speed, v0: lane.speed * (0.94 + rand() * 0.12), acc: 0, seg: 0, stall: 0, hold: 0, seen: false,
         placed: false, x: 0, y: -1000, z: 0, yaw: 0,
         len: spec.zFront - spec.zRear, engine: CAR_KINDS[kind].engine,
         col: [Math.fround(col.r), Math.fround(col.g), Math.fround(col.b)],
@@ -2543,6 +2554,11 @@ function createHighwayTraffic(scene, lanes) {
       counts[kind]++;
     }
   }
+
+  // A lane's siblings: the other lanes of the same carriageway (same centre line, offset), for overtaking and getting
+  // round a stalled car or the player
+  for (const lane of lanes) lane.sibs = lanes.filter((o) => o !== lane && o.pts.length === lane.pts.length
+    && o.pts[0].distanceTo(lane.pts[0]) < 9 && o.pts[o.pts.length - 1].distanceTo(lane.pts[lane.pts.length - 1]) < 9);
 
   // Per body type: [near (with wheels, casts shadows), mid (wheel-less), far (lofted proxy)] instanced meshes sharing
   // the traffic's cached car material (per-instance paintColor & carState)
@@ -2660,6 +2676,21 @@ function createHighwayTraffic(scene, lanes) {
     return null;
   }
 
+  const NCELL = 16;
+  const near = new Map();
+  const nkey = (x, z) => Math.floor(x / NCELL) * 65536 + Math.floor(z / NCELL);
+  const fwdPrev = new THREE.Vector3(0, 0, 1);
+  let recycled = 0;
+  const swaps = [];
+  // (x, z) at arc position u along a lane
+  function lanePoint(lane, u) {
+    const cum = lane.cum;
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= u) lo = m; else hi = m; }
+    const t = Math.min(1, Math.max(0, (u - cum[lo]) / ((cum[hi] - cum[lo]) || 1)));
+    return { x: lane.pts[lo].x + (lane.pts[hi].x - lane.pts[lo].x) * t, z: lane.pts[lo].z + (lane.pts[hi].z - lane.pts[lo].z) * t };
+  }
+
   function update(dt, camera, entity, mode) {
     // 1. Car following (IDM) in every lane, the player counting as a leader
     const pl = entity && mode !== 'helicopter' ? {
@@ -2667,33 +2698,88 @@ function createHighwayTraffic(scene, lanes) {
       vx: Math.sin(entity.heading || 0) * (entity.speed || 0) + (entity.vx || 0),
       vz: Math.cos(entity.heading || 0) * (entity.speed || 0) + (entity.vz || 0)
     } : null;
+    // (cars of other lanes just ahead, from last frame's poses: where two lanes merge or cross, a car yields to the one
+    // in front of it instead of driving through it)
+    near.clear();
+    for (const c of cars) if (c.placed && !c.hidden) { const k = nkey(c.x, c.z); (near.get(k) || near.set(k, []).get(k)).push(c); }
     for (const lane of lanes) {
+      // (in order along the lane: each car's leader is the next one, the last one's the first, round the loop)
       const list = lane.cars;
+      list.sort((a, b) => a.u - b.u);
       const n = list.length;
       const pIn = pl ? playerInLane(lane, pl) : null;
       for (let k = 0; k < n; k++) {
         const c = list[k];
         let gap = Infinity;
         let dv = 0;
+        let lead = null;
         if (n > 1) {
-          const lead = list[(k + 1) % n];
+          lead = list[(k + 1) % n];
           gap = lead.u - c.u;
           if (gap < 0) gap += lane.len;
           gap -= (c.len + lead.len) / 2;
           dv = c.v - lead.v;
         }
         // The player's car counts as HWY_CAR_LEN long
+        let byPlayer = false;
         if (pIn && pIn.u > c.u) {
           const playerGap = pIn.u - c.u - (c.len + HWY_CAR_LEN) / 2;
           if (playerGap < gap) {
             gap = playerGap;
             dv = c.v - pIn.v;
+            byPlayer = true;
+            lead = null;
+          }
+        }
+        // another lane's car just ahead and in the way (a merge)
+        if (c.placed) {
+          const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+          for (let gx = -1; gx <= 1; gx++) for (let gz = -1; gz <= 1; gz++) {
+            for (const o of near.get(nkey(c.x + gx * NCELL, c.z + gz * NCELL)) || []) {
+              if (o.lane === lane || Math.abs(o.y - c.y) > 2.5) continue;
+              const ox = o.x - c.x, oz = o.z - c.z, ahead = ox * sy + oz * cy, side = Math.abs(ox * cy - oz * sy);
+              if (ahead < 1.5 || ahead > 30 || side > 2.6 || Math.sin(o.yaw) * sy + Math.cos(o.yaw) * cy < 0.5) continue;
+              const g = ahead - (c.len + o.len) / 2;
+              if (g < gap) { gap = g; dv = c.v - o.v; lead = null; }
+            }
           }
         }
         const sStar = D.s0 + Math.max(0, c.v * D.T + (c.v * dv) / brakeTerm);
-        c.acc = Math.max(-9, D.a * (1 - (c.v / lane.speed) ** 4 - (sStar / Math.max(gap, 0.1)) ** 2));
+        c.acc = Math.max(-9, D.a * (1 - (c.v / c.v0) ** 4 - (sStar / Math.max(gap, 0.1)) ** 2));
+        // Held up (by a slower car, a stalled one or the player): over to a sibling lane where there's room, 30 m ahead
+        // and 25 m behind (scaled to the speeds), so the traffic flows round instead of piling up
+        c.hold = gap < sStar * 0.9 && (dv > 0.5 || c.v < c.v0 * 0.6) ? c.hold + dt : 0;
+        if (c.hold > 0.8 && lane.sibs.length && !c.moved) {
+          for (const sib of lane.sibs) {
+            const u = (c.u / lane.len) * sib.len;
+            if (u < 40 || u > sib.len - 40) continue;
+            const pS = pl ? playerInLane(sib, pl) : null;
+            if (pS && pS.u > u - 15 && pS.u < u + 45) continue;
+            let ok = true;
+            for (const o of sib.cars) {
+              const d = o.u - u;
+              if (d > -(25 + Math.max(0, o.v - c.v) * 2) && d < 30 + c.v) { ok = false; break; }
+            }
+            if (!ok) continue;
+            swaps.push(c, sib, u);
+            c.moved = true;
+            break;
+          }
+        }
+        // stalled with nothing in the way but stalled cars (not right behind the player): recycled when out of view
+        c.stall = c.v < 2 && !(byPlayer && gap < 15) ? c.stall + dt : 0;
       }
-      for (const c of list) {
+    }
+    for (let i = 0; i < swaps.length; i += 3) {
+      const c = swaps[i], sib = swaps[i + 1];
+      c.lane.cars.splice(c.lane.cars.indexOf(c), 1);
+      c.lane = sib; c.u = swaps[i + 2]; c.seg = 0; c.hold = 0;
+      sib.cars.push(c);
+    }
+    swaps.length = 0;
+    for (const lane of lanes) {
+      for (const c of lane.cars) {
+        c.moved = false;
         c.v = Math.max(0, c.v + c.acc * dt);
         c.u += c.v * dt;
         if (c.u >= lane.len) {
@@ -2702,10 +2788,35 @@ function createHighwayTraffic(scene, lanes) {
         }
       }
     }
+    // A car stalled HWY_STALL s with no reason, off screen: back into the middle of its lane's biggest gap, also out of
+    // view, at its cruising speed (a queue left behind the player dissolves once they move on or look away)
+    for (const lane of lanes) {
+      const list = lane.cars;
+      for (const c of list) {
+        if (c.stall < HWY_STALL || c.seen || list.length < 2) continue;
+        list.sort((a, b) => a.u - b.u);
+        let best = -1, bestGap = 0;
+        for (let k = 0; k < list.length; k++) {
+          const a = list[k], b = list[(k + 1) % list.length];
+          if (a === c || b === c) continue;
+          let g = b.u - a.u; if (g <= 0) g += lane.len;
+          if (g > bestGap) { bestGap = g; best = k; }
+        }
+        if (best < 0 || bestGap < 120) continue;
+        let u = list[best].u + bestGap / 2; if (u >= lane.len) u -= lane.len;
+        const p = lanePoint(lane, u);
+        const dx = p.x - camera.position.x, dz = p.z - camera.position.z;
+        if (dx * dx + dz * dz < 300 * 300 && dx * fwdPrev.x + dz * fwdPrev.z > 0) continue; // (that spot is in view too)
+        if (pl && Math.hypot(p.x - pl.x, p.z - pl.z) < 60) continue;
+        c.u = u; c.seg = 0; c.v = c.v0 * 0.9; c.stall = 0;
+        recycled++;
+      }
+    }
 
     // 2. Instances: LOD by distance, far cars well behind the camera skipped; lamp flares at dusk & night
     const cam = camera.position;
     camera.getWorldDirection(fwd);
+    fwdPrev.copy(fwd);
     for (const kind of KINDS) for (const mesh of meshes[kind]) mesh.count = 0;
     const flaresOn = cityUniforms.uInteriorGlow.value > 0.65;
     const pxAt1m = (2 * Math.tan(((camera.fov || 55) * Math.PI) / 360)) / Math.max(360, window.innerHeight || 800);
@@ -2736,6 +2847,7 @@ function createHighwayTraffic(scene, lanes) {
       c.z = z;
       c.yaw = yaw;
       c.placed = true;
+      c.seen = false;
       const dx = x - cam.x;
       const dz = z - cam.z;
       const dy = y - cam.y;
@@ -2746,6 +2858,7 @@ function createHighwayTraffic(scene, lanes) {
       if (lane.noDip && dip < 30) continue;
       const lod = d2 < HWY_NEAR_LOD * HWY_NEAR_LOD ? 0 : d2 < HWY_MID_LOD * HWY_MID_LOD ? 1 : 2;
       if (lod > 0 && dx * fwd.x + dz * fwd.z < -40) continue;
+      c.seen = dx * fwd.x + dz * fwd.z > -10 || d2 < 900; // (in front of the camera, or right beside it)
       if (y < -3.6 && !lane.noDip) continue; // in the Battery Park Underpass, out of sight behind the portals' screens
       const slope = (b.y - a.y) / segLen + (lane.noDip ? 0 : 2.4 * easeSlope(dip) * (c.u < toEnd ? 1 : -1));
       euler.set(-Math.atan(slope), yaw, 0);
@@ -2866,7 +2979,7 @@ function createHighwayTraffic(scene, lanes) {
     }
   }
 
-  return { group, update, cars, lanes };
+  return { group, update, cars, lanes, get recycled() { return recycled; } };
 }
 
 export { createTrafficSystem, createHighwayTraffic };
