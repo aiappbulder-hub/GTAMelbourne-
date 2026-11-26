@@ -306,9 +306,10 @@ const NYC_LANDMARKS = [
   ['marvel', 'Marvel Stadium', 'Marvel Stadium', 'Marvel Stadium'],
   ['shrine', 'Shrine of Remembrance', 'Shrine', 'Shrine of Remembrance'],
   ['youngjackson', 'Young & Jackson', 'Young & Jackson', 'Young and Jackson'],
+  ['musicbowl', 'Sidney Myer Music Bowl', 'Music Bowl', 'Sidney Myer Music Bowl'],
   ['star', 'Melbourne Star', 'Melbourne Star', 'Melbourne Star']
 ].map(([id, name, short, osm]) => {
-  const s = site(osm, { x: 0, z: 0 });
+  const s = site(osm, id === 'musicbowl' ? { x: 390, z: 1006 } : { x: 0, z: 0 }); // (the Bowl's lot is a park, js/music-bowl.js)
   return { id, name, short, x: s.x, z: s.z, district: DISTRICT_NAMES[districtAt(s.x, s.z)] };
 });
 
