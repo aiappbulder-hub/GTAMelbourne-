@@ -14,6 +14,7 @@ import { GEO } from './melbourne-geodata.js';
 import { groundIndexFor } from './ground-index.js';
 import { terrainHeight } from './terrain.js';
 import { LITE } from './quality.js';
+import { buildPillars } from './pillars.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -233,6 +234,10 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
       root.add(m);
     }
   }
+  // the Pillars of Wisdom (js/pillars.js)
+  const pillars = buildPillars(gnd);
+  root.add(pillars.group);
+  colliders.push(...pillars.colliders);
   // the player's collision (the manager indexes its colliders lazily, once)
   cm.colliders.push(...colliders);
   cm._colliderCells = null;
@@ -522,7 +527,7 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
   drawMarkers(0);
 
   return {
-    update, groundAt: gnd, state: W, path, cps, start, gates, colliders, pathLen, fenceLen, crossings, runCount, walkers,
+    update, groundAt: gnd, pillars, state: W, path, cps, start, gates, colliders, pathLen, fenceLen, crossings, runCount, walkers,
     startWalk: () => { const ent = cm.getActiveEntity(); startWalk(ent.position, ent); }, endWalk, inGardens: (x, z) => pip(x, z), group: root,
     stats: () => ({ fenceLen: Math.round(fenceLen), runs: runCount, posts: postXZ.length, colliders: colliders.length, crossings, gates: gates.length, pathLen: Math.round(pathLen), cps: cps.length })
   };
