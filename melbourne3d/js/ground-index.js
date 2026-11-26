@@ -19,10 +19,14 @@ export function buildGroundIndex(root) {
     const side = mat ? mat.side : THREE.FrontSide;
     const wm = o.matrixWorld;
     const n = pos.count, w = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { _v.fromBufferAttribute(pos, i).applyMatrix4(wm); w[i * 3] = _v.x; w[i * 3 + 1] = _v.y; w[i * 3 + 2] = _v.z; }
+    const e = wm.elements, P = pos.array, S = pos.itemSize, ia = idx ? idx.array : null;
+    for (let i = 0; i < n; i++) {
+      const px = P[i * S], py = P[i * S + 1], pz = P[i * S + 2];
+      w[i * 3] = e[0] * px + e[4] * py + e[8] * pz + e[12]; w[i * 3 + 1] = e[1] * px + e[5] * py + e[9] * pz + e[13]; w[i * 3 + 2] = e[2] * px + e[6] * py + e[10] * pz + e[14];
+    }
     const total = idx ? idx.count : n;
     for (let t = 0; t + 2 < total; t += 3) {
-      const a = (idx ? idx.getX(t) : t) * 3, b = (idx ? idx.getX(t + 1) : t + 1) * 3, c = (idx ? idx.getX(t + 2) : t + 2) * 3;
+      const a = (ia ? ia[t] : t) * 3, b = (ia ? ia[t + 1] : t + 1) * 3, c = (ia ? ia[t + 2] : t + 2) * 3;
       const ax = w[a], az = w[a + 2], bx = w[b], bz = w[b + 2], cx = w[c], cz = w[c + 2];
       const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
       if (side === THREE.FrontSide ? !(ny > 0) : side === THREE.BackSide ? !(ny < 0) : ny === 0) continue;
