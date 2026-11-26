@@ -173,7 +173,7 @@ async function initApp() {
   // Melbourne's trams on the real routes (js/trams.js)
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
   markInit('trams');
-  // Melbourne visuals: station glow, laneways, Crown fire, river boat (js/melb-night.js)
+  // Melbourne visuals: station glow, laneways, Crown fire, (river boats: js/river-boats.js)
   let melbNight = null;
   let streetArt = null;
   await showLoadingStage('Adding road markings...', 'roadPaint');
@@ -836,6 +836,9 @@ async function initApp() {
   // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
   const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
   window.__city.arbory = arbory;
+  // The Yarra's boats: cruise ferries, a water taxi, launch, tinnies and rowing eights (js/river-boats.js)
+  const riverBoats = IS_MELBOURNE ? (await import('./river-boats.js')).createRiverBoats({ scene, lightingSystem }) : null;
+  window.__city.riverBoats = riverBoats;
   markInit('arbory');
   // The CityLink rave under the viaduct at Punt Rd (js/citylink-rave.js)
   const rave = IS_MELBOURNE ? (await import('./citylink-rave.js')).createCitylinkRave({ scene, cast: castSystem, lightingSystem }) : null;
@@ -1374,6 +1377,7 @@ async function initApp() {
     dogs?.update(dt);
     deliveryScooters?.update(dt);
     deliveryJob?.update(dt);
+    riverBoats?.update(dt, cameraSystem.currentPos);
     arbory?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music });
     rave?.update(dt, { camPos: cameraSystem.currentPos, player: controllerManager.getActiveEntity().position, music: window.__city.music, job: missionSystem?.jobName ?? null });
     if (empire) empire.update(dt);

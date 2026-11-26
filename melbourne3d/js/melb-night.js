@@ -1,6 +1,6 @@
 // Melbourne after dark: Flinders St Station glow + uplights, hand-placed laneways (bluestone, festoon
-// lights, bins, cafe tables), Crown's gas fire pillars on the Yarra's south bank and a river cruise boat.
-// Everything is distance-gated and instanced; fire/boat/lanes are skipped entirely when far from the camera.
+// lights, bins, cafe tables), Crown's gas fire pillars on the Yarra's south bank (the river boats are in js/river-boats.js).
+// Everything is distance-gated and instanced; fire/lanes are skipped entirely when far from the camera.
 import * as THREE from 'three/webgpu';
 import { uniform, vec3, color as tslColor } from 'three/tsl';
 import { terrainHeight, drapeGeometry } from './terrain.js';
@@ -96,7 +96,6 @@ export function laneGaps(L, buildings = REAL_BUILDINGS) {
   return rows.map((r, i) => (keep[i] ? r : null));
 }
 
-const RIVER_BOAT = [[-690, 365], [-820, 395], [-926, 435], [-1020, 462], [-1110, 482], [-1170, 490]];
 const FIRE = [[-820, 463], [-926, 488], [-1115, 535]];
 
 function mergeTable() {
@@ -260,33 +259,6 @@ export function createMelbNight({ scene, lightingSystem }) {
   const fireLight = new THREE.PointLight(0xff8a30, 0, 70, 1.5);
   root.add(fireLight);
 
-  // ---------- River cruise boat ----------
-  const boat = new THREE.Group();
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.4, 18), new THREE.MeshStandardNodeMaterial({ color: 0xe9edf0, roughness: 0.5 }));
-  hull.position.y = 0.2;
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.5, 11), new THREE.MeshStandardNodeMaterial({ color: 0xf5f5f5, roughness: 0.5 }));
-  cabin.position.set(0, 1.65, -1);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.7, 10), glowMat(0xffe0a0));
-  glass.position.set(0, 1.75, -1);
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(4.25, 0.25, 18.05), new THREE.MeshStandardNodeMaterial({ color: 0x1a4f8a }));
-  stripe.position.y = 0.5;
-  boat.add(hull, cabin, glass, stripe);
-  root.add(boat);
-  const bCum = [0];
-  for (let i = 1; i < RIVER_BOAT.length; i++) bCum.push(bCum[i - 1] + Math.hypot(RIVER_BOAT[i][0] - RIVER_BOAT[i - 1][0], RIVER_BOAT[i][1] - RIVER_BOAT[i - 1][1]));
-  const bLen = bCum[bCum.length - 1];
-  let bS = 0;
-  function boatAt(s, out) { // s in [0, 2*bLen): out and back
-    const fwd = s < bLen, d = fwd ? s : 2 * bLen - s;
-    let i = 1;
-    while (i < bCum.length - 1 && d > bCum[i]) i++;
-    const t = (d - bCum[i - 1]) / (bCum[i] - bCum[i - 1]);
-    const a = RIVER_BOAT[i - 1], b = RIVER_BOAT[i];
-    out.x = a[0] + (b[0] - a[0]) * t; out.z = a[1] + (b[1] - a[1]) * t;
-    out.h = Math.atan2((b[0] - a[0]) * (fwd ? 1 : -1), (b[1] - a[1]) * (fwd ? 1 : -1));
-  }
-  const bo = { x: 0, z: 0, h: 0 };
-
   // ---------- update ----------
   let time = 0;
   const near = (cam, x, z, r) => (cam.x - x) ** 2 + (cam.z - z) ** 2 < r * r;
@@ -328,13 +300,6 @@ export function createMelbNight({ scene, lightingSystem }) {
       fireLight.intensity = 1800 * Math.max(0.2, best.f.scale.y / 9);
       fireLight.updateMatrixWorld();
     } else fireLight.intensity = 0;
-    // boat
-    bS = (bS + dt * 4.5) % (2 * bLen);
-    boatAt(bS, bo);
-    boat.position.set(bo.x, -1.6 + 0.55 + Math.sin(time * 1.1) * 0.03, bo.z);
-    boat.rotation.y = bo.h;
-    boat.visible = near(camPos, bo.x, bo.z, 1400);
-    if (boat.visible) boat.updateMatrixWorld(true);
   }
   return { group: root, update, burstAll(on = true) { debugBurst = !!on; } };
 }
