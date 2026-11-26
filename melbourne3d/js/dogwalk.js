@@ -342,12 +342,12 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
 
   // ---------------------------------------------------------------------------------------------------------------
   // The player's walk
-  const W = { on: false, cp: 0, t: 0, meter: 0.6, state: 'heel', stateT: 0, smellT: 8, tx: 0, tz: 0, target: null, wait: 0, sniffMoved: 0, tension: 0, msg: '', msgT: 0, speed: 0, lastX: 0, lastZ: 0, summary: null, best: 0, done: 0, smells: 0, tugged: 0 };
+  const W = { on: false, cp: 0, t: 0, meter: 0.6, state: 'heel', stateT: 0, stateDur: 2, smellT: 8, tx: 0, tz: 0, target: null, wait: 0, sniffMoved: 0, tension: 0, msg: '', msgT: 0, speed: 0, lastX: 0, lastZ: 0, summary: null, best: 0, done: 0, smells: 0, tugged: 0 };
   const dog = dogs[0] || null;
   const smellPts = [];
   for (let i = 0; i < path.length; i += 40) {
     const p = path[i];
-    for (const side of [1, -1]) { const x = p.x - p.uz * side * rnd(3.5, 6), z = p.z + p.ux * side * rnd(3.5, 6); if (pip(x, z) && !inWater(x, z) && Math.hypot(x - p.x, z - p.z) > 3) { smellPts.push({ x, z }); break; } }
+    for (const side of [1, -1]) { const o = rnd(2.4, 3.4), x = p.x - p.uz * side * o, z = p.z + p.ux * side * o; if (pip(x, z) && !inWater(x, z)) { smellPts.push({ x, z }); break; } }
   }
   const walkers = [];
   for (let i = 0; i < WALK.walkers; i++) walkers.push({ key: `rbgwalker${i}`, model: models[(i + 2) % Math.max(1, models.length)], dog: dogs[1 + i] || null, s: 0, dir: i % 2 ? -1 : 1, v: rnd(1.25, 1.65), pause: 0, pauseT: rnd(6, 14), active: false, x: 0, z: 0, heading: 0, posed: false });
@@ -401,21 +401,21 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
         for (const w of walkers) if (w.active && w.dog) { const q = (w.dog.x - pp.x) ** 2 + (w.dog.z - pp.z) ** 2; if (q < bd) { bd = q; tgt = { x: w.dog.x, z: w.dog.z, dog: w.dog }; } }
         if (!tgt || Math.random() < 0.3) {
           let bq = 1e9;
-          for (const sp of smellPts) { const q = Math.hypot(sp.x - pp.x, sp.z - pp.z); if (q > 3 && q < 13 && q < bq && Math.abs(Math.atan2(sp.x - pp.x, sp.z - pp.z) - h) < 2.2) { bq = q; tgt = { x: sp.x, z: sp.z }; } }
+          for (const sp of smellPts) { const q = Math.hypot(sp.x - pp.x, sp.z - pp.z); if (q > 2 && q < 9 && q < bq && Math.abs(Math.atan2(sp.x - pp.x, sp.z - pp.z) - h) < 2.2) { bq = q; tgt = { x: sp.x, z: sp.z }; } }
         }
-        if (tgt) { W.target = tgt; W.state = 'pull'; W.stateT = 9; flash(tgt.dog ? 'Your dog wants to say hello!' : 'Your dog has found a smell…', 2.5); voice('woof', d); }
+        if (tgt) { W.target = tgt; W.state = 'pull'; W.stateT = 6; flash(tgt.dog ? 'Your dog wants to say hello!' : 'Your dog has found a smell…', 2.5); voice('woof', d); }
         W.smellT = rnd(6, 11);
       }
     } else if (W.state === 'pull') {
       d.mode = 'trot';
       if (W.target.dog) { W.target.x = W.target.dog.x; W.target.z = W.target.dog.z; }
       const dd = steer(d, W.target.x, W.target.z, 3.4, dt, 8);
-      if (dd < 0.9 || W.stateT <= 0) { W.state = Math.random() < 0.35 ? 'wee' : 'sniff'; W.stateT = rnd(1.4, 2.4); W.sniffMoved = 0; W.smells++; }
+      if (dd < 0.9 || W.stateT <= 0) { W.state = Math.random() < 0.35 ? 'wee' : 'sniff'; W.stateT = W.stateDur = rnd(1.8, 2.8); W.sniffMoved = 0; W.smells++; }
     } else { // sniff / wee: the dog is rooted; stand still for it
       stand(d, dt);
       d.mode = 'sniff';
       if (W.target?.dog) d.yaw += angDiff(Math.atan2(W.target.x - d.x, W.target.z - d.z), d.yaw) * Math.min(1, dt * 4);
-      W.sniffMoved = Math.max(W.sniffMoved, W.speed);
+      if (W.stateT < W.stateDur - 0.7) W.sniffMoved = Math.max(W.sniffMoved, W.speed); // (a moment's grace to stop)
       if (W.stateT <= 0) {
         if (W.sniffMoved < 1.3) { W.meter = clamp(W.meter + 0.07, 0, 1); flash('Good dog!', 1.5); } else { W.meter = clamp(W.meter - 0.05, 0, 1); flash('You rushed the dog', 1.5); }
         W.state = 'heel'; W.target = null; W.smellT = rnd(6, 11);
@@ -431,7 +431,7 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
       if (W.state === 'heel') { d.x -= ux * over; d.z -= uz * over; } // a free dog is dragged in
       else { const tug = Math.min(over, 4 * dt); pp.x += ux * tug; pp.z += uz * tug; W.tugged += tug; } // a rooted dog holds you back
     }
-    if (W.tension > 0.75) W.meter = clamp(W.meter - 0.16 * dt, 0, 1);
+    if (W.tension > 0.75 && (W.state === 'heel' || W.speed > 1.2)) W.meter = clamp(W.meter - 0.16 * dt, 0, 1);
     else if (W.tension < 0.4 && W.state === 'heel') W.meter = clamp(W.meter + 0.03 * dt, 0, 1);
     if (W.tension > 0.75 && W.msgT <= 0) flash(W.speed > 3.5 ? 'Slow down: the lead is tight!' : 'Wait for your dog!', 1.2);
     setLead(0, hx, hy, hz, d.x + Math.sin(d.yaw) * 0.32 * d.scale[2], d.y + 0.58 * d.scale[1], d.z + Math.cos(d.yaw) * 0.32 * d.scale[2]);
@@ -440,7 +440,7 @@ export function createDogWalk({ scene, cm, cast = null, models = [], dogs = [], 
     if (cp) {
       const dp = Math.hypot(pp.x - cp.x, pp.z - cp.z);
       if (dp < WALK.reach) {
-        if (Math.hypot(d.x - cp.x, d.z - cp.z) < WALK.reach + 2) {
+        if (Math.hypot(d.x - cp.x, d.z - cp.z) < WALK.reach + 3.5) {
           W.cp++; W.done++; d.happy = 1;
           if (W.cp >= cps.length) { finish(); return; }
           flash(`${cp.name} ✓  (${W.cp}/${cps.length}) · next: ${cps[W.cp].name}`, 3.5);
