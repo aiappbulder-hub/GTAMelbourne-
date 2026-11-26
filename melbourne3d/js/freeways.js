@@ -274,8 +274,9 @@ export function createFreeways({ scene }) {
   for (const w of ways) {
     const S = w.S, hw = w.hw;
     const E = (s, o, dy = 0) => [s.x + s.nx * o, s.y + dy, s.z + s.nz * o];
-    // is the edge at offset o of sample s on another way's deck (a merge: no barrier there)
-    const onOther = (s, o) => surfaceAt(s.x + s.nx * o * 1.15, s.z + s.nz * o * 1.15, s.y, w.wi) !== null;
+    // is the edge at offset o of sample s on another way's deck (a merge: no barrier there); tested just inside the edge,
+    // so a carriageway beside this one (a median, however narrow) keeps both barriers
+    const onOther = (s, o) => surfaceAt(s.x + s.nx * (o - Math.sign(o) * 0.6), s.z + s.nz * (o - Math.sign(o) * 0.6), s.y, w.wi) !== null;
     const n = S.length - 1, segLen = (i) => Math.hypot(S[i + 1].x - S[i].x, S[i + 1].z - S[i].z);
     // Which segments have a barrier on each side: where the deck stands 0.7 m or more over the ground, out of a cutting
     // and a tunnel, and its edge nowhere along the segment on another way's deck (a merge, a diverge, a join at an angle);
