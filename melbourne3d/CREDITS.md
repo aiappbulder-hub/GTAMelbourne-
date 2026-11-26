@@ -101,3 +101,7 @@ them; the rest of the game is GPL-3.0).
   in it. The look follows the real building as it appears in public photos (Wikimedia Commons, Category:Flinders Street
   railway station); none of those photos are shipped.
 - Decoded in the browser with three.js's `meshopt_decoder.module.js` (meshoptimizer, MIT).
+
+## Dogs (js/dogs.js)
+
+- Built for this game: the dogs, the Fawkner Park off-leash fence, bowl and benches are procedural geometry; the bark and yelp are synthesised with the Web Audio API. No third-party assets or code.
