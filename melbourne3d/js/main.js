@@ -20,7 +20,8 @@ import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
 import { settings } from './settings.js';
 import { CityAudioSystem } from './audio-system.js';
-import { groundHooks } from './terrain.js';
+import { groundHooks, terrainHeight } from './terrain.js';
+import { freewayClearance } from './freeway-footprint.js';
 
 // Saved player positions, per city (the frames differ)
 const PLAYER_STATE_KEY = IS_MELBOURNE ? 'melbourne-player-state' : 'nyc-player-state';
@@ -757,6 +758,39 @@ async function initApp() {
     // (a job's objective stays the waypoint after a teleport, so the GPS route to it starts from the new spot)
     return destination;
   }
+  // Safety net for the freeways (js/freeways.js): a car that is stuck down a tunnel or a cutting (under 1 m/s for 4 s with
+  // the throttle held) or has fallen through every ground layer (half a second 3 m under the ground with no tunnel floor
+  // under it) is put back on the nearest street that has no freeway over it or a cutting under it
+  let rescueStuck = 0, rescueFall = 0;
+  function nearestStreet(x, z) {
+    let best = null, bd = Infinity;
+    for (const r of ROADS) {
+      if (r.highway || !r.pts || /CITYLINK|FREEWAY|TUNNEL|RAMP/i.test(r.raw || r.name || '')) continue;
+      for (let i = 0; i + 1 < r.pts.length; i++) {
+        const a = r.pts[i], c = r.pts[i + 1], dx = c.x - a.x, dz = c.z - a.z, L2 = dx * dx + dz * dz;
+        if (L2 < 1) continue;
+        const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / L2)), px = a.x + dx * t, pz = a.z + dz * t;
+        const d = Math.hypot(px - x, pz - z);
+        if (d >= bd || freewayClearance(px, pz, 4) < 6) continue;
+        bd = d; best = { x: px, z: pz, h: Math.atan2(dx, dz) };
+      }
+    }
+    return best;
+  }
+  function freewayRescue(dt) {
+    if (controllerManager.activeMode !== 'car') { rescueStuck = rescueFall = 0; return; }
+    const c = controllerManager.getActiveEntity(), p = c.position, k = controllerManager.keys;
+    const kind = freeways.layerKind(p.x, p.z, p.y);
+    const held = !!(k.forward || k.backward);
+    rescueStuck = (kind === 'tunnel' || kind === 'cutting') && held && Math.abs(c.speed) < 1 ? rescueStuck + dt : 0;
+    rescueFall = kind === null && p.y < terrainHeight(p.x, p.z) - 3 ? rescueFall + dt : 0;
+    if (rescueStuck < 4 && rescueFall < 0.5) return;
+    console.info(`[freeways] car ${rescueStuck >= 4 ? 'stuck in a ' + kind : 'below the ground'} at ${p.x.toFixed(0)}, ${p.z.toFixed(0)}: back to the nearest street`);
+    rescueStuck = rescueFall = 0;
+    const s = nearestStreet(p.x, p.z);
+    if (s) teleportTo(s.x, s.z, s.h);
+  }
+
   // Hooks for scripted checks (tools and the browser console): teleport, switch modes and cameras
   window.__city = { scene, renderer, controllerManager, cameraSystem, trafficSystem, teleportTo, bridges, freeways, highwayTraffic, get map() { return mapSystem; }, selectCamera: (id) => selectCamera(id, true) };
 
@@ -791,6 +825,7 @@ async function initApp() {
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
+  if (freeways) window.__city.freewayRescue = freewayRescue; // (scripted checks step the safety net directly)
   window.__city.stkilda = stkilda;
   // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
   const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
@@ -1325,6 +1360,7 @@ async function initApp() {
     voices?.update(dt);
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     if (warmedUp && freeways) freeways.update(cameraSystem.camera.position, dt);
+    if (warmedUp && freeways) freewayRescue(dt);
     // Unlit lamps (intensity 0: daytime, or beyond the lamp pools' reach) leave the clustered light lists, so the light
     // grid compute and every lit pixel's cluster loop skip them (~220 of 250 by day). Hidden here, shown again when lit.
     if (warmedUp) {

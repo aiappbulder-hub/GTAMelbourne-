@@ -23,7 +23,7 @@
 //   controllerManager.extraGround.unshift(freeways.groundHeight);
 //   ...each frame: freeways.update(camera.position);
 import * as THREE from 'three/webgpu';
-import { FREEWAYS } from './melbourne-freeways.js';
+import { FREEWAYS } from './freeway-data.js';
 import { terrainHeight } from './terrain.js';
 import { Q } from './quality.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
@@ -274,9 +274,12 @@ export function createFreeways({ scene }) {
   for (const w of ways) {
     const S = w.S, hw = w.hw;
     const E = (s, o, dy = 0) => [s.x + s.nx * o, s.y + dy, s.z + s.nz * o];
-    // is the edge at offset o of sample s on another way's deck (a merge: no barrier there); tested just inside the edge,
-    // so a carriageway beside this one (a median, however narrow) keeps both barriers
-    const onOther = (s, o) => surfaceAt(s.x + s.nx * (o - Math.sign(o) * 0.6), s.z + s.nz * (o - Math.sign(o) * 0.6), s.y, w.wi) !== null;
+    // is the point at offset o of sample s on another way's deck, floor or cutting (a merge or a split)
+    const onOther = (s, o) => surfaceAt(s.x + s.nx * o, s.z + s.nz * o, s.y, w.wi) !== null;
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, nx: (a.nx + b.nx) / 2, nz: (a.nz + b.nz) / 2 });
+    // another way's road anywhere along segment i at offset o (a barrier, a cutting's or a tunnel's wall there would stand
+    // across that way's lanes: at a split or a merge, the walls between the two ways are left out so neither is blocked)
+    const otherAlong = (i, o) => onOther(S[i], o) || onOther(mid(S[i], S[i + 1]), o) || onOther(S[i + 1], o);
     const n = S.length - 1, segLen = (i) => Math.hypot(S[i + 1].x - S[i].x, S[i + 1].z - S[i].z);
     // Which segments have a barrier on each side: where the deck stands 0.7 m or more over the ground, out of a cutting
     // and a tunnel, and its edge nowhere along the segment on another way's deck (a merge, a diverge, a join at an angle);
@@ -285,8 +288,9 @@ export function createFreeways({ scene }) {
     const fence = [-1, 1].map((side) => {
       const other = [], want = [], open = [];
       for (let i = 0; i < n; i++) {
-        const a = S[i], b = S[i + 1], m = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, nx: (a.nx + b.nx) / 2, nz: (a.nz + b.nz) / 2 };
-        other.push(onOther(a, side * hw) || onOther(m, side * hw) || onOther(b, side * hw));
+        const a = S[i], b = S[i + 1], covered = a.cov && b.cov, cut = !covered && Math.min(a.h, b.h) < -0.6;
+        // (tested just inside the edge, so a carriageway beside this one keeps both barriers, and at the wall's own line)
+        other.push(otherAlong(i, side * (hw - 0.6)) || otherAlong(i, side * (covered ? hw + 0.6 : cut ? hw + 0.7 : hw + 0.2)));
         open.push(!(a.cov && b.cov) && Math.min(a.h, b.h) >= -0.6 && !other[i]);
         want.push(open[i] && Math.max(a.h, b.h) >= 0.7);
       }
@@ -349,17 +353,19 @@ export function createFreeways({ scene }) {
         const wc = C.tunnelWall.map((v) => v * lit);
         const W = (s, o, y) => [s.x + s.nx * o, y, s.z + s.nz * o];
         const o = hw + 0.6;
-        G.quad(W(a, -o, a.y - 0.1), W(a, -o, ca), W(b, -o, cb), W(b, -o, b.y - 0.1), wc); // right wall, facing in
-        G.quad(W(a, o, a.y - 0.1), W(b, o, b.y - 0.1), W(b, o, cb), W(a, o, ca), wc); // left wall
+        // (each wall left out where another way's road runs through it: a split or a merge inside the tunnel, see `fence`)
+        const wallR = !fence[0].other[i], wallL = !fence[1].other[i];
+        if (wallR) G.quad(W(a, -o, a.y - 0.1), W(a, -o, ca), W(b, -o, cb), W(b, -o, b.y - 0.1), wc); // right wall, facing in
+        if (wallL) G.quad(W(a, o, a.y - 0.1), W(b, o, b.y - 0.1), W(b, o, cb), W(a, o, ca), wc); // left wall
         // a dark tiled band along the bottom of each wall
-        G.quad(W(a, -o + 0.01, a.y - 0.1), W(a, -o + 0.01, a.y + 0.9), W(b, -o + 0.01, b.y + 0.9), W(b, -o + 0.01, b.y - 0.1), C.concreteDark);
-        G.quad(W(a, o - 0.01, a.y - 0.1), W(b, o - 0.01, b.y - 0.1), W(b, o - 0.01, b.y + 0.9), W(a, o - 0.01, a.y + 0.9), C.concreteDark);
+        if (wallR) G.quad(W(a, -o + 0.01, a.y - 0.1), W(a, -o + 0.01, a.y + 0.9), W(b, -o + 0.01, b.y + 0.9), W(b, -o + 0.01, b.y - 0.1), C.concreteDark);
+        if (wallL) G.quad(W(a, o - 0.01, a.y - 0.1), W(b, o - 0.01, b.y - 0.1), W(b, o - 0.01, b.y + 0.9), W(a, o - 0.01, a.y + 0.9), C.concreteDark);
         G.quad(W(a, -o, ca), W(a, o, ca), W(b, o, cb), W(b, -o, cb), C.tunnelCeil);
         G.quad(W(a, -0.35, ca - 0.04), W(a, 0.35, ca - 0.04), W(b, 0.35, cb - 0.04), W(b, -0.35, cb - 0.04), C.tunnelLight);
         // the roof slab and walls seen from outside (only where it shows: in a cutting's end, from above it's buried)
         L.quad(W(a, -o - 0.4, ca + 0.3), W(b, -o - 0.4, cb + 0.3), W(b, o + 0.4, cb + 0.3), W(a, o + 0.4, ca + 0.3), C.concreteDark);
-        obb(...[a.x - a.nx * o, a.z - a.nz * o, b.x - b.nx * o, b.z - b.nz * o], 0.6, Math.min(a.y, b.y) - 1, Math.max(ca, cb));
-        obb(...[a.x + a.nx * o, a.z + a.nz * o, b.x + b.nx * o, b.z + b.nz * o], 0.6, Math.min(a.y, b.y) - 1, Math.max(ca, cb));
+        if (wallR) obb(...[a.x - a.nx * o, a.z - a.nz * o, b.x - b.nx * o, b.z - b.nz * o], 0.6, Math.min(a.y, b.y) - 1, Math.max(ca, cb));
+        if (wallL) obb(...[a.x + a.nx * o, a.z + a.nz * o, b.x + b.nx * o, b.z + b.nz * o], 0.6, Math.min(a.y, b.y) - 1, Math.max(ca, cb));
         // portals: where the tube opens into a cutting, a headwall from the roof up to the ground
         for (const [s, n, sign] of [[a, i > 0 ? S[i - 1] : null, -1], [b, S[i + 2] || null, 1]]) {
           if (!n || n.cov) continue;
@@ -540,5 +546,14 @@ export function createFreeways({ scene }) {
     }
   }
 
-  return { group, colliders, groundHeight, surfaceAt, lanes, update, stats: { cells: cells.size, meshes: group.children.length, triangles, colliders: colliders.length, lanes: lanes.length } };
+  // What carries something at height y over (x, z): 'tunnel', 'cutting', 'deck', or null (the ground). js/main.js uses it
+  // for the safety net that brings a car stuck down a tunnel or a cutting back to a street.
+  const kindOut = {};
+  function layerKind(x, z, y) {
+    if (surfaceAt(x, z, y, -1, kindOut) === null || !kindOut.seg) return null;
+    const g = kindOut.seg;
+    return g.cov ? 'tunnel' : Math.min(g.ya - g.ta, g.yb - g.tb) < -0.6 ? 'cutting' : 'deck';
+  }
+
+  return { group, colliders, groundHeight, surfaceAt, layerKind, lanes, update, stats: { cells: cells.size, meshes: group.children.length, triangles, colliders: colliders.length, lanes: lanes.length } };
 }

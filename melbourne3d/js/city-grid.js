@@ -60,7 +60,7 @@ import { createRoadPaintChunkBuilder } from './road-paint.js';
 import { drapeGroup, terrainHeight as terrainY } from './terrain.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
 import { GEO } from './geodata.js';
-import { FREEWAYS } from './melbourne-freeways.js';
+import { FREEWAYS } from './freeway-data.js';
 import { freewayClearance } from './freeway-footprint.js';
 import { createMelbourneWaterMaterial } from './water.js';
 import { IS_MELBOURNE } from './city.js';
