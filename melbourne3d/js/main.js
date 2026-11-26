@@ -168,9 +168,11 @@ async function initApp() {
   // Melbourne's freeways (js/freeways.js): viaducts, ramps, cuttings and the CityLink tunnels; their lanes carry the
   // ambient highway traffic, their colliders join the player's (below, after traffic took its obstacles)
   const freeways = IS_MELBOURNE ? (await import('./freeways.js')).createFreeways({ scene }) : null;
+  markInit('freeways');
   const highwayTraffic = createHighwayTraffic(scene, [...cityGrid.highwayLanes, ...(freeways ? freeways.lanes : [])]);
   // Melbourne's trams on the real routes (js/trams.js)
   const tramSystem = IS_MELBOURNE ? await (await import('./trams.js')).createTramSystem(scene) : null;
+  markInit('trams');
   // Melbourne visuals: station glow, laneways, Crown fire, river boat (js/melb-night.js)
   let melbNight = null;
   let streetArt = null;
@@ -180,6 +182,7 @@ async function initApp() {
   // Melbourne: the Yarra's bridge decks (js/bridges.js). Their railings join the player's colliders (after traffic
   // has taken its obstacles, so AI lanes are unaffected) and their decks the ground height, below.
   const bridges = IS_MELBOURNE ? (await import('./bridges.js')).createBridges({ scene }) : null;
+  markInit('bridges');
   if (bridges) allColliders.push(...bridges.colliders);
   if (freeways) allColliders.push(...freeways.colliders);
 
@@ -818,6 +821,7 @@ async function initApp() {
   const castSystem = cast ? cast.createCast({ scene, controllerManager }) : null;
   if (cast) cast.castHook.cast = castSystem;
   window.__city.cast = castSystem;
+  markInit('cast');
   // St Kilda: the café on Acland Street and St Kilda Pier (js/stkilda.js)
   const stkilda = IS_MELBOURNE ? (await import('./stkilda.js')).createStKilda({ scene, cast: castSystem, controllerManager }) : null;
   // Recorded Australian voices for the characters, pedestrians and police (js/voice-manager.js, data/character-voices.json)
@@ -825,43 +829,55 @@ async function initApp() {
     audioSystem, cameraSystem, trafficSystem, controllerManager, isCinematic: () => document.body.classList.contains('cinematic')
   }).catch((e) => { console.warn('[voices]', e); return null; }) : null;
   window.__city.voices = voices;
+  markInit('voices');
   if (freeways) window.__city.freewayRescue = freewayRescue; // (scripted checks step the safety net directly)
   window.__city.stkilda = stkilda;
+  markInit('stkilda');
   // Arbory Afloat, the floating bar on the Yarra below Flinders Street Station (js/arbory-afloat.js)
   const arbory = IS_MELBOURNE ? (await import('./arbory-afloat.js')).createArboryAfloat({ scene, controllerManager, cast: castSystem, lightingSystem }) : null;
   window.__city.arbory = arbory;
+  markInit('arbory');
   // The CityLink rave under the viaduct at Punt Rd (js/citylink-rave.js)
   const rave = IS_MELBOURNE ? (await import('./citylink-rave.js')).createCitylinkRave({ scene, cast: castSystem, lightingSystem }) : null;
   window.__city.rave = rave;
+  markInit('rave');
   // Hot air balloons over the city by day (js/balloons.js)
   const balloons = IS_MELBOURNE ? (await import('./balloons.js')).createBalloons({ scene, lightingSystem }) : null;
   window.__city.balloons = balloons;
+  markInit('balloons');
   // The Yarra's bike and foot path with cyclists on it (js/river-path.js)
   const riverPath = IS_MELBOURNE ? (await import('./river-path.js')).createRiverPath({ scene, controllerManager, cast: castSystem }) : null;
   window.__city.riverPath = riverPath;
+  markInit('riverPath');
   // Dogs: the off-leash park in Fawkner Park and dogs on leads beside pedestrians (js/dogs.js)
   const dogs = IS_MELBOURNE ? (await import('./dogs.js')).createDogs({ scene, controllerManager, cast: castSystem, getAudio: () => window.__city.audio, getPeds: () => trafficSystem.peds, getCars: () => trafficSystem.cars, getMissions: () => missionSystem }) : null;
   window.__city.dogs = dogs;
+  markInit('dogs');
   // Food-delivery scooters riding the CBD's roads (js/delivery-scooters.js)
   const deliveryScooters = IS_MELBOURNE ? (await import('./delivery-scooters.js')).createDeliveryScooters({ scene, trafficSystem, controllerManager, cast: castSystem }) : null;
   window.__city.deliveryScooters = deliveryScooters;
+  markInit('deliveryScooters');
   window.__city.audio = audioSystem;
   // The Quiet Room, Gus's bar (js/interiors.js): a sealed room the player goes into through its door
   interiors = IS_MELBOURNE ? (await import('./interiors.js')).createInteriors({ scene, controllerManager, cameraSystem, lightingSystem, cast: castSystem, voices }) : null;
   window.__city.interiors = interiors;
+  markInit('interiors');
   const missionSystem = IS_MELBOURNE ? (await import('./missions.js')).createMissionSystem({ scene, controllerManager, mapSystem, cameraSystem, voices, cast: castSystem, stkilda, interiors }) : null;
   // The Book: territories, people and the daily take that Act I's choices bought (js/empire.js)
   const empire = missionSystem ? (await import('./empire.js')).createEmpire({ missionSystem, controllerManager, interiors }) : null;
   window.__city.empire = empire;
+  markInit('empire');
   // The wanted level and the police (js/wanted.js)
   const wanted = IS_MELBOURNE ? (await import('./wanted.js')).createWanted({ scene, controllerManager, trafficSystem, voices, missionSystem, audioSystem }) : null;
   window.__city.wanted = wanted;
+  markInit('wanted');
   interiors?.attach({ missionSystem, wanted, empire });
   // Taking cars, guns and talking to people (js/gameplay.js)
   gameplay = IS_MELBOURNE ? (await import('./gameplay.js')).createGameplay({
     scene, renderer, controllerManager, cameraSystem, trafficSystem, missionSystem, selectMode, voices, cast: castSystem, audioSystem, wanted
   }) : null;
   window.__city.gameplay = gameplay;
+  markInit('gameplay');
   // Victoria Police up close: light bars, the siren, officers on foot (js/police.js)
   const police = wanted && gameplay ? (await import('./police.js')).createPolice({ scene, controllerManager, wanted, gameplay, missionSystem, lightingSystem, audioSystem, cast: castSystem }) : null;
   if (police) { wanted.attachPolice(police); window.__city.police = police; }
@@ -872,9 +888,11 @@ async function initApp() {
   // The heliport by Crown, with the player's helicopter parked on it (js/helipad.js)
   helipad = IS_MELBOURNE ? (await import('./helipad.js')).createHelipad({ scene, controllerManager, mapSystem, selectMode }) : null;
   window.__city.helipad = helipad;
+  markInit('helipad');
   // the Albert Park Grand Prix
   race = IS_MELBOURNE ? (await import('./race.js')).createRace({ scene, controllerManager, missionSystem, teleportTo, selectMode }) : null;
   window.__city.race = race;
+  markInit('race');
   // trams, police units and mission cars are solid to the player's car or bike (js/vehicle-solids.js)
   const solids = IS_MELBOURNE ? (await import('./vehicle-solids.js')).createVehicleSolids(controllerManager) : null;
   if (solids) {
@@ -892,11 +910,13 @@ async function initApp() {
     cameraSystem, controllerManager, lightingSystem, selectTime, selectMode, missionSystem, teleportTo, voices, gameplay, cast: castSystem
   }) : null;
   window.__city.intro = intro;
+  markInit('intro');
   // Car radio and background music, all synthesised (js/music.js)
   if (IS_MELBOURNE) window.__city.music = (await import('./music.js')).createMusic({ audioSystem, controllerManager, voices, missionSystem, wanted, gameplay });
   // Ambient city events (js/city-events.js)
   const cityEvents = IS_MELBOURNE ? (await import('./city-events.js')).createCityEvents({ scene, controllerManager, cameraSystem, lightingSystem, trafficSystem, voices }) : null;
   window.__city.events = cityEvents;
+  markInit('events');
   // Free roam (the default): the Clubbie on Flinders St by the station at early dusk; no title film, intro or phone call
   function freeRoamStart() {
     if (new URLSearchParams(location.search).has('nointro')) return;
@@ -907,11 +927,14 @@ async function initApp() {
   }
   const areaCards = IS_MELBOURNE ? (await import('./area-cards.js')).createAreaCards({ controllerManager }) : null;
   window.__city.areaCards = areaCards;
+  markInit('areaCards');
   const rideshare = IS_MELBOURNE && missionSystem ? (await import('./rideshare.js')).createRideshare({ controllerManager, missionSystem, mapSystem, scene }) : null;
   window.__city.rideshare = rideshare;
+  markInit('rideshare');
   // Food delivery side job, L (js/delivery-job.js)
   const deliveryJob = IS_MELBOURNE && missionSystem ? (await import('./delivery-job.js')).createDeliveryJob({ controllerManager, missionSystem, mapSystem, scene }) : null;
   window.__city.deliveryJob = deliveryJob;
+  markInit('deliveryJob');
   if (intro) {
     const pop = document.getElementById('teleport-popover');
     const b = document.createElement('button');
