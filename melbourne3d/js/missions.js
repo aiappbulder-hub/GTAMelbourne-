@@ -644,6 +644,15 @@ body.cutscene .gm-pointer, body.cutscene .intro-skip, body.cutscene .gm-big { di
 .gm-call b { display: block; color: #8ee07a; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 2px; }
 .gm-call small { display: block; margin-top: 6px; color: #ffcf6e; font: 700 13px/1.3 Inter, system-ui, sans-serif; }
 body.cutscene .gm-call, body.cinematic .gm-call { display: none; }
+/* phones and short screens: a small banner at the top, the caller and the job only (tap it to close) */
+@media (max-height: 520px), (max-width: 700px), (pointer: coarse) {
+  .gm-call { top: max(6px, env(safe-area-inset-top)); width: min(340px, 64vw); max-height: 30vh; overflow: hidden; padding: 6px 10px 6px 40px;
+    font-size: 12px; line-height: 1.3; border-radius: 10px; }
+  .gm-call::before { left: 9px; top: 7px; width: 22px; height: 22px; font-size: 13px; line-height: 22px; }
+  .gm-call b { font-size: 10px; margin-bottom: 0; }
+  .gm-call span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .gm-call small { margin-top: 3px; font-size: 11px; }
+}
 @media (prefers-reduced-motion: reduce) { .gm-call::before { animation: none; } }
 .gm-skip { position: fixed; right: 18px; top: calc(11vh + 12px); z-index: 63; padding: 7px 14px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
   background: rgba(0,0,0,.45); color: #fff; font: 700 13px/1 Inter, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; display: none; }
