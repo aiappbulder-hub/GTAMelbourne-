@@ -1656,7 +1656,7 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
             .mul(band(p.y.sub(0.66), 0.028, fwY));
           const badgeFg = mix(color(0xf4f6f8), color(0xeaf4e6), isBoro).mul(ao);
           // Victorian taxi: a teal band along the doors, then a navy fleet-number plate with white lettering
-          const taxiBand = band(p.y.sub(0.57), 0.04, fwY).mul(along).mul(float(spec.sign ? 1.0 : 0.0));
+          const taxiBand = band(p.y.sub(0.57), 0.065, fwY).mul(along).mul(float(spec.sign ? 1.0 : 0.0));
           bCol.assign(mix(bCol, color(0x0a7d86), taxiBand));
           bCol.assign(mix(mix(bCol, mix(color(0x121417), color(0x10264f), float(spec.sign ? 1.0 : 0.0)), badge), badgeFg, max(emblem, letters).mul(badge)));
         });
