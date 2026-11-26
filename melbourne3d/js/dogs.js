@@ -16,6 +16,7 @@ import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { terrainHeight } from './terrain.js';
 import { LITE, QUALITY } from './quality.js';
+import { createDogWalk, WALK } from './dogwalk.js';
 
 export const CONFIG = {
   // the off-leash area inside Fawkner Park (the park's ring is in js/melbourne-geodata.js: x 67..745, z 2597..3641)
@@ -189,7 +190,8 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
   root.add(buildFixtures(P, gy));
 
   // ---- the shared meshes
-  const N = CONFIG.parkDogs + CONFIG.streetDogs;
+  const WN = 1 + WALK.walkers; // the player's walking dog and the gardens' NPC walkers' dogs (js/dogwalk.js)
+  const N = CONFIG.parkDogs + CONFIG.streetDogs + WN;
   const coatMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.92 });
   const mkIM = (geo, cnt, mat = coatMat) => {
     const m = new THREE.InstancedMesh(geo, mat, cnt);
@@ -207,7 +209,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardNodeMaterial({ color: 0xc9e52a, roughness: 0.8 }));
   ball.frustumCulled = false; ball.visible = false; root.add(ball);
   // the leads: one segment per street dog (owner's hand to the collar)
-  const leadPos = new THREE.BufferAttribute(new Float32Array(CONFIG.streetDogs * 6), 3);
+  const leadPos = new THREE.BufferAttribute(new Float32Array((CONFIG.streetDogs + WN) * 6), 3);
   leadPos.setUsage(THREE.DynamicDrawUsage);
   const leadGeo = new THREE.BufferGeometry(); leadGeo.setAttribute('position', leadPos);
   const lead = new THREE.LineSegments(leadGeo, new THREE.LineBasicNodeMaterial({ color: 0xb02a22 }));
@@ -229,6 +231,8 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
   const parkDogs = [], streetDogs = [];
   for (let i = 0; i < CONFIG.parkDogs; i++) parkDogs.push(mkDog('park', i));
   for (let i = 0; i < CONFIG.streetDogs; i++) streetDogs.push(mkDog('street', i));
+  const walkDogs = [];
+  for (let i = 0; i < WN; i++) { const d = mkDog('walk', i); d.active = false; walkDogs.push(d); }
   // coat colours (the dalmatians' spots are the instances k = 0.. of spotIM, rewritten each frame)
   for (const d of dogs) for (const [m, ids] of [[bodyIM, [d.idx]], [headIM, [d.idx]], [tailIM, [d.idx]], [legIM, [0, 1, 2, 3].map((l) => d.idx * 4 + l)]]) for (const i of ids) m.setColorAt(i, _c.set(d.coat));
   const parkHome = () => ({ x: P.cx + rnd(-P.hx + 3, P.hx - 3), z: P.cz + rnd(-P.hz + 3, P.hz - 3) });
@@ -502,7 +506,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     F.near = null;
     if (!F.dog && onFoot) {
       let bd = 36;
-      for (const d of dogs) { if (!d.active || d.flee > 0) continue; const q = (d.x - pp.x) ** 2 + (d.z - pp.z) ** 2; if (q < bd) { bd = q; F.near = d; } }
+      for (const d of dogs) { if (!d.active || d.flee > 0 || d.kind === 'walk') continue; const q = (d.x - pp.x) ** 2 + (d.z - pp.z) ** 2; if (q < bd) { bd = q; F.near = d; } }
     }
     if (F.charging) { F.keyT += dt; F.charge = Math.min(1, F.keyT / 1.2); }
     const b = F.ball;
@@ -572,6 +576,8 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     if (d.breed.spots) { _m.copy(_root).multiply(_G); spotIM.setMatrixAt(spotN++, _m); }
   }
 
+  const walk = createDogWalk({ scene, cm, cast, models: CONFIG.models, dogs: walkDogs, steer, stand, voice, getMissions, setLead: (slot, ax, ay, az, bx, by, bz) => { const k = (CONFIG.streetDogs + slot) * 2; leadPos.setXYZ(k, ax, ay, az); leadPos.setXYZ(k + 1, bx, by, bz); } });
+
   let t = 0, bindT = 0;
   function update(dt, camPos) {
     dt = Math.min(dt, 0.1);
@@ -625,6 +631,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
       } else { leadPos.setXYZ(leads * 2, 0, 0, 0); leadPos.setXYZ(leads * 2 + 1, 0, 0, 0); }
       leads++;
     }
+    walk.update(dt, pp, ent);
     leadPos.needsUpdate = true;
     lead.visible = true;
     // -- ground heights, the gait clock and the drawing
@@ -633,7 +640,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
       const d = dogs[k];
       if (d.active) {
         const onPark = d.kind === 'park';
-        const gh = onPark ? gy(d.x, d.z) : terrainHeight(d.x, d.z) + (d.ped && d.ped.node && d.ped.t > 2 && d.ped.t < d.ped.len - 2 ? 0.012 : 0.22);
+        const gh = onPark ? gy(d.x, d.z) : d.kind === 'walk' ? walk.groundAt(d.x, d.z) : terrainHeight(d.x, d.z) + (d.ped && d.ped.node && d.ped.t > 2 && d.ped.t < d.ped.len - 2 ? 0.012 : 0.22);
         d.y += (gh - d.y) * Math.min(1, dt * 14);
         if (Math.abs(d.y - gh) > 1) d.y = gh;
         d.phase += d.v * (d.v > 3.2 ? 1.9 : 4.6) * dt;
@@ -644,7 +651,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     for (const m of [bodyIM, headIM, tailIM, legIM, spotIM]) m.instanceMatrix.needsUpdate = true;
   }
   return {
-    update, fetch: fetchApi, group: root, dogs, parkDogs, streetDogs, ball: B, owners, centre: { x: P.cx, z: P.cz },
+    update, fetch: fetchApi, walk, group: root, dogs, parkDogs, streetDogs, ball: B, owners, centre: { x: P.cx, z: P.cz },
     stats: () => ({ park: parkDogs.filter((d) => d.active).length, street: streetDogs.filter((d) => d.active).length, bound: streetDogs.filter((d) => d.ped).length })
   };
 }
