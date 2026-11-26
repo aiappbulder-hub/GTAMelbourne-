@@ -10,6 +10,7 @@ export function buildGroundIndex(root) {
   root.updateWorldMatrix(true, true);
   const tris = [];
   const cells = new Map();
+  const big = [];
   root.traverse((o) => {
     if (!o.isMesh || (o.material && o.material.transparent)) return;
     const pos = o.geometry.attributes.position, idx = o.geometry.index;
@@ -29,6 +30,7 @@ export function buildGroundIndex(root) {
       tris.push(ax, w[a + 1], az, bx, w[b + 1], bz, cx, w[c + 1], cz);
       const x0 = Math.floor(Math.min(ax, bx, cx) / CELL), x1 = Math.floor(Math.max(ax, bx, cx) / CELL);
       const z0 = Math.floor(Math.min(az, bz, cz) / CELL), z1 = Math.floor(Math.max(az, bz, cz) / CELL);
+      if ((x1 - x0 + 1) * (z1 - z0 + 1) > 400) { big.push(id); continue; } // huge sheets (the sea, the lawns) are tested for every query
       for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) {
         const k = i * 262144 + j;
         let l = cells.get(k);
@@ -42,9 +44,8 @@ export function buildGroundIndex(root) {
   return function maxHit(x, z, lo, hi) {
     const l = cells.get(Math.floor(x / CELL) * 262144 + Math.floor(z / CELL));
     let best = -Infinity;
-    if (!l) return best;
-    for (let q = 0; q < l.length; q++) {
-      const o = l[q] * 9;
+    for (let q = 0, n = (l ? l.length : 0) + big.length; q < n; q++) {
+      const o = (l && q < l.length ? l[q] : big[q - (l ? l.length : 0)]) * 9;
       const ax = T[o], ay = T[o + 1], az = T[o + 2], bx = T[o + 3], by = T[o + 4], bz = T[o + 5], cx = T[o + 6], cy = T[o + 7], cz = T[o + 8];
       const det = (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
       if (det === 0) continue;
