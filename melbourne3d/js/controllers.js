@@ -145,39 +145,32 @@ function buildingContact(c, x, y, z, body, contact) {
 }
 
 function createTaxiDoorDecalTexture() {
+  // Victorian taxi door panel: white body, teal band, generic fleet number, small TAXI (no company branding)
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 128;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffbe14';
+  ctx.fillStyle = '#f2f4f5';
   ctx.fillRect(0, 0, 256, 128);
-  // Black T&LC circle emblem
-  ctx.fillStyle = '#111317';
-  ctx.beginPath();
-  ctx.arc(58, 64, 42, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#ffbe14';
-  ctx.font = '900 32px Inter, Arial, sans-serif';
+  ctx.fillStyle = '#0a7d86';
+  ctx.fillRect(0, 100, 256, 28);
+  ctx.fillStyle = '#10264f';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('T', 58, 66);
-  // NYC TAXI typography & Fare Rate
-  ctx.fillStyle = '#111317';
-  ctx.textAlign = 'left';
-  ctx.font = '900 26px Inter, Arial, sans-serif';
-  ctx.fillText('TAXI', 112, 42);
-  ctx.font = '700 15px JetBrains Mono, monospace';
-  ctx.fillText('MELBOURNE · VIC', 112, 68);
-  ctx.font = '600 13px Inter, Arial, sans-serif';
-  ctx.fillText('$4.20 FLAGFALL', 112, 90);
+  ctx.font = '900 30px Inter, Arial, sans-serif';
+  ctx.fillText('TAXI', 128, 26);
+  ctx.font = '800 38px JetBrains Mono, monospace';
+  ctx.fillText('VIC 1234', 128, 66);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 14px Inter, Arial, sans-serif';
+  ctx.fillText('T 0482', 128, 114);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  // The decals are mostly seen at grazing angles from the chase camera
   tex.anisotropy = 16;
   return tex;
 }
 
-function createNYLicensePlateTexture() {
+function createVicLicensePlateTexture() {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 128;
@@ -524,7 +517,7 @@ class ThirdPersonControllerManager {
   }
 
   // =========================================================================
-  // 2. CAR (3D LOFTED SCULPTED NYC MEDALLION YELLOW TAXI SEDAN)
+  // 2. CAR (3D LOFTED SCULPTED VICTORIAN WHITE TAXI SEDAN)
   // =========================================================================
   createCarEntity() {
     const root = new THREE.Group();
@@ -534,7 +527,7 @@ class ThirdPersonControllerManager {
     root.add(chassisPivot);
 
     const spec = BODY_SPECS.taxi;
-    const taxiLoftMat = createLoftedCarMaterial(spec, 0xffbe14);
+    const taxiLoftMat = createLoftedCarMaterial(spec, 0xf2f4f5);
 
     // 1. 3D Lofted Taxi Body + Curved Windscreens + Crowned Roof + Side Mirrors + Roof Sign
     const carBodyGeo = buildCarGeometry(spec, false);
@@ -543,7 +536,7 @@ class ThirdPersonControllerManager {
     carBodyMesh.receiveShadow = true;
     chassisPivot.add(carBodyMesh);
 
-    // 2. Authentic NYC Taxi Side Door T&LC Medallion & Fare Tariff Emblem Decals, hugging the curved front doors
+    // 2. Victorian taxi side door fleet-number decals, hugging the curved front doors
     const doorDecalTex = createTaxiDoorDecalTexture();
     const doorDecalMat = new THREE.MeshStandardNodeMaterial({
       map: doorDecalTex,
@@ -559,12 +552,12 @@ class ThirdPersonControllerManager {
       chassisPivot.add(decal);
     }
 
-    // 3. High-Detail NY Empire Gold License Plates on the raked bumpers, tilted to follow the fascias
-    const nyPlateTex = createNYLicensePlateTexture();
-    const nyPlateMat = new THREE.MeshStandardNodeMaterial({ map: nyPlateTex, roughness: 0.28 });
+    // 3. High-Detail Victorian licence plates on the raked bumpers, tilted to follow the fascias
+    const vicPlateTex = createVicLicensePlateTexture();
+    const vicPlateMat = new THREE.MeshStandardNodeMaterial({ map: vicPlateTex, roughness: 0.28 });
     for (const front of [true, false]) {
       const y = spec.plates[front ? 0 : 1];
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.008), nyPlateMat);
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.008), vicPlateMat);
       plate.position.set(0, y, carTipZ(spec, y, front) + (front ? 0.003 : -0.003));
       plate.rotation.x = Math.atan((carTipZ(spec, y + 0.07, front) - carTipZ(spec, y - 0.07, front)) / 0.14);
       chassisPivot.add(plate);

@@ -180,7 +180,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   };
 
   // =========================================================================
-  // 1. 3D LOFTED NYC YELLOW TAXIS, SEDANS, SUVS & NYPD CRUISERS (200 VEHICLES)
+  // 1. 3D LOFTED VICTORIAN TAXIS, SEDANS, SUVS & NYPD CRUISERS (200 VEHICLES)
   // =========================================================================
   function createVehicle(bus, half, halfWidth, axle, driver, v0) {
     return {
@@ -205,6 +205,8 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   const carWheelMat = createCarWheelMaterial({ instanced: true });
 
   const taxiYellow = new THREE.Color(0xffbe14);
+  const taxiWhite = new THREE.Color(0xf0f2f3);
+  const taxiSilver = new THREE.Color(0xb9bec4);
   const boroGreen = new THREE.Color(0x5cae3e);
   const policeWhite = new THREE.Color(0xf6f9fc);
   // NYC street fleet palettes: white/black/grey/silver dominate with TLC black cars, blue/red/green accents,
@@ -300,7 +302,7 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
     let col;
     let style;
     if (bodyType === 'taxi') {
-      col = taxiYellow;
+      col = i % 3 === 0 ? taxiYellow : (i % 3 === 1 ? taxiWhite : taxiSilver);
       style = carStyleCode({ livery: 0, metallic: 0, trim: 0, wheel: i % 2 });
     } else if (isPolice) {
       col = policeWhite;

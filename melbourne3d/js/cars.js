@@ -985,7 +985,7 @@ function buildRoofRails(spec) {
   return list;
 }
 
-// NYC medallion roof light: a lit, gently tapered box on a black mount
+// Victorian taxi roof light: a lit, gently tapered box on a black mount
 function taxiSignPlacement(spec) {
   const L = carLayout(spec);
   const cab = spec.cabin;
@@ -1654,8 +1654,11 @@ function createLoftedCarMaterial(spec, fixedColorHex = null) {
           const letters = mix(float(0.4), smoothstep(0.15, 0.55, sin(p.z.mul(95.0))), fadeFine(fwZ))
             .mul(band(p.z.sub(doorMid), 0.1, fwZ))
             .mul(band(p.y.sub(0.66), 0.028, fwY));
-          const badgeFg = mix(color(0xffbe14), color(0xeaf4e6), isBoro).mul(ao);
-          bCol.assign(mix(mix(bCol, color(0x121417), badge), badgeFg, max(emblem, letters).mul(badge)));
+          const badgeFg = mix(color(0xf4f6f8), color(0xeaf4e6), isBoro).mul(ao);
+          // Victorian taxi: a teal band along the doors, then a navy fleet-number plate with white lettering
+          const taxiBand = band(p.y.sub(0.57), 0.04, fwY).mul(along).mul(float(spec.sign ? 1.0 : 0.0));
+          bCol.assign(mix(bCol, color(0x0a7d86), taxiBand));
+          bCol.assign(mix(mix(bCol, mix(color(0x121417), color(0x10264f), float(spec.sign ? 1.0 : 0.0)), badge), badgeFg, max(emblem, letters).mul(badge)));
         });
 
         const frontOfSlide = spec.slidingDoor ? smoothstep(spec.slidingDoor[0] + 0.02, spec.slidingDoor[0] + 0.06, p.z) : one;
