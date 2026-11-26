@@ -104,6 +104,24 @@ export function createFreeways({ scene }) {
       S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1, tube: opts && opts.tube, oi: i / 4, f: 0 });
     }
     if (wi < FREEWAYS.ways.length) ({ S, opts } = smoothWay(S, opts));
+    // An at-grade or low stretch is a straight line between samples up to 8 m apart, and the ground between them can
+    // bulge over it (the road vanishing under the land deck in patches): each sample is lifted by what the ground between
+    // it and its neighbours stands over the road, plus 2 cm (up to 0.7 m, at a cutting's shallow mouth)
+    if (wi < FREEWAYS.ways.length) {
+      const lift = S.map(() => 0), o = width / 2 - 0.5;
+      for (let i = 0; i + 1 < S.length; i++) {
+        const a = S[i], b = S[i + 1];
+        if ((a.cov || b.cov) || Math.max(a.h, b.h) > 0.3 || Math.max(a.h, b.h) <= -0.6) continue; // (a deep cutting has its hole)
+        const L = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / L, nz = (b.x - a.x) / L;
+        let over = 0;
+        for (const t of [0.2, 0.4, 0.6, 0.8]) for (const k of [-1, 0, 1]) {
+          const x = a.x + (b.x - a.x) * t + nx * o * k, z = a.z + (b.z - a.z) * t + nz * o * k;
+          over = Math.max(over, terrainHeight(x, z) + 0.02 - (a.y + (b.y - a.y) * t));
+        }
+        if (over > 0) { lift[i] = Math.max(lift[i], Math.min(0.7, over)); lift[i + 1] = Math.max(lift[i + 1], Math.min(0.7, over)); }
+      }
+      S.forEach((s, i) => { if (lift[i] > 0) { s.y += lift[i]; s.h = s.y - s.t; } });
+    }
     // headings (averaged at the joints) and normals (left of travel)
     for (let i = 0; i < S.length; i++) {
       const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)];

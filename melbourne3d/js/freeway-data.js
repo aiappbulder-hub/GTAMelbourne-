@@ -7,8 +7,10 @@
 // as mapped, a car met the edge deep underground: a dead end it could not turn out of. Here the tunnel instead climbs at
 // 6% to a portal and a short open cutting and comes up to the ground on the street at BURNLEY_EXIT, about 115 m inside
 // the edge; the rest of it (and the tube beyond, way 87, out of bounds) no longer carries traffic, and the cutting's
-// outline is added to the trenches (the holes in the land deck, js/city-grid.js).
+// outline is added to the trenches (the holes in the land deck, js/city-grid.js), and the kerb islands and parks over it
+// are cut round it (js/freeway-block-patches.js, by tools/melbourne/patch-cuttings.mjs).
 import { FREEWAYS as RAW } from './melbourne-freeways.js';
+import { BLOCK_PATCHES } from './freeway-block-patches.js';
 
 const GRADE = 0.06; // the steepest grade on the network (tools/melbourne/refine-freeways.mjs)
 const COVERED = -2.7; // deeper than this under the ground a way is cut-and-cover (refine-freeways.mjs)
@@ -56,4 +58,8 @@ function patch(raw) {
   return { ...raw, ways, trenches, chains };
 }
 
-export const FREEWAYS = patch(RAW);
+// The refine pass's kerb-island patches, before the ones cut round the cuttings changed here (tools/melbourne/
+// patch-cuttings.mjs, js/freeway-block-patches.js), which replace them block by block
+export const RAW_PATCHES = RAW.blockPatches || {};
+const patched = patch(RAW);
+export const FREEWAYS = { ...patched, blockPatches: { ...RAW_PATCHES, ...BLOCK_PATCHES } };
