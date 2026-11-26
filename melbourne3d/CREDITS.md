@@ -105,3 +105,9 @@ them; the rest of the game is GPL-3.0).
 ## Dogs (js/dogs.js)
 
 - Built for this game: the dogs, the Fawkner Park off-leash fence, bowl and benches are procedural geometry; the bark and yelp are synthesised with the Web Audio API. No third-party assets or code.
+
+## Sidney Myer Music Bowl (js/music-bowl.js)
+
+- Built for this game: the tensile canopy (a parametric saddle surface), stage, masts, light towers, lawn and paths are procedural
+  geometry modelled on the real bowl (Yuncken Freeman, 1959). Sited on the "Sidney Myer Music Bowl Reserve" park outline from
+  OpenStreetMap (© OpenStreetMap contributors, ODbL). No third-party assets or code.

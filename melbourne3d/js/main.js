@@ -147,6 +147,9 @@ async function initApp() {
   // Young & Jackson Hotel (js/young-jackson.js): its collider stands in for the generic building on the footprint
   const youngJackson = (await import('./young-jackson.js')).buildYoungJackson(scene);
   landmarkColliders.push(...youngJackson.colliders);
+  // Sidney Myer Music Bowl (js/music-bowl.js): its colliders stand in for the surveyed building on the site
+  const musicBowl = (await import('./music-bowl.js')).buildMusicBowl(scene);
+  landmarkColliders.push(...musicBowl.colliders);
   await showLoadingStage('Generating building footprints and facades...', 'blocks');
   const cityBlocks = buildCityBlocks(scene, landmarkColliders);
   markInit('blocks');
@@ -1368,6 +1371,7 @@ async function initApp() {
     lightingSystem.update(cameraSystem.currentPos);
     melbNight?.update(dt, cameraSystem.currentPos);
     streetArt?.update(cameraSystem.currentPos);
+    musicBowl.update(dt, { night: lightingSystem.uNightFactor.value });
     youngJackson.update(dt, { night: lightingSystem.uNightFactor.value, onFoot: controllerManager.activeMode === 'person', pos: controllerManager.entities.person?.position });
     mapSystem.update();
     helipad?.update(dt);
