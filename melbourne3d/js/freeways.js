@@ -2,10 +2,10 @@
 // and the Burnley and Domain Tunnels, from js/melbourne-freeways.js (tools/melbourne/build-freeways.mjs, OSM).
 //
 // Built once at load, cheaply:
-//  - Everything is merged per 500 m cell into at most three meshes (one lit material with vertex colours for the decks,
-//    lane paint, barriers, pillars, poles and cutting walls; one unlit for the tunnels' inside and the lamp heads; the
-//    streets' asphalt over the open decks, drawn only within ROAD_SEEN m), so a cell costs at most three draws. Cells beyond the tier's view distance (Q.viewDist) are hidden, checked four times a
-//    second against the camera.
+//  - Everything is merged per 500 m cell into at most two meshes (one lit material with vertex colours and a dry asphalt
+//    grain for the decks, lane paint, barriers, pillars, poles and cutting walls, js/tsl-materials.js
+//    createFreewayMaterial; one unlit for the tunnels' inside and the lamp heads), so a cell costs at most two draws.
+//    Cells beyond the tier's view distance (Q.viewDist) are hidden, checked four times a second against the camera.
 //  - Tunnel walls are unlit with their lighting baked into the vertex colours (bright under each ceiling light), so the
 //    sun doesn't light the inside and no light sources are added.
 //
@@ -27,7 +27,7 @@ import { FREEWAYS } from './melbourne-freeways.js';
 import { terrainHeight } from './terrain.js';
 import { Q } from './quality.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
-import { createRoadSurfaceMaterial } from './tsl-materials.js';
+import { createFreewayMaterial } from './tsl-materials.js';
 
 const CELL = 500;
 const INDEX = 32; // ground-query grid
@@ -38,7 +38,6 @@ const HIGH_EDGE = 4; // a deck higher than this keeps solid barriers (falling of
 const PILLAR_EVERY = 4; // samples (about 32 m)
 const LAMP_EVERY = 6; // samples (about 48 m)
 const TUNNEL_SEEN = 260;
-const ROAD_SEEN = 380; // the street asphalt over the decks within this (beyond it the lit mesh's flat asphalt shows)
 
 const C = {
   asphalt: [0.25, 0.255, 0.265], paint: [0.9, 0.885, 0.84], concrete: [0.62, 0.61, 0.58], concreteDark: [0.42, 0.41, 0.39],
@@ -77,18 +76,16 @@ class Buf {
 export function createFreeways({ scene }) {
   const group = new THREE.Group();
   group.name = 'Freeways';
-  const litMat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
+  // (one dry asphalt material, js/tsl-materials.js, for the decks' own tops with their lane paint: no second road layer
+  // over them to pop in and out or fight them for depth, and no puddles)
+  const litMat = createFreewayMaterial();
   const glowMat = new THREE.MeshBasicNodeMaterial({ vertexColors: true });
   litMat.name = 'FreewayLit'; glowMat.name = 'FreewayGlow';
-  // the streets' own asphalt (js/tsl-materials.js, world-space: cracks, patches, wear, wetness) over each open deck and
-  // carriageway, 1.2 cm above the lit mesh's plain asphalt top, which stands in for it further off
-  const roadMat = createRoadSurfaceMaterial();
-  roadMat.name = 'FreewayRoad';
   const cells = new Map();
   const cellOf = (x, z) => {
     const k = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
     let c = cells.get(k);
-    if (!c) cells.set(k, (c = { lit: new Buf(), glow: new Buf(), road: new Buf(), x: (Math.floor(x / CELL) + 0.5) * CELL, z: (Math.floor(z / CELL) + 0.5) * CELL }));
+    if (!c) cells.set(k, (c = { lit: new Buf(), glow: new Buf(), x: (Math.floor(x / CELL) + 0.5) * CELL, z: (Math.floor(z / CELL) + 0.5) * CELL }));
     return c;
   };
 
@@ -99,12 +96,14 @@ export function createFreeways({ scene }) {
   // `opts.street` the segments a street crosses under, `opts.tube` a lower tunnel height than TUNNEL_H; any way's barriers are left off where its deck is within 0.7 m
   // of the ground (ramps meeting their streets)
   const cityRoad = buildCityRoadWay(terrainHeight);
+  const wayEnds = FREEWAYS.ways.flatMap(([, , , , f]) => [[f[0], f[1]], [f[f.length - 4], f[f.length - 3]]]);
   const ways = [...FREEWAYS.ways, cityRoad.way].map(([name, kind, width, lanes, flat, opts], wi) => {
-    const S = [];
+    let S = [];
     for (let i = 0; i < flat.length; i += 4) {
       const x = flat[i], z = flat[i + 1], h = flat[i + 2], t = terrainHeight(x, z);
-      S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1, tube: opts && opts.tube });
+      S.push({ x, z, h, t, y: t + h + (Math.abs(h) < 0.05 ? 0.03 : 0), cov: flat[i + 3] === 1, tube: opts && opts.tube, oi: i / 4, f: 0 });
     }
+    if (wi < FREEWAYS.ways.length) ({ S, opts } = smoothWay(S, opts));
     // headings (averaged at the joints) and normals (left of travel)
     for (let i = 0; i < S.length; i++) {
       const a = S[Math.max(0, i - 1)], b = S[Math.min(S.length - 1, i + 1)];
@@ -114,6 +113,59 @@ export function createFreeways({ scene }) {
     }
     return { name, kind, width, hw: width / 2, lanes, S, wi, opts: opts || null };
   });
+
+  // A data way made smoother (the samples are up to 8 m apart): a viaduct's deck rides a smoothed line instead of following
+  // every bump of the ground under it, and the open road gets extra samples along a curve (a Catmull-Rom spline through
+  // the samples, one more for each 2 degrees of turn), so the decks, barriers and paint bend round instead of kinking.
+  // Each sample keeps its original index `oi` and its place `f` (0..1) along the original segment, for the lamps and the
+  // lane dashes; `opts.piers` and `opts.street` (original indices) are mapped onto the new ones.
+  function smoothWay(S0, opts) {
+    const raised = (s) => !s.cov && s.h > 0.3;
+    const street = new Set(opts && opts.street || []);
+    // (held too: a sample another way's end meets, so the two still meet at one height)
+    const meets = (s) => wayEnds.some(([x, z]) => Math.abs(x - s.x) < 2.5 && Math.abs(z - s.z) < 2.5);
+    for (const s of S0) s.meets = meets(s);
+    for (let it = 0; it < 6; it++) {
+      const Y = S0.map((s) => s.y);
+      for (let i = 1; i + 1 < S0.length; i++) {
+        // (held: the ends, the ramps' feet, and the decks over a street, which keep their headroom)
+        if (!raised(S0[i - 1]) || !raised(S0[i]) || !raised(S0[i + 1]) || street.has(i) || street.has(i - 1) || S0[i].meets) continue;
+        S0[i].y = (Y[i - 1] + 2 * Y[i] + Y[i + 1]) / 4;
+      }
+    }
+    for (const s of S0) if (raised(s)) { s.y = Math.max(s.y, s.t + 0.35); s.h = s.y - s.t; }
+    const turn = (i) => {
+      if (i <= 0 || i >= S0.length - 1) return 0;
+      const a = S0[i - 1], b = S0[i], c = S0[i + 1];
+      let d = Math.abs(Math.atan2(c.x - b.x, c.z - b.z) - Math.atan2(b.x - a.x, b.z - a.z));
+      return d > Math.PI ? 2 * Math.PI - d : d;
+    };
+    const out = [], map = [];
+    for (let i = 0; i < S0.length; i++) {
+      map.push(out.length);
+      out.push(S0[i]);
+      if (i + 1 >= S0.length) break;
+      const a = S0[i], b = S0[i + 1];
+      if (a.cov || b.cov) continue;
+      const n = Math.min(4, Math.floor(Math.max(turn(i), turn(i + 1)) / 0.035) + 1);
+      if (n < 2) continue;
+      const p0 = S0[Math.max(0, i - 1)], p3 = S0[Math.min(S0.length - 1, i + 2)];
+      for (let k = 1; k < n; k++) {
+        const f = k / n;
+        const cr = (v0, v1, v2, v3) => 0.5 * (2 * v1 + (v2 - v0) * f + (2 * v0 - 5 * v1 + 4 * v2 - v3) * f * f + (3 * v1 - v0 - 3 * v2 + v3) * f * f * f);
+        const x = cr(p0.x, a.x, b.x, p3.x), z = cr(p0.z, a.z, b.z, p3.z), t = terrainHeight(x, z);
+        let h, y;
+        if (raised(a) && raised(b)) { y = cr(p0.y, a.y, b.y, p3.y); h = Math.max(0.35, y - t); y = t + h; }
+        else { h = a.h + (b.h - a.h) * f; y = t + h + (Math.abs(h) < 0.05 ? 0.03 : 0); }
+        out.push({ x, z, h, t, y, cov: false, tube: a.tube, oi: i, f });
+      }
+    }
+    if (!opts) return { S: out, opts };
+    const o = { ...opts };
+    if (opts.piers) o.piers = opts.piers.map((i) => map[i]).filter((i) => i !== undefined);
+    if (opts.street) o.street = opts.street.flatMap((i) => { const r = []; for (let k = map[i]; k < (map[i + 1] ?? map[i] + 1); k++) r.push(k); return r; });
+    return { S: out, opts: o };
+  }
 
   // A way's end that continues straight into another way's start (or end): both ends take the heading through the
   // neighbouring samples either side of the join, so the decks and barriers meet without a kink
@@ -130,7 +182,7 @@ export function createFreeways({ scene }) {
       const ux0 = (sa.end > 0 ? 1 : -1) * dx / L, uz0 = (sa.end > 0 ? 1 : -1) * dz / L;
       if (ux0 * sa.ux + uz0 * sa.uz < 0.8) continue; // not a straight continuation (a merge at an angle)
       const sgn = (sb.end < 0) === (sa.end > 0) ? 1 : -1;
-      sa.ux = ux0; sa.uz = uz0; sa.nx = -uz0; sa.nz = ux0;
+      sa.ux = ux0; sa.uz = uz0; sa.nx = -uz0; sa.nz = ux0; sa.straight = sb.straight = true;
       sb.ux = ux0 * sgn; sb.uz = uz0 * sgn; sb.nx = -sb.uz; sb.nz = sb.ux;
     }
   }
@@ -206,12 +258,62 @@ export function createFreeways({ scene }) {
   };
   const lerp = (a, b, f) => a + (b - a) * f;
   let triangles = 0;
+  // another way's open deck or carriageway at (x, z) with its top between y0 and y1 (a lamp pole or pier of one way
+  // must not stand through the deck of a way beside, over or under it: merges, diverges and the interchanges' crossings)
+  const deckBetween = (x, z, y0, y1, wi, pad = 0.6) => {
+    for (const s of index.get(key(Math.floor(x / INDEX), Math.floor(z / INDEX))) || []) {
+      if (s.w === wi || s.cov) continue;
+      const dx = x - s.ax, dz = z - s.az, along = dx * s.ux + dz * s.uz;
+      if (along < -pad || along > s.L + pad || Math.abs(dx * s.uz - dz * s.ux) > s.hw + pad) continue;
+      const y = s.ya + (s.yb - s.ya) * Math.max(0, Math.min(1, along / s.L));
+      if (y > y0 && y - DECK_T < y1) return true;
+    }
+    return false;
+  };
 
   for (const w of ways) {
     const S = w.S, hw = w.hw;
     const E = (s, o, dy = 0) => [s.x + s.nx * o, s.y + dy, s.z + s.nz * o];
-    // is the edge at offset o of sample s on another way's deck (a merge: no barrier there)
-    const onOther = (s, o) => surfaceAt(s.x + s.nx * o * 1.15, s.z + s.nz * o * 1.15, s.y, w.wi) !== null;
+    // is the edge at offset o of sample s on another way's deck (a merge: no barrier there); tested just inside the edge,
+    // so a carriageway beside this one (a median, however narrow) keeps both barriers
+    const onOther = (s, o) => surfaceAt(s.x + s.nx * (o - Math.sign(o) * 0.6), s.z + s.nz * (o - Math.sign(o) * 0.6), s.y, w.wi) !== null;
+    const n = S.length - 1, segLen = (i) => Math.hypot(S[i + 1].x - S[i].x, S[i + 1].z - S[i].z);
+    // Which segments have a barrier on each side: where the deck stands 0.7 m or more over the ground, out of a cutting
+    // and a tunnel, and its edge nowhere along the segment on another way's deck (a merge, a diverge, a join at an angle);
+    // then gaps under 12 m between two runs are filled (where nothing else is in the way) and runs under 24 m that don't
+    // reach the way's end dropped, so a barrier is a tidy continuous run or nothing, never a stray stub
+    const fence = [-1, 1].map((side) => {
+      const other = [], want = [], open = [];
+      for (let i = 0; i < n; i++) {
+        const a = S[i], b = S[i + 1], m = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, nx: (a.nx + b.nx) / 2, nz: (a.nz + b.nz) / 2 };
+        other.push(onOther(a, side * hw) || onOther(m, side * hw) || onOther(b, side * hw));
+        open.push(!(a.cov && b.cov) && Math.min(a.h, b.h) >= -0.6 && !other[i]);
+        want.push(open[i] && Math.max(a.h, b.h) >= 0.7);
+      }
+      for (let i = 0; i < n;) {
+        let j = i, len = 0;
+        while (j < n && !want[j]) len += segLen(j++);
+        if (i > 0 && j < n && len < 12 && open.slice(i, j).every(Boolean)) for (let k = i; k < j; k++) want[k] = true;
+        i = Math.max(j, i + 1);
+      }
+      for (let i = 0; i < n;) {
+        let j = i, len = 0;
+        while (j < n && want[j]) len += segLen(j++);
+        if (j > i && len < 24 && i > 0 && j < n) for (let k = i; k < j; k++) want[k] = false;
+        i = Math.max(j, i + 1);
+      }
+      return { other, want };
+    });
+    // A point of this way's road that lies on a way ranked above it (a motorway over its ramp, then the earlier way): the
+    // road there sits 4 cm under that way's, so where a ramp's end overlaps the carriageway it joins there is one surface
+    // (no step, no overlapping slab fighting it for depth) and no paint of the ramp's across the carriageway's lanes
+    const out = {};
+    const ranked = (o) => ways[o].kind < w.kind || (ways[o].kind === w.kind && o < w.wi);
+    const roadY = (s, o) => {
+      const y2 = surfaceAt(s.x + s.nx * o, s.z + s.nz * o, s.y, w.wi, out);
+      return y2 !== null && out.seg && ranked(out.seg.w) && Math.abs(y2 - s.y) < 0.8 ? y2 - 0.04 : null;
+    };
+    const RE = (s, o) => { const y = roadY(s, o); return y === null ? E(s, o) : [s.x + s.nx * o, y, s.z + s.nz * o]; };
     for (let i = 0; i + 1 < S.length; i++) {
       const a = S[i], b = S[i + 1];
       const cell = cellOf((a.x + b.x) / 2, (a.z + b.z) / 2);
@@ -227,21 +329,23 @@ export function createFreeways({ scene }) {
       // roadway
       // (a cutting's floor runs on to its retaining walls, 0.7 m beyond the kerb, so nothing below shows between)
       const rw = cut ? hw + 0.7 : hw;
-      R.quad(E(a, -rw), E(b, -rw), E(b, rw), E(a, rw), roadCol);
-      if (!covered) cell.road.quad(E(a, -hw, 0.012), E(b, -hw, 0.012), E(b, hw, 0.012), E(a, hw, 0.012), roadCol);
+      R.quad(RE(a, -rw), RE(b, -rw), RE(b, rw), RE(a, rw), roadCol);
+      const underOther = !covered && roadY(a, 0) !== null && roadY(b, 0) !== null;
       // lane paint: edge lines, dashed lines between lanes (3 m dash in each 9 m)
       const line = (o, w0, f0 = 0, f1 = 1) => {
         const p = (s, t, oo) => { const x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t), y = lerp(a.y, b.y, t); return [x + s.nx * oo, y + 0.025, z + s.nz * oo]; };
         R.quad(p(a, f0, o - w0), p(b, f1, o - w0), p(b, f1, o + w0), p(a, f0, o + w0), paint);
       };
-      line(hw - 0.7, 0.08); line(-hw + 0.7, 0.08);
+      if (!underOther) { line(hw - 0.7, 0.08); line(-hw + 0.7, 0.08); }
       const nl = Math.max(1, Math.min(5, Math.round(w.lanes)));
-      if (nl > 1) for (let k = 1; k < nl; k++) line(-hw + 0.7 + ((2 * hw - 1.4) * k) / nl, 0.07, 0, 0.4);
+      // (the dash is on the first 40% of each original segment: this piece's share of it, if any)
+      const fa = a.f, fb = b.oi === a.oi ? b.f : 1, d1 = Math.min(0.4, fb);
+      if (nl > 1 && d1 > fa && !underOther) for (let k = 1; k < nl; k++) line(-hw + 0.7 + ((2 * hw - 1.4) * k) / nl, 0.07, 0, (d1 - fa) / (fb - fa));
 
       if (covered) {
         // the tube: walls, ceiling and a strip light; brightness baked (lights over every other sample)
         const ca = ceilingAt(a), cb = ceilingAt(b);
-        const lit = i % 2 === 0 ? 1 : 0.82;
+        const lit = a.oi % 2 === 0 ? 1 : 0.82;
         const wc = C.tunnelWall.map((v) => v * lit);
         const W = (s, o, y) => [s.x + s.nx * o, y, s.z + s.nz * o];
         const o = hw + 0.6;
@@ -277,11 +381,11 @@ export function createFreeways({ scene }) {
 
       // barriers on both sides (left out where the edge lies on another way's deck: a merge or a diverge)
       for (const side of [-1, 1]) {
-        const o = side * (hw + 0.2);
-        if (onOther(a, side * hw) && onOther(b, side * hw)) continue;
+        const o = side * (hw + 0.2), F = fence[side > 0 ? 1 : 0];
+        if (F.other[i]) continue;
         // at grade (a ramp meeting its street, a carriageway on the ground) no barriers: the streets stay passable (a
-        // cutting keeps its walls, below)
-        const noBarrier = Math.max(a.h, b.h) < 0.7;
+        // cutting keeps its walls, below); see `fence`
+        const noBarrier = !F.want[i];
         const bA = [a.x + a.nx * o, a.y, a.z + a.nz * o], bB = [b.x + b.nx * o, b.y, b.z + b.nz * o];
         const tA = [bA[0], a.y + BARRIER_H, bA[2]], tB = [bB[0], b.y + BARRIER_H, bB[2]];
         const iA = [a.x + a.nx * (o - side * 0.25), a.y + BARRIER_H, a.z + a.nz * (o - side * 0.25)], iB = [b.x + b.nx * (o - side * 0.25), b.y + BARRIER_H, b.z + b.nz * (o - side * 0.25)];
@@ -293,10 +397,13 @@ export function createFreeways({ scene }) {
           L.quad2(iA, iB, tB, tA, C.concrete);
           L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
           L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
+          // a run's ends closed off square
+          if (i === 0 || !F.want[i - 1]) L.quad2(fA, iA, tA, [bA[0], a.y + low, bA[2]], C.concrete);
+          if (i === n - 1 || !F.want[i + 1]) L.quad2(fB, iB, tB, [bB[0], b.y + low, bB[2]], C.concrete);
         }
         // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
         // the car from going over the edge; there they are solid from the deck up only
-        if (Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        if (!noBarrier && Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
         if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet && !noBarrier) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
@@ -324,20 +431,45 @@ export function createFreeways({ scene }) {
           for (let k = 0; k < n; k++) {
             const off = n === 1 ? 0 : (k ? 1 : -1) * hw * 0.5;
             const px = a.x + a.nx * off, pz = a.z + a.nz * off;
+            if (deckBetween(px, pz, a.t - 0.5, a.y - DECK_T - 0.2, w.wi, 1.0)) continue;
             L.box(px, a.t - 0.5, pz, a.ux, a.uz, 0.8, 0.8, a.y - DECK_T, C.concrete);
             colliders.push({ minX: px - 1.1, maxX: px + 1.1, minZ: pz - 1.1, maxZ: pz + 1.1, minY: a.t - 1, maxY: a.y - DECK_T, freeway: true });
           }
-          L.box(a.x, a.y - DECK_T - 1.0, a.z, a.ux, a.uz, 0.9, hw * 0.85, a.y - DECK_T, C.concrete);
+          // (the crosshead only where no other deck runs through it, and its top 2 cm under the deck's underside)
+          if (![-0.85, 0, 0.85].some((f) => deckBetween(a.x + a.nx * hw * f, a.z + a.nz * hw * f, a.y - DECK_T - 1.0, a.y - DECK_T, w.wi, 0.3)))
+            L.box(a.x, a.y - DECK_T - 1.0, a.z, a.ux, a.uz, 0.9, hw * 0.85, a.y - DECK_T - 0.02, C.concrete);
         }
       }
       // lamp poles (one side, alternating), with a glowing head over the road
-      if (i % LAMP_EVERY === 0 && w.kind === 0) {
-        const side = (i / LAMP_EVERY) % 2 ? 1 : -1, o = side * (hw + 0.45);
+      if (a.f === 0 && a.oi % LAMP_EVERY === 0 && w.kind === 0) {
+        const side = (a.oi / LAMP_EVERY) % 2 ? 1 : -1, o = side * (hw + 0.45);
         const px = a.x + a.nx * o, pz = a.z + a.nz * o;
-        L.box(px, a.y + BARRIER_H, pz, a.ux, a.uz, 0.12, 0.12, a.y + 11, C.pole);
         const hx = px - a.nx * side * 2.2, hz = pz - a.nz * side * 2.2;
-        L.box((px + hx) / 2, a.y + 10.85, (pz + hz) / 2, -a.nz * side, a.nx * side, 1.15, 0.08, a.y + 11, C.pole);
-        G.box(hx, a.y + 10.65, hz, a.ux, a.uz, 0.45, 0.22, a.y + 10.85, C.lamp);
+        if (!deckBetween(px, pz, a.y - 3, a.y + 11.5, w.wi) && !deckBetween(hx, hz, a.y + 1, a.y + 11.5, w.wi)) {
+          L.box(px, a.y + BARRIER_H, pz, a.ux, a.uz, 0.12, 0.12, a.y + 11, C.pole);
+          L.box((px + hx) / 2, a.y + 10.85, (pz + hz) / 2, -a.nz * side, a.nx * side, 1.15, 0.08, a.y + 11, C.pole);
+          G.box(hx, a.y + 10.65, hz, a.ux, a.uz, 0.45, 0.22, a.y + 10.85, C.lamp);
+        }
+      }
+    }
+  }
+
+  // A way's end that meets another way at an angle (a ramp leaving or joining, a split): a half-disc of deck beyond the
+  // end, 2 cm under the road, filling the wedge-shaped gaps between the square end and the way it meets (the ground there
+  // is rounded the same way, see surfaceAt), with its underside under a raised deck
+  for (const w of ways) {
+    for (const [s, sgn] of [[w.S[0], -1], [w.S[w.S.length - 1], 1]]) {
+      if (w.S.length < 2 || s.cov || s.straight || !joined(s, w.wi)) continue;
+      const cell = cellOf(s.x, s.z), N = 8, ux = s.ux * sgn, uz = s.uz * sgn;
+      const P = (k, dy) => { const t = -Math.PI / 2 + (Math.PI * k) / N; const c = Math.cos(t), sn = Math.sin(t); return [s.x + (ux * c + s.nx * sn) * w.hw, s.y + dy, s.z + (uz * c + s.nz * sn) * w.hw]; };
+      for (let k = 0; k < N; k++) {
+        const top = [P(k, -0.02), P(k + 1, -0.02)], C0 = [s.x, s.y - 0.02, s.z];
+        cell.lit.tri(C0, top[0], top[1], C.asphalt); cell.lit.tri(C0, top[1], top[0], C.asphalt);
+        if (s.h > 0.3) {
+          const bot = [P(k, -DECK_T), P(k + 1, -DECK_T)], C1 = [s.x, s.y - DECK_T, s.z];
+          cell.lit.tri(C1, bot[0], bot[1], C.concrete); cell.lit.tri(C1, bot[1], bot[0], C.concrete);
+          cell.lit.quad2(top[0], top[1], bot[1], bot[0], C.concreteDark);
+        }
       }
     }
   }
@@ -356,18 +488,18 @@ export function createFreeways({ scene }) {
 
   for (const c of cells.values()) {
     c.meshes = [];
-    for (const [buf, mat, lit] of [[c.lit, litMat, true], [c.glow, glowMat, false], [c.road, roadMat, true]]) {
+    for (const [buf, mat, lit] of [[c.lit, litMat, true], [c.glow, glowMat, false]]) {
       const geo = buf.geometry(lit);
       if (!geo) continue;
       triangles += geo.attributes.position.count / 3;
       const m = new THREE.Mesh(geo, mat);
-      m.name = mat === roadMat ? 'FreewayRoad' : lit ? 'Freeway' : 'FreewayTunnel';
+      m.name = lit ? 'Freeway' : 'FreewayTunnel';
       m.receiveShadow = lit;
       m.castShadow = false;
       group.add(m);
       c.meshes.push(m);
     }
-    c.lit = c.glow = c.road = null;
+    c.lit = c.glow = null;
   }
   scene.add(group);
 
@@ -395,7 +527,7 @@ export function createFreeways({ scene }) {
   // --- Distance culling: cells beyond the view distance hidden, four times a second ----------------------------------
   // (by each mesh's bounding sphere: the lit structure to 70% of the view distance, where the fog has nearly hidden it;
   // a tunnel's inside only within TUNNEL_SEEN m, since from further off it is underground or deep in a cutting)
-  const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat, road: m.material === roadMat }));
+  const meshList = group.children.map((m) => ({ m, s: m.geometry.boundingSphere, tunnel: m.material === glowMat }));
   let clock = 0;
   function update(camPos, dt = 0.016) {
     clock -= dt;
@@ -404,7 +536,7 @@ export function createFreeways({ scene }) {
     const far = Number.isFinite(Q.viewDist) ? Q.viewDist * 0.7 : 1e9;
     for (const e of meshList) {
       const d = Math.hypot(e.s.center.x - camPos.x, e.s.center.z - camPos.z) - e.s.radius;
-      e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : e.road ? Math.min(far, ROAD_SEEN) : far);
+      e.m.visible = d < (e.tunnel ? Math.min(far, TUNNEL_SEEN) : far);
     }
   }
 

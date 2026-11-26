@@ -61,6 +61,7 @@ import { drapeGroup, terrainHeight as terrainY } from './terrain.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
 import { GEO } from './geodata.js';
 import { FREEWAYS } from './melbourne-freeways.js';
+import { freewayClearance } from './freeway-footprint.js';
 import { createMelbourneWaterMaterial } from './water.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, HEAVY_FX } from './quality.js';
@@ -3790,7 +3791,8 @@ function buildMelbourneGrid(scene) {
   const pavedRects = [];
   const parkLawnGeos = [], parkWalkGeos = [], parkEdgeGeos = [], parkCurbGeos = [];
   const lampM = new THREE.Matrix4();
-  const addLamp = (x, y, z) => lampMatrices.push(lampM.clone().makeTranslation(x, y, z));
+  // (none under a freeway's open deck or in its cutting, js/freeway-footprint.js, where it would stand through the deck)
+  const addLamp = (x, y, z) => { if (freewayClearance(x, z, 1) > 6) lampMatrices.push(lampM.clone().makeTranslation(x, y, z)); };
   for (const b of visualBlocks(BLOCKS)) {
     if (!(b.park > 0.6 && !b.median && b.area > 250)) continue;
     const slab = offsetPolygonInward(b.poly, 0.1) || b.poly;
@@ -3826,6 +3828,7 @@ function buildMelbourneGrid(scene) {
         const tz = gz + (prand(gz, gx, 1) - 0.5) * SP * 0.7;
         if (prand(tx, tz, 9) < 0.35 || !pointInPolygonXZ(lawn, tx, tz) || inAnyHole(holes, tx, tz)) continue;
         if (openPark && trackHeight(tx, tz, 6) !== null) continue; // clear of the race track
+        if (freewayClearance(tx, tz, 3) < 14) continue; // nor through a freeway's deck
         const r = prand(tx, tz, 2);
         treeSites.push({ x: tx, y: lawnY, z: tz, scale: 0.9 + prand(tx, tz, 3) * 0.4, species: r < 0.55 ? 0 : (r < 0.75 ? 1 : 2) });
       }

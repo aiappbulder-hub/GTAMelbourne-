@@ -59,7 +59,8 @@ import {
   sqrt,
   specularColor,
   specularColorBlended,
-  specularF90
+  specularF90,
+  vertexColor
 } from 'three/tsl';
 import {
   CENTRAL_PARK_BOUNDS,
@@ -2143,6 +2144,31 @@ function createRoadSurfaceMaterial() {
 }
 
 /**
+ * The freeways' one lit material (js/freeways.js): vertex colours for the decks, lane paint, barriers, pillars and
+ * walls, with a dry asphalt grain (aggregate, mottling, patchwork pours) in world space over the dark asphalt colour
+ * and a faint one over the concrete. No puddles, wetness, cracks or reflections: a short shader that compiles fast,
+ * and the deck's own top is the road (no second road layer over it to fight it for depth).
+ */
+function createFreewayMaterial() {
+  const mat = new THREE.MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
+  mat.colorNode = Fn(() => {
+    const wxz = positionWorld.xz;
+    const px = length(fwidth(wxz)).toVar();
+    const vc = vertexColor();
+    // the asphalt (0.25 grey) takes the full grain, paint and concrete a little
+    const asphalt = smoothstep(0.34, 0.29, max(vc.r, max(vc.g, vc.b)));
+    const fine = mix(float(0.5), noise2D(wxz.mul(3.2)), smoothstep(0.4, 0.12, px));
+    const grit = mix(float(0.5), noise2D(wxz.mul(11.0).add(3.0)), smoothstep(0.12, 0.04, px));
+    const mottle = mix(float(0.5), smoothstep(0.3, 0.7, noise2D(wxz.mul(0.9).add(41.0))), smoothstep(1.2, 0.4, px));
+    const pour = noise2D(wxz.mul(0.16).add(7.0));
+    const d = fine.mul(0.3).add(grit.mul(0.15)).add(mottle.mul(0.3)).add(pour.mul(0.25));
+    const k = mix(float(0.25), float(1.0), asphalt);
+    return vec4(vec3(float(1.0).add(d.sub(0.5).mul(0.55).mul(k))), 1.0);
+  })();
+  return mat;
+}
+
+/**
  * Road markings built from the road network (js/road-paint.js): vertex-coloured strips whose `paint` attribute
  * holds (metres along the strip, pattern period, duty cycle) and `side` the offset from the strip's centre line.
  * Strips thinner than ~1.5 px are widened on screen and faded to match (phone-wire AA) and dashes are box-filtered,
@@ -3535,6 +3561,7 @@ export {
   createMarbleAshlarMaterial,
   createTreeGrateMaterial,
   createRoadSurfaceMaterial,
+  createFreewayMaterial,
   createRoadPaintMaterial,
   createSidewalkMaterial,
   createCurbMaterial,
