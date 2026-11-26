@@ -61,7 +61,7 @@ import { drapeGroup, terrainHeight as terrainY } from './terrain.js';
 import { buildCityRoadWay } from './city-road-bridge.js';
 import { GEO } from './geodata.js';
 import { FREEWAYS } from './freeway-data.js';
-import { freewayClearance } from './freeway-footprint.js';
+import { freewayClearance, polygonOverCutting } from './freeway-footprint.js';
 import { createMelbourneWaterMaterial } from './water.js';
 import { IS_MELBOURNE } from './city.js';
 import { Q, HEAVY_FX } from './quality.js';
@@ -3703,6 +3703,15 @@ function buildMelbourneGrid(scene) {
   const visualBlocks = (list) => list.flatMap((b) => {
     const patch = !b.rect && FWY_PATCH[b.id];
     return patch ? patch.map(([outer, ...holes]) => ({ ...b, poly: toPts(outer), cutHoles: holes.map(toPts) })) : [b];
+  }).filter((b) => {
+    // a kerb island or park whose slab would still reach over a cutting's road (one the patches don't cover, such as the
+    // Burnley Tunnel's exit, js/freeway-data.js) is left out: the land deck, with the cutting's hole, shows there instead
+    // (a big park is kept: losing it would cost more than the overlap)
+    const poly = b.poly || [{ x: b.minX, z: b.minZ }, { x: b.maxX, z: b.minZ }, { x: b.maxX, z: b.maxZ }, { x: b.minX, z: b.maxZ }];
+    if (!polygonOverCutting(poly)) return true;
+    const drop = !(b.area > 20000);
+    console.info(`[freeways] kerb island ${b.id} (${Math.round(b.area || 0)} m2) over a cutting ${drop ? 'left out' : 'kept (too big)'}`);
+    return !drop;
   });
   function extrudeHoles(pts, holes, bottomY, height, material) {
     if (!holes.length) return createExtrudedPolygonMesh(pts, bottomY, height, material);

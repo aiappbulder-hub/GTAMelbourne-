@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEO } from './geodata.js';
 import { Q } from './quality.js';
+import { freewayClearance } from './freeway-footprint.js';
 
 // Melbourne's trams (js/melbourne-geodata.js `trams` and `tramTracks`, from OpenStreetMap):
 // - the rails of every at-grade track, as pairs of steel strips set into the road, and the overhead wire above them;
@@ -51,7 +52,16 @@ function buildTracks(group) {
         const bx0 = b.x + nx * o0, bz0 = b.y + nz * o0, bx1 = b.x + nx * o1, bz1 = b.y + nz * o1;
         rails.push(ax0, RAIL_Y, az0, bx1, RAIL_Y, bz1, bx0, RAIL_Y, bz0, ax0, RAIL_Y, az0, ax1, RAIL_Y, az1, bx1, RAIL_Y, bz1);
       }
-      wires.push(a.x, WIRE_Y, a.y, b.x, WIRE_Y, b.y);
+      // the wire dips under a freeway's deck (js/freeway-footprint.js): 0.3 m under its underside, in pieces of 6 m or
+      // less where one is near, instead of running through the slab
+      const wy = (x, z) => Math.max(4.6, Math.min(WIRE_Y, freewayClearance(x, z, 1) - 0.3));
+      let near = false;
+      for (let t = 0; t <= L && !near; t += 4) near = freewayClearance(a.x + d.x * t, a.y + d.y * t, 4) < WIRE_Y + 0.5;
+      const n = near ? Math.ceil(L / 6) : 1;
+      for (let k = 0; k < n; k++) {
+        const x0 = a.x + d.x * (L * k) / n, z0 = a.y + d.y * (L * k) / n, x1 = a.x + d.x * (L * (k + 1)) / n, z1 = a.y + d.y * (L * (k + 1)) / n;
+        wires.push(x0, near ? wy(x0, z0) : WIRE_Y, z0, x1, near ? wy(x1, z1) : WIRE_Y, z1);
+      }
     }
   }
   const railGeo = new THREE.BufferGeometry();

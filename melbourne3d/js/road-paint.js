@@ -3,6 +3,7 @@ import { drapeGeometry } from './terrain.js';
 import { CROSSWALK } from './road-network.js';
 import { createRoadPaintMaterial } from './tsl-materials.js';
 import { IS_MELBOURNE } from './city.js';
+import { inFreewayCutting } from './freeway-footprint.js';
 
 // Road markings generated from the drivable road network (js/road-network.js), so the paint matches where traffic
 // actually drives and stops: dashed lane lines, double yellow centre lines on two-way roads, stop bars at the stop
@@ -43,10 +44,15 @@ function createRoadPaintChunkBuilder(name, { cellSize = PAINT_CELL_SIZE, cullDis
     if (len < 0.05) return;
     const sx = ((az - bz) / len) * w * 0.5;
     const sz = ((bx - ax) / len) * w * 0.5;
-    const parts = Math.max(1, Math.ceil(len / PAINT_MAX_SEGMENT));
+    // (over a freeway's open cutting, js/freeway-footprint.js, the street's paint is left out in 2 m pieces: it would
+    // float over the hole in the ground)
+    let cuts = false;
+    for (let t = 0; t <= len && !cuts; t += 4) cuts = inFreewayCutting(ax + ((bx - ax) * t) / len, az + ((bz - az) * t) / len, 2);
+    const parts = cuts ? Math.ceil(len / 2) : Math.max(1, Math.ceil(len / PAINT_MAX_SEGMENT));
     for (let k = 0; k < parts; k++) {
       const t0 = k / parts;
       const t1 = (k + 1) / parts;
+      if (cuts && inFreewayCutting(ax + (bx - ax) * (t0 + t1) / 2, az + (bz - az) * (t0 + t1) / 2)) continue;
       pushQuad(
         ax + (bx - ax) * t0,
         ay + (by - ay) * t0,
