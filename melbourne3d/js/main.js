@@ -805,7 +805,7 @@ async function initApp() {
   const riverPath = IS_MELBOURNE ? (await import('./river-path.js')).createRiverPath({ scene, controllerManager, cast: castSystem }) : null;
   window.__city.riverPath = riverPath;
   // Dogs: the off-leash park in Fawkner Park and dogs on leads beside pedestrians (js/dogs.js)
-  const dogs = IS_MELBOURNE ? (await import('./dogs.js')).createDogs({ scene, controllerManager, cast: castSystem, getAudio: () => window.__city.audio, getPeds: () => trafficSystem.peds, getCars: () => trafficSystem.cars }) : null;
+  const dogs = IS_MELBOURNE ? (await import('./dogs.js')).createDogs({ scene, controllerManager, cast: castSystem, getAudio: () => window.__city.audio, getPeds: () => trafficSystem.peds, getCars: () => trafficSystem.cars, getMissions: () => missionSystem }) : null;
   window.__city.dogs = dogs;
   // Food-delivery scooters riding the CBD's roads (js/delivery-scooters.js)
   const deliveryScooters = IS_MELBOURNE ? (await import('./delivery-scooters.js')).createDeliveryScooters({ scene, trafficSystem, controllerManager, cast: castSystem }) : null;

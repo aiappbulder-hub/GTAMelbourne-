@@ -185,7 +185,7 @@ function buildFixtures(P, gy) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-export function createDogs({ scene, controllerManager: cm, cast = null, getAudio = () => null, getPeds = () => [], getCars = () => [] }) {
+export function createDogs({ scene, controllerManager: cm, cast = null, getAudio = () => null, getPeds = () => [], getCars = () => [], getMissions = () => null }) {
   const P = CONFIG.park;
   const root = new THREE.Group();
   root.name = 'Dogs';
@@ -428,6 +428,122 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     if (d.kind === 'park') { d.flee = 0; d.job = 'flee'; d.jobT = 5; d.tx = P.cx + rnd(-P.hx, P.hx) * 0.8; d.tz = P.cz + rnd(-P.hz, P.hz) * 0.8; d.mode = 'run'; }
   }
 
+  // ---- play fetch (on foot, near a dog; O): hold O to charge, release to throw, tap O to stop. The dog chases the ball (slowing to
+  // grab it), carries it back and drops it at your feet. Counts fetches and the longest throw; $25 every 5 fetches.
+  // (The thrown ball bounces and rolls on the ground; trees and fences do not stop it.)
+  const F = { dog: null, phase: 'off', ball: { state: 'off', x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, t: 0 }, charging: false, charge: 0, keyT: 0, count: 0, best: 0, len: 0, ox: 0, oz: 0, t: 0, flash: '', flashT: 0, near: null };
+  const fball = new THREE.Mesh(ball.geometry, ball.material);
+  fball.frustumCulled = false; fball.visible = false; root.add(fball);
+  let hud = null, hudMain = null, hudScore = null;
+  if (typeof document !== 'undefined') {
+    hud = document.createElement('div');
+    hud.id = 'dog-fetch-hud';
+    hud.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:30;pointer-events:none;text-align:center;font:600 14px/1.35 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;display:none';
+    hudMain = document.createElement('div'); hudScore = document.createElement('div');
+    hudMain.style.cssText = hudScore.style.cssText = 'padding:3px 12px;background:rgba(0,0,0,.5);border-radius:8px;margin-top:3px;display:inline-block';
+    hud.append(hudMain, document.createElement('br'), hudScore);
+    document.body.appendChild(hud);
+  }
+  const KEY = 'KeyO';
+  function endFetch() {
+    const d = F.dog;
+    if (d) { d.job = null; d.mode = 'stand'; d.t = 1; if (d.kind === 'street') d.active = false; }
+    F.dog = null; F.phase = 'off'; F.charging = false; F.ball.state = 'off'; fball.visible = false;
+  }
+  function startFetch(d) {
+    if (d.kind === 'street') releaseStreet(d);
+    if (B.carrier === d) { B.state = 'held'; B.carrier = null; B.timer = 3; }
+    d.flee = 0; d.job = 'f'; d.target = null;
+    F.dog = d; F.phase = 'wait'; F.t = 0; F.charging = false; F.ball.state = 'off'; d.happy = 1;
+    voice('woof', d);
+  }
+  const fballPos = (d) => { const s = d.scale[2]; F.ball.x = d.x + Math.sin(d.yaw) * 0.56 * s; F.ball.z = d.z + Math.cos(d.yaw) * 0.56 * s; F.ball.y = d.y + 0.58 * d.scale[1]; };
+  const fground = (x, z) => (Math.abs(x - P.cx) < P.hx + 6 && Math.abs(z - P.cz) < P.hz + 6 ? gy(x, z) : terrainHeight(x, z) + 0.02);
+  function throwFetch(pp, heading, power) {
+    const b = F.ball, dist = 6 + 40 * power, T = 0.6 + dist * 0.022;
+    const tx = pp.x + Math.sin(heading) * dist, tz = pp.z + Math.cos(heading) * dist;
+    b.x = pp.x + Math.sin(heading) * 0.5; b.z = pp.z + Math.cos(heading) * 0.5; b.y = fground(pp.x, pp.z) + 1.5;
+    b.vx = (tx - b.x) / T; b.vz = (tz - b.z) / T; b.vy = 0.5 * 9.8 * T - (b.y - fground(tx, tz)) / T; b.state = 'air';
+    F.ox = pp.x; F.oz = pp.z; F.phase = 'chase'; F.t = 0; F.dog.mode = 'run'; F.dog.happy = 1;
+  }
+  function thinkFetch(d, dt, pp) {
+    const b = F.ball;
+    if (b.state === 'air' || b.state === 'roll') {
+      b.vy -= 9.8 * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
+      const g = fground(b.x, b.z) + 0.07;
+      if (b.y < g) { b.y = g; if (Math.abs(b.vy) > 1.2) { b.vy *= -0.45; b.vx *= 0.72; b.vz *= 0.72; b.state = 'air'; } else { b.vy = 0; b.state = 'roll'; } }
+      if (b.state === 'roll') { const k = Math.exp(-1.8 * dt); b.vx *= k; b.vz *= k; }
+    }
+    const dp = Math.hypot(d.x - pp.x, d.z - pp.z);
+    if (F.phase === 'wait') {
+      F.t += dt;
+      if (dp > 3.4) { d.mode = 'trot'; steer(d, pp.x, pp.z, Math.min(6, 1 + dp * 0.8), dt, 8); }
+      else {
+        stand(d, dt);
+        if (d.v < 0.4) { d.yaw += angDiff(Math.atan2(pp.x - d.x, pp.z - d.z), d.yaw) * Math.min(1, dt * 4); d.mode = F.t > 0.8 ? 'sit' : 'stand'; }
+      }
+    } else if (F.phase === 'chase') {
+      d.mode = 'run'; F.t += dt;
+      const dist = steer(d, b.x, b.z, clamp(1.8 + Math.hypot(b.x - d.x, b.z - d.z) * 2.2, 2, 7.5), dt, 10);
+      if (dist < 0.7 && b.y < d.y + 1 && b.state !== 'air') { F.phase = 'grab'; F.t = 0.55; b.state = 'carried'; F.len = Math.hypot(b.x - F.ox, b.z - F.oz); F.best = Math.max(F.best, F.len); }
+      else if (F.t > 30) { F.phase = 'wait'; F.t = 0; b.state = 'off'; }
+    } else if (F.phase === 'grab') {
+      d.mode = 'stand'; stand(d, dt); fballPos(d); F.t -= dt;
+      if (F.t <= 0) F.phase = 'return';
+    } else if (F.phase === 'return') {
+      d.mode = 'trot'; fballPos(d);
+      steer(d, pp.x, pp.z, 3.9, dt, 8);
+      if (dp < 1.7) { // drop it at the feet and wag
+        F.phase = 'wait'; F.t = 0; F.count++; d.happy = 1; b.state = 'ground'; b.t = 1.2;
+        b.x = pp.x + (d.x - pp.x) * 0.45; b.z = pp.z + (d.z - pp.z) * 0.45; b.y = fground(b.x, b.z) + 0.07;
+        if (F.count % 5 === 0) { getMissions()?.addMoney?.(25); F.flash = '+$25'; F.flashT = 3; }
+      }
+    }
+    d.happy = Math.max(d.happy, F.phase === 'wait' ? 0.8 : 1);
+  }
+  function updateFetch(dt, pp) {
+    const onFoot = cm.activeMode === 'person';
+    if (F.dog && (!onFoot || Math.hypot(F.dog.x - pp.x, F.dog.z - pp.z) > (F.phase === 'wait' ? 40 : 90))) endFetch();
+    F.near = null;
+    if (!F.dog && onFoot) {
+      let bd = 36;
+      for (const d of dogs) { if (!d.active || d.flee > 0) continue; const q = (d.x - pp.x) ** 2 + (d.z - pp.z) ** 2; if (q < bd) { bd = q; F.near = d; } }
+    }
+    if (F.charging) { F.keyT += dt; F.charge = Math.min(1, F.keyT / 1.2); }
+    const b = F.ball;
+    if (b.state === 'ground') { b.t -= dt; if (b.t <= 0) b.state = 'off'; }
+    fball.visible = b.state !== 'off';
+    fball.position.set(b.x, b.y, b.z);
+    F.flashT -= dt;
+    if (hud) {
+      let main = '', score = '';
+      if (F.dog) {
+        const n = Math.round(F.charge * 10);
+        main = F.phase === 'wait' ? (F.charging ? 'Throw power ' + '▮'.repeat(n) + '▯'.repeat(10 - n) : 'Hold O to throw (release) · tap O to stop') : 'Fetch!';
+        score = `Fetch: ${F.count} · Best ${Math.round(F.best)} m` + (F.flashT > 0 ? '  ' + F.flash : '');
+      } else if (F.near) main = 'O: Play fetch';
+      hudMain.textContent = main; hudMain.style.display = main ? 'inline-block' : 'none';
+      hudScore.textContent = score; hudScore.style.display = score ? 'inline-block' : 'none';
+      hud.style.display = main || score ? 'block' : 'none';
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== KEY || e.repeat || (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA'))) return;
+      if (F.dog) { if (F.phase === 'wait') { F.charging = true; F.keyT = 0; F.charge = 0; } }
+      else if (F.near) startFetch(F.near);
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code !== KEY || !F.dog || !F.charging) return;
+      F.charging = false;
+      if (F.keyT < 0.2) { if (F.t > 0.3) endFetch(); return; }
+      const ent = cm.getActiveEntity();
+      throwFetch(ent.position, ent.heading || 0, Math.max(0.1, F.charge));
+    });
+  }
+  // (for tests) the same without the keyboard
+  const fetchApi = { state: F, start: startFetch, end: endFetch, throwBall: (power = 0.5, heading) => { const ent = cm.getActiveEntity(); if (F.dog && F.phase === 'wait') throwFetch(ent.position, heading ?? ent.heading ?? 0, power); } };
+
   // ---- drawing
   let spotN = 0;
   function writeDog(d, k, t) {
@@ -472,14 +588,14 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     if (parkAwake) {
       for (const d of parkDogs) {
         if (!d.active) { d.active = true; const h = parkHome(); d.x = h.x; d.z = h.z; d.job = null; d.mode = 'stand'; d.t = rnd(0.2, 2); }
-        thinkPark(d, dt); inPark(d);
+        if (d === F.dog) thinkFetch(d, dt, pp); else { thinkPark(d, dt); inPark(d); }
         d.happy += ((d.job ? 1 : 0.45) - d.happy) * dt;
         d.woofT -= dt; if (d.woofT <= 0) { d.woofT = rnd(3, 10); if (d.mode === 'run' || d.job) voice('woof', d); }
-        hitCheck(d, pp, ent, car);
+        if (d !== F.dog) hitCheck(d, pp, ent, car);
       }
       updateBall(dt);
     } else {
-      for (const d of parkDogs) d.active = false;
+      for (const d of parkDogs) if (d !== F.dog) d.active = false;
       ball.visible = false;
     }
     // owners
@@ -492,6 +608,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
       cast?.setActor(o.key, o.model, { x: o.x, y: gy(o.x, o.z), z: o.z, heading: o.heading, ease: 3 }, 'idle');
       o.posed = true;
     }
+    updateFetch(dt, pp);
     // -- street dogs
     const peds = getPeds();
     bindT -= dt;
@@ -502,8 +619,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     let leads = 0;
     for (const d of streetDogs) {
       if (!d.active) { leadPos.setXYZ(leads * 2, 0, 0, 0); leadPos.setXYZ(leads * 2 + 1, 0, 0, 0); leads++; continue; }
-      thinkStreet(d, dt, pp);
-      hitCheck(d, pp, ent, car);
+      if (d === F.dog) thinkFetch(d, dt, pp); else { thinkStreet(d, dt, pp); hitCheck(d, pp, ent, car); }
       d.woofT -= dt; if (d.woofT <= 0) { d.woofT = rnd(8, 25); if (Math.random() < 0.5) voice('woof', d); }
       const p = d.ped;
       if (p) { // lead: owner's hand to the collar
@@ -533,7 +649,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
     for (const m of [bodyIM, headIM, tailIM, legIM, spotIM]) m.instanceMatrix.needsUpdate = true;
   }
   return {
-    update, group: root, dogs, parkDogs, streetDogs, ball: B, owners, centre: { x: P.cx, z: P.cz },
+    update, fetch: fetchApi, group: root, dogs, parkDogs, streetDogs, ball: B, owners, centre: { x: P.cx, z: P.cz },
     stats: () => ({ park: parkDogs.filter((d) => d.active).length, street: streetDogs.filter((d) => d.active).length, bound: streetDogs.filter((d) => d.ped).length })
   };
 }
