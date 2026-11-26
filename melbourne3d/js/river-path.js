@@ -21,7 +21,7 @@ import { RIDER_PROFILES, evaluateRiderMotion } from './procedural-rider.js';
 export const CONFIG = {
   x0: -650, x1: 420, // the path's extent along the bank (world x)
   inset: 4.2, // metres north of the bank line (the quay's edge)
-  lift: 0.05, // above the rendered ground
+  lift: 0.12, // above the rendered ground (a real step, so it never depends on polygonOffset, which WebGPU treats differently)
   halfWidth: 1.9, // the strip is 3.8 m wide: two lanes
   lane: 0.85, // a rider's offset from the centre line (to the left of travel)
   count: LITE ? 3 : QUALITY === 'low' ? 4 : 6,
@@ -123,6 +123,13 @@ function buildStrip(line) {
     }
     if (i < n - 1) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
   }
+  // skirts down the two edges to the ground, so the path reads as a raised strip from the air
+  const top = pos.length / 3;
+  for (let i = 0; i < n; i++) for (let s2 = 0; s2 < 2; s2++) { const o = (i * 2 + s2) * 3; pos.push(pos[o], line[i].y - 0.03, pos[o + 2]); }
+  for (let i = 0; i < n - 1; i++) for (let s2 = 0; s2 < 2; s2++) {
+    const a = i * 2 + s2, b = a + 2, c = top + a, d = top + b;
+    idx.push(a, c, b, b, c, d);
+  }
   // dashes every 9 m, 3.5 m long, 0.16 m wide
   for (let d = 4; d < line[n - 1].cum - 4; d += 9) {
     const a = { ...pointAt(line, d) }, b = pointAt(line, d + 3.5), ya = yAt(line, d), yb = yAt(line, d + 3.5);
@@ -131,12 +138,19 @@ function buildStrip(line) {
     for (const [px, pz, py] of [[a.x - nx, a.z - nz, ya], [a.x + nx, a.z + nz, ya], [b.x - nx, b.z - nz, yb], [b.x + nx, b.z + nz, yb]]) dpos.push(px, py + CONFIG.lift + 0.02, pz);
     didx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
   }
+  // painted edge lines along both sides of the strip
+  for (const s2 of [-1, 1]) for (let i = 0; i < n - 1; i++) {
+    const a = line[i], b = line[i + 1], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
+    const k = dpos.length / 3, o0 = (CONFIG.halfWidth - 0.3) * s2, o1 = (CONFIG.halfWidth - 0.14) * s2;
+    for (const [px, pz, py] of [[a.x + nx * o0, a.z + nz * o0, a.y], [a.x + nx * o1, a.z + nz * o1, a.y], [b.x + nx * o0, b.z + nz * o0, b.y], [b.x + nx * o1, b.z + nz * o1, b.y]]) dpos.push(px, py + CONFIG.lift + 0.02, pz);
+    didx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+  }
   const mk = (p, i) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setIndex(i); g.computeVertexNormals(); return g; };
-  const strip = new THREE.Mesh(mk(pos, idx), new THREE.MeshStandardNodeMaterial({ color: 0x69655e, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  const dash = new THREE.Mesh(mk(dpos, didx), new THREE.MeshStandardNodeMaterial({ color: 0xeee8d4, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  const strip = new THREE.Mesh(mk(pos, idx), new THREE.MeshStandardNodeMaterial({ color: 0x4f4b46, roughness: 0.95, side: THREE.DoubleSide }));
+  const dash = new THREE.Mesh(mk(dpos, didx), new THREE.MeshStandardNodeMaterial({ color: 0xeee8d4, roughness: 0.9, side: THREE.DoubleSide }));
   for (const m of [strip, dash]) { m.receiveShadow = true; m.frustumCulled = false; }
   // (normals of an upward strip may come out down: make sure they face up)
-  for (const m of [strip, dash]) { const nrm = m.geometry.attributes.normal; for (let i = 0; i < nrm.count; i++) if (nrm.getY(i) < 0) nrm.setXYZ(i, -nrm.getX(i), -nrm.getY(i), -nrm.getZ(i)); }
+  for (const m of [dash]) { const nrm = m.geometry.attributes.normal; for (let i = 0; i < nrm.count; i++) if (nrm.getY(i) < 0) nrm.setXYZ(i, -nrm.getX(i), -nrm.getY(i), -nrm.getZ(i)); }
   return [strip, dash];
 }
 const _o = { x: 0, z: 0, dx: 1, dz: 0 };
@@ -237,8 +251,12 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
   function updateWalkers(dt, pp) {
     nearT -= dt;
     if (nearT <= 0) { playerOnPath(pp); nearT = 0.5; }
-    const near = nearBank.nearD < 160, { line, total, nearS } = nearBank;
-    for (const w of walkers) {
+    const other = banks.find((b) => b !== nearBank);
+    for (let wi = 0; wi < walkers.length; wi++) {
+      const w = walkers[wi];
+      // every third walker strolls the bank across the river (so both banks look alive from the water or the air)
+      const bank = other && wi % 3 === 2 ? other : nearBank, { line, total, nearS } = bank;
+      const near = bank.nearD < (bank === nearBank ? 160 : 260);
       if (!near) { if (w.posed) { cast?.setActor(w.key, null, null); w.posed = false; } continue; }
       w.off += w.dir * w.speed * dt;
       if (w.off > WIN) w.off -= 2 * WIN; else if (w.off < -WIN) w.off += 2 * WIN; // (round again at the window's far side)
@@ -261,7 +279,7 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
       c.s += c.dir * c.speed * dt;
       if (c.s > total) c.s -= total; else if (c.s < 0) c.s += total; // (the far end: round again, out of sight)
       // with the player by this bank, keep its riders within 150 m of them along the path (round again past that)
-      if (nearD < 160) { const w = 150, r = c.s - nearS; if (Math.abs(r) > w) c.s = Math.max(0, Math.min(total, nearS + ((((r + w) % (2 * w)) + 2 * w) % (2 * w)) - w)); }
+      if (nearD < 260) { const w = 150, r = c.s - nearS; if (Math.abs(r) > w) c.s = Math.max(0, Math.min(total, nearS + ((((r + w) % (2 * w)) + 2 * w) % (2 * w)) - w)); }
       const p = pointAt(line, c.s);
       const fx = p.dx * c.dir, fz = p.dz * c.dir; // the way it faces
       const x = p.x + fz * CONFIG.lane, z = p.z - fx * CONFIG.lane; // to the left of travel (right of travel is x - dz, z + dx)
