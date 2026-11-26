@@ -182,7 +182,7 @@ export function createFreeways({ scene }) {
       const ux0 = (sa.end > 0 ? 1 : -1) * dx / L, uz0 = (sa.end > 0 ? 1 : -1) * dz / L;
       if (ux0 * sa.ux + uz0 * sa.uz < 0.8) continue; // not a straight continuation (a merge at an angle)
       const sgn = (sb.end < 0) === (sa.end > 0) ? 1 : -1;
-      sa.ux = ux0; sa.uz = uz0; sa.nx = -uz0; sa.nz = ux0;
+      sa.ux = ux0; sa.uz = uz0; sa.nx = -uz0; sa.nz = ux0; sa.straight = sb.straight = true;
       sb.ux = ux0 * sgn; sb.uz = uz0 * sgn; sb.nx = -sb.uz; sb.nz = sb.ux;
     }
   }
@@ -276,6 +276,43 @@ export function createFreeways({ scene }) {
     const E = (s, o, dy = 0) => [s.x + s.nx * o, s.y + dy, s.z + s.nz * o];
     // is the edge at offset o of sample s on another way's deck (a merge: no barrier there)
     const onOther = (s, o) => surfaceAt(s.x + s.nx * o * 1.15, s.z + s.nz * o * 1.15, s.y, w.wi) !== null;
+    const n = S.length - 1, segLen = (i) => Math.hypot(S[i + 1].x - S[i].x, S[i + 1].z - S[i].z);
+    // Which segments have a barrier on each side: where the deck stands 0.7 m or more over the ground, out of a cutting
+    // and a tunnel, and its edge nowhere along the segment on another way's deck (a merge, a diverge, a join at an angle);
+    // then gaps under 12 m between two runs are filled (where nothing else is in the way) and runs under 24 m that don't
+    // reach the way's end dropped, so a barrier is a tidy continuous run or nothing, never a stray stub
+    const fence = [-1, 1].map((side) => {
+      const other = [], want = [], open = [];
+      for (let i = 0; i < n; i++) {
+        const a = S[i], b = S[i + 1], m = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, nx: (a.nx + b.nx) / 2, nz: (a.nz + b.nz) / 2 };
+        other.push(onOther(a, side * hw) || onOther(m, side * hw) || onOther(b, side * hw));
+        open.push(!(a.cov && b.cov) && Math.min(a.h, b.h) >= -0.6 && !other[i]);
+        want.push(open[i] && Math.max(a.h, b.h) >= 0.7);
+      }
+      for (let i = 0; i < n;) {
+        let j = i, len = 0;
+        while (j < n && !want[j]) len += segLen(j++);
+        if (i > 0 && j < n && len < 12 && open.slice(i, j).every(Boolean)) for (let k = i; k < j; k++) want[k] = true;
+        i = Math.max(j, i + 1);
+      }
+      for (let i = 0; i < n;) {
+        let j = i, len = 0;
+        while (j < n && want[j]) len += segLen(j++);
+        if (j > i && len < 24 && i > 0 && j < n) for (let k = i; k < j; k++) want[k] = false;
+        i = Math.max(j, i + 1);
+      }
+      return { other, want };
+    });
+    // A point of this way's road that lies on a way ranked above it (a motorway over its ramp, then the earlier way): the
+    // road there sits 4 cm under that way's, so where a ramp's end overlaps the carriageway it joins there is one surface
+    // (no step, no overlapping slab fighting it for depth) and no paint of the ramp's across the carriageway's lanes
+    const out = {};
+    const ranked = (o) => ways[o].kind < w.kind || (ways[o].kind === w.kind && o < w.wi);
+    const roadY = (s, o) => {
+      const y2 = surfaceAt(s.x + s.nx * o, s.z + s.nz * o, s.y, w.wi, out);
+      return y2 !== null && out.seg && ranked(out.seg.w) && Math.abs(y2 - s.y) < 0.8 ? y2 - 0.04 : null;
+    };
+    const RE = (s, o) => { const y = roadY(s, o); return y === null ? E(s, o) : [s.x + s.nx * o, y, s.z + s.nz * o]; };
     for (let i = 0; i + 1 < S.length; i++) {
       const a = S[i], b = S[i + 1];
       const cell = cellOf((a.x + b.x) / 2, (a.z + b.z) / 2);
@@ -291,17 +328,18 @@ export function createFreeways({ scene }) {
       // roadway
       // (a cutting's floor runs on to its retaining walls, 0.7 m beyond the kerb, so nothing below shows between)
       const rw = cut ? hw + 0.7 : hw;
-      R.quad(E(a, -rw), E(b, -rw), E(b, rw), E(a, rw), roadCol);
+      R.quad(RE(a, -rw), RE(b, -rw), RE(b, rw), RE(a, rw), roadCol);
+      const underOther = !covered && roadY(a, 0) !== null && roadY(b, 0) !== null;
       // lane paint: edge lines, dashed lines between lanes (3 m dash in each 9 m)
       const line = (o, w0, f0 = 0, f1 = 1) => {
         const p = (s, t, oo) => { const x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t), y = lerp(a.y, b.y, t); return [x + s.nx * oo, y + 0.025, z + s.nz * oo]; };
         R.quad(p(a, f0, o - w0), p(b, f1, o - w0), p(b, f1, o + w0), p(a, f0, o + w0), paint);
       };
-      line(hw - 0.7, 0.08); line(-hw + 0.7, 0.08);
+      if (!underOther) { line(hw - 0.7, 0.08); line(-hw + 0.7, 0.08); }
       const nl = Math.max(1, Math.min(5, Math.round(w.lanes)));
       // (the dash is on the first 40% of each original segment: this piece's share of it, if any)
       const fa = a.f, fb = b.oi === a.oi ? b.f : 1, d1 = Math.min(0.4, fb);
-      if (nl > 1 && d1 > fa) for (let k = 1; k < nl; k++) line(-hw + 0.7 + ((2 * hw - 1.4) * k) / nl, 0.07, 0, (d1 - fa) / (fb - fa));
+      if (nl > 1 && d1 > fa && !underOther) for (let k = 1; k < nl; k++) line(-hw + 0.7 + ((2 * hw - 1.4) * k) / nl, 0.07, 0, (d1 - fa) / (fb - fa));
 
       if (covered) {
         // the tube: walls, ceiling and a strip light; brightness baked (lights over every other sample)
@@ -342,11 +380,11 @@ export function createFreeways({ scene }) {
 
       // barriers on both sides (left out where the edge lies on another way's deck: a merge or a diverge)
       for (const side of [-1, 1]) {
-        const o = side * (hw + 0.2);
-        if (onOther(a, side * hw) && onOther(b, side * hw)) continue;
+        const o = side * (hw + 0.2), F = fence[side > 0 ? 1 : 0];
+        if (F.other[i]) continue;
         // at grade (a ramp meeting its street, a carriageway on the ground) no barriers: the streets stay passable (a
-        // cutting keeps its walls, below)
-        const noBarrier = Math.max(a.h, b.h) < 0.7;
+        // cutting keeps its walls, below); see `fence`
+        const noBarrier = !F.want[i];
         const bA = [a.x + a.nx * o, a.y, a.z + a.nz * o], bB = [b.x + b.nx * o, b.y, b.z + b.nz * o];
         const tA = [bA[0], a.y + BARRIER_H, bA[2]], tB = [bB[0], b.y + BARRIER_H, bB[2]];
         const iA = [a.x + a.nx * (o - side * 0.25), a.y + BARRIER_H, a.z + a.nz * (o - side * 0.25)], iB = [b.x + b.nx * (o - side * 0.25), b.y + BARRIER_H, b.z + b.nz * (o - side * 0.25)];
@@ -358,10 +396,13 @@ export function createFreeways({ scene }) {
           L.quad2(iA, iB, tB, tA, C.concrete);
           L.quad2(bA, bB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concreteDark);
           L.quad2(tA, tB, [bB[0], b.y + low, bB[2]], [bA[0], a.y + low, bA[2]], C.concrete);
+          // a run's ends closed off square
+          if (i === 0 || !F.want[i - 1]) L.quad2(fA, iA, tA, [bA[0], a.y + low, bA[2]], C.concrete);
+          if (i === n - 1 || !F.want[i + 1]) L.quad2(fB, iB, tB, [bB[0], b.y + low, bB[2]], C.concrete);
         }
         // the barriers are drive-through (easy on and off from any angle) except along a high deck, where they keep
         // the car from going over the edge; there they are solid from the deck up only
-        if (Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
+        if (!noBarrier && Math.min(a.h, b.h) > HIGH_EDGE) obb(bA[0], bA[2], bB[0], bB[2], 0.7, Math.min(a.y, b.y) - 0.4, Math.max(a.y, b.y) + BARRIER_H + 0.2);
         // an embankment (raised a little): a solid wall down to the ground (not over a street: it passes under)
         if (!raised && Math.max(a.h, b.h) > 0.05 && !cut && !overStreet && !noBarrier) {
           L.quad2(bA, bB, [bB[0], b.t - 0.2, bB[2]], [bA[0], a.t - 0.2, bA[2]], C.concreteDark);
@@ -393,7 +434,9 @@ export function createFreeways({ scene }) {
             L.box(px, a.t - 0.5, pz, a.ux, a.uz, 0.8, 0.8, a.y - DECK_T, C.concrete);
             colliders.push({ minX: px - 1.1, maxX: px + 1.1, minZ: pz - 1.1, maxZ: pz + 1.1, minY: a.t - 1, maxY: a.y - DECK_T, freeway: true });
           }
-          L.box(a.x, a.y - DECK_T - 1.0, a.z, a.ux, a.uz, 0.9, hw * 0.85, a.y - DECK_T, C.concrete);
+          // (the crosshead only where no other deck runs through it, and its top 2 cm under the deck's underside)
+          if (![-0.85, 0, 0.85].some((f) => deckBetween(a.x + a.nx * hw * f, a.z + a.nz * hw * f, a.y - DECK_T - 1.0, a.y - DECK_T, w.wi, 0.3)))
+            L.box(a.x, a.y - DECK_T - 1.0, a.z, a.ux, a.uz, 0.9, hw * 0.85, a.y - DECK_T - 0.02, C.concrete);
         }
       }
       // lamp poles (one side, alternating), with a glowing head over the road
@@ -405,6 +448,26 @@ export function createFreeways({ scene }) {
           L.box(px, a.y + BARRIER_H, pz, a.ux, a.uz, 0.12, 0.12, a.y + 11, C.pole);
           L.box((px + hx) / 2, a.y + 10.85, (pz + hz) / 2, -a.nz * side, a.nx * side, 1.15, 0.08, a.y + 11, C.pole);
           G.box(hx, a.y + 10.65, hz, a.ux, a.uz, 0.45, 0.22, a.y + 10.85, C.lamp);
+        }
+      }
+    }
+  }
+
+  // A way's end that meets another way at an angle (a ramp leaving or joining, a split): a half-disc of deck beyond the
+  // end, 2 cm under the road, filling the wedge-shaped gaps between the square end and the way it meets (the ground there
+  // is rounded the same way, see surfaceAt), with its underside under a raised deck
+  for (const w of ways) {
+    for (const [s, sgn] of [[w.S[0], -1], [w.S[w.S.length - 1], 1]]) {
+      if (w.S.length < 2 || s.cov || s.straight || !joined(s, w.wi)) continue;
+      const cell = cellOf(s.x, s.z), N = 8, ux = s.ux * sgn, uz = s.uz * sgn;
+      const P = (k, dy) => { const t = -Math.PI / 2 + (Math.PI * k) / N; const c = Math.cos(t), sn = Math.sin(t); return [s.x + (ux * c + s.nx * sn) * w.hw, s.y + dy, s.z + (uz * c + s.nz * sn) * w.hw]; };
+      for (let k = 0; k < N; k++) {
+        const top = [P(k, -0.02), P(k + 1, -0.02)], C0 = [s.x, s.y - 0.02, s.z];
+        cell.lit.tri(C0, top[0], top[1], C.asphalt); cell.lit.tri(C0, top[1], top[0], C.asphalt);
+        if (s.h > 0.3) {
+          const bot = [P(k, -DECK_T), P(k + 1, -DECK_T)], C1 = [s.x, s.y - DECK_T, s.z];
+          cell.lit.tri(C1, bot[0], bot[1], C.concrete); cell.lit.tri(C1, bot[1], bot[0], C.concrete);
+          cell.lit.quad2(top[0], top[1], bot[1], bot[0], C.concreteDark);
         }
       }
     }
