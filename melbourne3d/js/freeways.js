@@ -216,7 +216,11 @@ export function createFreeways({ scene }) {
   function surfaceAt(x, z, y, skipWay = -1, out = null) {
     const list = index.get(key(Math.floor(x / INDEX), Math.floor(z / INDEX)));
     if (!list) return null;
-    let best = null, bestSeg = null;
+    // (two picks: among the segments the point lies along, and among the caps past segment ends; a cap counts only where
+    // no segment does, and carries its segment's slope on rather than holding its end's height: held flat, the next
+    // segment's start cap lifted the road a step ahead of every sample on a ramp, and the car jolted up each one)
+    let best = null, bestSeg = null, cap = null, capSeg = null;
+    const better = (cur, surf) => cur === null || (surf <= y + 1.0 && (surf > cur || cur > y + 1.0)) || (cur > y + 1.0 && surf < cur);
     for (const s of list) {
       if (s.w === skipWay) continue;
       const dx = x - s.ax, dz = z - s.az;
@@ -227,8 +231,9 @@ export function createFreeways({ scene }) {
       // way), so the deck has no wedge-shaped gaps where a car could drop through (to the street or the river below)
       if (along < -0.5 && !(s.capA && along * along + off * off < (s.hw + 0.25) ** 2)) continue;
       if (along > s.L + 0.5 && !(s.capB && (along - s.L) ** 2 + off * off < (s.hw + 0.25) ** 2)) continue;
+      const onSeg = along >= -0.5 && along <= s.L + 0.5;
       const f = Math.max(0, Math.min(1, along / s.L));
-      const surf = s.ya + (s.yb - s.ya) * f;
+      const surf = s.ya + ((s.yb - s.ya) * along) / s.L;
       if (s.cov) {
         const ceil = s.ceilA + (s.ceilB - s.ceilA) * f;
         if (!(y < ceil - 0.8)) continue; // on the ground above the tunnel
@@ -238,8 +243,10 @@ export function createFreeways({ scene }) {
         if (surf > ground + 0.05 && y < surf - 1.6) continue;
       }
       // of several (stacked decks, a ramp beside its road): the highest not far above
-      if (best === null || (surf <= y + 1.0 && (surf > best || best > y + 1.0)) || (best > y + 1.0 && surf < best)) { best = surf; bestSeg = s; }
+      if (onSeg) { if (better(best, surf)) { best = surf; bestSeg = s; } }
+      else if (better(cap, surf)) { cap = surf; capSeg = s; }
     }
+    if (best === null) { best = cap; bestSeg = capSeg; }
     if (out) out.seg = bestSeg;
     return best;
   }
