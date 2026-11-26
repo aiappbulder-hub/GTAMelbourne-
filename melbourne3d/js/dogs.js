@@ -11,6 +11,7 @@
 // a pedestrian of js/pedestrian-system.js (one the player is 25..110 m from) and follow it on its footpath; when the owner
 // despawns, or goes out of range, the dog is released and picks up another one. A car that hits a dog only makes it yelp
 // and bolt (no gore), it then disappears a few seconds later.
+import { groundIndexFor } from './ground-index.js';
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { terrainHeight } from './terrain.js';
@@ -85,21 +86,15 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The ground under the park, sampled once with downward rays onto the city grid (lawn, paths, kerbs) into a coarse grid
-const _ray = new THREE.Raycaster(), _dn = new THREE.Vector3(0, -1, 0), _org = new THREE.Vector3();
 function parkGround(scene, P) {
-  const targets = [];
-  scene.getObjectByName('MelbourneCityGrid')?.traverse((o) => { if (o.isMesh && !(o.material && o.material.transparent)) targets.push(o); });
+  const maxHit = groundIndexFor(scene);
   const STEP = 3, x0 = P.cx - P.hx - 6, z0 = P.cz - P.hz - 6, nx = Math.ceil((2 * P.hx + 12) / STEP) + 1, nz = Math.ceil((2 * P.hz + 12) / STEP) + 1;
   const H = new Float32Array(nx * nz);
   for (let j = 0; j < nz; j++) {
     for (let i = 0; i < nx; i++) {
       const x = x0 + i * STEP, z = z0 + j * STEP, t = terrainHeight(x, z);
       let best = t;
-      if (targets.length) {
-        _org.set(x, t + 6, z);
-        _ray.set(_org, _dn);
-        for (const h of _ray.intersectObjects(targets, false)) if (h.point.y > best && h.point.y < t + 0.6) best = h.point.y;
-      }
+      if (maxHit) { const h = maxHit(x, z, t, t + 0.6); if (h > best) best = h; }
       H[j * nx + i] = best;
     }
   }

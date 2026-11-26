@@ -68,28 +68,36 @@ export function drapeGeometry(geometry, { maxEdge = 25, lift = 0 } = {}) {
   if (TERRAIN_FLAT) { if (lift) { const p = geometry.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + lift); p.needsUpdate = true; } return geometry; }
   const pos0 = geometry.attributes.position;
   const names = ATTR_KEYS(geometry);
+  let cap = pos0.count * 2 + 64;
   const arrays = names.map((n) => {
     const a = geometry.attributes[n];
-    return { name: n, size: a.itemSize, norm: a.normalized, data: Array.from(a.array), ctor: a.array.constructor };
+    const data = new Float64Array(cap * a.itemSize);
+    data.set(a.array);
+    return { name: n, size: a.itemSize, norm: a.normalized, data, ctor: a.array.constructor };
   });
-  const posA = arrays[names.indexOf('position')].data;
-  let index = geometry.index ? Array.from(geometry.index.array) : Array.from({ length: pos0.count }, (_, i) => i);
+  const PA = arrays[names.indexOf('position')];
+  const index = geometry.index ? geometry.index.array : Uint32Array.from({ length: pos0.count }, (_, i) => i);
   let count = pos0.count;
   const cache = new Map();
   const edgeLong = (a, b) => {
+    const posA = PA.data;
     const ax = posA[a * 3], az = posA[a * 3 + 2], bx = posA[b * 3], bz = posA[b * 3 + 2];
-    if (Math.max(ax, bx) < X0 || Math.min(ax, bx) > X1 || Math.max(az, bz) < Z0 || Math.min(az, bz) > Z1) return 0;
+    if ((ax > bx ? ax : bx) < X0 || (ax < bx ? ax : bx) > X1 || (az > bz ? az : bz) < Z0 || (az < bz ? az : bz) > Z1) return 0;
     const dx = ax - bx, dy = posA[a * 3 + 1] - posA[b * 3 + 1], dz = az - bz;
-    const l = Math.hypot(dx, dz);
-    return l > maxEdge ? Math.hypot(dx, dy, dz) : 0;
+    const l2 = dx * dx + dz * dz;
+    return l2 > maxEdge * maxEdge ? Math.sqrt(l2 + dy * dy) : 0;
   };
   const mid = (a, b) => {
     const key = a < b ? a * 4294967296 + b : b * 4294967296 + a;
     let m = cache.get(key);
     if (m === undefined) {
+      if (count >= cap) {
+        cap *= 2;
+        for (const A of arrays) { const d = new Float64Array(cap * A.size); d.set(A.data); A.data = d; }
+      }
       m = count++;
       cache.set(key, m);
-      for (const A of arrays) for (let c = 0; c < A.size; c++) A.data.push((A.data[a * A.size + c] + A.data[b * A.size + c]) / 2);
+      for (const A of arrays) { const D = A.data, s = A.size; for (let c = 0; c < s; c++) D[m * s + c] = (D[a * s + c] + D[b * s + c]) / 2; }
     }
     return m;
   };
@@ -108,10 +116,7 @@ export function drapeGeometry(geometry, { maxEdge = 25, lift = 0 } = {}) {
     }
   }
   for (const A of arrays) {
-    const Ctor = A.ctor;
-    const arr = new Ctor(A.data.length);
-    for (let i = 0; i < arr.length; i++) arr[i] = A.data[i];
-    geometry.setAttribute(A.name, new THREE.BufferAttribute(arr, A.size, A.norm));
+    geometry.setAttribute(A.name, new THREE.BufferAttribute(new A.ctor(A.data.subarray(0, count * A.size)), A.size, A.norm));
   }
   geometry.setIndex(count > 65535 ? new THREE.BufferAttribute(new Uint32Array(out), 1) : new THREE.BufferAttribute(new Uint16Array(out), 1));
   const p = geometry.attributes.position;

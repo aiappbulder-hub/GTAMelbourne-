@@ -134,21 +134,22 @@ function chunkPlainMesh(mesh, cell) {
   const idx = geo0.index;
   const total = idx ? idx.count : pos.count;
   const cells = new Map();
-  const wm = mesh.matrixWorld;
+  const e = mesh.matrixWorld.elements, P = pos.array, S = pos.itemSize;
+  const wx = (i) => e[0] * P[i * S] + e[4] * P[i * S + 1] + e[8] * P[i * S + 2] + e[12];
+  const wz = (i) => e[2] * P[i * S] + e[6] * P[i * S + 1] + e[10] * P[i * S + 2] + e[14];
+  const ia = idx ? idx.array : null;
   for (let t = 0; t + 2 < total; t += 3) {
-    const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
-    _a.fromBufferAttribute(pos, i0).applyMatrix4(wm);
-    _b.fromBufferAttribute(pos, i1).applyMatrix4(wm);
-    _c.fromBufferAttribute(pos, i2).applyMatrix4(wm);
-    const key = Math.floor((_a.x + _b.x + _c.x) / 3 / cell) + ',' + Math.floor((_a.z + _b.z + _c.z) / 3 / cell);
+    const i0 = ia ? ia[t] : t, i1 = ia ? ia[t + 1] : t + 1, i2 = ia ? ia[t + 2] : t + 2;
+    const key = (Math.floor((wx(i0) + wx(i1) + wx(i2)) / 3 / cell) + 65536) * 131072 + Math.floor((wz(i0) + wz(i1) + wz(i2)) / 3 / cell) + 65536;
     let list = cells.get(key);
     if (!list) cells.set(key, (list = []));
     list.push(i0, i1, i2);
   }
   const attrs = Object.entries(geo0.attributes);
   const chunks = [];
+  const remapAll = new Int32Array(pos.count).fill(-1);
   for (const list of cells.values()) {
-    const remap = new Map();
+    const remap = { get: (k) => { const v = remapAll[k]; return v < 0 ? undefined : v; }, set: (k, v) => { remapAll[k] = v; } };
     const order = [];
     const index = new Array(list.length);
     for (let k = 0; k < list.length; k++) {
@@ -156,6 +157,7 @@ function chunkPlainMesh(mesh, cell) {
       if (m === undefined) { m = order.length; remap.set(list[k], m); order.push(list[k]); }
       index[k] = m;
     }
+    for (const o of order) remapAll[o] = -1;
     const geo = new THREE.BufferGeometry();
     for (const [name, a] of attrs) {
       const sz = a.itemSize;

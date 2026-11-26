@@ -11,6 +11,7 @@
 //
 // Cost: the strip and its dashes are 2 draw calls; each cyclist is 3 meshes (merged frame + 2 wheels). 4 cyclists on
 // Medium/High, 2 on Low-lite. Hidden beyond 250 m; the person is only posed within 110 m.
+import { groundIndexFor } from './ground-index.js';
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GEO } from './melbourne-geodata.js';
@@ -73,19 +74,13 @@ export function buildPathLine(side = -1) {
 // ---------------------------------------------------------------------------------------------------------------------
 // The rendered ground under the path: a downward ray onto the city grid's meshes (deck, kerb islands, park paving), the
 // highest hit within 1 m of the terrain (so tree canopies and awnings are ignored); falls back to the terrain height.
-const _ray = new THREE.Raycaster(), _dn = new THREE.Vector3(0, -1, 0), _org = new THREE.Vector3();
 function groundSampler(scene) {
-  const grid = scene.getObjectByName('MelbourneCityGrid');
-  const targets = [];
-  grid?.traverse((o) => { if (o.isMesh && !(o.material && o.material.transparent)) targets.push(o); });
+  const maxHit = groundIndexFor(scene);
   return (x, z) => {
     const t = terrainHeight(x, z);
-    if (!targets.length) return t;
-    _org.set(x, t + 6, z);
-    _ray.set(_org, _dn);
-    let best = t;
-    for (const h of _ray.intersectObjects(targets, false)) { if (h.point.y > best && h.point.y < t + 1) best = h.point.y; }
-    return best;
+    if (!maxHit) return t;
+    const h = maxHit(x, z, t, t + 1);
+    return h > t ? h : t;
   };
 }
 /** Fill line[i].y with the rendered ground (max over the path's width, then the max of neighbours so it never dips under a kerb step) */
