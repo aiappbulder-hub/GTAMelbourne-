@@ -19,6 +19,7 @@ import { cityUniforms, createSteamMaterial, createTreeGrateMaterial, createGodRa
 import { createTreeField } from './trees.js';
 import { terrainHeight, liftInstances } from './terrain.js';
 import { REAL_TREES } from './city-trees.js';
+import { freewayClearance } from './freeway-footprint.js';
 import { placeStreetTrees } from './tree-placements.js';
 import { pavedPlazaRects, centralParkClearings, parkTreeSites, parkLampSites } from './city-grid.js';
 
@@ -223,7 +224,10 @@ function buildStreetDetails(scene, colliders = []) {
     return !(b.park > 0.6) && !inPlaza(x, z, 1.0);
   };
 
+  // (and of the freeways: no pole, lamp arm or mast under an open deck lower than 10 m or in a cutting, where it would
+  // stand through the deck, js/freeway-footprint.js)
   const isClearOfPoles = (x, z, minDist = 6.0) => {
+    if (freewayClearance(x, z, 4) < 10) return false;
     const md2 = minDist * minDist;
     for (let ix = Math.floor((x - minDist) / POLE_CELL); ix <= Math.floor((x + minDist) / POLE_CELL); ix++) {
       for (let iz = Math.floor((z - minDist) / POLE_CELL); iz <= Math.floor((z + minDist) / POLE_CELL); iz++) {
