@@ -17,6 +17,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { terrainHeight } from './terrain.js';
 import { LITE, QUALITY } from './quality.js';
 import { createDogWalk, WALK } from './dogwalk.js';
+import { buildFawknerPaths } from './fawkner-paths.js';
 
 export const CONFIG = {
   // the off-leash area inside Fawkner Park (the park's ring is in js/melbourne-geodata.js: x 67..745, z 2597..3641)
@@ -188,6 +189,7 @@ export function createDogs({ scene, controllerManager: cm, cast = null, getAudio
   scene.add(root);
   const gy = parkGround(scene, P);
   root.add(buildFixtures(P, gy));
+  root.add(buildFawknerPaths(scene).group); // paths from the park's corners to the dog park gate
 
   // ---- the shared meshes
   const WN = 1 + WALK.walkers; // the player's walking dog and the gardens' NPC walkers' dogs (js/dogwalk.js)
