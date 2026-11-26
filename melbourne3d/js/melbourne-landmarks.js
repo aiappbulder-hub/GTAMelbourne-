@@ -34,8 +34,10 @@ export async function buildMelbourneLandmarks(scene) {
   const plinthMat = new THREE.MeshStandardNodeMaterial({ color: 0x8b877e, roughness: 0.9 });
   const box = new THREE.Box3(), size = new THREE.Vector3();
   await Promise.all([buildFlindersStreetStation(group, colliders, plinthMat), ...LANDMARKS.map(async ([id, site, long, short, height, axis]) => {
-    const s = LANDMARK_SITES[site];
-    if (!s) return;
+    const s0 = LANDMARK_SITES[site];
+    if (!s0) return;
+    // the OSM site's centre is pulled east by the gardens behind; stand the front steps on Spring St (x 691.9) instead
+    const s = id === 'parliament' ? { ...s0, x: 691.9 + 10.05 + 4.6 + 2 + 40 } // road half + footpath + 2 m forecourt + half its 80 m depth : s0;
     let gltf;
     try {
       gltf = await loader.loadAsync(new URL(`../../models/landmarks/${id}.json`, import.meta.url).href);
