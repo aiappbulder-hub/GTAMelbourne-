@@ -1,6 +1,8 @@
-// River path (Melbourne only): a shared bike and foot path along the Yarra's north bank (Southbank / Flinders Walk /
-// Birrarung Marr side, x -650 .. 420), drawn as a flat pale strip with a dashed centre line, and a few cyclists riding it
-// both ways (left-hand traffic).
+// River path (Melbourne only): a shared bike and foot path along both banks of the Yarra (north: Flinders Walk / Birrarung Marr;
+// south: the Southbank promenade; x -650 .. 420), drawn as a sealed grey-brown strip with a dashed centre line, laid on the
+// RENDERED ground (a downward raycast onto the city grid's deck, kerb islands and parks at build time, not the bare terrain
+// height: footpaths sit 0.22 m and park paving 0.26 m above it, which buried the old strip), with a few cyclists riding it
+// both ways (left-hand traffic) and walkers near the player's nearest bank.
 //
 // Reuses: the Yarra outline in js/melbourne-geodata.js (the same bank trace as melbourne-config.js' riverZ), the cyclist
 // build of js/controllers.js createCyclistEntity (frame, wheels, bars: here merged into one mesh), js/procedural-rider.js
@@ -19,6 +21,7 @@ import { RIDER_PROFILES, evaluateRiderMotion } from './procedural-rider.js';
 export const CONFIG = {
   x0: -650, x1: 420, // the path's extent along the bank (world x)
   inset: 4.2, // metres north of the bank line (the quay's edge)
+  lift: 0.05, // above the rendered ground
   halfWidth: 1.9, // the strip is 3.8 m wide: two lanes
   lane: 0.85, // a rider's offset from the centre line (to the left of travel)
   count: LITE ? 3 : QUALITY === 'low' ? 4 : 6,
@@ -30,39 +33,78 @@ export const CONFIG = {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The bank: the Yarra's north edge at x (as melbourne-config.js' riverZ, east of the harbour)
-const RINGS = GEO.water.filter((w) => w.name === 'Yarra River').map((w) => {
+// (the rendered water: the merged outline the land deck is cut by in js/city-grid.js, the ring that spans the whole reach;
+// the raw OSM Yarra rings (GEO.water) sit up to 8 m off it, which put the old strip over the water)
+const RINGS = (GEO.waterOutlines || []).map((flat) => {
   const o = [];
-  for (let i = 0; i < w.rings[0].length; i += 2) o.push([w.rings[0][i], w.rings[0][i + 1]]);
+  for (let i = 0; i < flat.length; i += 2) o.push([flat[i], flat[i + 1]]);
   return o;
-});
-function bankZ(x) {
-  let best = Infinity;
+}).filter((r) => Math.min(...r.map((p) => p[0])) < CONFIG.x0 + 50 && Math.max(...r.map((p) => p[0])) > CONFIG.x1 - 50);
+function bankZ(x, side = -1) { // side -1: north bank (smallest z), +1: south bank (largest z)
+  let best = side < 0 ? Infinity : -Infinity;
   for (const r of RINGS) {
     for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
       const a = r[j], b = r[i];
       if ((a[0] > x) === (b[0] > x)) continue;
       const zc = a[1] + ((x - a[0]) * (b[1] - a[1])) / (b[0] - a[0]);
-      if (zc > -900) best = Math.min(best, zc);
+      if (zc > -900) best = side < 0 ? Math.min(best, zc) : Math.max(best, zc);
     }
   }
   return best;
 }
 
 /** The path's centre line: points every ~10 m east, smoothed, with cumulative length. [{ x, z, cum }] */
-export function buildPathLine() {
+export function buildPathLine(side = -1) {
   const raw = [];
   for (let x = CONFIG.x0; x <= CONFIG.x1; x += 10) {
-    const z = bankZ(x);
-    if (Number.isFinite(z)) raw.push({ x, z: z - CONFIG.inset });
+    const z = bankZ(x, side);
+    if (Number.isFinite(z)) raw.push({ x, z: z + side * CONFIG.inset });
   }
   // a moving average so the quay's little steps don't wobble the path
   const pts = raw.map((p, i) => {
     let s = 0, n = 0;
     for (let k = -3; k <= 3; k++) { const q = raw[i + k]; if (q) { s += q.z; n++; } }
-    return { x: p.x, z: s / n, cum: 0 };
+    return { x: p.x, z: s / n, cum: 0, y: 0 };
   });
   for (let i = 1; i < pts.length; i++) pts[i].cum = pts[i - 1].cum + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
   return pts;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The rendered ground under the path: a downward ray onto the city grid's meshes (deck, kerb islands, park paving), the
+// highest hit within 1 m of the terrain (so tree canopies and awnings are ignored); falls back to the terrain height.
+const _ray = new THREE.Raycaster(), _dn = new THREE.Vector3(0, -1, 0), _org = new THREE.Vector3();
+function groundSampler(scene) {
+  const grid = scene.getObjectByName('MelbourneCityGrid');
+  const targets = [];
+  grid?.traverse((o) => { if (o.isMesh && !(o.material && o.material.transparent)) targets.push(o); });
+  return (x, z) => {
+    const t = terrainHeight(x, z);
+    if (!targets.length) return t;
+    _org.set(x, t + 6, z);
+    _ray.set(_org, _dn);
+    let best = t;
+    for (const h of _ray.intersectObjects(targets, false)) { if (h.point.y > best && h.point.y < t + 1) best = h.point.y; }
+    return best;
+  };
+}
+/** Fill line[i].y with the rendered ground (max over the path's width, then the max of neighbours so it never dips under a kerb step) */
+function setLineHeights(line, ground) {
+  const n = line.length, raw = [];
+  for (let i = 0; i < n; i++) {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(n - 1, i + 1)];
+    const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, p = line[i];
+    raw.push(Math.max(ground(p.x, p.z), ground(p.x + nx * CONFIG.halfWidth, p.z + nz * CONFIG.halfWidth), ground(p.x - nx * CONFIG.halfWidth, p.z - nz * CONFIG.halfWidth)));
+  }
+  for (let i = 0; i < n; i++) line[i].y = Math.max(raw[Math.max(0, i - 1)], raw[i], raw[Math.min(n - 1, i + 1)]);
+}
+/** Ground height along the line at cumulative length s */
+function yAt(line, s) {
+  let lo = 0, hi = line.length - 1;
+  s = Math.max(0, Math.min(line[hi].cum, s));
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (line[m].cum <= s) lo = m; else hi = m; }
+  const a = line[lo], b = line[hi], k = (s - a.cum) / Math.max(1e-6, b.cum - a.cum);
+  return a.y + (b.y - a.y) * k;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -77,21 +119,21 @@ function buildStrip(line) {
     const p = line[i], { nx, nz } = normal(i);
     for (const s of [-1, 1]) {
       const x = p.x + nx * CONFIG.halfWidth * s, z = p.z + nz * CONFIG.halfWidth * s;
-      pos.push(x, terrainHeight(x, z) + 0.07, z);
+      pos.push(x, p.y + CONFIG.lift, z);
     }
     if (i < n - 1) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
   }
-  // dashes every 9 m, 3.5 m long, 0.12 m wide
+  // dashes every 9 m, 3.5 m long, 0.16 m wide
   for (let d = 4; d < line[n - 1].cum - 4; d += 9) {
-    const a = pointAt(line, d), b = pointAt(line, d + 3.5);
-    const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l * 0.06, nz = dx / l * 0.06;
+    const a = { ...pointAt(line, d) }, b = pointAt(line, d + 3.5), ya = yAt(line, d), yb = yAt(line, d + 3.5);
+    const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, nx = -dz / l * 0.08, nz = dx / l * 0.08;
     const k = dpos.length / 3;
-    for (const [px, pz] of [[a.x - nx, a.z - nz], [a.x + nx, a.z + nz], [b.x - nx, b.z - nz], [b.x + nx, b.z + nz]]) dpos.push(px, terrainHeight(px, pz) + 0.09, pz);
+    for (const [px, pz, py] of [[a.x - nx, a.z - nz, ya], [a.x + nx, a.z + nz, ya], [b.x - nx, b.z - nz, yb], [b.x + nx, b.z + nz, yb]]) dpos.push(px, py + CONFIG.lift + 0.02, pz);
     didx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
   }
   const mk = (p, i) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setIndex(i); g.computeVertexNormals(); return g; };
-  const strip = new THREE.Mesh(mk(pos, idx), new THREE.MeshStandardNodeMaterial({ color: 0xd9d0bd, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  const dash = new THREE.Mesh(mk(dpos, didx), new THREE.MeshStandardNodeMaterial({ color: 0xf4f1e8, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  const strip = new THREE.Mesh(mk(pos, idx), new THREE.MeshStandardNodeMaterial({ color: 0x69655e, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const dash = new THREE.Mesh(mk(dpos, didx), new THREE.MeshStandardNodeMaterial({ color: 0xeee8d4, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
   for (const m of [strip, dash]) { m.receiveShadow = true; m.frustumCulled = false; }
   // (normals of an upward strip may come out down: make sure they face up)
   for (const m of [strip, dash]) { const nrm = m.geometry.attributes.normal; for (let i = 0; i < nrm.count; i++) if (nrm.getY(i) < 0) nrm.setXYZ(i, -nrm.getX(i), -nrm.getY(i), -nrm.getZ(i)); }
@@ -142,28 +184,38 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
   const root = new THREE.Group();
   root.name = 'RiverPath';
   scene.add(root);
-  const line = buildPathLine();
-  if (line.length < 4) return { update() {}, group: root, cyclists: [] };
-  const total = line[line.length - 1].cum;
-  root.add(...buildStrip(line));
+  const ground = groundSampler(scene);
+  // one path per bank: -1 the north bank, +1 the south bank (Southbank promenade)
+  const banks = [-1, 1].map((side) => {
+    const line = buildPathLine(side);
+    if (line.length < 4) return null;
+    setLineHeights(line, ground);
+    root.add(...buildStrip(line));
+    return { side, line, total: line[line.length - 1].cum, nearS: 0, nearD: Infinity, cyclists: [] };
+  }).filter(Boolean);
+  if (!banks.length) return { update() {}, group: root, cyclists: [], walkers: [], line: [] };
 
+  // the riders are split across the banks (3 on lite: 2 + 1; 4: 2 + 2; 6: 3 + 3)
   const cyclists = [];
   for (let i = 0; i < CONFIG.count; i++) {
-    const dir = i % 2 ? -1 : 1;
+    const bank = banks[i % banks.length];
+    const dir = (i >> 1) % 2 ? -1 : 1;
     const parts = buildBicycle(i);
     parts.group.visible = false;
     root.add(parts.group);
-    cyclists.push({
-      i, parts, dir, s: ((i + 0.5) / CONFIG.count) * total, speed: CONFIG.speed[0] + Math.random() * (CONFIG.speed[1] - CONFIG.speed[0]),
+    const c = {
+      i, bank, parts, dir, s: ((i + 0.5) / CONFIG.count) * bank.total, speed: CONFIG.speed[0] + Math.random() * (CONFIG.speed[1] - CONFIG.speed[0]),
       key: `rivercyclist${i}`, model: CONFIG.models[i % CONFIG.models.length], phase: Math.random(), breath: Math.random(), heading: null, lean: 0,
       frame: null, posed: false, x: 0, z: 0
-    });
+    };
+    cyclists.push(c);
+    bank.cyclists.push(c);
   }
   const SEAT = { y: 1.03, z: -0.3 };
   let t = 0;
 
-  // Walkers on the path: a few people strolling both ways along its edges, kept within a window round the player's
-  // place on the path (so whenever the player is by the river there are people about), wrapping out of sight
+  // Walkers: a few people strolling both ways along the edges of whichever bank is nearest the player, kept within a
+  // window round the player's place on it (so whenever the player is by the river there are people about)
   const WALK_N = LITE ? 3 : QUALITY === 'low' ? 5 : 7, WIN = 110;
   const walkers = [];
   for (let i = 0; i < WALK_N; i++) {
@@ -172,16 +224,20 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
       off: (Math.random() * 2 - 1) * WIN, speed: 1.1 + Math.random() * 0.45, edge: 1.35 + Math.random() * 0.35, posed: false
     });
   }
-  let nearS = 0, nearD = Infinity, nearT = 0;
+  let nearBank = banks[0], nearT = 0;
   function playerOnPath(pp) {
-    let bs = 0, bd = Infinity;
-    for (const q of line) { const d = (q.x - pp.x) ** 2 + (q.z - pp.z) ** 2; if (d < bd) { bd = d; bs = q.cum; } }
-    nearS = bs; nearD = Math.sqrt(bd);
+    for (const b of banks) {
+      let bs = 0, bd = Infinity;
+      for (const q of b.line) { const d = (q.x - pp.x) ** 2 + (q.z - pp.z) ** 2; if (d < bd) { bd = d; bs = q.cum; } }
+      b.nearS = bs; b.nearD = Math.sqrt(bd);
+    }
+    // (a little hysteresis, so the walkers don't hop across the river as the player stands midway)
+    for (const b of banks) if (b.nearD < nearBank.nearD - 15) nearBank = b;
   }
   function updateWalkers(dt, pp) {
     nearT -= dt;
     if (nearT <= 0) { playerOnPath(pp); nearT = 0.5; }
-    const near = nearD < 160;
+    const near = nearBank.nearD < 160, { line, total, nearS } = nearBank;
     for (const w of walkers) {
       if (!near) { if (w.posed) { cast?.setActor(w.key, null, null); w.posed = false; } continue; }
       w.off += w.dir * w.speed * dt;
@@ -190,7 +246,7 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
       const p = pointAt(line, sAt);
       const fx = p.dx * w.dir, fz = p.dz * w.dir;
       const x = p.x + fz * w.edge, z = p.z - fx * w.edge; // keep left, on the path's edge
-      cast?.setActor(w.key, w.model, { x, y: terrainHeight(x, z) + 0.07, z, heading: Math.atan2(fx, fz), speed: w.speed, ease: 3 }, 'idle');
+      cast?.setActor(w.key, w.model, { x, y: yAt(line, sAt) + CONFIG.lift, z, heading: Math.atan2(fx, fz), speed: w.speed, ease: 3 }, 'idle');
       w.posed = true;
     }
   }
@@ -201,9 +257,10 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
     const pp = cm.getActiveEntity().position;
     updateWalkers(dt, pp);
     for (const c of cyclists) {
+      const { line, total, nearS, nearD } = c.bank;
       c.s += c.dir * c.speed * dt;
       if (c.s > total) c.s -= total; else if (c.s < 0) c.s += total; // (the far end: round again, out of sight)
-      // with the player by the river, keep the riders within 150 m of them along the path (round again past that)
+      // with the player by this bank, keep its riders within 150 m of them along the path (round again past that)
       if (nearD < 160) { const w = 150, r = c.s - nearS; if (Math.abs(r) > w) c.s = Math.max(0, Math.min(total, nearS + ((((r + w) % (2 * w)) + 2 * w) % (2 * w)) - w)); }
       const p = pointAt(line, c.s);
       const fx = p.dx * c.dir, fz = p.dz * c.dir; // the way it faces
@@ -217,8 +274,8 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
       if (c.heading === null) c.heading = hd;
       const dyaw = Math.atan2(Math.sin(hd - c.heading), Math.cos(hd - c.heading));
       c.heading += dyaw * Math.min(1, dt * 6);
-      const hF = terrainHeight(x + fx * 0.6, z + fz * 0.6), hB = terrainHeight(x - fx * 0.6, z - fz * 0.6);
-      g.position.set(x, (hF + hB) / 2 + 0.07, z);
+      const hF = yAt(line, c.s + c.dir * 0.6), hB = yAt(line, c.s - c.dir * 0.6);
+      g.position.set(x, (hF + hB) / 2 + CONFIG.lift, z);
       g.rotation.set(-Math.atan2(hF - hB, 1.2), c.heading, 0, 'YXZ');
       // the pedal stroke rocks the bike a little (js/procedural-rider.js)
       const cadence = 50 + c.speed * 5;
@@ -233,7 +290,7 @@ export function createRiverPath({ scene, controllerManager: cm, cast = null }) {
     }
   }
   return {
-    update, group: root, cyclists, walkers, line,
+    update, group: root, cyclists, walkers, banks, line: banks[0].line,
     /** For checks: a point on the path beside rider i (x, z, heading) */
     cyclistPos(i = 0) { const c = cyclists[i]; return c && { x: c.parts.group.position.x, z: c.parts.group.position.z, heading: c.heading, shown: c.parts.group.visible }; }
   };
