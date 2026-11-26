@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { LANDMARK_SITES } from './city-config.js';
 import { terrainRange } from './terrain.js';
+import { buildRailYard } from './rail-yard.js';
 
 // Melbourne's landmarks: the old game's Blender models (models/landmarks/*.json, made by tools/make_landmarks.py)
 // stood on their real sites (js/melbourne-geodata.js `landmarks`, from OpenStreetMap). The models were built in the old
@@ -82,6 +83,8 @@ export async function buildMelbourneLandmarks(scene) {
     }
     colliders.push({ minX: s.x - hx, maxX: s.x + hx, minZ: s.z - hz, maxZ: s.z + hz, minY: lo - 3, groundY: lo - 3, maxY: base + height, landmark: id });
   })]);
+  const yard = buildRailYard(); // the painted tracks behind Flinders Street Station
+  if (yard) group.add(yard);
   console.info(`[landmarks] ${group.children.length} Melbourne landmarks placed`);
   return { group, colliders };
 }
@@ -126,7 +129,11 @@ async function buildFlindersStreetStation(group, colliders, plinthMat) {
   // on a hill: lifted rigidly to the highest ground under the footprint (less 0.3 m); the model's own stone skirt reaches
   // 6 m down to the lowest, following the footprint (a plinth box only if the ground falls further)
   const box = { minX: -332.5, maxX: -22.5, minZ: 248.6, maxZ: 280.4 };
-  const { lo, hi } = terrainRange(box);
+  // (sampled all over the footprint: the corners and centre alone missed the ridge along Flinders St, which stood 1.2 m
+  // above the base and buried the ground floor)
+  const pts = [];
+  for (let x = box.minX; x <= box.maxX + 0.01; x += 8) for (let z = box.minZ; z <= box.maxZ + 0.01; z += 4) pts.push({ x, z });
+  const { lo, hi } = terrainRange(pts);
   const base = Math.max(lo, hi - 0.3);
   lod.position.set(s.x, base, s.z);
   group.add(lod);
