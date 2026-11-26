@@ -7,6 +7,7 @@
 // is no open freeway (the tunnels are underground and don't count).
 // polygonFreewayClearance(ring, pad) is the same for a polygon ([{x, z}]): its edges (sampled every 3 m) and any deck
 // sample inside it.
+// inFreewayCutting(x, z) is true over an open cutting's hole in the ground (its width plus 1.6 m each side).
 import { FREEWAYS } from './freeway-data.js';
 
 const INDEX = 32;
@@ -24,7 +25,7 @@ for (const [, , width, , flat] of FREEWAYS.ways) {
     const ha = flat[i + 2], hb = flat[i + 6];
     // clearance under the deck: its underside above a raised deck, nothing at grade or in a cutting
     const clr = (h) => (h > 0.3 ? Math.max(0, h - DECK_T) : 0);
-    const s = { ax, az, ux: dx / L, uz: dz / L, L, hw, ca: clr(ha), cb: clr(hb) };
+    const s = { ax, az, ux: dx / L, uz: dz / L, L, hw, ca: clr(ha), cb: clr(hb), cut: Math.min(ha, hb) < -0.3 };
     segs.push(s);
     const r = hw + 12;
     for (let ix = Math.floor((Math.min(ax, bx) - r) / INDEX); ix <= Math.floor((Math.max(ax, bx) + r) / INDEX); ix++)
@@ -49,6 +50,42 @@ export function freewayClearance(x, z, pad = 0) {
     best = Math.min(best, s.ca + (s.cb - s.ca) * f);
   }
   return best;
+}
+
+/** Is (x, z) over an open freeway cutting (or within `pad` m of one): street paint there would float over the hole */
+export function inFreewayCutting(x, z, pad = 0) {
+  for (const s of index.get(key(Math.floor(x / INDEX), Math.floor(z / INDEX))) || []) {
+    if (!s.cut) continue;
+    const dx = x - s.ax, dz = z - s.az, along = dx * s.ux + dz * s.uz;
+    if (along >= -pad - 1 && along <= s.L + pad + 1 && Math.abs(dx * s.uz - dz * s.ux) <= s.hw + 1.6 + pad) return true;
+  }
+  return false;
+}
+
+/** Does a polygon ring ([{x, z}]) reach over an open cutting's carriageway (0.5 m or more into its road)? */
+export function polygonOverCutting(ring) {
+  const onRoad = (x, z) => {
+    for (const s of index.get(key(Math.floor(x / INDEX), Math.floor(z / INDEX))) || []) {
+      if (!s.cut) continue;
+      const dx = x - s.ax, dz = z - s.az, along = dx * s.ux + dz * s.uz;
+      if (along >= 0 && along <= s.L && Math.abs(dx * s.uz - dz * s.ux) <= s.hw - 0.5) return true;
+    }
+    return false;
+  };
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    minX = Math.min(minX, a.x); maxX = Math.max(maxX, a.x); minZ = Math.min(minZ, a.z); maxZ = Math.max(maxZ, a.z);
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 2));
+    for (let k = 0; k < n; k++) if (onRoad(a.x + ((b.x - a.x) * k) / n, a.z + ((b.z - a.z) * k) / n)) return true;
+  }
+  for (let ix = Math.floor(minX / INDEX); ix <= Math.floor(maxX / INDEX); ix++)
+    for (let iz = Math.floor(minZ / INDEX); iz <= Math.floor(maxZ / INDEX); iz++)
+      for (const s of index.get(key(ix, iz)) || []) {
+        if (!s.cut) continue;
+        for (let t = 0; t <= s.L; t += 2) if (inside(ring, s.ax + s.ux * t, s.az + s.uz * t)) return true;
+      }
+  return false;
 }
 
 /** Lowest clearance under an open freeway deck over or within `pad` m of a polygon ring; Infinity with none */

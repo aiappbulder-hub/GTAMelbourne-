@@ -273,6 +273,9 @@ function buildStreetDetails(scene, colliders = []) {
         }
         // Ensure the cantilevered mast arm actually overhangs the avenue roadway
         if (blockAt(px + c.armDir * 3.1, pz) || !isClearOfPoles(px, pz, 6.0)) continue;
+        // nor a mast whose arm (6.5 m long, 6.1 m up) or its signal heads would hang over a freeway's road lower than that
+        // or reach into a deck (js/freeway-footprint.js)
+        if ([1.85, 3.1, 4.5, 5.5, 6.5].some((d) => freewayClearance(px + c.armDir * d, pz, 1) < 7.5)) continue;
         addPole(px, pz, 0.5);
         if (!placedSignal) {
           signalIntersections.push({ x: ave.x, z: st.z });
