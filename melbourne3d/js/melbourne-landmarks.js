@@ -38,7 +38,8 @@ export async function buildMelbourneLandmarks(scene) {
     const s0 = LANDMARK_SITES[site];
     if (!s0) return;
     // the OSM site's centre is pulled east by the gardens behind; stand the front steps on Spring St (x 691.9) instead
-    const s = id === 'parliament' ? { ...s0, x: 691.9 + 10.05 + 4.6 + 2 + 40 } // road half + footpath + 2 m forecourt + half its 80 m depth : s0;
+    // (Spring St's half-width + footpath + a 2 m forecourt + half the building's 80 m depth)
+    const s = id === 'parliament' ? { ...s0, x: 691.9 + 10.05 + 4.6 + 2 + 40 } : s0;
     let gltf;
     try {
       gltf = await loader.loadAsync(new URL(`../../models/landmarks/${id}.json`, import.meta.url).href);
