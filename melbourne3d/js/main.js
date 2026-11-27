@@ -12,6 +12,7 @@ import { buildStreetDetails } from './street-details.js';
 import { createTrafficSystem, createHighwayTraffic } from './traffic.js';
 import { buildRoadPaint } from './road-paint.js';
 import { ThirdPersonControllerManager } from './controllers.js';
+import { DISPLAY_DIV } from './travel-scale.js';
 import { TouchControls } from './touch-controls.js';
 import { GamepadControls } from './gamepad-controls.js';
 import { CameraSystem, CAMERA_PRESETS } from './cameras.js';
@@ -992,7 +993,7 @@ async function initApp() {
     sn.textContent = 'Get the sports car';
     const ss = document.createElement('span');
     ss.className = 'pop-sub';
-    ss.textContent = 'HSB Clubbie R8 · 380 km/h';
+    ss.textContent = 'HSB Clubbie R8 · 280 km/h';
     sc.append(sn, ss);
     sc.addEventListener('click', () => { closePopovers(); gameplay?.summonSports(); });
     b.after(sc);
@@ -1466,7 +1467,7 @@ async function initApp() {
       fpsTimer = 0;
       const activeEnt = controllerManager.getActiveEntity();
       const mode = controllerManager.activeMode;
-      const mph = Math.round(Math.abs(activeEnt.speed) * 3.6); // km/h
+      const mph = Math.round(Math.abs(activeEnt.speed) * 3.6 / (mode === 'car' ? DISPLAY_DIV : 1)); // km/h (a car's shown speed: js/travel-scale.js)
       const altFt = Math.max(0, Math.round(activeEnt.position.y * 3.281));
 
       if (statEl.style.display !== 'none') {

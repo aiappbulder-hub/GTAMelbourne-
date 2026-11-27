@@ -3,6 +3,7 @@ import * as THREE from 'three/webgpu';
 import { ALBERT_PARK, OPEN_PARK_LAWN_Y } from './race-track.js';
 import { createCarSounds } from './car-sounds.js';
 import { SPORTS_DRIVE } from './controllers.js';
+import { travelDrive, DISPLAY_DIV } from './travel-scale.js';
 import { WEAPONS, WEAPON_BY_ID, weaponIconSVG } from './weapons.js';
 import { createCombat } from './combat.js';
 import { terrainHeight } from './terrain.js';
@@ -13,11 +14,11 @@ const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z
 const SPEED_K = 1.4, GRIP_K = 1.15;
 const drive = (speed0, acceleration0, grip0, extra = {}) => {
   const speed = speed0 * SPEED_K, acceleration = acceleration0 * SPEED_K, grip = grip0 * GRIP_K;
-  return {
+  return travelDrive({
     speed, reverseSpeed: 11.5, acceleration, powerSpeed: 16 + acceleration * 1.6,
     rolling: 0.17, drag: 0.0011 - acceleration0 * 0.00006, coast: 0.6, brake: 9 + grip * 0.25,
     wheelbase: 2.76, grip, cornering: grip * 1.05, ...extra
-  };
+  });
 };
 const CUSTOM_CARS = [
   { id: 'clubbie', file: 'clubbie', name: 'HSB Clubbie R8', color: 0xd8221d, drive: SPORTS_DRIVE, line: 'HSB Clubbie R8. Try not to wrap it round a tram.' },
@@ -1666,9 +1667,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const drivingNow = cm.activeMode === 'car';
     speedo.classList.toggle('on', drivingNow);
     if (drivingNow) {
-      const top = Math.round((((car.drive && car.drive.speed) || 50) * 3.6) / 20) * 20 + 20;
+      const top = Math.round((((car.drive && car.drive.speed) || 50) * 3.6 / DISPLAY_DIV) / 20) * 20 + 20;
       drawTicks(top);
-      const kmh = Math.abs(car.speed) * 3.6;
+      const kmh = Math.abs(car.speed) * 3.6 / DISPLAY_DIV;
       const a = A0 + ((A1 - A0) * Math.min(kmh, top)) / top;
       needle.setAttribute('transform', `rotate(${a + 90})`);
       num.textContent = String(Math.round(kmh));
@@ -1765,7 +1766,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     get driving() { return driving(); },
     get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
     /** The speedo's full scale for the car being driven (km/h) */
-    get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 50) * 3.6 / 10) * 10 + 20 : 0; },
+    get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 50) * 3.6 / DISPLAY_DIV / 10) * 10 + 20 : 0; },
     summonSports, summon, cycleCar, placeCar, leaveCarNow,
     /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
     addCar(def) {

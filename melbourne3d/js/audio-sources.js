@@ -1,5 +1,6 @@
 import { terrainHeight } from './terrain.js';
 import { signalPhase, walkSignal } from './city-config.js';
+import { DISPLAY_DIV } from './travel-scale.js';
 
 const MOTOR_RANGE = 180;
 const SIREN_RANGE = 220;
@@ -187,7 +188,7 @@ class CityAudioSources {
         const load = player ? helicopter ? helicopterLoad(entity, keys, verticalSpeed) : driveLoad(keys, entity.speed, kind === 'cyclist') : 0;
         const gain = player ? 1 : helicopter ? 0.22 : 0.5;
         const range = helicopter ? (player ? 500 : 200) : 160;
-        this.motor(entity, kind, x, y + (helicopter ? 2.66 : 0.7), z, player ? entity.speed : 0, load, entity.heading,
+        this.motor(entity, kind, x, y + (helicopter ? 2.66 : 0.7), z, player ? (kind === 'sedan' ? entity.speed / DISPLAY_DIV : entity.speed) : 0, load, entity.heading,
           false, player, seedAt(i), false, gain, range, verticalSpeed);
       }
     }

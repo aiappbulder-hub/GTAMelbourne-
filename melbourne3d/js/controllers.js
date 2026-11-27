@@ -38,19 +38,21 @@ const SPAWN_Z = SPAWN.z;
 const SPAWN_X = SPAWN.x;
 const groundCollider = { type: 'ground' };
 
-const CAR_DRIVE = {
+import { travelDrive } from './travel-scale.js';
+
+const CAR_DRIVE = travelDrive({
   speed: 50, reverseSpeed: 11.5, acceleration: 6.5, // (v36: 36 m/s and 4.5; about +40% so crossing the CBD is quick)
   powerSpeed: 20, // Above 72 km/h, engine power limits acceleration.
   rolling: 0.18, drag: 0.0012, coast: 0.6, brake: 9,
   wheelbase: 2.76, grip: 15, cornering: 17 // Wheelbase (m), tire and steering acceleration limits (m/s²).
-};
-// The sports car (the HSB Clubbie R8, js/gameplay.js): about 380 km/h, twice the pull, harder brakes, more grip
-export const SPORTS_DRIVE = {
+}); // (scaled by TRAVEL_SCALE, js/travel-scale.js)
+// The sports car (the HSB Clubbie R8, js/gameplay.js): about 280 km/h shown (136 m/s real), twice the pull, harder brakes, more grip
+export const SPORTS_DRIVE = travelDrive({
   speed: 105, reverseSpeed: 13, acceleration: 13, // (v36: 78 m/s and 9.5)
   powerSpeed: 40, // power-limited above ~144 km/h
   rolling: 0.15, drag: 0.0005, coast: 0.5, brake: 15,
   wheelbase: 2.7, grip: 26, cornering: 27
-};
+});
 const BICYCLE_DRIVE = {
   speed: 19, reverseSpeed: 4.5, acceleration: 9,
   rolling: 0.08, drag: 0.004, coast: 0.2, brake: 7.5 // Backward input is scaled to 0.6, giving 4.5 m/s² braking.
@@ -1257,7 +1259,8 @@ class ThirdPersonControllerManager {
     c.prevX = prevX;
     c.prevZ = prevZ;
     // Short steps keep grip, impacts and suspension consistent at different display rates.
-    const steps = Math.ceil(dt * 120);
+    // (more sub-steps the faster it goes, so a fast car cannot step through a thin wall: under ~0.3 m per step)
+    const steps = Math.ceil(dt * Math.max(120, Math.abs(c.speed) * 3.5));
     const step = dt / steps;
     const steerResponse = 1 - Math.exp(-10 * step);
     const yawResponse = 1 - Math.exp(-8 * step);
