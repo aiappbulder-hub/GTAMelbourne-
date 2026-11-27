@@ -209,20 +209,25 @@ export async function runAimTest(ctx, opts = {}) {
     if (v) {
       const cp = at(8);
       Object.assign(v, { edge: null, conn: null, parked: true, speed: 0, acc: 0, x: cp.x, z: cp.z, prevX: cp.x, prevZ: cp.z, yaw: Math.atan2(t.x, t.z), y: groundAt(cp.x, cp.z) });
-      const hl = v.halfL ?? 2.2;
-      const g = await spawn(at(10, hl * 10 / 8), awayYaw + Math.PI);
+      // the hostile right behind it: his head shows over the roof, his chest and legs are behind the car
+      const g = await spawn(at(8 + (v.halfWidth ?? 0.9) + 0.9), awayYaw + Math.PI);
       await frames(5);
       const all = [g];
-      for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: exposed half', chest(g, 1.1, 0.18), g, 'target', all);
-      for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: covered half', chest(g, 1.0, -0.32), g, 'car', all);
+      for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: head over the roof', chest(g, 1.62), g, 'target', all);
+      for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: chest (covered)', chest(g, 1.0), g, 'car', all);
       combat.clear();
+      Object.assign(v, { parked: false, edge: null }); // (out of the lane again: the traffic takes it back)
     } else results.push({ case: 'behind car', error: 'no car' });
   }
   if (want('assist')) {
     // the crosshair on a hostile at 14 m; a decoy at 6 m about 4.5 degrees off it, on either side
+    // (the decoy is placed about 4.6 degrees off the crosshair's ray, as the camera sees it, not off the player's line:
+    // the camera is over the right shoulder)
     for (const side of [-1, 1]) {
       const a = await spawn(at(14), awayYaw + Math.PI);
-      const b = await spawn(at(6, side * 6 * Math.tan(0.08)), awayYaw + Math.PI);
+      await aimAt(chest(a));
+      const r = crossRay(), yw = Math.atan2(r.d.x, r.d.z) + side * 0.08, L = Math.hypot(at(6).x - r.o.x, at(6).z - r.o.z);
+      const b = await spawn({ x: r.o.x + Math.sin(yw) * L, z: r.o.z + Math.cos(yw) * L }, awayYaw + Math.PI);
       for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot(`decoy ${side < 0 ? 'left' : 'right'} 6 m, target 14 m`, chest(a), a, 'target', [a, b]);
       combat.clear();
     }
