@@ -6,15 +6,20 @@
 import * as THREE from 'three/webgpu';
 import { LITE } from './quality.js';
 
-export const PILLARS = { x: 555, z: 1128, plazaR: 8, heights: [3.2, 4.4, 5.8, 7, 5.4, 4.0, 3.4] };
+// on the park side of Alexandra Ave (about 20 m west of its centreline), the arc of pillars opening east-north-east
+// across the road to the Yarra; `face` is the direction the pool side (local +z) looks
+export const PILLARS = { x: 518.6, z: 1142.2, face: Math.atan2(0.909, -0.416), plazaR: 8, heights: [3.2, 4.4, 5.8, 7, 5.4, 4.0, 3.4] };
 
 export function buildPillars(gnd) {
-  const { x: cx, z: cz, plazaR } = PILLARS;
+  const { x: wx, z: wz, plazaR, face } = PILLARS;
+  const cs = Math.cos(face), sn = Math.sin(face);
+  const toWorld = (lx, lz) => [wx + lx * cs + lz * sn, wz - lx * sn + lz * cs]; // (as rotateY(face), then the site)
+  const cx = 0, cz = 0; // the stone is laid out round the origin, facing +z, then turned and moved onto the site
   const group = new THREE.Group();
   group.name = 'PillarsOfWisdom';
   // the plaza level: the highest ground under it, so it never sinks into the slope
-  let base = gnd(cx, cz);
-  for (let k = 0; k < 12; k++) base = Math.max(base, gnd(cx + Math.cos(k / 12 * 6.283) * plazaR, cz + Math.sin(k / 12 * 6.283) * plazaR));
+  let base = gnd(wx, wz);
+  for (let k = 0; k < 12; k++) base = Math.max(base, gnd(wx + Math.cos(k / 12 * 6.283) * plazaR, wz + Math.sin(k / 12 * 6.283) * plazaR));
   const top = base + 0.14;
 
   const parts = [];
@@ -45,7 +50,8 @@ export function buildPillars(gnd) {
     const rad = 0.3 + (h > 6 ? 0.06 : 0) + (i % 3) * 0.02;
     add(new THREE.CylinderGeometry(rad * 0.78, rad, h, 8).translate(0, h / 2, 0), px, top, pz, [1, 1, 1], null, h / 7);
     add(new THREE.BoxGeometry(rad * 2.5, 0.3, rad * 2.5), px, top + 0.15, pz, [0.8, 0.74, 0.62], flat); // plinth
-    colliders.push({ minX: px - rad - 0.1, maxX: px + rad + 0.1, minZ: pz - rad - 0.1, maxZ: pz + rad + 0.1, minY: base - 1, maxY: top + h, obb: { cx: px, cz: pz, hx: rad + 0.1, hz: rad + 0.1, cs: 1, sn: 0 }, pillar: true });
+    const [qx, qz] = toWorld(px, pz);
+    colliders.push({ minX: qx - rad - 0.1, maxX: qx + rad + 0.1, minZ: qz - rad - 0.1, maxZ: qz + rad + 0.1, minY: base - 1, maxY: top + h, obb: { cx: qx, cz: qz, hx: rad + 0.1, hz: rad + 0.1, cs: 1, sn: 0 }, pillar: true });
   });
   // merge
   let nv = 0, ni = 0;
@@ -60,7 +66,7 @@ export function buildPillars(gnd) {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
+  geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.rotateY(face); geo.translate(wx, 0, wz); geo.computeVertexNormals();
   // sandstone with engraved bands (canvas v runs up the pillar: 0 at the foot over 7 m)
   let tex = null;
   if (typeof document !== 'undefined') {
@@ -81,8 +87,8 @@ export function buildPillars(gnd) {
   const stone = new THREE.Mesh(geo, new THREE.MeshStandardNodeMaterial({ map: tex, vertexColors: true, roughness: 0.92 }));
   stone.name = 'PillarsStone'; stone.castShadow = !LITE; stone.receiveShadow = true; stone.frustumCulled = false;
   // the pool: a glossy dark sheet just under the coping's top
-  const pool = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.4).rotateX(-Math.PI / 2).translate(poolX, top + 0.16, poolZ), new THREE.MeshStandardNodeMaterial({ color: 0x1d3a4a, roughness: 0.04, metalness: 0.85 }));
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.4).rotateX(-Math.PI / 2).translate(poolX, top + 0.16, poolZ).rotateY(face).translate(wx, 0, wz), new THREE.MeshStandardNodeMaterial({ color: 0x1d3a4a, roughness: 0.04, metalness: 0.85 }));
   pool.name = 'PillarsPool'; pool.frustumCulled = false;
   group.add(stone, pool);
-  return { group, colliders, x: cx, z: cz, y: top };
+  return { group, colliders, x: wx, z: wz, y: top };
 }
