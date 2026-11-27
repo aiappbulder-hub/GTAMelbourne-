@@ -34,7 +34,8 @@ export const WALK = {
     { name: 'Domain Road gate', x: 535, z: 2251 },
     { name: 'Tan gate', x: 640, z: 1515 }
   ],
-  waypoints: [[294, 1932], [360, 1925], [440, 1890], [520, 1830], [545, 1930], [560, 2005], [640, 1990], [715, 1952], [790, 1950], [760, 2050], [700, 2150], [735, 2235], [785, 2252], [700, 2290], [600, 2262], [538, 2240]],
+  waypoints: [[300, 1941], [322, 1943], [345, 1940], [360, 1925], // (starting south of the Observatory-gate building, clear of its walls)
+    [440, 1890], [520, 1830], [545, 1930], [560, 2005], [640, 1990], [715, 1952], [790, 1950], [760, 2050], [700, 2150], [735, 2235], [785, 2252], [700, 2290], [600, 2262], [538, 2240]],
   checkpoints: [ // [name, x, z] (snapped to the nearest point of the route)
     ['Western Lawn', 360, 1925], ['Fern Gully', 520, 1830], ['Ornamental Lake', 715, 1952], ['Arid Garden', 735, 2235],
     ["Guilfoyle's Volcano", 785, 2252], ['Domain Road gate', 538, 2240]
