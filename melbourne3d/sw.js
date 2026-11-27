@@ -1,6 +1,6 @@
 // Service worker: caches the game for fast repeat loads and offline start. Relative URLs only (works under /<repo>/melbourne3d/).
 // Bump VERSION on each deploy: old caches are deleted on activate, and skipWaiting + clients.claim apply the new worker at once.
-const VERSION = 'v36';
+const VERSION = 'v37';
 const CACHE = `gta-melb-${VERSION}`;
 const CDN = 'https://cdn.jsdelivr.net/';
 
