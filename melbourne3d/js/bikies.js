@@ -106,6 +106,8 @@ export function buildBike(seed = 0) {
     rod(g, [s * 0.27, 0.36, -0.05], [s * 0.3, 0.4, -1.12], 0.045, M.chrome);
     blob(g, G.cyl, M.black, s * 0.3, 0.4, -1.13, 0.05, 0.03, 0.05).rotation.x = Math.PI / 2;
   }
+  const stand = rod(g, [0.05, 0.45, -0.1], [0.42, 0.02, -0.2], 0.02, M.chrome); // the kickstand (down when parked)
+  stand.visible = false;
   // the steering: the head at (0, 1.0, 0.5), forks raked out to the front axle, risers and ape hangers
   const steer = new THREE.Group();
   steer.position.set(0, 1.0, 0.5);
@@ -128,7 +130,7 @@ export function buildBike(seed = 0) {
   // the front wheel turns with the forks: its group is in the steering's frame
   steer.attach(front.group);
   g.updateMatrixWorld(true);
-  return { group: g, wheelF: front, wheelR: rear, steer, grips };
+  return { group: g, stand, wheelF: front, wheelR: rear, steer, grips };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -142,6 +144,8 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
   scene.add(group);
   const mainRoad = (e) => e.axis === 'ave' || e.lanes.length >= 2 || e.half >= 7;
   const player = () => cm.getActiveEntity().position;
+  // the street height a bike stands on (bridges, decks and the like included), not the raw terrain
+  const roadY = (x, z) => cm.getGroundHeight(x, z, 'car') ?? terrainHeight(x, z);
   const flag = (c) => document.body.classList.contains(c);
   const inView = (() => {
     const f = new THREE.Frustum(), pm = new THREE.Matrix4(), s = new THREE.Sphere();
@@ -422,9 +426,14 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
     }
     // hostile: the leader stops when a rider is near the player, or when it has gone as far as it can
     const near = P.bikes.some((b) => b.state === 'ride' && Math.hypot(b.x - pp.x, b.z - pp.z) < 24);
-    const wait = Math.hypot(lx - pp.x, lz - pp.z) < 110 ? 7 : 22; // (a long way off: it keeps coming for longer)
+    const wait = Math.hypot(lx - pp.x, lz - pp.z) < 110 ? 7 : 40; // (a long way off: it keeps coming for longer)
     if (P.hostile && (near || P.hostileT > wait)) want = 0;
     L.speed += clamp(want - L.speed, -9 * dt, 4 * dt);
+    // a hostile pack whose road has run out (or wandered off) far from the player carries on over open ground, on the surface
+    if (P.hostile && !L.free && (L.dead || (P.hostileT > 25 && !near)) && Math.hypot(lx - pp.x, lz - pp.z) > 35) {
+      L.free = true; L.fx = lx; L.fz = lz; L.fh = Math.atan2(fx, fz); L.dead = false; L.speed = Math.max(L.speed, 4);
+    }
+    if (L.free) want = Math.min(11, Math.max(want, 9));
     if (!L.dead) advance(L, dt);
     else L.speed = 0;
     if (P.hostile) P.hostileT += dt;
@@ -482,7 +491,7 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
         b.speed = 0;
         b.lean += (0.22 - b.lean) * Math.min(1, dt * 4);
       }
-      if (g.mounted) { g.x = b.x; g.z = b.z; g.y = terrainHeight(b.x, b.z); g.heading = b.heading; }
+      if (g.mounted) { g.x = b.x; g.z = b.z; g.y = roadY(b.x, b.z); g.heading = b.heading; }
       // a rammed bike (the player's car)
       if (cm.activeMode === 'car' && b.state !== 'down') {
         const e = cm.getActiveEntity();
@@ -513,9 +522,10 @@ export function createBikies({ scene, trafficSystem, controllerManager: cm, game
       const d = Math.hypot(b.x - pp.x, b.z - pp.z);
       const show = d < 230 && b.state !== 'gone';
       pg.visible = show;
+      b.parts.stand.visible = b.state === 'parked' || b.state === 'down';
       if (!show) continue;
       // on the hill: at the ground under the middle of the bike, pitched with the slope
-      const fx = Math.sin(b.heading) * 0.9, fz = Math.cos(b.heading) * 0.9, hF = terrainHeight(b.x + fx, b.z + fz), hB = terrainHeight(b.x - fx, b.z - fz);
+      const fx = Math.sin(b.heading) * 0.9, fz = Math.cos(b.heading) * 0.9, hF = roadY(b.x + fx, b.z + fz), hB = roadY(b.x - fx, b.z - fz);
       pg.position.set(b.x, (hF + hB) / 2, b.z);
       pg.rotation.set(-Math.atan2(hF - hB, 1.8), b.heading, b.lean, 'YXZ');
       const spin = b.speed * dt / 0.34;
