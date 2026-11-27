@@ -67,7 +67,7 @@ class CameraSystem {
       if (pointers.size && (e.pointerType !== 'touch' || pointers.values().next().value.type !== 'touch')) return;
       e.preventDefault();
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* (not allowed: the mouse is captured) */ }
       this.isDragging = true;
       this.userOrbitTimer = 4.0;
     });
