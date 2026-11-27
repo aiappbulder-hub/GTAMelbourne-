@@ -888,6 +888,17 @@ async function initApp() {
   // Victoria Police up close: light bars, the siren, officers on foot (js/police.js)
   const police = wanted && gameplay ? (await import('./police.js')).createPolice({ scene, controllerManager, wanted, gameplay, missionSystem, lightingSystem, audioSystem, cast: castSystem }) : null;
   if (police) { wanted.attachPolice(police); window.__city.police = police; }
+  // Car damage: hood and doors come off (js/car-damage.js). It listens to the same crash events as the audio.
+  const carDamage = IS_MELBOURNE && gameplay ? (await import('./car-damage.js')).createCarDamage({
+    scene, controllerManager, getPlayerBody: () => gameplay.activeBody(), getPursuers: () => (wanted ? wanted.units.map((u) => u.p) : []),
+    getGround: (x, z) => controllerManager.getGroundHeight(x, z, 'car')
+  }) : null;
+  if (carDamage) {
+    const chained = (ev) => { carDamage.onImpact(ev); audioSystem.onCollision(ev); };
+    controllerManager.setCollisionListener(chained);
+    trafficSystem.setCollisionListener?.(chained);
+    window.__city.carDamage = carDamage;
+  }
   // A pack of bikies on motorbikes, free roam and a job's call (js/bikies.js)
   const bikies = gameplay ? (await import('./bikies.js')).createBikies({ scene, trafficSystem, controllerManager, gameplay, missionSystem, cameraSystem, audioSystem, cast: castSystem }) : null;
   if (bikies) { gameplay.bikies = bikies; window.__city.bikies = bikies; scene.add(bikies.group); }
@@ -1412,6 +1423,7 @@ async function initApp() {
     interiors?.update(dt, elapsed);
     if (wanted) wanted.update(dt);
     if (police) police.update(dt);
+    carDamage?.update(dt);
     bikies?.update(dt);
     race?.update(dt);
     if (!interiors?.inside) solids?.update(dt);
