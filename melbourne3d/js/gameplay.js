@@ -763,8 +763,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0, armPitch = 0;
   const _aimO = new THREE.Vector3(), _aimD = new THREE.Vector3();
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
-  const AIM_SENS = 0.0032; // radians per pixel
-  const AIM_PITCH = Math.PI / 3; // free pitch, 60 degrees up or down
+  const AIM_SENS = 0.0042; // radians per pixel (mouse), full 360 degree turning, no yaw clamp
+  const AIM_SENS_TOUCH = 0.0055; // radians per pixel of a finger drag
+  const AIM_PITCH = (70 * Math.PI) / 180; // free pitch, 70 degrees up or down
+  const STICKY_AIM = 3; // seconds the aim stays up after a left click / touch drag / FIRE, so clicking to shoot also aims
+  let keyAim = false, stickyT = 0, touchDrag = null, aimBtn = false, assistCone = 0.11;
+  // where the camera is looking (the aim starts from it, so raising the gun never jerks the view)
+  const camYaw = () => (cameraSystem.personYaw ?? person.heading) + (cameraSystem.orbitYawOffset || 0);
   const PITCH_TOL = 0.14; // aim assist only draws to a target whose chest is within this of the crosshair's elevation
   const canvasEl = renderer.domElement;
   const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.(); } catch { /* not allowed */ } };
@@ -776,7 +781,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // captured: the movement; not (yet): how far the pointer went
     const dx = document.pointerLockElement === canvasEl ? (e.movementX || 0) : lastMouseX === null ? 0 : e.clientX - lastMouseX;
     lastMouseX = e.clientX;
-    if (freeYaw === null) freeYaw = person.heading;
+    if (freeYaw === null) freeYaw = camYaw();
     freeYaw -= dx * AIM_SENS;
     // up and down too
     const dy = document.pointerLockElement === canvasEl ? (e.movementY || 0) : lastMouseY === null ? 0 : e.clientY - lastMouseY;
@@ -794,9 +799,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   elAim.type = 'button';
   elAim.textContent = 'AIM';
   document.body.append(elAim);
-  elAim.addEventListener('pointerdown', (e) => { e.preventDefault(); aimHeld = true; });
-  elAim.addEventListener('pointerup', () => { aimHeld = false; });
-  elAim.addEventListener('pointercancel', () => { aimHeld = false; });
+  elAim.addEventListener('pointerdown', (e) => { e.preventDefault(); aimHeld = true; aimBtn = true; });
+  elAim.addEventListener('pointerup', () => { aimHeld = false; aimBtn = false; });
+  elAim.addEventListener('pointercancel', () => { aimHeld = false; aimBtn = false; });
 
   // tracers and muzzle flashes, pooled
   const tracerMat = new THREE.LineBasicNodeMaterial({ color: 0xffe2a0, transparent: true, opacity: 0.9, depthWrite: false });
@@ -1020,7 +1025,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // the crosshair is, at any range); else (free fire) the nearest person or car in front, else straight ahead
     const pp = person.position;
     // (the lock is looked up afresh at the trigger: the last frame's can be stale when people and cars are moving)
-    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, 0.11, true, null, freePitch) || findTarget(freeYaw, 0.07, false, null, freePitch);
+    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, assistCone, true, null, freePitch) || findTarget(freeYaw, assistCone * 0.65, false, null, freePitch);
     const t = lockTarget || (!aimHeld && findTarget(person.heading, LOCK_CONE));
     let yaw = person.heading;
     const aimPt = new THREE.Vector3();
@@ -1472,15 +1477,47 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // right button: aim (held)
     if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
     // (a mouse click shoots; a finger on the screen never does: on touch screens only the FIRE button fires)
-    if (e.button === 0 && e.pointerType === 'mouse') down = { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (e.button === 0 && e.pointerType === 'mouse') {
+      down = { x: e.clientX, y: e.clientY, t: performance.now() };
+      assistCone = 0.11;
+      // on foot with a gun a click captures the mouse (pointer lock) and aims, so you can turn right round and shoot
+      if (armed && cm.activeMode === 'person' && e.target === canvas) { engageSticky(); grabMouse(); }
+    }
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
+  // Sticky aim: a left click (mouse, pointer lock) or a finger on the view brings the gun up for a few seconds
+  const engageSticky = () => { if (armed && cm.activeMode === 'person') { stickyT = STICKY_AIM; aimHeld = true; } };
+  // Touch: drag anywhere on the view (not on a button or the stick) to aim; the drag turns the aim, the FIRE button shoots
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || !armed || cm.activeMode !== 'person' || touchDrag) return;
+    touchDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    assistCone = 0.2; // a finger is rough: the lite-friendly magnet is wider
+    engageSticky();
+  }, true);
+  window.addEventListener('pointermove', (e) => {
+    if (!touchDrag || e.pointerId !== touchDrag.id) return;
+    const dx = e.clientX - touchDrag.x, dy = e.clientY - touchDrag.y;
+    touchDrag.x = e.clientX; touchDrag.y = e.clientY;
+    if (!aimHeld || cm.activeMode !== 'person') return;
+    if (freeYaw === null) freeYaw = camYaw();
+    freeYaw -= dx * AIM_SENS_TOUCH;
+    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - dy * AIM_SENS_TOUCH));
+    stickyT = STICKY_AIM;
+  });
+  for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, (e) => { if (touchDrag && e.pointerId === touchDrag.id) touchDrag = null; });
   window.addEventListener('keydown', (e) => {
     if (typing(e)) return;
-    if (e.code === 'KeyQ' && !aimHeld) { aimHeld = true; if (cm.activeMode === 'person') grabMouse(); }
+    if (e.code === 'KeyQ' && !aimHeld) { aimHeld = true; keyAim = true; if (cm.activeMode === 'person') grabMouse(); }
     if (e.code === 'KeyE' && aimHeld && !e.repeat) cycleTarget = true; // the next target
   });
-  window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { aimHeld = false; freeMouse(); } });
+  window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { keyAim = false; aimHeld = false; freeMouse(); } });
+  // quick turn: V spins the aim 180 degrees (brings the gun up if it was down)
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyV' || e.repeat || typing(e) || !armed || cm.activeMode !== 'person') return;
+    if (freeYaw === null) freeYaw = camYaw();
+    freeYaw += Math.PI;
+    engageSticky();
+  });
   window.addEventListener('mouseup', (e) => { if (e.button === 2) stopMouseAim(); });
   // a left click while the right button is held (aiming): browsers send no pointerdown for a second button, only the
   // mouse events, so the shot is taken here
@@ -1512,7 +1549,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('wheel', (e) => { if (cm.activeMode === 'person' && aimHeld) { e.preventDefault(); switchWeapon(Math.sign(e.deltaY)); } }, { passive: false });
-  fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); triggerHeld = true; fire(); });
+  fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); triggerHeld = true; assistCone = 0.2; engageSticky(); fire(); });
   fireBtn.addEventListener('pointerup', () => { triggerHeld = false; });
   fireBtn.addEventListener('pointercancel', () => { triggerHeld = false; });
   fireBtn.addEventListener('pointerleave', () => { triggerHeld = false; });
@@ -1540,18 +1577,23 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     const onFoot = cm.activeMode === 'person';
     // aiming: face where the camera looks, crosshair on, lock on to whoever is under it
+    // sticky aim runs out (unless a held aim input keeps it): the gun goes down, the mouse is freed
+    if (stickyT > 0 && !aimByMouse && !aimBtn && !touchDrag && !keyAim && !triggerHeld && (stickyT -= dt) <= 0) { stickyT = 0; aimHeld = false; freeMouse(); }
     cm.aiming = onFoot && armed && aimHeld && !missionSystem?.busy && !seq && !dying;
+    // menus, cars and cut scenes get the mouse back
+    if (!cm.aiming && document.pointerLockElement === canvasEl) freeMouse();
     if (cm.aiming) {
       // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
       // degrees of it draws the aim onto them; E jumps the aim to the next one along
-      if (freeYaw === null) freeYaw = person.heading;
+      if (freeYaw === null) freeYaw = camYaw();
       if (cycleTarget) {
         cycleTarget = false;
         const cur = lockTarget && (lockTarget.q || lockTarget.v);
         const next = findTarget(freeYaw, 1.4, true, cur, freePitch);
         if (next) freeYaw = Math.atan2(next.x - person.position.x, next.z - person.position.z);
       }
-      lockTarget = findTarget(freeYaw, 0.11, true, null, freePitch) || findTarget(freeYaw, 0.07, false, null, freePitch);
+      lockTarget = findTarget(freeYaw, assistCone, true, null, freePitch) || findTarget(freeYaw, assistCone * 0.65, false, null, freePitch);
+      cm.aimCamYaw = freeYaw; // (the view looks exactly along the mouse's yaw: no lag, so the crosshair is where the shot goes)
       cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : freeYaw;
       // the camera's pitch is always the mouse's (free, +-60 degrees): aim assist never moves it
       cm.aimPitch = freePitch;
@@ -1567,7 +1609,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         const hd = Math.hypot(h.x - person.position.x, h.z - person.position.z);
         if (hd > 2.5) armPitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, Math.atan2(h.y - (person.position.y + 1.4), hd)));
       }
-    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; armPitch = 0; }
+    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; armPitch = 0; cm.aimCamYaw = null; }
     // the lock marker over the target's head
     if (lockTarget && cm.aiming) {
       _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);
@@ -1784,7 +1826,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     set health(v) { hp = v; },
     get state() {
       return { lastShot, armed, wi, weapon: WEAPONS[wi].id, hp, dying: !!dying, rockets: rockets.length, ammo: ammo[wi], cooldown, reloading, mode: cm.activeMode, approaching: !!approach, boarding: seq ? { t: seq.t, jack: seq.jack, kind: seq.r.kind } : null,
-        steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
+        aimYaw: freeYaw, aimPitch: freePitch, aimHeld, steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
     }
   };
 }

@@ -67,7 +67,7 @@ class CameraSystem {
       if (pointers.size && (e.pointerType !== 'touch' || pointers.values().next().value.type !== 'touch')) return;
       e.preventDefault();
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* (not allowed: the mouse is captured) */ }
       this.isDragging = true;
       this.userOrbitTimer = 4.0;
     });
@@ -200,6 +200,8 @@ class CameraSystem {
     } else {
       this.personYaw = entity.heading;
     }
+    // aiming: the view's yaw is the aim's own (gameplay.js), straight, so turning is instant and the crosshair ray is exact
+    if (entity.type === 'person' && this.controllerManager.aiming && this.controllerManager.aimCamYaw != null) { this.personYaw = this.controllerManager.aimCamYaw; this.orbitYawOffset = 0; }
     const totalYaw = (entity.type === 'person' ? this.personYaw : entity.heading) + this.orbitYawOffset;
 
     // A city with its own scenic views (Melbourne) takes them instead of New York's built-in ones below
