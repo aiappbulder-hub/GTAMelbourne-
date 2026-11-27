@@ -888,6 +888,11 @@ async function initApp() {
   // Victoria Police up close: light bars, the siren, officers on foot (js/police.js)
   const police = wanted && gameplay ? (await import('./police.js')).createPolice({ scene, controllerManager, wanted, gameplay, missionSystem, lightingSystem, audioSystem, cast: castSystem }) : null;
   if (police) { wanted.attachPolice(police); window.__city.police = police; }
+  // The Red Clay Chase convertible joins the player's cars (js/rcc-cars.js; the car button cycles to it)
+  if (gameplay) {
+    const rcc = (await import('./rcc-cars.js')).buildConvertible();
+    gameplay.addCar({ id: 'rcc-roadster', name: 'Red Clay Roadster', root: rcc.root, wheels: rcc.wheels, handling: [60, 7.4, 13], wheelbase: rcc.wheelbase, line: 'The Red Clay Roadster. Hold on to your hood.' });
+  }
   // Car damage: hood and doors come off (js/car-damage.js). It listens to the same crash events as the audio.
   const carDamage = IS_MELBOURNE && gameplay ? (await import('./car-damage.js')).createCarDamage({
     scene, controllerManager, getPlayerBody: () => gameplay.activeBody(), getPursuers: () => (wanted ? wanted.units.map((u) => u.p) : []),

@@ -69,7 +69,17 @@ export function createCarDamage({ scene, controllerManager, getPlayerBody, getPu
     return Math.abs(root.worldToLocal(hits[0].point.clone()).x);
   }
 
+  // The convertible (js/rcc-cars.js) has its hood and doors as separate groups already: use them as they are
+  function buildNative(root) {
+    const box = measure(root), size = box.getSize(new THREE.Vector3());
+    const pieces = Object.entries(root.userData.panels).map(([name, pn]) => ({
+      name, sx: pn.sx, hinge: pn.g, mesh: pn.g, well: { visible: false }, rest: 0, len: 0, w: 0, native: true, home: pn.home.slice(), parent: pn.g.parent,
+      dmg: 0, wind: 0, cool: 0, last: 0, st: 0, a: 0, av: 0, t: 0, clk: 0
+    }));
+    return { root, overlay: null, pieces, box, L: size.z, W: size.x, H: size.y, tN: Math.random() * 10, lastSpeed: 0, lastHeading: null, latAcc: 0, acc: 0 };
+  }
   function build(root) {
+    if (root.userData.panels) return buildNative(root);
     const box = measure(root), size = box.getSize(new THREE.Vector3());
     const L = size.z, W = size.x, H = size.y, zMax = box.max.z, zMin = box.min.z, hi = box.max.y + 2;
     const paint = paintOf(root);
@@ -111,13 +121,21 @@ export function createCarDamage({ scene, controllerManager, getPlayerBody, getPu
   function reset(s) {
     for (const p of s.pieces) {
       for (let i = debris.length - 1; i >= 0; i--) if (debris[i].piece === p) { scene.remove(debris[i].mesh); debris.splice(i, 1); }
-      p.hinge.add(p.mesh);
-      p.mesh.position.set(0, 0, p.sx === 0 ? p.len / 2 : -p.len / 2);
-      p.mesh.quaternion.identity(); p.mesh.scale.set(1, 1, 1);
-      p.hinge.rotation.set(0, 0, 0);
-      if (p.sx === 0) p.hinge.rotation.x = p.rest;
-      p.hinge.visible = false; p.well.visible = false;
+      if (p.native) {
+        p.parent.add(p.hinge);
+        p.hinge.position.set(p.home[0], p.home[1], p.home[2]);
+        p.hinge.quaternion.identity(); p.hinge.scale.set(1, 1, 1); p.hinge.visible = true;
+      } else {
+        p.hinge.add(p.mesh);
+        p.mesh.position.set(0, 0, p.sx === 0 ? p.len / 2 : -p.len / 2);
+        p.mesh.quaternion.identity(); p.mesh.scale.set(1, 1, 1);
+        p.hinge.rotation.set(0, 0, 0);
+        if (p.sx === 0) p.hinge.rotation.x = p.rest;
+        p.hinge.visible = false;
+      }
+      p.well.visible = false;
       p.dmg = p.wind = p.cool = p.last = 0; p.st = 0; p.a = p.av = p.t = 0; p.clk = 0;
+      if (p.native) p.hinge.rotation.set(0, 0, 0);
     }
   }
   function subjectFor(root) {

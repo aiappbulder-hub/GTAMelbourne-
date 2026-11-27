@@ -38,6 +38,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { LoftGeometry } from 'three/addons/geometries/LoftGeometry.js';
 import { part, mirrorSection, roundedRectShape, roundedBox } from './vehicles.js';
+import { buildRccTrafficGeometry } from './rcc-cars.js';
 
 // Car geometry and materials, lofted with LoftGeometry and adapted from Three.js CarGenerator. The bus (bus.js) lofts
 // its body with the same machinery; the pieces every vehicle uses are in vehicles.js.
@@ -343,6 +344,11 @@ BODY_SPECS.minivan = {
   rearWiper: true
 };
 
+// Red Clay Chase's sedan, pickup and van shapes (js/rcc-cars.js), riding on the same wheels and paint as our own.
+// `rcc` is the shape; everything else is the borrowed body's spec, so the instanced material paints them like the rest.
+for (const [kind, base] of [['rccsedan', 'sedan'], ['rccpickup', 'pickup'], ['rccvan', 'van']]) {
+  BODY_SPECS[kind] = Object.assign({}, BODY_SPECS[base], { name: kind, rcc: kind.slice(3), rccBase: base });
+}
 for (const spec of Object.values(BODY_SPECS)) {
   // Kept for code that places lamp flares: lamp heights (front, rear) and centres across the car
   spec.lamps = [spec.headlight[1], spec.taillight[1]];
@@ -1044,7 +1050,9 @@ function buildBedCover(spec) {
 
 // Bumpers are part of the body loft (the raked nose & tail): body-coloured fascias, like modern cars'
 function buildCarGeometry(spec, includeWheels = true) {
-  const parts = [buildCarBody(spec, 1), buildCarCabin(spec, 1), ...buildMirrors(spec)];
+  const parts = spec.rcc
+    ? [buildRccTrafficGeometry(spec.rcc, spec.wheelZ, spec.wheelRadius)]
+    : [buildCarBody(spec, 1), buildCarCabin(spec, 1), ...buildMirrors(spec)];
   for (const side of [-1, 1]) {
     for (const z of [-spec.wheelZ, spec.wheelZ]) {
       if (includeWheels) parts.push(...buildWheelParts(spec, side, true, z));
@@ -1061,6 +1069,7 @@ function buildCarGeometry(spec, includeWheels = true) {
 // coarse sections, dark wheel blocks and the taxi's roof sign. Same attributes (partId, uv, normal) as the full
 // model, so it renders with the same material and per-instance paint.
 function buildCarProxyGeometry(spec) {
+  if (spec.rcc) spec = BODY_SPECS[spec.rccBase]; // (a distant car is a few pixels: the borrowed body's stand-in will do)
   const parts = [buildCarBody(spec, 0), buildCarCabin(spec, 0)];
   const r = spec.wheelRadius;
   for (const side of [-1, 1]) {
