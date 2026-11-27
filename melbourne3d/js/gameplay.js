@@ -760,19 +760,18 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let wi = 0;
   const ammo = WEAPONS.map((w) => w.mag);
   let lastShot = null, hitMarkT = 0, cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
-  let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0, armPitch = 0;
-  const _aimO = new THREE.Vector3(), _aimD = new THREE.Vector3();
+  let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0, armPitch = 0, armYaw = null, lastFireT = -1, aimFrame = 0;
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
   const AIM_SENS = 0.0042; // radians per pixel (mouse), full 360 degree turning, no yaw clamp
   const AIM_SENS_TOUCH = 0.0055; // radians per pixel of a finger drag
   const AIM_PITCH = (70 * Math.PI) / 180; // free pitch, 70 degrees up or down
   const STICKY_AIM = 3; // seconds the aim stays up after a left click / touch drag / FIRE, so clicking to shoot also aims
-  let keyAim = false, stickyT = 0, touchDrag = null, aimBtn = false, assistCone = 0.11;
+  let keyAim = false, stickyT = 0, touchDrag = null, aimBtn = false, assistCone = 0; // (aim assist: off with a mouse, gentle on touch)
   // where the camera is looking (the aim starts from it, so raising the gun never jerks the view)
   const camYaw = () => (cameraSystem.personYaw ?? person.heading) + (cameraSystem.orbitYawOffset || 0);
   const PITCH_TOL = 0.14; // aim assist only draws to a target whose chest is within this of the crosshair's elevation
   const canvasEl = renderer.domElement;
-  const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.(); } catch { /* not allowed */ } };
+  const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.()?.catch?.(() => {}); } catch { /* not allowed */ } };
   const freeMouse = () => { try { if (document.pointerLockElement === canvasEl) document.exitPointerLock(); } catch { /* fine */ } };
   let lastMouseX = null, lastMouseY = null, aimByMouse = false;
   const stopMouseAim = () => { if (aimByMouse) { aimByMouse = false; aimHeld = false; freeMouse(); } };
@@ -914,41 +913,142 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
 
   // Where a shot from (ox, oy, oz) along the unit vector (dx, dy, dz) stops: the first person, car, wall or the ground
   // within range, in 3D (so a shot can pass over a head or a car roof, or go into the road). Starts `s0` m along.
+  // `solid`: walls, cars and the ground only (the hostiles' line-of-sight checks and their shots, js/combat.js).
+  // Exact tests, not steps along the ray:
+  // - people: three capsules on their current spot (legs, torso, head), see BODY
+  // - cars: a box their own length, width and height, turned with them
+  // - buildings: their footprint (box or polygon) between floor and roof
+  // - the ground: sampled every 0.5 m, then refined
+  // The nearest hit wins, and a shot hits one thing.
   function trace(ox, oy, oz, dx, dy, dz, range, s0 = 0.3, solid = false) {
-    const peds = trafficSystem.peds;
-    const step = 0.4;
-    for (let s = s0; s <= range; s += step) {
-      const px = ox + dx * s, py = oy + dy * s, pz = oz + dz * s;
-      const gy = cm.getGroundHeight(px, pz, 'person') ?? 0;
-      if (py < gy) return { kind: 'ground', x: px, y: gy, z: pz, dist: s };
-      for (const c of cm.nearColliders(px, pz, 0.5)) {
-        if ((c.minY ?? 0) > py || (c.maxY !== undefined && c.maxY < py) || px < c.minX || px > c.maxX || pz < c.minZ || pz > c.maxZ) continue;
-        if (c.polygon && !insidePoly(c.polygon.outer, px, pz)) continue;
-        return { kind: 'wall', x: px, y: py, z: pz, dist: s };
+    let best = range, hit = null;
+    // buildings: the colliders along the ray (gathered in 40 m stretches)
+    const seen = new Set();
+    for (let s = s0; s < best + 20; s += 40) {
+      const m = s + 20;
+      for (const c of cm.nearColliders(ox + dx * m, oz + dz * m, 22)) seen.add(c);
+    }
+    for (const c of seen) {
+      const t = rayCollider(c, ox, oy, oz, dx, dy, dz, s0, best);
+      if (t !== null) { best = t; hit = { kind: 'wall' }; }
+    }
+    // people and cars (a quick reject first: how far they stand from the ray's line on the map)
+    const hl2 = Math.hypot(dx, dz), hx = hl2 > 1e-4 ? dx / hl2 : 0, hz = hl2 > 1e-4 ? dz / hl2 : 0;
+    const near = (x, z, r) => {
+      const vx = x - ox, vz = z - oz;
+      if (hl2 <= 1e-4) return vx * vx + vz * vz < r * r;
+      const a = vx * hx + vz * hz;
+      return a > s0 * hl2 - r && a < best * hl2 + r && Math.abs(vx * hz - vz * hx) < r;
+    };
+    if (!solid) {
+      for (const p of trafficSystem.peds) {
+        if (!p.placed || p.dead || !near(p.x, p.z, 0.6)) continue;
+        const b = rayBody(p.x, cm.getGroundHeight(p.x, p.z, 'person') ?? 0, p.z, ox, oy, oz, dx, dy, dz, s0, best);
+        if (b) { best = b.t; hit = { kind: 'ped', p, part: b.part }; }
       }
-      for (const p of (solid ? [] : peds)) {
-        if (!p.placed || p.dead) continue;
-        if (Math.abs(p.x - px) > 0.55 || Math.abs(p.z - pz) > 0.55) continue;
-        const fy = cm.getGroundHeight(p.x, p.z, 'person') ?? 0;
-        if (py >= fy - 0.05 && py <= fy + 1.9) return { kind: 'ped', p, x: px, y: py, z: pz, dist: s };
-      }
-      if (!solid) {
-        for (const g of combat.list) {
-          if (g.dead || Math.abs(g.x - px) > 0.55 || Math.abs(g.z - pz) > 0.55) continue;
-          if (py >= g.y - 0.05 && py <= g.y + 1.9) return { kind: 'gunman', g, x: px, y: py, z: pz, dist: s };
-        }
-      }
-      for (const v of trafficSystem.cars) {
-        if (v.driven || !(v.edge || v.parked)) continue;
-        const ox2 = px - v.x, oz2 = pz - v.z;
-        if (Math.abs(ox2) > 6 || Math.abs(oz2) > 6) continue;
-        const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
-        const along = ox2 * fx + oz2 * fz, across = ox2 * fz - oz2 * fx;
-        const fy = cm.getGroundHeight(v.x, v.z, 'person') ?? 0;
-        if (Math.abs(along) < (v.halfL ?? 2.2) && Math.abs(across) < (v.halfWidth ?? 0.9) + 0.1 && py >= fy && py <= fy + 1.7) return { kind: 'car', v, x: px, y: py, z: pz, dist: s };
+      for (const g of combat.list) {
+        if (g.dead || !near(g.x, g.z, 0.6)) continue;
+        const b = rayBody(g.x, g.y, g.z, ox, oy, oz, dx, dy, dz, s0, best);
+        if (b) { best = b.t; hit = { kind: 'gunman', g, part: b.part }; }
       }
     }
-    return { kind: 'none', x: ox + dx * range, y: oy + dy * range, z: oz + dz * range, dist: range };
+    for (const v of trafficSystem.cars) {
+      if (v.driven || !(v.edge || v.parked)) continue;
+      const hl = v.halfL ?? 2.2, hw = (v.halfWidth ?? 0.9) + 0.05;
+      if (!near(v.x, v.z, hl + hw)) continue;
+      const t = rayCar(v, cm.getGroundHeight(v.x, v.z, 'person') ?? 0, hl, hw, ox, oy, oz, dx, dy, dz, s0, best);
+      if (t !== null) { best = t; hit = { kind: 'car', v }; }
+    }
+    // the ground, up to the nearest hit so far
+    let prev = s0;
+    for (let s = s0; s <= best + 1e-6; s += 0.5) {
+      const t = Math.min(s, best);
+      const px = ox + dx * t, pz = oz + dz * t;
+      if (oy + dy * t < (cm.getGroundHeight(px, pz, 'person') ?? 0)) {
+        let lo = prev, hi = t;
+        for (let i = 0; i < 6; i++) { const mid = (lo + hi) / 2; if (oy + dy * mid < (cm.getGroundHeight(ox + dx * mid, oz + dz * mid, 'person') ?? 0)) hi = mid; else lo = mid; }
+        best = hi; hit = { kind: 'ground' };
+        break;
+      }
+      prev = t;
+      if (t >= best) break;
+    }
+    const x = ox + dx * best, y = oy + dy * best, z = oz + dz * best;
+    if (!hit) return { kind: 'none', x, y, z, dist: best };
+    if (hit.kind === 'ground') return { kind: 'ground', x, y: cm.getGroundHeight(x, z, 'person') ?? y, z, dist: best };
+    return Object.assign(hit, { x, y, z, dist: best });
+  }
+  // A person's hit shape, above their feet (m): the legs, the torso and the head as upright capsules [bottom, top, radius],
+  // sized to the cast's figures (about 1.75 m tall, 0.5 m across the shoulders)
+  const BODY = [['legs', 0.1, 0.84, 0.17], ['torso', 0.92, 1.38, 0.23], ['head', 1.54, 1.7, 0.12]];
+  function rayBody(x, y, z, ox, oy, oz, dx, dy, dz, t0, t1) {
+    let out = null;
+    for (const [part, a, b, r] of BODY) {
+      const t = rayCapsule(ox - x, oy - (y + a), oz - z, dx, dy, dz, b - a, r);
+      if (t !== null && t >= t0 && t < t1) { t1 = t; out = { t, part }; }
+    }
+    return out;
+  }
+  // A ray from o (relative to the capsule's bottom point) against an upright capsule of length L and radius r: the
+  // distance to where it enters, or null
+  function rayCapsule(ox, oy, oz, dx, dy, dz, L, r) {
+    let best = null;
+    const a = dx * dx + dz * dz;
+    if (a > 1e-9) {
+      const b = ox * dx + oz * dz, c = ox * ox + oz * oz - r * r, h = b * b - a * c;
+      if (h < 0) return null; // misses the infinite upright cylinder, so the caps too
+      const t = (-b - Math.sqrt(h)) / a, y = oy + dy * t;
+      if (y >= 0 && y <= L) return t;
+    }
+    for (const cy of [0, L]) { // the end caps (spheres)
+      const qx = ox, qy = oy - cy, qz = oz;
+      const b = qx * dx + qy * dy + qz * dz, c = qx * qx + qy * qy + qz * qz - r * r, h = b * b - c;
+      if (h < 0) continue;
+      const t = -b - Math.sqrt(h);
+      if (best === null || t < best) best = t;
+    }
+    return best;
+  }
+  // a ray through the slab lo..hi along one axis: narrows [t0, t1], or returns false when it misses
+  function slab(o, d, lo, hi, r) {
+    if (Math.abs(d) < 1e-9) return o >= lo && o <= hi;
+    let a = (lo - o) / d, b = (hi - o) / d;
+    if (a > b) [a, b] = [b, a];
+    if (a > r[0]) r[0] = a;
+    if (b < r[1]) r[1] = b;
+    return r[0] <= r[1];
+  }
+  const _sr = [0, 0];
+  // the ray against a car: a box turned with it, from just over the road to its roof
+  const CAR_TOP = { taxi: 1.5, sedan: 1.45, suv: 1.72, minivan: 1.75, pickup: 1.85, van: 2.1 };
+  function rayCar(v, fy, hl, hw, ox, oy, oz, dx, dy, dz, t0, t1) {
+    const fx = Math.sin(v.yaw), fz = Math.cos(v.yaw);
+    const rx = ox - v.x, rz = oz - v.z;
+    const oa = rx * fx + rz * fz, oc = rx * fz - rz * fx, da = dx * fx + dz * fz, dc = dx * fz - dz * fx;
+    _sr[0] = t0; _sr[1] = t1;
+    if (!slab(oa, da, -hl, hl, _sr) || !slab(oc, dc, -hw, hw, _sr) || !slab(oy, dy, fy + 0.15, fy + (CAR_TOP[v.bodyType] ?? 1.55), _sr)) return null;
+    return _sr[0] < t1 ? _sr[0] : null;
+  }
+  // the ray against a building: its box between floor and roof, then (a polygon footprint) the first point in the polygon
+  function rayCollider(c, ox, oy, oz, dx, dy, dz, t0, t1) {
+    _sr[0] = t0; _sr[1] = t1;
+    if (!slab(ox, dx, c.minX, c.maxX, _sr) || !slab(oz, dz, c.minZ, c.maxZ, _sr) || !slab(oy, dy, c.minY ?? 0, c.maxY ?? Infinity, _sr)) return null;
+    const a = _sr[0], b = _sr[1];
+    if (a >= t1) return null;
+    if (!c.polygon) return a;
+    if (insidePoly(c.polygon.outer, ox + dx * a, oz + dz * a)) return a;
+    // the nearest crossing of the footprint's edge within [a, b]
+    const poly = c.polygon.outer;
+    let best = null;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const p = poly[j], q = poly[i];
+      const ex = q.x - p.x, ez = q.z - p.z, den = dx * ez - dz * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = p.x - ox, wz = p.z - oz;
+      const t = (wx * ez - wz * ex) / den, u = (wx * dz - wz * dx) / den;
+      if (u >= 0 && u <= 1 && t >= a && t <= b && (best === null || t < best)) best = t;
+    }
+    return best;
   }
   function insidePoly(poly, x, z) {
     let inside = false;
@@ -982,6 +1082,70 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     for (const q of trafficSystem.peds) if (q.placed && !q.dead) consider(q.x, q.z, { kind: 'ped', q, get x() { return q.x; }, get z() { return q.z; } });
     for (const q of combat.list) if (!q.dead) consider(q.x, q.z, { kind: 'ped', q, get x() { return q.x; }, get z() { return q.z; } });
     if (!pedsOnly) for (const v of trafficSystem.cars) if (!v.driven && (v.edge || v.parked)) consider(v.x, v.z, { kind: 'car', v, get x() { return v.x; }, get z() { return v.z; } });
+    return best;
+  }
+
+  // ---- The crosshair and the aim: one source for the crosshair drawn, the shot, the arms and the facing ----
+  const _co = new THREE.Vector3(), _cd = new THREE.Vector3(), _cn = { x: 0, y: 1 - 2 * CROSS_Y };
+  // Where the crosshair is, in the canvas's normalised device coordinates. That's the middle of the .gp-cross element as
+  // laid out, or, while it's hidden, where its CSS puts it (the middle of the window). It's measured afresh for each shot
+  // and every 20 frames for the arms (a layout read).
+  function crossNDC() {
+    const r = canvasEl.getBoundingClientRect();
+    let cx = window.innerWidth / 2, cy = window.innerHeight * CROSS_Y;
+    if (!elCross.hidden) {
+      const b = elCross.getBoundingClientRect();
+      if (b.width > 0) { cx = b.left + b.width / 2; cy = b.top + b.height / 2; }
+    }
+    if (r.width > 0 && r.height > 0) { _cn.x = ((cx - r.left) / r.width) * 2 - 1; _cn.y = 1 - ((cy - r.top) / r.height) * 2; }
+    return _cn;
+  }
+  // The crosshair's ray, into o (origin) and d (unit direction). Once the view is in its aim framing (cameras.js
+  // aimSettled), it comes from the camera as drawn, with that frame's matrices: what the player sees is what they hit.
+  // Before then (the view still gliding in from behind, or a click from the hip with no crosshair up yet), it comes from
+  // the aim view the camera is going to.
+  function crosshairRay(o, d, fresh = true) {
+    const cam = cameraSystem.camera;
+    if (cameraSystem.aimSettled || !cameraSystem.aimPose || cm.activeMode !== 'person') {
+      cam.updateMatrixWorld();
+      cam.getWorldPosition(o);
+      const n = fresh ? crossNDC() : _cn;
+      d.set(n.x, n.y, 0.5).unproject(cam).sub(o).normalize();
+    } else cameraSystem.aimPose(person, freeYaw ?? camYaw(), freePitch, o, d);
+  }
+  // What the crosshair is on: the first person, car, wall or ground along its ray. The ray starts level with the muzzle
+  // (mx, my, mz), so whatever is between the camera and the gun is left out. If the ray meets nothing, the point is the far
+  // end of it. On a touch screen with nobody under the crosshair, a person in plain sight within assistCone of it is used.
+  function aimAt(range, mx, my, mz, fresh = true) {
+    crosshairRay(_co, _cd, fresh);
+    const from = Math.max(0, (mx - _co.x) * _cd.x + (my - _co.y) * _cd.y + (mz - _co.z) * _cd.z);
+    const h = trace(_co.x, _co.y, _co.z, _cd.x, _cd.y, _cd.z, range + from, from);
+    const point = new THREE.Vector3(h.x, h.y, h.z);
+    let kind = h.kind, assist = null;
+    if (h.kind === 'ped' || h.kind === 'gunman' || h.kind === 'car') point.addScaledVector(_cd, 0.05); // (just inside it: the muzzle's ray can't graze past)
+    else if (assistCone > 0) {
+      assist = assistTarget(_co, _cd, from, range + from);
+      if (assist) { point.copy(assist.point); kind = assist.hit; }
+    }
+    return { point, kind, assist, hit: h, o: _co.clone(), d: _cd.clone() };
+  }
+  // Aim assist (touch only): the person, within assistCone of the crosshair's ray as seen from the camera, whose chest the
+  // camera can see (the ray to it meets them first). The aim goes to their chest; the camera itself never moves.
+  function assistTarget(o, d, from, range) {
+    let best = null, bestA = assistCone;
+    const consider = (obj, x, y, z, kind) => {
+      const vx = x - o.x, vy = y - o.y, vz = z - o.z, L = Math.hypot(vx, vy, vz);
+      if (L < from + 0.5 || L > range) return;
+      const ang = Math.acos(Math.min(1, (vx * d.x + vy * d.y + vz * d.z) / L));
+      if (ang >= bestA) return;
+      const h = trace(o.x, o.y, o.z, vx / L, vy / L, vz / L, L + 0.5, from);
+      if ((h.kind === 'ped' && h.p === obj) || (h.kind === 'gunman' && h.g === obj)) {
+        bestA = ang;
+        best = { kind: 'ped', hit: kind, q: obj, point: new THREE.Vector3(x, y, z), get x() { return obj.x; }, get z() { return obj.z; } };
+      }
+    };
+    for (const g of combat.list) if (!g.dead) consider(g, g.x, g.y + 1.15, g.z, 'gunman');
+    for (const p of trafficSystem.peds) if (p.placed && !p.dead) consider(p, p.x, (cm.getGroundHeight(p.x, p.z, 'person') ?? 0) + 1.15, p.z, 'ped');
     return best;
   }
 
@@ -1020,38 +1184,34 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     if (ammo[wi] <= 0) { reloading = w.reload; return; }
     ammo[wi]--;
     cooldown = w.rate;
-    // Where the shot is aimed: locked on, the target's chest; else aiming, the point under the crosshair (a ray from the
-    // camera through it, as far as the first thing it meets, so a shot from the muzzle at the shoulder still lands where
-    // the crosshair is, at any range); else (free fire) the nearest person or car in front, else straight ahead
+    // Where the shot is aimed. Aiming: the point under the crosshair. A ray from the camera drawn, through the crosshair,
+    // meets the first person, car, wall or ground; on a touch screen with nobody under it, a hostile or local just off it
+    // is taken instead (in plain sight only). Not aiming (J): the nearest person or car in front, else straight ahead.
+    // The bullet then flies from the muzzle to that point, and whatever is in its way takes it.
     const pp = person.position;
-    // (the lock is looked up afresh at the trigger: the last frame's can be stale when people and cars are moving)
-    if (aimHeld && cm.aiming && freeYaw !== null) lockTarget = findTarget(freeYaw, assistCone, true, null, freePitch) || findTarget(freeYaw, assistCone * 0.65, false, null, freePitch);
-    const t = lockTarget || (!aimHeld && findTarget(person.heading, LOCK_CONE));
     let yaw = person.heading;
     const aimPt = new THREE.Vector3();
-    let haveAim = false;
-    if (t) {
-      const gy = cm.getGroundHeight(t.x, t.z, 'person') ?? pp.y;
-      aimPt.set(t.x, gy + (t.kind === 'ped' ? 1.25 : 0.9), t.z);
+    let haveAim = false, cross = null;
+    const mz0 = cast?.muzzle();
+    let mx = mz0 ? mz0.x : pp.x + Math.sin(yaw) * 0.55, my = mz0 ? mz0.y : pp.y + 1.38, mz = mz0 ? mz0.z : pp.z + Math.cos(yaw) * 0.55;
+    if (aimHeld && cameraSystem.camera) {
+      const a = aimAt(w.range, mx, my, mz);
+      aimPt.copy(a.point);
+      cross = a;
       haveAim = true;
-    } else if (aimHeld && cameraSystem.camera) {
-      const cam = cameraSystem.camera;
-      cam.updateMatrixWorld();
-      const o = cam.getWorldPosition(new THREE.Vector3());
-      const d = new THREE.Vector3(0, 1 - 2 * CROSS_Y, 0.5).unproject(cam).sub(o).normalize();
-      const along = Math.max(0, (pp.x - o.x) * d.x + (pp.z - o.z) * d.z); // (skip what's between the camera and the player)
-      const h = trace(o.x, o.y, o.z, d.x, d.y, d.z, w.range + along, along + 0.5);
-      aimPt.set(h.x, h.y, h.z);
-      haveAim = true;
+    } else {
+      const t = findTarget(person.heading, LOCK_CONE);
+      if (t) {
+        const gy = cm.getGroundHeight(t.x, t.z, 'person') ?? pp.y;
+        aimPt.set(t.x, gy + (t.kind === 'ped' ? 1.2 : 0.9), t.z);
+        haveAim = true;
+      }
     }
     if (haveAim && Math.hypot(aimPt.x - pp.x, aimPt.z - pp.z) > 0.6) yaw = Math.atan2(aimPt.x - pp.x, aimPt.z - pp.z);
     person.heading = yaw;
-    let mx = pp.x + Math.sin(yaw) * 0.55, mz = pp.z + Math.cos(yaw) * 0.55;
-    let my = pp.y + 1.38;
+    if (!mz0) { mx = pp.x + Math.sin(yaw) * 0.55; mz = pp.z + Math.cos(yaw) * 0.55; }
     raisedT = 0.7; // the gun comes up to fire, and stays up a moment
     kickNow = true;
-    const mz0 = cast?.muzzle();
-    if (mz0) { mx = mz0.x; my = mz0.y; mz = mz0.z; }
     fx.flash(mx, my, mz);
     bang(w.sound);
     if (!missionSystem?.onJob) voices?.event('gunfire', pp); // (no police chatter on a job)
@@ -1061,6 +1221,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     if (haveAim) { dir.set(aimPt.x - mx, aimPt.y - my, aimPt.z - mz); if (dir.lengthSq() < 0.25) dir.set(Math.sin(yaw), 0, Math.cos(yaw)); }
     dir.normalize();
+    // the spread: an aimed single shot after a pause goes exactly where the crosshair is; held or rapid fire spreads
+    const spread = aimHeld && w.pellets === 1 && clock - lastFireT > w.rate * 1.6 ? 0 : w.spread;
+    lastFireT = clock;
     const baseYaw = Math.atan2(dir.x, dir.z), basePitch = Math.asin(Math.max(-1, Math.min(1, dir.y)));
     const kick = w.kick ?? (w.id === 'shotgun' ? 0.05 : 0.012);
     if (w.id === 'rocket') {
@@ -1072,11 +1235,13 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     let hitKind = null;
     const shotAt = new Set();
     for (let k = 0; k < w.pellets; k++) {
-      const a = baseYaw + (Math.random() - 0.5) * 2 * w.spread;
-      const pa = basePitch + (Math.random() - 0.5) * 2 * w.spread * 0.6;
+      const a = baseYaw + (Math.random() - 0.5) * 2 * spread;
+      const pa = basePitch + (Math.random() - 0.5) * 2 * spread * 0.6;
       const cp = Math.cos(pa);
-      const hit = trace(mx, my, mz, Math.sin(a) * cp, Math.sin(pa), Math.cos(a) * cp, w.range, 0.2);
-      if (k === 0) lastShot = { kind: hit.kind, x: hit.x, y: hit.y, z: hit.z, aim: haveAim ? [aimPt.x, aimPt.y, aimPt.z] : null, from: [mx, my, mz], weapon: w.id };
+      // (from the muzzle itself, to past the aim point: the first thing on the way takes the hit)
+      const hit = trace(mx, my, mz, Math.sin(a) * cp, Math.sin(pa), Math.cos(a) * cp, w.range, 0);
+      if (k === 0) lastShot = { kind: hit.kind, part: hit.part, x: hit.x, y: hit.y, z: hit.z, aim: haveAim ? [aimPt.x, aimPt.y, aimPt.z] : null, from: [mx, my, mz], weapon: w.id,
+        cross: cross && { kind: cross.kind, o: cross.o.toArray(), d: cross.d.toArray(), assist: cross.assist } };
       fx.tracer(mx, my, mz, hit.x, hit.y, hit.z);
       if (hit.kind !== 'none') fx.spark(hit.x, hit.y, hit.z);
       if (hit.kind === 'ped') {
@@ -1341,7 +1506,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     elHp.hidden = !(cm.activeMode === 'person' || cm.activeMode === 'car') || (hp >= HP_MAX && clock - lastHurt > 4 && !combat.alive);
   }
   // the aim accuracy test (js/aim-test.js): `calm` holds the hostiles' fire, `pre(dt)` runs at the top of each frame
-  const testHooks = { calm: false, pre: null, crossNDC: () => ({ x: 0, y: 1 - 2 * CROSS_Y }) };
+  const testHooks = { calm: false, pre: null, crossNDC };
   const world = {
     player() {
       const inCar = cm.activeMode === 'car';
@@ -1481,7 +1646,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // (a mouse click shoots; a finger on the screen never does: on touch screens only the FIRE button fires)
     if (e.button === 0 && e.pointerType === 'mouse') {
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
-      assistCone = 0.11;
+      assistCone = 0; // (a mouse aims exactly: no aim assist)
       // on foot with a gun a click captures the mouse (pointer lock) and aims, so you can turn right round and shoot
       if (armed && cm.activeMode === 'person' && e.target === canvas) { engageSticky(); grabMouse(); }
     }
@@ -1493,7 +1658,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch' || !armed || cm.activeMode !== 'person' || touchDrag) return;
     touchDrag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-    assistCone = 0.2; // a finger is rough: the lite-friendly magnet is wider
+    assistCone = 0.1; // a finger is rough: a gentle magnet (about 6 degrees), only when nobody is under the crosshair
     engageSticky();
   }, true);
   window.addEventListener('pointermove', (e) => {
@@ -1551,7 +1716,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('wheel', (e) => { if (cm.activeMode === 'person' && aimHeld) { e.preventDefault(); switchWeapon(Math.sign(e.deltaY)); } }, { passive: false });
-  fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); triggerHeld = true; assistCone = 0.2; engageSticky(); fire(); });
+  fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); triggerHeld = true; assistCone = 0.1; engageSticky(); fire(); });
   fireBtn.addEventListener('pointerup', () => { triggerHeld = false; });
   fireBtn.addEventListener('pointercancel', () => { triggerHeld = false; });
   fireBtn.addEventListener('pointerleave', () => { triggerHeld = false; });
@@ -1586,8 +1751,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     // menus, cars and cut scenes get the mouse back
     if (!cm.aiming && document.pointerLockElement === canvasEl) freeMouse();
     if (cm.aiming) {
-      // free aim, turned by the mouse (see the pointer handlers), with a light magnet: a person (else a car) within ~6
-      // degrees of it draws the aim onto them; E jumps the aim to the next one along
+      // free aim, turned by the mouse or a finger (see the pointer handlers); E jumps the aim to the next one along.
+      // (on touch only, a gentle magnet: see assistTarget)
       if (freeYaw === null) freeYaw = camYaw();
       if (cycleTarget) {
         cycleTarget = false;
@@ -1595,24 +1760,23 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         const next = findTarget(freeYaw, 1.4, true, cur, freePitch);
         if (next) freeYaw = Math.atan2(next.x - person.position.x, next.z - person.position.z);
       }
-      lockTarget = findTarget(freeYaw, assistCone, true, null, freePitch) || findTarget(freeYaw, assistCone * 0.65, false, null, freePitch);
-      cm.aimCamYaw = freeYaw; // (the view looks exactly along the mouse's yaw: no lag, so the crosshair is where the shot goes)
-      cm.aimYaw = lockTarget ? Math.atan2(lockTarget.x - person.position.x, lockTarget.z - person.position.z) : freeYaw;
-      // the camera's pitch is always the mouse's (free, +-60 degrees): aim assist never moves it
+      cm.aimCamYaw = freeYaw; // (the view looks exactly along the mouse's yaw: aim assist never moves it)
       cm.aimPitch = freePitch;
-      // the arms and gun point at what the crosshair is on (the camera is over the shoulder, so aim at the hit point)
-      armPitch = freePitch;
-      const cam = cameraSystem.camera;
-      if (cam) {
-        cam.updateMatrixWorld();
-        const o = cam.getWorldPosition(_aimO);
-        const d = _aimD.set(0, 1 - 2 * CROSS_Y, 0.5).unproject(cam).sub(o).normalize();
-        const along = Math.max(0, (person.position.x - o.x) * d.x + (person.position.z - o.z) * d.z);
-        const h = trace(o.x, o.y, o.z, d.x, d.y, d.z, 120 + along, along + 0.5, true);
-        const hd = Math.hypot(h.x - person.position.x, h.z - person.position.z);
-        if (hd > 2.5) armPitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, Math.atan2(h.y - (person.position.y + 1.4), hd)));
-      }
-    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; armPitch = 0; cm.aimCamYaw = null; }
+      // what the crosshair is on (the same ray the shot takes): the body turns to it and the arms point the gun at it,
+      // eased (a jump from a far wall to someone near swings them round rather than snapping). The camera is over the
+      // shoulder, so this isn't the mouse's own yaw: at 5 m the point under the crosshair is ~8 degrees right of it
+      if (aimFrame++ % 20 === 0) crossNDC();
+      const pp = person.position, sy = pp.y + 1.4;
+      const a = aimAt(120, pp.x, sy, pp.z, false);
+      lockTarget = a.assist;
+      const hd = Math.hypot(a.point.x - pp.x, a.point.z - pp.z);
+      const wantYaw = hd > 2.5 ? Math.atan2(a.point.x - pp.x, a.point.z - pp.z) : freeYaw;
+      const wantPitch = hd > 2.5 ? Math.max(-AIM_PITCH, Math.min(AIM_PITCH, Math.atan2(a.point.y - sy, hd))) : freePitch;
+      const ek = 1 - Math.exp(-dt * 18);
+      armYaw = armYaw === null ? lerpAngle(person.heading, wantYaw, ek) : lerpAngle(armYaw, wantYaw, ek);
+      armPitch += (wantPitch - armPitch) * ek;
+      cm.aimYaw = armYaw;
+    } else { lockTarget = null; freeYaw = null; freePitch = 0; cm.aimPitch = 0; armPitch = 0; armYaw = null; cm.aimCamYaw = null; }
     // the lock marker over the target's head
     if (lockTarget && cm.aiming) {
       _lk.set(lockTarget.x, lockTarget.kind === 'ped' ? 1.9 : 1.6, lockTarget.z).project(cameraSystem.camera);

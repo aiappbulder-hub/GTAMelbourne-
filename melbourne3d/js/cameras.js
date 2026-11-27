@@ -170,6 +170,21 @@ class CameraSystem {
     this.camera.updateProjectionMatrix();
   }
 
+  /**
+   * The over-the-shoulder aim view for a person aiming along (yaw, pitch). The camera orbits a pivot 0.7 m right of and
+   * 1.55 m above the feet, 2.4 m back along the aim, pushed out of any wall. Sets pos and the unit view direction dir.
+   * gameplay.js casts the shot along this pose before the view has glided into it.
+   */
+  aimPose(entity, yaw, pitch, pos, dir) {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const ax = Math.sin(yaw), az = Math.cos(yaw), rx = -az, rz = ax;
+    const px = entity.position.x + rx * 0.7, py = entity.position.y + 1.55, pz = entity.position.z + rz * 0.7;
+    pos.set(px - ax * cp * 2.4, py - sp * 2.4, pz - az * cp * 2.4);
+    // never inside a wall: pushed back out of any building it ends up in (standing with your back to one)
+    this.controllerManager.resolveHorizontalCollision?.(pos, 0.35);
+    dir.set(ax * cp, sp, az * cp);
+  }
+
   update(dt, elapsed) {
     const entity = this.controllerManager.getActiveEntity();
     const desiredPos = this._desiredPos;
@@ -226,13 +241,8 @@ class CameraSystem {
         if (entity.type === 'person' && this.controllerManager.aiming) {
           // aiming: over the right shoulder, looking exactly along the aim (free pitch), so the crosshair at screen centre is
           // where the shot goes; the camera orbits a shoulder pivot, so looking up or down swings it down or up behind
-          const pitch = this.controllerManager.aimPitch || 0, cp = Math.cos(pitch), sp = Math.sin(pitch);
-          const ax = Math.sin(totalYaw), az = Math.cos(totalYaw), rx = -az, rz = ax;
-          const px = entity.position.x + rx * 0.7, py = entity.position.y + 1.55, pz = entity.position.z + rz * 0.7;
-          desiredPos.set(px - ax * cp * 2.4, py - sp * 2.4, pz - az * cp * 2.4);
-          // never inside a wall: pushed back out of any building it ends up in (standing with your back to one)
-          this.controllerManager.resolveHorizontalCollision?.(desiredPos, 0.35);
-          desiredLook.set(desiredPos.x + ax * cp * 20, desiredPos.y + sp * 20, desiredPos.z + az * cp * 20);
+          this.aimPose(entity, totalYaw, this.controllerManager.aimPitch || 0, desiredPos, desiredLook);
+          desiredLook.multiplyScalar(20).add(desiredPos);
           break;
         }
         const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.4, this.smoothedSpeed * 0.01));
@@ -391,7 +401,11 @@ class CameraSystem {
         this.followOffset.subVectors(this.currentPos, entity.position);
         this.followLookOffset.subVectors(this.currentLookAt, entity.position);
       }
-      const k = 1 - Math.exp(-dt * (this.controllerManager.aiming ? 22 : 8.5)); // (aiming: the view keeps up with the mouse)
+      // aiming over the shoulder: a quick glide into the aim view (0.2 s), then the view tracks the aim exactly, frame for
+      // frame, so the crosshair never trails the mouse and the camera drawn is the one the shot is cast from (gameplay.js)
+      const shoulder = entity.type === 'person' && this.controllerManager.aiming && this.activePresetId === 'chase';
+      this.aimBlend = shoulder ? Math.min(1, (this.aimBlend || 0) + dt / 0.2) : 0;
+      const k = shoulder && this.aimBlend >= 1 ? 1 : 1 - Math.exp(-dt * (this.controllerManager.aiming ? 22 : 8.5));
       this.followBaseY += (entity.position.y - this.followBaseY) * k;
       this.followOffset.lerp(desiredPos.sub(entity.position), k);
       this.followLookOffset.lerp(desiredLook.sub(entity.position), k);
@@ -409,6 +423,8 @@ class CameraSystem {
     if (!this.followEntity) this.currentPos.y = Math.max(this.currentPos.y, floorAt(this.currentPos.x, this.currentPos.z, Math.min(this.currentPos.y, this._floorRef ?? Infinity)) + 0.55);
     this.camera.position.copy(this.currentPos);
     this.camera.lookAt(this.currentLookAt);
+    // the view is in its aim framing (the crosshair is shown on it): over the shoulder once the glide in is done, any other view at once
+    this.aimSettled = !!this.controllerManager.aiming && (this.activePresetId !== 'chase' || (this.aimBlend || 0) >= 1);
 
     // Speed: in a car on the follow cameras the view widens as it goes faster (up to 14 degrees at ~250 km/h)
     const preset = this.getActivePreset();
