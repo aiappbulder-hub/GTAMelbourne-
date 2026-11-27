@@ -205,7 +205,7 @@ export async function runAimTest(ctx, opts = {}) {
   }
   if (want('car')) {
     // a parked car broadside 8 m out; the hostile 10 m out, his body half past the car's end, as seen from the player
-    const v = trafficSystem.cars.filter((c) => !c.driven && !c.isPolice && !c.bus).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
+    const v = trafficSystem.cars.filter((c) => !c.driven && !c.isPolice && !c.bus && /sedan|taxi/.test(c.bodyType)).sort((a, b) => Math.hypot(a.x - P.x, a.z - P.z) - Math.hypot(b.x - P.x, b.z - P.z))[0];
     if (v) {
       const cp = at(8);
       Object.assign(v, { edge: null, conn: null, parked: true, speed: 0, acc: 0, x: cp.x, z: cp.z, prevX: cp.x, prevZ: cp.z, yaw: Math.atan2(t.x, t.z), y: groundAt(cp.x, cp.z) });
@@ -213,6 +213,7 @@ export async function runAimTest(ctx, opts = {}) {
       const g = await spawn(at(8 + (v.halfWidth ?? 0.9) + 0.9), awayYaw + Math.PI);
       await frames(5);
       const all = [g];
+      console.log('[aimtest] car body ' + v.bodyType);
       for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: head over the roof', chest(g, 1.62), g, 'target', all);
       for (let k = 0; k < Math.ceil(shotsPer / 2); k++) await shoot('behind car: chest (covered)', chest(g, 1.0), g, 'car', all);
       combat.clear();

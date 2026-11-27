@@ -1195,7 +1195,19 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     let haveAim = false, cross = null;
     const mz0 = cast?.muzzle();
     let mx = mz0 ? mz0.x : pp.x + Math.sin(yaw) * 0.55, my = mz0 ? mz0.y : pp.y + 1.38, mz = mz0 ? mz0.z : pp.z + Math.cos(yaw) * 0.55;
-    if (aimHeld && cameraSystem.camera) {
+    // a click from the hip (the gun only now coming up: no crosshair on screen yet) takes the nearest person or car in
+    // front that the muzzle can see, as a shot without aiming does
+    const hip = aimHeld && !cameraSystem.aimSettled ? findTarget(freeYaw ?? camYaw(), LOCK_CONE) : null;
+    const hipPt = hip && new THREE.Vector3(hip.x, (cm.getGroundHeight(hip.x, hip.z, 'person') ?? pp.y) + (hip.kind === 'ped' ? 1.15 : 0.9), hip.z);
+    const hipSeen = hipPt && (() => {
+      const vx = hipPt.x - mx, vy = hipPt.y - my, vz = hipPt.z - mz, L = Math.hypot(vx, vy, vz) || 1;
+      const h = trace(mx, my, mz, vx / L, vy / L, vz / L, L + 0.5, 0);
+      return (h.p || h.g || h.v) === (hip.q || hip.v);
+    })();
+    if (hipSeen) {
+      aimPt.copy(hipPt);
+      haveAim = true;
+    } else if (aimHeld && cameraSystem.camera) {
       const a = aimAt(w.range, mx, my, mz);
       aimPt.copy(a.point);
       cross = a;
