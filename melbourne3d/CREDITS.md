@@ -111,3 +111,13 @@ them; the rest of the game is GPL-3.0).
 - Built for this game: the tensile canopy (a parametric saddle surface), stage, masts, light towers, lawn and paths are procedural
   geometry modelled on the real bowl (Yuncken Freeman, 1959). Sited on the "Sidney Myer Music Bowl Reserve" park outline from
   OpenStreetMap (© OpenStreetMap contributors, ODbL). No third-party assets or code.
+
+## Red Clay Chase (js/pursuit.js, js/wanted.js, js/car-damage.js, js/rcc-cars.js)
+
+- Project: Red Clay Chase by noclipepe, https://github.com/noclipepe/red-clay-chase. Licence: MIT, Copyright (c) 2026 noclipepe.
+- Police pursuit roles (tail taps the bumper, two cars box you in from the sides, one gets ahead and brake-checks) and the
+  five-star survive timer: adapted from the police AI in js/game.js into js/pursuit.js and js/wanted.js.
+- Car damage (hood springs up and rips off in the wind, doors swing open on a broken latch and fly off, debris tumbles):
+  the panel states, thresholds and dynamics from js/game.js adapted into js/car-damage.js.
+- Car models: the lofted convertible and the sedan, pickup and van traffic shapes from js/car.js and js/traffic.js, rebuilt
+  as merged geometry with our materials in js/rcc-cars.js (their MIT notice is at the top of that file).

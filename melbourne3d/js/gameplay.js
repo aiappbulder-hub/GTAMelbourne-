@@ -309,7 +309,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       root.name = 'PlayerCar_' + def.id;
       root.rotation.order = 'YXZ';
       root.add(def.root);
-      const entry = { root, wheels: {} };
+      root.userData.panels = def.root.userData.panels || null; // (js/car-damage.js uses a car's own hood and door groups)
+      const entry = { root, wheels: def.wheels || {} };
       modelCache.set(def.id, entry);
       return entry;
     }
@@ -432,7 +433,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     riding = lastRide = v;
     placeCarEntity(v.x, v.z, v.yaw);
     car.drive = null;
-    car.label = `Stolen ${v.bodyType === 'pickup' ? 'ute' : v.bodyType}`;
+    car.label = `Stolen ${/pickup/.test(v.bodyType) ? 'ute' : v.bodyType.replace(/^rcc/, '')}`;
     go('car');
     // (setMode shows the active vehicle's own body: here the taken car is drawn by the traffic instead)
     carMesh.visible = false;
@@ -1977,9 +1978,11 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     /** The speedo's full scale for the car being driven (km/h) */
     get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 50) * 3.6 / DISPLAY_DIV / 10) * 10 + 20 : 0; },
     summonSports, summon, cycleCar, placeCar, leaveCarNow,
+    /** The body root drawn for the car being driven (js/car-damage.js hangs its panels on it); null for a car taken from the traffic */
+    activeBody() { return riding === 'sports' ? sports.mesh : riding === 'taxi' ? carMesh : null; },
     /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
     addCar(def) {
-      CUSTOM_CARS.push({ id: def.id, name: def.name, root: def.root, drive: drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), line: def.line || `Your ${def.name}.` });
+      CUSTOM_CARS.push({ id: def.id, name: def.name, root: def.root, drive: def.handling ? drive(...def.handling, { wheelbase: def.wheelbase || 2.8 }) : drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), wheels: def.wheels, line: def.line || `Your ${def.name}.` });
     },
     /** The player's parked sports car (or the parked taxi), for the player on foot to bump into */
     sportsBox() {

@@ -29,6 +29,7 @@ const CSS = `
 .gm-wanted.on { display: block; }
 .gm-wanted .s { color: #ffd23f; }
 .gm-wanted .e { color: rgba(255,255,255,.28); }
+.gm-wanted small.surv { color: #ff7a6a; font-size: 14px; }
 .gm-wanted small { display: block; margin-top: 4px; font: 700 11px/1 Inter, system-ui, sans-serif; letter-spacing: .18em; color: #fff; opacity: .85; }
 .gm-wanted.search .s { animation: wantedFlash .7s steps(2, start) infinite; }
 @keyframes wantedFlash { 50% { opacity: .15; } }
@@ -117,6 +118,23 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     return { index: 0, along };
   }
 
+  function routeFrom(x, z) {
+    let bi = -1, bd = 30;
+    for (let i = 0; i < history.length; i++) { const d = Math.hypot(history[i].x - x, history[i].z - z); if (d < bd) { bd = d; bi = i; } }
+    return bi >= 0 && bi < history.length - 2 ? history.slice(bi + 1).map((q) => ({ ...q })) : null;
+  }
+  // Roles by how many cars are chasing (after Red Clay Chase): the first tails and taps the bumper; the next two box
+  // the player in from the left and right; the fourth gets ahead and brake-checks. Harder at higher stars.
+  const ROLE_ORDER = [['tail', 1], ['side', 1], ['side', -1], ['front', 1]];
+  function assignRoles() {
+    const live = units.filter((u) => u.p.active && !u.p.parked && !u.p.leaving);
+    const order = stars >= 4 && live.length >= 3 ? [ROLE_ORDER[1], ROLE_ORDER[2], ROLE_ORDER[3], ROLE_ORDER[0]] : ROLE_ORDER;
+    const intensity = Math.min(1, 0.25 + stars * 0.15);
+    live.forEach((u, i) => { const r = order[i % order.length]; if (r[0] === 'front' && stars < 4) u.p.setRole('tail', 1, intensity); else u.p.setRole(r[0], r[1], intensity); });
+  }
+  const SURVIVE = () => (matchMedia?.('(pointer: coarse)').matches ? 45 : 60);
+  let surviveT = 0;
+
   function spawnUnit() {
     const want = tuning.spawnBack[0] + Math.random() * (tuning.spawnBack[1] - tuning.spawnBack[0]);
     const rp = routePoint(want);
@@ -124,7 +142,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     const seed = history.slice(rp.index);
     if (seed.length < 2) return false;
     const n = units.length;
-    const p = createPursuer({ scene, controllerManager, traffic: () => trafficSystem });
+    const p = createPursuer({ scene, controllerManager, traffic: () => trafficSystem, routeFrom: (x, z) => routeFrom(x, z) });
     p.start({ x: seed[0].x, z: seed[0].z, file: 'police', color: 0xf4f6f8, speed: 28 + stars * 3 + Math.random() * 3, stopGap: 9 + n * 4, seed: seed.slice(1) });
     units.push({ p, n });
     return true;
@@ -143,6 +161,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     stars = 0;
     reports.length = 0;
     farT = bustT = spawnWait = 0;
+    surviveT = 0;
     clearUnits();
   }
 
@@ -184,6 +203,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     if (units.length < want) { spawnWait += dt; if (spawnUnit()) spawnWait = 0; } else spawnWait = 0;
     if (units.length > want) dismiss(units.pop());
     let nearest = Infinity;
+    assignRoles();
     for (const u of units) { u.p.update(dt); nearest = Math.min(nearest, u.p.distance()); }
     const sirenLevel = units.length ? Math.max(0, Math.min(1, 1 - (nearest - 25) / 200)) : 0;
     if (police) police.siren(sirenLevel); else sounds.siren(sirenLevel);
@@ -200,7 +220,13 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
       for (const u of units) if (!police?.hasCrew(u)) near = Math.min(near, u.p.distance());
       bustT = still && near < 16 ? bustT + dt : 0;
       if (bustT > 2.5) busted();
-    } else bustT = 0;
+      // five stars: the survive clock runs; outlast it and they give up (after Red Clay Chase's five-star timer)
+      if (stars >= 5) {
+        if (surviveT <= 0) surviveT = SURVIVE();
+        surviveT -= dt;
+        if (surviveT <= 0) { reset(); flash('THEY GAVE UP', 4); say('You outlasted them. The police have given up.', 4); surviveT = 0; }
+      } else surviveT = 0;
+    } else { bustT = 0; surviveT = 0; }
 
     // the stars
     labelT = Math.max(0, labelT - dt);
@@ -209,7 +235,7 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     hud.classList.toggle('search', stars > 0 && nearest > 90);
     if (on) {
       const s = '★'.repeat(stars), e2 = '★'.repeat(5 - stars);
-      hud.innerHTML = `<span class="s">${s}</span><span class="e">${e2}</span>${labelT > 0 && label ? `<small>${label}</small>` : ''}`;
+      hud.innerHTML = `<span class="s">${s}</span><span class="e">${e2}</span>${stars >= 5 && surviveT > 0 ? `<small class="surv">SURVIVE ${Math.floor(surviveT / 60)}:${String(Math.ceil(surviveT) % 60).padStart(2, '0')}</small>` : ''}${labelT > 0 && label ? `<small>${label}</small>` : ''}`;
     }
   }
 
@@ -229,11 +255,10 @@ export function createWanted({ scene, controllerManager, trafficSystem, voices =
     /** Seconds since the player last fired a shot that counted as a crime */
     shotAge() { return clock - lastShot; },
     /** The route the player drove from the point nearest (x, z) on (within 30 m), or null: a unit that has left it can rejoin */
-    routeFrom(x, z) {
-      let bi = -1, bd = 30;
-      for (let i = 0; i < history.length; i++) { const d = Math.hypot(history[i].x - x, history[i].z - z); if (d < bd) { bd = d; bi = i; } }
-      return bi >= 0 && bi < history.length - 2 ? history.slice(bi + 1).map((q) => ({ ...q })) : null;
-    },
+    routeFrom,
+    get surviveLeft() { return surviveT; },
+    /** Scripted checks: set the heat to a star count */
+    setStars(n) { heat = Math.max(heat, STAR_AT[n - 1] || 0); stars = starsOf(heat); },
     /** The police cars' footprints (for the player on foot to bump into) */
     boxes() { return [...units.map((u) => u.p.box()), ...(police?.boxes() || [])].filter(Boolean); },
     get stars() { return stars; },

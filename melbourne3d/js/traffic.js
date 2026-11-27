@@ -60,6 +60,10 @@ const CAR_KINDS = {
   pickup: { half: 2.86, halfWidth: 0.96, axle: 1.92, halfL: 2.78, mass: 2400, engine: 'suv' },
   van: { half: 2.96, halfWidth: 0.95, axle: 1.8, halfL: 2.88, mass: 2700, engine: 'suv' }
 };
+// Red Clay Chase's body shapes (js/rcc-cars.js) in the street traffic, on the same footprint as the body they borrow
+CAR_KINDS.rccsedan = { ...CAR_KINDS.sedan };
+CAR_KINDS.rccpickup = { ...CAR_KINDS.pickup };
+CAR_KINDS.rccvan = { ...CAR_KINDS.van };
 
 // Retire distant actors even when looking their way: keeping them indefinitely starves upcoming streets.
 // Replacements may enter the far view, but nearby visible roads and sidewalks are protected from pop-in.
@@ -283,11 +287,14 @@ function createTrafficSystem(scene, sidewalks, obstacles, signalIntersections) {
   // (Melbourne: one taxi in twenty rather than one in five, more utes, and Commodores everywhere: 8 sedans in 20, drawn
   // as the Holdan Comodo near the camera)
   const FLEET_MIX = IS_MELBOURNE
-    ? ['sedan', 'suv', 'van', 'sedan', 'sedan', 'pickup', 'suv', 'minivan', 'sedan', 'pickup',
-      'taxi', 'sedan', 'suv', 'sedan', 'suv', 'sedan', 'minivan', 'sedan', 'pickup', 'van']
+    ? ['sedan', 'suv', 'van', 'rccsedan', 'sedan', 'rccpickup', 'suv', 'minivan', 'sedan', 'pickup',
+      'taxi', 'rccsedan', 'suv', 'sedan', 'suv', 'sedan', 'minivan', 'sedan', 'pickup', 'rccvan']
     : ['taxi', 'sedan', 'van', 'sedan', 'suv', 'taxi', 'suv', 'minivan', 'suv', 'pickup',
       'taxi', 'sedan', 'suv', 'van', 'suv', 'taxi', 'minivan', 'sedan', 'suv', 'sedan'];
 
+  fleetStyles.rccsedan = fleetStyles.sedan;
+  fleetStyles.rccpickup = fleetStyles.pickup;
+  fleetStyles.rccvan = fleetStyles.van;
   const cars = [];
   const counts = Object.fromEntries(Object.keys(CAR_KINDS).map((kind) => [kind, 0]));
   const policeCounts = { sedan: 0, suv: 0 };
@@ -2449,7 +2456,7 @@ function createHighwayTraffic(scene, lanes) {
   const group = new THREE.Group();
   group.name = 'HighwayTraffic';
   scene.add(group);
-  const KINDS = Object.keys(CAR_KINDS);
+  const KINDS = Object.keys(CAR_KINDS).filter((k) => !k.startsWith('rcc')); // (the highway uses the plain bodies)
   const PALETTES = {
     taxi: [
       { hex: 0xffbe14, style: carStyleCode({ livery: 0, metallic: 0, trim: 0, wheel: 0 }) },
