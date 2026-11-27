@@ -57,7 +57,7 @@ export async function runAimTest(ctx, opts = {}) {
     return { dist: v.addScaledVector(r.d, -s).length(), along: s };
   };
   // turn the camera (by mouse movement) until the crosshair ray passes through T (a function: moving targets)
-  async function aimAt(T, maxIter = 12) {
+  async function aimAt(T, maxIter = 8) {
     let err = Infinity;
     for (let i = 0; i < maxIter; i++) {
       const p = T();
@@ -68,18 +68,26 @@ export async function runAimTest(ctx, opts = {}) {
       err = perp(r, p).dist;
       if (i > 1 && Math.abs(dyaw) < 0.0025 && Math.abs(dp) < 0.0025) break;
       moveMouse(-dyaw / SENS, -dp / SENS);
-      await frames(3);
+      await frames(2);
     }
     return err;
   }
 
   // a free spot for a person (r m round) on the ground (no wall standing there)
   const free = (x, z, r = 0.5) => cm.nearColliders(x, z, r + 1).every((c) => !(x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r && (c.minY ?? 0) - (c.groundY ?? 0) < 2.5));
+  const inPoly = (poly, x, z) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+    }
+    return inside;
+  };
   // A building with a clear lane on one side: the player stands 9 m out from one face, the hidden hostile 2.5 m past
   // the far face, and the lane out from the player (away from the building) is open for 20 m
   function findSite() {
     const P0 = person.position;
-    const cs = cm.colliders.filter((c) => !c.polygon && c.maxY !== undefined && c.maxY - (c.minY ?? 0) > 6 && (c.minY ?? 0) - (c.groundY ?? 0) < 1 &&
+    const cs = cm.colliders.filter((c) => c.maxY !== undefined && c.maxY - (c.minY ?? 0) > 6 && (c.minY ?? 0) - (c.groundY ?? 0) < 1 &&
       c.maxX - c.minX > 4 && c.maxX - c.minX < 30 && c.maxZ - c.minZ > 4 && c.maxZ - c.minZ < 30 && Math.hypot((c.minX + c.maxX) / 2 - P0.x, (c.minZ + c.maxZ) / 2 - P0.z) < 400)
       .sort((a, b) => Math.hypot((a.minX + a.maxX) / 2 - P0.x, (a.minZ + a.maxZ) / 2 - P0.z) - Math.hypot((b.minX + b.maxX) / 2 - P0.x, (b.minZ + b.maxZ) / 2 - P0.z));
     for (const c of cs) {
@@ -89,6 +97,8 @@ export async function runAimTest(ctx, opts = {}) {
         if (across < 2.5) continue;
         const P = { x: cx + nx * (half + 9), z: cz + nz * (half + 9) }, E = { x: cx - nx * (half + 2.5), z: cz - nz * (half + 2.5) };
         if (!free(P.x, P.z, 0.8) || !free(E.x, E.z, 0.8)) continue;
+        // (a footprint that's solid right across, on the line from the player to the hidden spot)
+        if (c.polygon && ![-0.8, -0.4, 0, 0.4, 0.8].every((k) => inPoly(c.polygon.outer, cx + nx * half * k, cz + nz * half * k))) continue;
         const gy = groundAt(P.x, P.z);
         if (Math.abs(groundAt(E.x, E.z) - gy) > 1.5) continue;
         const t = { x: -nz, z: nx };
@@ -154,6 +164,7 @@ export async function runAimTest(ctx, opts = {}) {
     };
     rec.pass = expect === 'target' ? rec.hitTarget === 1 && rec.otherHits === 0 : rec.kind === expect && rec.hitTarget === 0;
     results.push(rec);
+    if (opts.log !== false) console.log('[aimtest] ' + JSON.stringify(rec));
     await frames(2);
     return rec;
   }
@@ -253,7 +264,9 @@ export async function runAimTest(ctx, opts = {}) {
       const s = api.state.lastShot;
       const hit = Math.round((before - g.hp) / 34);
       results.push({ case: 'click from the hip, 10 m', expect: 'target', kind: s?.kind ?? null, hitTarget: hit, otherHits: 0, pass: hit === 1,
-        impactOffTargetCm: s ? Math.round(Math.hypot(s.x - g.x, s.y - (g.y + 1.2), s.z - g.z) * 100) : null });
+        impactOffTargetCm: s ? Math.round(Math.hypot(s.x - g.x, s.y - (g.y + 1.2), s.z - g.z) * 100) : null,
+        diag: { want: +awayYaw.toFixed(2), heading: +person.heading.toFixed(2), camDir: crossRay().d.toArray().map((v) => +v.toFixed(2)), aimed: cm.aiming,
+          from: s?.from?.map((v) => +v.toFixed(1)), aim: s?.aim?.map((v) => +v.toFixed(1)), at: s && [s.x, s.y, s.z].map((v) => +v.toFixed(1)), target: [g.x, g.y + 1.2, g.z].map((v) => +v.toFixed(1)) } });
       await frames(3);
     }
     combat.clear();
