@@ -24,7 +24,6 @@ export async function runAimTest(ctx, opts = {}) {
   const shotsPer = opts.shots ?? 6;
   const only = opts.only || null;
   const frames = (n = 1) => new Promise((res) => { let k = 0; const f = () => (++k >= n ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
-  const wait = (ms) => new Promise((res) => setTimeout(res, ms));
   const groundAt = (x, z) => cm.getGroundHeight(x, z, 'person') ?? 0;
   // the synthetic input: pointer and mouse events on the canvas (they bubble to the window's listeners)
   let mx = 320, my = 180, fx = 0, fy = 0;
@@ -152,8 +151,9 @@ export async function runAimTest(ctx, opts = {}) {
     const before = all.map((o) => o.hp);
     const r = crossRay();
     const tp = T();
+    const prev = api.state.lastShot;
     click();
-    const s = api.state.lastShot;
+    const s = api.state.lastShot === prev ? null : api.state.lastShot;
     const hits = all.map((o, i) => Math.round((before[i] - o.hp) / 34));
     const imp = s ? { x: s.x, y: s.y, z: s.z } : null;
     const e = imp ? perp(r, imp) : null;
@@ -162,6 +162,7 @@ export async function runAimTest(ctx, opts = {}) {
       aimErrCm: Math.round(aimErr * 100), impactOffRayCm: e ? Math.round(e.dist * 100) : null, impactDepth: e ? +e.along.toFixed(2) : null,
       targetDepth: +perp(r, tp).along.toFixed(2)
     };
+    rec.fired = !!s;
     rec.pass = expect === 'target' ? rec.hitTarget === 1 && rec.otherHits === 0 : rec.kind === expect && rec.hitTarget === 0;
     results.push(rec);
     if (opts.log !== false) console.log('[aimtest] ' + JSON.stringify(rec));
@@ -257,11 +258,12 @@ export async function runAimTest(ctx, opts = {}) {
       cameraSystem.orbitYawOffset = 0;
       await frames(15);
       await waitReady();
-      const before = g.hp;
+      const before = g.hp, prev = api.state.lastShot;
+      // (down and up in one go: on a slow machine a pause between them is longer than a click's 350 ms and reads as a drag)
       ev('pointerdown', { button: 0, buttons: 1 });
-      await wait(90);
+      if (opts.hipFrames) await frames(opts.hipFrames);
       ev('pointerup', { button: 0, buttons: 0 });
-      const s = api.state.lastShot;
+      const s = api.state.lastShot === prev ? null : api.state.lastShot;
       const hit = Math.round((before - g.hp) / 34);
       results.push({ case: 'click from the hip, 10 m', expect: 'target', kind: s?.kind ?? null, hitTarget: hit, otherHits: 0, pass: hit === 1,
         impactOffTargetCm: s ? Math.round(Math.hypot(s.x - g.x, s.y - (g.y + 1.2), s.z - g.z) * 100) : null,
