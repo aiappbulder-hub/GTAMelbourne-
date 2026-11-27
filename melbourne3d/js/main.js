@@ -1042,6 +1042,29 @@ async function initApp() {
       closePopovers();
     });
     prog.after(storyBtn);
+    // Skip mission: the job under way (or the one just failed twice), paid half (all after two fails); tap twice
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'pop-item tp-btn'; skipBtn.type = 'button'; skipBtn.dataset.skipMission = '1';
+    const skn = document.createElement('span'); skn.className = 'pop-name';
+    const sks = document.createElement('span'); sks.className = 'pop-sub';
+    skipBtn.append(skn, sks);
+    let skipArm = 0;
+    const paintSkip = () => {
+      const i = missionSystem.skippable;
+      skipBtn.hidden = i < 0;
+      if (i < 0) { skipArm = 0; return; }
+      skn.textContent = skipArm ? 'Tap again: skip this mission' : 'Skip mission';
+      sks.textContent = `${missionSystem.missions[i].name}: completes it, pays ${missionSystem.failCounts[i] >= 2 ? 'the full' : 'half the'} reward and moves the story on`;
+    };
+    skipBtn.addEventListener('click', () => {
+      if (!skipArm) { skipArm = 1; paintSkip(); setTimeout(() => { skipArm = 0; paintSkip(); }, 4000); return; }
+      skipArm = 0;
+      missionSystem.skipMission();
+      closePopovers();
+    });
+    storyBtn.after(skipBtn);
+    paintSkip();
+    setInterval(paintSkip, 400);
     // options (js/settings.js): Police on/off and the sound layers, each saved in localStorage
     const optRows = [];
     const optBtn = (key, label, onSub, offSub) => {

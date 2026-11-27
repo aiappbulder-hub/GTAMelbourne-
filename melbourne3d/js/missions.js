@@ -307,12 +307,12 @@ const MISSIONS = [
         say: 'Davo: "That\'s three. The grey one is pulling out onto Victoria Street. Go."' },
       { text: 'The grey ute is leaving from Victoria St. Get in a car.', car: true, lead: { id: 'MARKET_UTE', hold: true, file: 'strainger', color: 0x8d8f8a } },
       { text: "Tail the grey ute to wherever it's going. Stay back: no closer than 25 m, no further than 200 m.",
-        lead: { id: 'MARKET_UTE', speed: 13, file: 'strainger', color: 0x8d8f8a, far: 200, farHold: 7, near: 25, end: 50,
+        lead: { id: 'MARKET_UTE', speed: 20, file: 'strainger', color: 0x8d8f8a, far: 200, farHold: 7, near: 25, end: 50,
           lostText: 'You lost the ute.', seenText: 'The driver saw you in his mirror. The yard will be empty by tonight.' },
         lines: [[4, 'Davo', 'West on Victoria Street. Not the freeway, then. Somewhere close.'],
-          [30, 'Davo', "North Melbourne. Twenty-two years ago this was all Kaz's uncle's. Ray, out in Broadmeadows. Tobacco, mostly."],
-          [60, 'Davo', "Easy. Let a car get between you if you can."],
-          [95, 'Davo', "Dudley Street. The rail yards. Well, I'll be. She never left."]],
+          [18, 'Davo', "North Melbourne. Twenty-two years ago this was all Kaz's uncle's. Ray, out in Broadmeadows. Tobacco, mostly."],
+          [38, 'Davo', "Easy. Let a car get between you if you can."],
+          [85, 'Davo', "Dudley Street. The rail yards. Well, I'll be. She never left."]],
         say: 'Davo: "That\'s Kaz at the gate. She knew we were coming, mate."' },
       { text: 'The yards on Dudley St. Get out and walk to the gate.', at: { place: 'DUDLEY_WURU', kerb: true }, r: 4, foot: true,
         lead: { id: 'MARKET_UTE', hold: true },
@@ -658,6 +658,10 @@ body.cutscene .gm-call, body.cinematic .gm-call { display: none; }
   background: rgba(0,0,0,.45); color: #fff; font: 700 13px/1 Inter, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; display: none; }
 body.cutscene .gm-skip { display: block; }
 .gm-skip:hover, .gm-skip:focus-visible { background: rgba(255,79,163,.35); border-color: #ff4fa3; outline: none; }
+.gm-skipjob { position: fixed; right: 18px; top: 128px; z-index: 31; padding: 9px 14px; min-height: 40px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px;
+  background: rgba(10,12,16,.7); color: #fff; font: 700 13px/1.1 Inter, system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; touch-action: manipulation; pointer-events: auto; }
+.gm-skipjob[hidden], body.cinematic .gm-skipjob, body.cutscene .gm-skipjob { display: none; }
+.gm-skipjob:hover, .gm-skipjob:focus-visible, .gm-skipjob.sure { background: rgba(255,79,163,.45); border-color: #ff4fa3; outline: none; }
 .gm-sub { position: fixed; left: 50%; bottom: 200px; transform: translateX(-50%); z-index: 30; max-width: 80vw; color: #fff; text-align: center;
   font: 600 16px/1.4 Inter, system-ui, sans-serif; text-shadow: 0 2px 6px rgba(0,0,0,.85); pointer-events: none; }
 `;
@@ -687,6 +691,30 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   elSkip.textContent = 'Skip \u25B8\u25B8';
   elSkip.addEventListener('click', (e) => { e.stopPropagation(); advanceCut(true); });
   document.body.append(elSkip);
+  // Skip mission (GTA-style): on the job's HUD, and after two fails. Two taps (the second confirms). See skipJob().
+  const elSkipJob = document.createElement('button');
+  elSkipJob.type = 'button';
+  elSkipJob.className = 'gm-skipjob';
+  elSkipJob.hidden = true;
+  let skipSure = 0;
+  elSkipJob.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (skipSure > 0) { skipSure = 0; api.skipMission(); return; }
+    skipSure = 4;
+    paintSkipJob();
+  });
+  document.body.append(elSkipJob);
+  const fails = {}; // fails per job this session (two fails offer the skip)
+  const skipTarget = () => (mission ? (mission.i === save.progress ? mission.i : -1) : (fails[save.progress] >= 2 && MISSIONS[save.progress] ? save.progress : -1));
+  function paintSkipJob() {
+    const i = skipTarget(), ok = i >= 0 && !cut && !choiceOpen && !cardUp && !(mission && mission.blackout);
+    if (elSkipJob.hidden === ok) elSkipJob.hidden = !ok;
+    if (!ok) { skipSure = 0; return; }
+    const full = fails[i] >= 2, pay = Math.round(MISSIONS[i].reward * (full ? 1 : 0.5));
+    const txt = skipSure > 0 ? `Tap again to skip (+$${pay.toLocaleString('en-AU')})` : full ? 'Skip mission' : 'Skip mission (half pay)';
+    if (elSkipJob.textContent !== txt) elSkipJob.textContent = txt;
+    elSkipJob.classList.toggle('sure', skipSure > 0);
+  }
   const elCall = el('gm-call');
   elCall.addEventListener('click', () => { callUp = 0; elCall.classList.remove('on'); });
   const elChoice = el('gm-choice');
@@ -1248,7 +1276,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
   elCut.addEventListener('click', () => advanceCut());
   window.addEventListener('keydown', (e) => {
     if (!cut) return;
-    if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); advanceCut(); }
+    if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') { e.preventDefault(); advanceCut(); }
     if (e.code === 'Escape') { e.preventDefault(); advanceCut(true); }
   });
 
@@ -1318,7 +1346,12 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       // armed hostiles round the player (js/combat.js: they notice, aim and shoot back); if none could be placed, the people nearest
       // (s.bikies: they arrive as a pack of bikies on motorbikes who ride up, get off and fight: js/bikies.js)
       let armed = s.bikies && gameplay?.bikies ? gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range: [90, 150], hidden: false }) : null;
-      if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
+      if (s.bikies && gameplay?.bikies) { // never on foot beside the player: a wider road search, then hidden, then a far ring
+        const pack = (range, hidden) => gameplay.bikies.spawnPack({ n: s.targets, hostile: true, job: true, weapons: s.weapons, range, hidden });
+        if (!armed?.length) armed = pack([70, 220], false);
+        if (!armed?.length) armed = pack([70, 220], true);
+        if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z), [60, 90]);
+      } else if (!armed?.length) armed = gameplay?.combat?.spawnGroup(p, s.targets, s.weapons || ['pistol', 'uzi'], (x, z) => !!blockAt(x, z));
       m.targets = armed?.length ? armed : traffic.peds.filter((q) => q.placed && !q.dead)
         .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)).slice(0, s.targets);
     }
@@ -1474,7 +1507,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     // a cheer on passing a job (on foot)
     if (cast && controllerManager.activeMode === 'person') { cast.setPlayerAction('cheer'); later(3.5, () => cast.setPlayerAction(null)); }
   }
-  function fail(why) {
+  function fail(why, count = true) {
+    if (mission && count) fails[mission.i] = (fails[mission.i] || 0) + 1;
     cleanup();
     mission = null;
     elObjective.textContent = '';
@@ -1486,6 +1520,37 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     big('MISSION FAILED', '#e5383b', 3, 'Nothing is lost: walk back into the pink marker to try again');
     sub(why, 5);
   }
+  /** Skip the job under way (or the one just failed twice): paid (half; all of it after two fails), the story moves on, and
+   *  any choice it would have asked gets its first option's flags unless already set, so later jobs have what they need. */
+  function skipJob() {
+    const i = skipTarget();
+    if (i < 0) return false;
+    const def = MISSIONS[i], full = fails[i] >= 2;
+    cleanup();
+    for (const st of def.steps) {
+      if (st.when && !Object.entries(st.when).every(([k, v]) => save.flags[k] === v)) continue;
+      for (const [k, v] of Object.entries(st.choice?.options?.[0]?.set || {})) if (save.flags[k] === undefined) save.flags[k] = v;
+    }
+    const pay = Math.round(def.reward * (full ? 1 : 0.5));
+    save.money += pay;
+    save.progress = Math.max(save.progress, i + 1);
+    fails[i] = 0;
+    focus = null;
+    persist();
+    showMoney();
+    mission = null;
+    elObjective.textContent = '';
+    elObjective.removeAttribute('data-job');
+    elTimer.hidden = true;
+    goalMarker.visible = false;
+    for (const t of targetMarkers) t.visible = false;
+    if (mapSystem) mapSystem.waypoint = null;
+    big('MISSION SKIPPED', '#ffd23f', 3, `Job ${i + 1} of ${MISSIONS.length} \u00B7 +$${pay.toLocaleString('en-AU')}`);
+    const nxt = MISSIONS[i + 1];
+    if (storyMode && nxt && nxt.chain && save.progress === i + 1) { called = i + 1; chainJob = { n: i + 1, t: 3.6 }; }
+    paintSkipJob();
+    return true;
+  }
 
   function update(dt, elapsed) {
     if (timers.length) { // the delays that have run out (callbacks may start new ones)
@@ -1493,6 +1558,8 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
       for (let i = 0; i < timers.length;) { timers[i].t -= dt; if (timers[i].t <= 0) due.push(...timers.splice(i, 1)); else i++; }
       for (const x of due) x.fn();
     }
+    if (skipSure > 0) { skipSure -= dt; if (skipSure <= 0) skipSure = 0; }
+    paintSkipJob();
     if (cut && cut.auto > 0) { cut.auto -= dt; if (cut.auto <= 0) advanceCut(); }
     if (bigT > 0) { bigT -= dt; if (bigT <= 0) elBig.style.opacity = '0'; }
     if (subT > 0) { subT -= dt; if (subT <= 0) elSub.textContent = ''; }
@@ -1807,6 +1874,11 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
 
   const api = {
     update,
+    /** Skip the current job (HUD button, pause menu): see skipJob() */
+    skipMission() { return skipJob(); },
+    /** The job a skip would apply to (index), or -1 */
+    get skippable() { return skipTarget(); },
+    get failCounts() { return { ...fails }; },
     sub,
     /** gameplay.js and the traffic, once they exist; gameplay reports talks and hold-ups here */
     attach(g, t) {
@@ -1888,7 +1960,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     get busy() { return !!cut || !!choiceOpen || cardUp || !!(mission && mission.blackout); },
     /** Start a job now, wherever the player is (the Jobs list) */
     startNow(i) {
-      if (mission) fail('You walked off the job.');
+      if (mission) fail('You walked off the job.', false);
       if (i > save.progress) { save.progress = i; persist(); } // (ahead of the story: for checks; the Jobs list keeps these locked)
       focus = i < save.progress ? i : null;
       start(i);
@@ -1896,7 +1968,7 @@ export function createMissionSystem({ scene, controllerManager, mapSystem, camer
     },
     /** Jump to a job: its start marker becomes the next one (the pause/jobs list) */
     jumpTo(i) {
-      if (mission) fail('You walked off the job.');
+      if (mission) fail('You walked off the job.', false);
       if (i > save.progress) { save.progress = i; persist(); }
       focus = i < save.progress ? i : null;
       return resolve(MISSIONS[i].start);
