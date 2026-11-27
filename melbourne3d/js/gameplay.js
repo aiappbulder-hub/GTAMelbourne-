@@ -1340,6 +1340,8 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     }
     elHp.hidden = !(cm.activeMode === 'person' || cm.activeMode === 'car') || (hp >= HP_MAX && clock - lastHurt > 4 && !combat.alive);
   }
+  // the aim accuracy test (js/aim-test.js): `calm` holds the hostiles' fire, `pre(dt)` runs at the top of each frame
+  const testHooks = { calm: false, pre: null, crossNDC: () => ({ x: 0, y: 1 - 2 * CROSS_Y }) };
   const world = {
     player() {
       const inCar = cm.activeMode === 'car';
@@ -1347,7 +1349,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       return { x: e.position.x, y: e.position.y, z: e.position.z, speed: Math.abs(e.speed || 0), inCar, dead: !!dying };
     },
     // no shooting at you in a cut scene or with a choice up, in the intro, or indoors
-    holdFire: () => !!missionSystem?.busy || document_.contains('cutscene') || document_.contains('cinematic') || document_.contains('in-room') || !!dying,
+    holdFire: () => !!missionSystem?.busy || document_.contains('cutscene') || document_.contains('cinematic') || document_.contains('in-room') || !!dying || testHooks.calm,
     hurtPlayer
   };
   const combat = createCombat({ cm, cast, trafficSystem, trace, fx, world });
@@ -1564,6 +1566,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   // ------------------------------------------------------------------------------------------------------------------
   function update(dt) {
     clock += dt;
+    testHooks.pre?.(dt);
     cooldown = Math.max(0, cooldown - dt);
     stepRockets(dt);
     stepBlasts(dt);
@@ -1803,7 +1806,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     return true;
   }
 
-  return {
+  const api = {
     update, beforeMode, weapons: WEAPONS,
     get driving() { return driving(); },
     get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
@@ -1829,4 +1832,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
         aimYaw: freeYaw, aimPitch: freePitch, aimHeld, steppingOut: !!stepOut, jacked: jacked ? { id: jacked.id, t: jacked.t, at: jacked.at } : null };
     }
   };
+  api.aimTest = (o) => import('./aim-test.js').then((m) => m.runAimTest({ cm, cameraSystem, trafficSystem, combat, canvas: renderer.domElement, api, hooks: testHooks }, o));
+  if (/[?&]aimtest\b/.test(location.search)) setTimeout(() => api.aimTest().then((r) => console.log('[aimtest]', JSON.stringify(r))), 8000);
+  return api;
 }
