@@ -39,17 +39,17 @@ const SPAWN_X = SPAWN.x;
 const groundCollider = { type: 'ground' };
 
 const CAR_DRIVE = {
-  speed: 36, reverseSpeed: 10.5, acceleration: 4.5,
-  powerSpeed: 14.5, // Above 52 km/h, engine power limits acceleration.
+  speed: 50, reverseSpeed: 11.5, acceleration: 6.5, // (v36: 36 m/s and 4.5; about +40% so crossing the CBD is quick)
+  powerSpeed: 20, // Above 72 km/h, engine power limits acceleration.
   rolling: 0.18, drag: 0.0012, coast: 0.6, brake: 9,
-  wheelbase: 2.76, grip: 13, cornering: 15 // Wheelbase (m), tire and steering acceleration limits (m/s²).
+  wheelbase: 2.76, grip: 15, cornering: 17 // Wheelbase (m), tire and steering acceleration limits (m/s²).
 };
-// The sports car (the HSB Clubbie R8, js/gameplay.js): about 280 km/h, twice the pull, harder brakes, more grip
+// The sports car (the HSB Clubbie R8, js/gameplay.js): about 380 km/h, twice the pull, harder brakes, more grip
 export const SPORTS_DRIVE = {
-  speed: 78, reverseSpeed: 12, acceleration: 9.5,
-  powerSpeed: 30, // power-limited above ~108 km/h
+  speed: 105, reverseSpeed: 13, acceleration: 13, // (v36: 78 m/s and 9.5)
+  powerSpeed: 40, // power-limited above ~144 km/h
   rolling: 0.15, drag: 0.0005, coast: 0.5, brake: 15,
-  wheelbase: 2.7, grip: 21, cornering: 22
+  wheelbase: 2.7, grip: 26, cornering: 27
 };
 const BICYCLE_DRIVE = {
   speed: 19, reverseSpeed: 4.5, acceleration: 9,
@@ -1274,7 +1274,10 @@ class ThirdPersonControllerManager {
       const acceleration = (speed - forward) / step;
       // Braking and cornering share tire grip; air resistance does not use it.
       const tireAcceleration = acceleration + D.drag * forward * Math.abs(forward);
-      const gripMax = D.grip * (c.onGrass ? 0.55 : 1); // half the grip on grass
+      // Grass: a little less grip than asphalt (0.8 at full grass), eased in and out by grassMix so a kerb crossing
+      // doesn't jerk. Downforce: up to +30% grip as the car nears its top speed, so fast cars stay planted.
+      const gm = c.grassMix || 0;
+      const gripMax = D.grip * (1 - 0.2 * gm) * (1 + 0.3 * Math.min(1, Math.abs(forward) / D.speed));
       const grip = Math.sqrt(Math.max(0, gripMax ** 2 - tireAcceleration ** 2));
       // A handbrake slide preserves steering while reducing lateral grip; fade it out at low speed.
       const handbrake = Math.max(forward * throttle < 0 ? Math.abs(throttle) * Math.min(1, Math.abs(forward) / 5) : 0,
@@ -1302,7 +1305,8 @@ class ThirdPersonControllerManager {
       const worldZ = cos * speed - sin * sideways;
       c.speed = worldX * nextSin + worldZ * nextCos;
       const slip = worldX * nextCos - worldZ * nextSin;
-      const correction = Math.max(-lateralGrip * step, Math.min(lateralGrip * step, -slip * tireResponse));
+      // (the turf bites sideways: the slide dies faster on grass, so there's no ice-like drift)
+      const correction = Math.max(-lateralGrip * step, Math.min(lateralGrip * step, -slip * Math.min(1, tireResponse * (1 + 1.2 * gm))));
       c.vx = nextCos * (slip + correction);
       c.vz = -nextSin * (slip + correction);
       c.position.x += (nextSin * c.speed + c.vx) * step;
@@ -1352,8 +1356,18 @@ class ThirdPersonControllerManager {
       const tfl = th(1.3, 0.78), tfr = th(1.3, -0.78), tbl = th(-1.3, 0.78), tbr = th(-1.3, -0.78);
       // On the grass the car digs in: it loses speed (more the faster it goes), grip drops and it bounces about
       c.onGrass = grass >= 2;
+      // grassMix eases to 1 on the turf and back to 0 on the road (~0.15 s), so grip and drag blend across the kerb
+      const gmTarget = grass / 4;
+      c.grassMix = (c.grassMix || 0) + (gmTarget - (c.grassMix || 0)) * Math.min(1, dt * 9);
+      if (c.grassMix > 0.01) {
+        // a little drag always; lifting off the throttle on grass settles the car in about a second
+        const lifted = !(this.keys.forward || this.keys.backward);
+        const gm = c.grassMix;
+        c.speed *= Math.max(0, 1 - dt * gm * (0.35 + 0.012 * Math.abs(c.speed) + (lifted ? 1.1 : 0)));
+        const lat = Math.exp(-dt * gm * 2.5);
+        c.vx *= lat; c.vz *= lat;
+      }
       if (c.onGrass && Math.abs(c.speed) > 0.5) {
-        c.speed *= Math.max(0, 1 - dt * (0.35 + 0.012 * Math.abs(c.speed)));
         c.heaveVel += (Math.random() - 0.5) * Math.min(1.2, Math.abs(c.speed) * 0.05);
         c.rollVel += (Math.random() - 0.5) * Math.min(0.8, Math.abs(c.speed) * 0.03);
       }

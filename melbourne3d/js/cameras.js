@@ -233,7 +233,7 @@ class CameraSystem {
           desiredLook.set(desiredPos.x + ax * cp * 20, desiredPos.y + sp * 20, desiredPos.z + az * cp * 20);
           break;
         }
-        const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.25, this.smoothedSpeed * 0.01));
+        const dist = entity.chaseDistance * this.zoomMultiplier * (1 + Math.min(0.4, this.smoothedSpeed * 0.01));
         const height = entity.chaseHeight * this.zoomMultiplier + Math.sin(this.orbitPitchOffset) * dist * 0.85;
         const horizDist = Math.cos(this.orbitPitchOffset) * dist + speedLag;
 
@@ -412,7 +412,7 @@ class CameraSystem {
     const preset = this.getActivePreset();
     const baseFov = preset.fov || 56;
     const fast = entity.type === 'car' && preset.category === 'follow' ? Math.max(0, Math.abs(entity.speed) - 15) : 0;
-    const targetFov = baseFov + Math.min(14, fast * 0.26);
+    const targetFov = baseFov + Math.min(16, fast * 0.26);
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
       this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 2.5);
       this.camera.updateProjectionMatrix();

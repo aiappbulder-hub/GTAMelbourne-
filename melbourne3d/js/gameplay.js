@@ -9,11 +9,16 @@ import { terrainHeight } from './terrain.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
 // The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
-const drive = (speed, acceleration, grip, extra = {}) => ({
-  speed, reverseSpeed: 10.5, acceleration, powerSpeed: 16 + acceleration * 1.6,
-  rolling: 0.17, drag: 0.0011 - acceleration * 0.00006, coast: 0.6, brake: 9 + grip * 0.25,
-  wheelbase: 2.76, grip, cornering: grip * 1.05, ...extra
-});
+// (v36: every car about 40% quicker in top speed and pull, with 15% more grip to keep it stable)
+const SPEED_K = 1.4, GRIP_K = 1.15;
+const drive = (speed0, acceleration0, grip0, extra = {}) => {
+  const speed = speed0 * SPEED_K, acceleration = acceleration0 * SPEED_K, grip = grip0 * GRIP_K;
+  return {
+    speed, reverseSpeed: 11.5, acceleration, powerSpeed: 16 + acceleration * 1.6,
+    rolling: 0.17, drag: 0.0011 - acceleration0 * 0.00006, coast: 0.6, brake: 9 + grip * 0.25,
+    wheelbase: 2.76, grip, cornering: grip * 1.05, ...extra
+  };
+};
 const CUSTOM_CARS = [
   { id: 'clubbie', file: 'clubbie', name: 'HSB Clubbie R8', color: 0xd8221d, drive: SPORTS_DRIVE, line: 'HSB Clubbie R8. Try not to wrap it round a tram.' },
   { id: 'comodo', file: 'comodo', name: 'Holdan Comodo SS', drive: drive(52, 6.5, 11), line: 'The Comodo SS. Every dad in Melbourne wants one.' },
@@ -1661,7 +1666,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const drivingNow = cm.activeMode === 'car';
     speedo.classList.toggle('on', drivingNow);
     if (drivingNow) {
-      const top = Math.round((((car.drive && car.drive.speed) || 36) * 3.6) / 20) * 20 + 20;
+      const top = Math.round((((car.drive && car.drive.speed) || 50) * 3.6) / 20) * 20 + 20;
       drawTicks(top);
       const kmh = Math.abs(car.speed) * 3.6;
       const a = A0 + ((A1 - A0) * Math.min(kmh, top)) / top;
@@ -1760,7 +1765,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     get driving() { return driving(); },
     get inSports() { return riding === 'sports' && cm.activeMode === 'car'; },
     /** The speedo's full scale for the car being driven (km/h) */
-    get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 36) * 3.6 / 10) * 10 + 20 : 0; },
+    get topSpeedKmh() { return cm.activeMode === 'car' ? Math.round(((car.drive && car.drive.speed) || 50) * 3.6 / 10) * 10 + 20 : 0; },
     summonSports, summon, cycleCar, placeCar, leaveCarNow,
     /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
     addCar(def) {

@@ -140,8 +140,8 @@ export function createRace({ scene, controllerManager, missionSystem, teleportTo
     state = 'loading';
     if (controllerManager.activeMode !== 'car') selectMode('car');
     // the rivals as quick as the player's car allows, each a little different
-    const D = car().drive || { speed: 36, grip: 13 };
-    buildProfile(D.speed * 0.98, (D.grip || 13) * 0.9, 9);
+    const D = car().drive || { speed: 50, grip: 15 };
+    buildProfile(D.speed * 0.98, (D.grip || 15) * 0.9, 9);
     if (!rivals.length) rivals = await Promise.all(RIVALS.map(async (def) => ({ def, ...(await model(def)) })));
     // the grid: two wide, 8 m apart, behind the start line; the player at the back
     const slot = (k) => ({ s: L - 9 - k * 8, lane: k % 2 ? 2.2 : -2.2 });

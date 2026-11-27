@@ -992,7 +992,7 @@ async function initApp() {
     sn.textContent = 'Get the sports car';
     const ss = document.createElement('span');
     ss.className = 'pop-sub';
-    ss.textContent = 'HSB Clubbie R8 · 280 km/h';
+    ss.textContent = 'HSB Clubbie R8 · 380 km/h';
     sc.append(sn, ss);
     sc.addEventListener('click', () => { closePopovers(); gameplay?.summonSports(); });
     b.after(sc);
