@@ -1027,7 +1027,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     const rx = ox - v.x, rz = oz - v.z;
     const oa = rx * fx + rz * fz, oc = rx * fz - rz * fx, da = dx * fx + dz * fz, dc = dx * fz - dz * fx;
     _sr[0] = t0; _sr[1] = t1;
-    if (!slab(oa, da, -hl, hl, _sr) || !slab(oc, dc, -hw, hw, _sr) || !slab(oy, dy, fy + 0.15, fy + (CAR_TOP[v.bodyType] ?? 1.55), _sr)) return null;
+    if (!slab(oa, da, -hl, hl, _sr) || !slab(oc, dc, -hw, hw, _sr) || !slab(oy, dy, fy + 0.15, fy + (CAR_TOP[String(v.bodyType).replace(/^rcc/, '')] ?? 1.55), _sr)) return null;
     return _sr[0] < t1 ? _sr[0] : null;
   }
   // the ray against a building: its box between floor and roof, then (a polygon footprint) the first point in the polygon
