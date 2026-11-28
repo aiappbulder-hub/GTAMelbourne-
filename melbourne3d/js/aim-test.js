@@ -15,13 +15,13 @@
 // Hostiles hold their fire during the test.
 import * as THREE from 'three/webgpu';
 
-const SENS = 0.0042; // radians per pixel, as gameplay.js AIM_SENS
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 export async function runAimTest(ctx, opts = {}) {
   const { cm, cameraSystem, trafficSystem, combat, canvas, api, hooks } = ctx;
   const person = cm.entities.person;
   const shotsPer = opts.shots ?? 6;
+  const SENS = api.aimSens; // radians per pixel (the player's setting)
   const only = opts.only || null;
   const frames = (n = 1) => new Promise((res) => { let k = 0; const f = () => (++k >= n ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
   const groundAt = (x, z) => cm.getGroundHeight(x, z, 'person') ?? 0;
@@ -31,10 +31,13 @@ export async function runAimTest(ctx, opts = {}) {
     bubbles: true, cancelable: true, composed: true, clientX: mx, clientY: my, pointerType: 'mouse', pointerId: 1, isPrimary: true, ...init }));
   const moveMouse = (dx, dy) => {
     fx += dx; fy += dy;
-    const ix = Math.round(fx), iy = Math.round(fy);
-    fx -= ix; fy -= iy;
-    mx += ix; my += iy;
-    ev('mousemove', { buttons: 2 });
+    // (in steps of up to 60 px: gameplay.js holds a move to 80 px and drops a spike)
+    while (Math.abs(fx) >= 0.5 || Math.abs(fy) >= 0.5) {
+      const ix = Math.round(Math.max(-60, Math.min(60, fx))), iy = Math.round(Math.max(-60, Math.min(60, fy)));
+      fx -= ix; fy -= iy;
+      mx += ix; my += iy;
+      ev('mousemove', { buttons: 2 });
+    }
   };
   const aimDown = () => { ev('pointerdown', { button: 2, buttons: 2 }); ev('mousedown', { button: 2, buttons: 2 }); ev('mousemove', { buttons: 2 }); };
   const aimUp = () => { ev('pointerup', { button: 2, buttons: 0 }); ev('mouseup', { button: 2, buttons: 0 }); };

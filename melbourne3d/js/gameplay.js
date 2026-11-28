@@ -7,6 +7,7 @@ import { travelDrive, DISPLAY_DIV } from './travel-scale.js';
 import { WEAPONS, WEAPON_BY_ID, weaponIconSVG } from './weapons.js';
 import { createCombat } from './combat.js';
 import { terrainHeight } from './terrain.js';
+import { settings } from './settings.js';
 const inAlbertPark = (x, z) => x > ALBERT_PARK.minX && x < ALBERT_PARK.maxX && z > ALBERT_PARK.minZ && z < ALBERT_PARK.maxZ;
 
 // The player's own cars (the car button cycles: the taxi, then these). Handling as controllers.js reads it.
@@ -763,7 +764,9 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   let lastShot = null, hitMarkT = 0, cooldown = 0, reloading = 0, triggerHeld = false, aimHeld = false, raisedT = 0;
   let lockTarget = null, cycleTarget = false, freeYaw = null, freePitch = 0, armPitch = 0, armYaw = null, lastFireT = -1, aimFrame = 0;
   // Mouse aim: holding aim captures the mouse (pointer lock) and moving it turns the aim; letting go frees it
-  const AIM_SENS = 0.0042; // radians per pixel (mouse), full 360 degree turning, no yaw clamp
+  // mouse sensitivity, radians per pixel: the Options slider (js/settings.js 'aimSens'); 0.0026 by default (0.0042 before
+  // v42 was far too fast: a short flick turned the view right round)
+  const aimSens = () => settings.num('aimSens');
   const AIM_SENS_TOUCH = 0.0055; // radians per pixel of a finger drag
   const AIM_PITCH = (70 * Math.PI) / 180; // free pitch, 70 degrees up or down
   const STICKY_AIM = 3; // seconds the aim stays up after a left click / touch drag / FIRE, so clicking to shoot also aims
@@ -774,19 +777,35 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   const canvasEl = renderer.domElement;
   const grabMouse = () => { try { if (document.pointerLockElement !== canvasEl) canvasEl.requestPointerLock?.()?.catch?.(() => {}); } catch { /* not allowed */ } };
   const freeMouse = () => { try { if (document.pointerLockElement === canvasEl) document.exitPointerLock(); } catch { /* fine */ } };
-  let lastMouseX = null, lastMouseY = null, aimByMouse = false;
+  let lastMouseX = null, lastMouseY = null, aimByMouse = false, lockFresh = false;
   const stopMouseAim = () => { if (aimByMouse) { aimByMouse = false; aimHeld = false; freeMouse(); } };
+  // The mouse turns the aim. Captured (pointer lock): by the event's movement. Not captured: by how far the pointer went
+  // since the last move, with no carry-over (the first move after the aim comes up, or after the capture starts or
+  // ends, only sets the starting point). The movement a browser reports can spike: Chrome on Windows sometimes sends
+  // hundreds of pixels at once as the capture starts or the cursor wraps. So:
+  // - the first captured move after the lock is dropped
+  // - a move over MOUSE_SPIKE px is dropped
+  // - any other move is held to MOUSE_STEP px
+  const MOUSE_STEP = 80, MOUSE_SPIKE = 300;
+  const resetMouse = () => { lastMouseX = lastMouseY = null; };
+  document.addEventListener('pointerlockchange', () => { resetMouse(); lockFresh = document.pointerLockElement === canvasEl; });
   window.addEventListener('mousemove', (e) => {
-    if (!aimHeld || cm.activeMode !== 'person') { lastMouseX = null; return; }
-    // captured: the movement; not (yet): how far the pointer went
-    const dx = document.pointerLockElement === canvasEl ? (e.movementX || 0) : lastMouseX === null ? 0 : e.clientX - lastMouseX;
-    lastMouseX = e.clientX;
+    if (!aimHeld || cm.activeMode !== 'person') { resetMouse(); return; }
+    let dx, dy;
+    if (document.pointerLockElement === canvasEl) {
+      if (lockFresh) { lockFresh = false; return; }
+      dx = e.movementX || 0; dy = e.movementY || 0;
+    } else {
+      const fresh = lastMouseX === null;
+      dx = fresh ? 0 : e.clientX - lastMouseX; dy = fresh ? 0 : e.clientY - lastMouseY;
+      lastMouseX = e.clientX; lastMouseY = e.clientY;
+    }
+    if (Math.abs(dx) > MOUSE_SPIKE || Math.abs(dy) > MOUSE_SPIKE) return;
+    dx = Math.max(-MOUSE_STEP, Math.min(MOUSE_STEP, dx)); dy = Math.max(-MOUSE_STEP, Math.min(MOUSE_STEP, dy));
     if (freeYaw === null) freeYaw = camYaw();
-    freeYaw -= dx * AIM_SENS;
-    // up and down too
-    const dy = document.pointerLockElement === canvasEl ? (e.movementY || 0) : lastMouseY === null ? 0 : e.clientY - lastMouseY;
-    lastMouseY = e.clientY;
-    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - dy * AIM_SENS));
+    const k = aimSens();
+    freeYaw = wrapAngle(freeYaw - dx * k); // (kept within +-pi)
+    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - dy * k));
   });
   const _lk = new THREE.Vector3();
   // the lock-on marker (over the target) and, on touch screens, a hold-to-aim button
@@ -1655,7 +1674,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   window.addEventListener('pointerdown', (e) => {
     if (!offUi(e)) return;
     // right button: aim (held)
-    if (e.button === 2) { aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
+    if (e.button === 2) { if (!aimHeld) resetMouse(); aimHeld = true; aimByMouse = true; e.preventDefault(); if (cm.activeMode === 'person') grabMouse(); return; }
     // (a mouse click shoots; a finger on the screen never does: on touch screens only the FIRE button fires)
     if (e.button === 0 && e.pointerType === 'mouse') {
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
@@ -1666,7 +1685,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   }, true);
   window.addEventListener('contextmenu', (e) => { if (offUi(e)) e.preventDefault(); });
   // Sticky aim: a left click (mouse, pointer lock) or a finger on the view brings the gun up for a few seconds
-  const engageSticky = () => { if (armed && cm.activeMode === 'person') { stickyT = STICKY_AIM; aimHeld = true; } };
+  const engageSticky = () => { if (armed && cm.activeMode === 'person') { if (!aimHeld) resetMouse(); stickyT = STICKY_AIM; aimHeld = true; } };
   // Touch: drag anywhere on the view (not on a button or the stick) to aim; the drag turns the aim, the FIRE button shoots
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch' || !armed || cm.activeMode !== 'person' || touchDrag) return;
@@ -1680,14 +1699,14 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     touchDrag.x = e.clientX; touchDrag.y = e.clientY;
     if (!aimHeld || cm.activeMode !== 'person') return;
     if (freeYaw === null) freeYaw = camYaw();
-    freeYaw -= dx * AIM_SENS_TOUCH;
-    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - dy * AIM_SENS_TOUCH));
+    freeYaw = wrapAngle(freeYaw - Math.max(-MOUSE_STEP, Math.min(MOUSE_STEP, dx)) * AIM_SENS_TOUCH);
+    freePitch = Math.max(-AIM_PITCH, Math.min(AIM_PITCH, freePitch - Math.max(-MOUSE_STEP, Math.min(MOUSE_STEP, dy)) * AIM_SENS_TOUCH));
     stickyT = STICKY_AIM;
   });
   for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, (e) => { if (touchDrag && e.pointerId === touchDrag.id) touchDrag = null; });
   window.addEventListener('keydown', (e) => {
     if (typing(e)) return;
-    if (e.code === 'KeyQ' && !aimHeld) { aimHeld = true; keyAim = true; if (cm.activeMode === 'person') grabMouse(); }
+    if (e.code === 'KeyQ' && !aimHeld) { resetMouse(); aimHeld = true; keyAim = true; if (cm.activeMode === 'person') grabMouse(); }
     if (e.code === 'KeyE' && aimHeld && !e.repeat) cycleTarget = true; // the next target
   });
   window.addEventListener('keyup', (e) => { if (e.code === 'KeyQ' && !aimByMouse) { keyAim = false; aimHeld = false; freeMouse(); } });
@@ -1695,7 +1714,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyV' || e.repeat || typing(e) || !armed || cm.activeMode !== 'person') return;
     if (freeYaw === null) freeYaw = camYaw();
-    freeYaw += Math.PI;
+    freeYaw = wrapAngle(freeYaw + Math.PI);
     engageSticky();
   });
   window.addEventListener('mouseup', (e) => { if (e.button === 2) stopMouseAim(); });
@@ -2003,6 +2022,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
       return null;
     },
     // for scripted checks
+    get aimSens() { return aimSens(); },
     fire, switchWeapon, selectSlot, talk, tryEnter, exitCar, combat, hurtPlayer, explode, blastLog,
     get health() { return hp; },
     set health(v) { hp = v; },
