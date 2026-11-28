@@ -1,8 +1,8 @@
 // Player options kept in localStorage (every access in try/catch): police on/off and which sound layers play.
-// Police is OFF by default (or ?police=1 turns it on for the page). The radio (js/music.js) is not covered here.
+// Police is ON by default (?police=0 turns it off for the page). The radio (js/music.js) is not covered here.
 const PREFIX = 'gta-melbourne3d-opt-';
 const DEFAULTS = {
-  police: false,
+  police: true,
   engine: true,     // your own vehicle's engine
   ambience: false,  // wind, other traffic's engines, crossing ticks, bike packs: the continuous city drone
   voices: false,    // overheard pedestrian chatter and passers-by remarks (story dialogue is not affected)

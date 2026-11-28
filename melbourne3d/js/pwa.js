@@ -6,7 +6,23 @@ const seen = (k) => { try { return localStorage.getItem(k); } catch { return nul
 const mark = (k) => { try { localStorage.setItem(k, '1'); } catch { /* storage unavailable */ } };
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {}));
+  // A new deploy's worker takes over straight away (sw.js skipWaiting + claim), but this page was already started from the
+  // old cache. So when the controller changes on a page that had one: still loading, reload at once (the player never sees
+  // the old build); already playing, offer a reload instead of yanking the game away.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    const overlay = document.getElementById('loading-overlay');
+    const loading = overlay && !overlay.classList.contains('hidden');
+    if (loading) { reloading = true; location.reload(); return; }
+    if (document.getElementById('sw-update')) return;
+    const b = pill('Game updated: tap to reload', () => { reloading = true; location.reload(); }, 'sw-update');
+    b.style.left = '50%'; b.style.right = 'auto'; b.style.transform = 'translateX(-50%)'; b.style.top = 'max(70px,env(safe-area-inset-top))'; b.style.bottom = 'auto';
+    document.body.appendChild(b);
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+    .then((reg) => reg.update().catch(() => {})).catch(() => {}));
 }
 
 function pill(text, onclick, id) {

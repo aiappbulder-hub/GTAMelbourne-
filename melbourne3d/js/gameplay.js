@@ -1994,7 +1994,7 @@ export function createGameplay({ scene, renderer, controllerManager, cameraSyste
     activeBody() { return riding === 'sports' ? sports.mesh : riding === 'taxi' ? carMesh : null; },
     /** One more of the player's cars ({ id, name, root, line, wheelbase }): in the car button's cycle from now on */
     addCar(def) {
-      CUSTOM_CARS.push({ id: def.id, name: def.name, root: def.root, drive: def.handling ? drive(...def.handling, { wheelbase: def.wheelbase || 2.8 }) : drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), wheels: def.wheels, line: def.line || `Your ${def.name}.` });
+      CUSTOM_CARS.splice(Math.min(1, CUSTOM_CARS.length), 0, { id: def.id, name: def.name, root: def.root, drive: def.handling ? drive(...def.handling, { wheelbase: def.wheelbase || 2.8 }) : drive(54, 6.6, 11.5, { wheelbase: def.wheelbase || 2.8 }), wheels: def.wheels, line: def.line || `Your ${def.name}.` });
     },
     /** The player's parked sports car (or the parked taxi), for the player on foot to bump into */
     sportsBox() {
