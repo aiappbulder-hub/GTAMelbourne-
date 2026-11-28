@@ -1108,6 +1108,20 @@ async function initApp() {
       optBtn('footsteps', 'Sound: Footsteps', 'On', 'Off'),
       optBtn('horns', 'Sound: Horns/crashes', 'On', 'Off')
     );
+    // mouse aim sensitivity (js/settings.js 'aimSens'): a slider, saved as it moves
+    const sensRow = document.createElement('label');
+    sensRow.className = 'pop-item tp-btn';
+    const sensName = document.createElement('span'); sensName.className = 'pop-name';
+    const sensSub = document.createElement('span'); sensSub.className = 'pop-sub';
+    const [sensDef, sensLo, sensHi] = settings.numRange('aimSens');
+    const sens = document.createElement('input');
+    Object.assign(sens, { type: 'range', min: String(sensLo), max: String(sensHi), step: '0.0001', value: String(settings.num('aimSens')) });
+    sens.style.width = '100%';
+    const paintSens = () => { sensName.textContent = `Mouse aim speed: ${Math.round((settings.num('aimSens') / sensDef) * 100)}%`; sensSub.textContent = 'How far the aim turns for each move of the mouse'; };
+    sens.addEventListener('input', () => { settings.setNum('aimSens', sens.value); paintSens(); });
+    paintSens();
+    sensRow.append(sensName, sens, sensSub);
+    optRows.splice(1, 0, sensRow);
     storyBtn.after(...optRows);
     const rows = [];
     missionSystem.missions.forEach((m, i) => {
